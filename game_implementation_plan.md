@@ -156,17 +156,17 @@ To maintain a clean and scalable codebase, we will organize the project using st
 **Goal:** Implement inventory grids, item stack management, mineable resource nodes, and player mining mechanics.
 
 ### **Tasks**
-- [ ] **5.1. Inventory Struct (`internal/game/player.go`)**
+- [x] **5.1. Inventory Struct (`internal/game/player.go`)**
   - Create an `Inventory` struct containing an array of item slots (e.g., 24 slots).
   - Implement logic for item definitions (ID, Name, Icon/Color, MaxStackSize).
   - Add helper functions: `AddItem()`, `RemoveItem()`, `CanFit()`.
-- [ ] **5.2. Resource Node Entities (`internal/entity/resource.go`)**
+- [x] **5.2. Resource Node Entities (`internal/game/resource.go`)**
   - Define `ResourceNode` struct: Type (Titanium, Copper, Quartz), Position, HitsToMine (e.g., 3 hits).
   - Place these nodes on random solid cave tiles during generation.
-- [ ] **5.3. Mining Mechanic**
+- [x] **5.3. Mining Mechanic**
   - When the player is within range of a resource node and presses the left mouse button, trigger a mining strike.
   - Reduce HitsToMine, play a visual particle effect, and add the resource to the player's inventory on destruction.
-- [ ] **5.4. Inventory UI Overlay**
+- [x] **5.4. Inventory UI Overlay**
   - Render an inventory screen showing grid slots, icons, and stack numbers when the player presses `Tab`.
 
 ### **Verification**

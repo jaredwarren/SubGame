@@ -1,0 +1,66 @@
+package game
+
+import (
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
+// LightConeShaderCode contains the Kage fragment shader string compiled at runtime.
+const LightConeShaderCode = `
+package main
+
+var LightSource vec2
+var FlashlightDir vec2
+var LightRadius float
+var ConeHalfAngle float
+var PersonalRadius float
+var AmbientColor vec4
+
+func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
+	pixelPos := position.xy
+	toPixel := pixelPos - LightSource
+	dist := length(toPixel)
+
+	// Personal ambient circle surrounding the player
+	personalIntensity := 0.0
+	if dist < PersonalRadius {
+		personalIntensity = 1.0 - (dist / PersonalRadius)
+		personalIntensity = personalIntensity * personalIntensity * (3.0 - 2.0*personalIntensity)
+	}
+
+	// Directional flashlight cone beam
+	coneIntensity := 0.0
+	if dist < LightRadius && dist > 0.0 {
+		dirToPixel := toPixel / dist
+		dotVal := dot(dirToPixel, FlashlightDir)
+		minDot := cos(ConeHalfAngle)
+
+		if dotVal >= minDot {
+			radialFade := 1.0 - (dist / LightRadius)
+			radialFade = radialFade * radialFade * (3.0 - 2.0*radialFade)
+
+			angularFade := (dotVal - minDot) / (1.0 - minDot)
+			angularFade = clamp(angularFade * 6.0, 0.0, 1.0)
+
+			coneIntensity = radialFade * angularFade
+		}
+	}
+
+	// Blend illumination channels
+	totalLight := max(personalIntensity, coneIntensity)
+	totalLight = clamp(totalLight, 0.0, 1.0)
+
+	// Dark overlay mask: fully lit areas remain transparent, dark areas become ambient color
+	return AmbientColor * (1.0 - totalLight)
+}
+`
+
+// LightShader is the compiled flashlight shader instance.
+var LightShader *ebiten.Shader
+
+func init() {
+	var err error
+	LightShader, err = ebiten.NewShader([]byte(LightConeShaderCode))
+	if err != nil {
+		panic("failed to compile Kage light cone shader: " + err.Error())
+	}
+}
