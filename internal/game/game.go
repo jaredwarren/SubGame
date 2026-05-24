@@ -30,6 +30,10 @@ type Game struct {
 	// Phase 5: Resource nodes and inventory state
 	caveNodes     map[string][]ResourceNode
 	showInventory bool
+
+	// Phase 6: Base station and menu
+	baseStation *BaseStation
+	baseMenu    *BaseMenu
 }
 
 // NewGame creates and returns a new Game instance.
@@ -58,6 +62,9 @@ func NewGame() *Game {
 	cam := NewCamera(spawnX, spawnY)
 	cam.CenterOn(spawnX, spawnY, p.Width, p.Height)
 
+	// Spawn Base Station (Life Pod 5) slightly offset from the starting boat coordinates
+	baseStation := NewBaseStation(spawnX+96.0, spawnY-64.0)
+
 	return &Game{
 		currentState:   StateOverworld,
 		player:         p,
@@ -68,6 +75,8 @@ func NewGame() *Game {
 		camera:         cam,
 		caveNodes:      make(map[string][]ResourceNode),
 		showInventory:  false,
+		baseStation:    baseStation,
+		baseMenu:       NewBaseMenu(),
 	}
 }
 
@@ -107,6 +116,11 @@ func (g *Game) Update() error {
 		g.currentState = StateGameOver
 	}
 
+	// Update Base Station Solar power grid loops
+	if g.baseStation != nil {
+		g.baseStation.UpdatePower()
+	}
+
 	// If inventory panel is open, freeze standard gameplay logic updates
 	if g.showInventory {
 		return nil
@@ -115,6 +129,13 @@ func (g *Game) Update() error {
 	// Update the active state scene
 	switch g.currentState {
 	case StateOverworld:
+		// Interactivity check for opening Base Terminal
+		if g.baseStation.DistanceToPlayer(g.player) < 80.0 && inpututil.IsKeyJustPressed(ebiten.KeyE) {
+			g.currentState = StateBaseMenu
+			g.showInventory = false
+			return nil
+		}
+
 		nextState, transited := g.overworldState.Update()
 		if transited && nextState == StateCave {
 			// Find player's current overworld tile coordinates
@@ -164,7 +185,12 @@ func (g *Game) Update() error {
 			g.currentState = StateOverworld
 		}
 	case StateBaseMenu:
-		// Base management menu update placeholder
+		// Return back to overworld upon pressing E, O or Escape
+		if inpututil.IsKeyJustPressed(ebiten.KeyE) || inpututil.IsKeyJustPressed(ebiten.KeyO) {
+			g.currentState = StateOverworld
+		} else {
+			g.baseMenu.Update(g.player, g.baseStation)
+		}
 	case StateGameOver:
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			// Restart game by creating a new session
@@ -191,13 +217,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	switch g.currentState {
 	case StateOverworld:
 		g.overworldState.Draw(screen, g.camera)
+		
+		// Render Base Station Life Pod
+		g.baseStation.Draw(screen, g.camera)
+		if g.baseStation.DistanceToPlayer(g.player) < 80.0 {
+			sx := float32(g.baseStation.X-g.camera.X) + float32(g.baseStation.Width)/2.0 - 90
+			sy := float32(g.baseStation.Y-g.camera.Y) - 30
+			vector.DrawFilledRect(screen, sx, sy, 180, 24, color.RGBA{0, 0, 0, 180}, false)
+			ebitenutil.DebugPrintAt(screen, "Press [E] to Open Terminal", int(sx)+12, int(sy)+4)
+		}
+
 		g.hud.Draw(screen, g.player)
 	case StateCave:
 		g.caveState.Draw(screen, g.camera)
 		g.hud.Draw(screen, g.player)
 	case StateBaseMenu:
-		screen.Fill(color.RGBA{30, 40, 45, 255})
-		ebitenutil.DebugPrint(screen, "Base Menu State\nPress [O] for Overworld, [C] for Cave")
+		g.baseMenu.Draw(screen, g.player, g.baseStation)
 	case StateGameOver:
 		screen.Fill(color.RGBA{50, 10, 10, 255})
 		ebitenutil.DebugPrint(screen, "GAME OVER\n\nYour hull cracked or you ran out of oxygen.\n\nPress ENTER to respawn.")

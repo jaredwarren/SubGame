@@ -48,6 +48,12 @@ func (o *OverworldState) Update() (State, bool) {
 		maxSpeed = 6.5
 	}
 
+	// Apply Fins upgrade speed boost (30% increase in sailing speed)
+	if p.Inventory.HasItem(ItemFins, 1) {
+		accel *= 1.30
+		maxSpeed *= 1.30
+	}
+
 	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 		p.Vx += math.Cos(p.Facing) * accel
 		p.Vy += math.Sin(p.Facing) * accel

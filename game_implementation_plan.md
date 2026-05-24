@@ -180,19 +180,19 @@ To maintain a clean and scalable codebase, we will organize the project using st
 **Goal:** Implement the menu-based base upgrade system (No tile-building, pure menu interaction for fabricator, storage, and upgrades).
 
 ### **Tasks**
-- [ ] **6.1. Anchor Terminals & Interactivity**
+- [x] **6.1. Anchor Terminals & Interactivity**
   - Create anchor points in the world (e.g., the starting Life Pod on the surface, or deployable Base Modules).
   - Interact with an anchor to switch the game state to `StateBaseMenu`.
-- [ ] **6.2. Base Management Menu UI Layout (`internal/ui/menu.go`)**
+- [x] **6.2. Base Management Menu UI Layout (`internal/game/menu.go`)**
   - Create a tabbed UI interface containing:
     - **Overview Tab:** Shows current module schematic slots (e.g., Slot 1: Fabricator, Slot 2: Storage, Slot 3: Infirmary).
     - **Fabricator Tab:** Lists craftable items, raw materials required, and button to craft.
     - **Storage Tab:** Grid transfer UI to move items from player inventory to base inventory.
     - **Medical Tab:** Spend base power to heal the player or cure statuses.
-- [ ] **6.3. Upgrades and Modules Crafting Engine**
+- [x] **6.3. Upgrades and Modules Crafting Engine**
   - Implement recipes verification: check player inventory for requirements, consume ingredients, and spawn the upgrade item.
   - Support O2 Tank upgrades (which directly increase player `MaxOxygen`), Fins upgrade (increases speed), and Scanner tool.
-- [ ] **6.4. Base Power Loop**
+- [x] **6.4. Base Power Loop**
   - Base has a power supply that slowly regenerates if surface-mounted solar modules exist, and drains when using fabricator or medical stations.
 
 ### **Verification**

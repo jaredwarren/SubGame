@@ -1,0 +1,107 @@
+package game
+
+import (
+	"image/color"
+	"math"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
+)
+
+// BaseModule represents a functional slot upgrade in the base schematic.
+type BaseModule int
+
+const (
+	ModuleFabricator BaseModule = iota
+	ModuleStorage
+	ModuleMedical
+	ModuleSolar
+)
+
+func (m BaseModule) String() string {
+	switch m {
+	case ModuleFabricator:
+		return "Fabricator Module"
+	case ModuleStorage:
+		return "Storage Vault"
+	case ModuleMedical:
+		return "Medical Bay"
+	case ModuleSolar:
+		return "Solar Array"
+	default:
+		return "Module"
+	}
+}
+
+// BaseStation represents a player base / Life Pod anchor terminal.
+type BaseStation struct {
+	X, Y     float64
+	Width    float64
+	Height   float64
+	Power    float64
+	MaxPower float64
+	Storage  *Inventory
+	Modules  map[BaseModule]bool
+}
+
+// NewBaseStation instantiates a BaseStation (e.g. starting Life Pod).
+func NewBaseStation(x, y float64) *BaseStation {
+	b := &BaseStation{
+		X:        x,
+		Y:        y,
+		Width:    48,
+		Height:   48,
+		Power:    75.0,
+		MaxPower: 100.0,
+		Storage:  NewInventory(24), // 24 storage slots in base vault
+		Modules:  make(map[BaseModule]bool),
+	}
+	// Starting base includes Fabricator and Medical Bay, solar is upgradeable
+	b.Modules[ModuleFabricator] = true
+	b.Modules[ModuleMedical] = true
+	b.Modules[ModuleStorage] = false
+	b.Modules[ModuleSolar] = false
+
+	return b
+}
+
+// UpdatePower simulates base solar recharging and module draining.
+func (b *BaseStation) UpdatePower() {
+	// Recharging: if solar array is installed, recharge power
+	if b.Modules[ModuleSolar] {
+		b.Power += 0.08 // solar power trickle
+	} else {
+		b.Power += 0.01 // very slow emergency backup trickle
+	}
+
+	if b.Power > b.MaxPower {
+		b.Power = b.MaxPower
+	}
+}
+
+// Draw renders the base station in the overworld viewport.
+func (b *BaseStation) Draw(screen *ebiten.Image, camera *Camera) {
+	sx := float32(b.X - camera.X)
+	sy := float32(b.Y - camera.Y)
+
+	// Draw Life Pod hull (rounded hexagonal/pod shape)
+	podColor := color.RGBA{240, 240, 245, 255} // Clean white pod
+	vector.DrawFilledRect(screen, sx, sy, float32(b.Width), float32(b.Height), podColor, false)
+	vector.StrokeRect(screen, sx, sy, float32(b.Width), float32(b.Height), 2.0, color.RGBA{220, 100, 30, 255}, false) // Orange highlights
+
+	// Inner window/hatch details
+	vector.DrawFilledCircle(screen, sx+24, sy+24, 10, color.RGBA{40, 80, 120, 255}, false)
+	vector.StrokeCircle(screen, sx+24, sy+24, 10, 1.0, color.RGBA{180, 200, 220, 255}, false)
+
+	// Draw antenna blinking red light
+	vector.DrawFilledCircle(screen, sx+24, sy+4, 3, color.RGBA{235, 45, 45, 255}, false)
+}
+
+// DistanceToPlayer returns the distance from base center to player center.
+func (b *BaseStation) DistanceToPlayer(p *Player) float64 {
+	bx := b.X + b.Width/2.0
+	by := b.Y + b.Height/2.0
+	px := p.X + p.Width/2.0
+	py := p.Y + p.Height/2.0
+	return math.Hypot(bx-px, by-py)
+}

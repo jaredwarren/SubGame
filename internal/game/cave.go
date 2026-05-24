@@ -88,6 +88,12 @@ func (c *CaveState) Update() (State, bool) {
 		maxSpeed = 5.5
 	}
 
+	// Apply Fins upgrade speed boost (35% increase)
+	if p.Inventory.HasItem(ItemFins, 1) {
+		swimForce *= 1.35
+		maxSpeed *= 1.35
+	}
+
 	swimming := false
 
 	// Apply movement force based on inputs
