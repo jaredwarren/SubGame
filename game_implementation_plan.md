@@ -132,17 +132,17 @@ To maintain a clean and scalable codebase, we will organize the project using st
 **Goal:** Set up a smooth tracking camera and implement the line-of-sight flashlight using Ebitengine's Kage shader language.
 
 ### **Tasks**
-- [ ] **4.1. Smooth Camera Controller (`internal/game/camera.go`)**
+- [x] **4.1. Smooth Camera Controller (`internal/game/camera.go`)**
   - Create a Camera struct with X, Y coordinates.
   - Implement linear interpolation (Lerp) tracking so the camera smoothly pans to center on the player's position.
-- [ ] **4.2. Kage Flashlight Shader Setup (`internal/shader/light_cone.kage`)**
+- [x] **4.2. Kage Flashlight Shader Setup (`internal/shader/light_cone.kage`)**
   - Write a Kage fragment shader.
   - Pass uniforms: player coordinate on screen, flashlight facing angle (from mouse position), and light cone angle (e.g., 45 degrees).
   - Darken screen pixels that fall outside the light cone, creating a pitch-black vignette.
-- [ ] **4.3. Light Source Rendering**
+- [x] **4.3. Light Source Rendering**
   - Integrate the shader into Ebitengine's rendering pipeline.
   - Draw light overlay on top of the rendered cave map.
-- [ ] **4.4. Bioluminescent Highlights**
+- [x] **4.4. Bioluminescent Highlights**
   - Ensure items marked as "bioluminescent" (flora, predator eyes) are rendered on a layer *above* the shader light overlay so they glow in the dark.
 
 ### **Verification**

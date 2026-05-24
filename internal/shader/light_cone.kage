@@ -1,0 +1,53 @@
+//go:build exclude
+
+package main
+
+// Uniform variables passed from Go Ebitengine
+var LightSource vec2   // Screen-space position of player (flashlight origin)
+var FlashlightDir vec2  // Normalized direction vector of flashlight pointing angle
+var LightRadius float   // Flashlight beam reach distance
+var ConeHalfAngle float // Half of total cone angle in radians (e.g., 30 deg = Pi/6)
+var PersonalRadius float // Small radius of radial ambient light surrounding player
+var AmbientColor vec4   // Dark overlay color mask (e.g., [0, 0, 0, 0.95])
+
+func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
+	pixelPos := position.xy
+	toPixel := pixelPos - LightSource
+	dist := length(toPixel)
+
+	// Base personal radial light intensity
+	personalIntensity := 0.0
+	if dist < PersonalRadius {
+		personalIntensity = 1.0 - (dist / PersonalRadius)
+		// Smoothstep for softer personal aura
+		personalIntensity = personalIntensity * personalIntensity * (3.0 - 2.0*personalIntensity)
+	}
+
+	// Flashlight cone light intensity
+	coneIntensity := 0.0
+	if dist < LightRadius && dist > 0.0 {
+		dirToPixel := toPixel / dist
+		dotVal := dot(dirToPixel, FlashlightDir)
+		minDot := cos(ConeHalfAngle)
+
+		if dotVal >= minDot {
+			// Radial attenuation
+			radialFade := 1.0 - (dist / LightRadius)
+			// Smoothstep radial fade
+			radialFade = radialFade * radialFade * (3.0 - 2.0*radialFade)
+
+			// Cone edge angular feathering fade
+			angularFade := (dotVal - minDot) / (1.0 - minDot)
+			angularFade = clamp(angularFade * 6.0, 0.0, 1.0)
+
+			coneIntensity = radialFade * angularFade
+		}
+	}
+
+	// Combine lighting channels (max ensures overlapping lights don't overflow)
+	totalLight := max(personalIntensity, coneIntensity)
+	totalLight = clamp(totalLight, 0.0, 1.0)
+
+	// Apply shadow mask: full light means 0 shadow mask alpha (transparent), dark means ambient alpha
+	return AmbientColor * (1.0 - totalLight)
+}
