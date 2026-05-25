@@ -26,7 +26,7 @@ func NewCaveState(player *Player) *CaveState {
 
 // Update handles player input, side-scroller swimming physics, and checks exit transitions.
 // Returns the next State, and true if a state transition occurred.
-func (c *CaveState) Update() (State, bool) {
+func (c *CaveState) Update(g *Game) (State, bool) {
 	p := c.Player
 
 	// Exit cave back to Overworld if player swims past the surface (Y <= 0)
@@ -57,6 +57,11 @@ func (c *CaveState) Update() (State, bool) {
 				dist := math.Hypot(px-nx, py-ny)
 
 				if dist <= 96.0 {
+					if node.Type == ResourceAbyssalOre {
+						g.MineWarning = "Requires Heavy Mech Drill Arm to harvest"
+						g.MineWarningTimer = 120
+						continue
+					}
 					node.HitsToMine--
 					if node.HitsToMine <= 0 {
 						// Add to inventory
@@ -195,7 +200,7 @@ func (c *CaveState) isSolid(x, y, w, h float64) bool {
 }
 
 // Draw renders the cave scene, solid tiles, and player assets.
-func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera) {
+func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 	// Camera offset from camera controller
 	camX := camera.X
 	camY := camera.Y
@@ -261,37 +266,63 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera) {
 		c.Nodes[i].Draw(screen, camX, camY)
 	}
 
-	// Draw player character centered on screen
+	isPiloting := g.ActiveVehicle != nil
+
+	// Draw player character centered on screen (only if not piloting a vehicle)
 	pX := float32(pCenterX(c.Player))
 	pY := float32(pCenterY(c.Player))
+	facingAngle := c.Player.Facing
 
-	// Draw yellow oxygen tank on the back (opposite to facing direction)
-	tankAngle := c.Player.Facing + math.Pi
-	tx := pX + float32(math.Cos(tankAngle))*8
-	ty := pY + float32(math.Sin(tankAngle))*8
-	tankColor := color.RGBA{240, 220, 50, 255}
-	vector.DrawFilledCircle(screen, tx, ty, 6, tankColor, false)
+	if isPiloting {
+		facingAngle = g.ActiveVehicle.(*ScoutSub).Facing // Default or specific vehicle casting, let's keep it robust
+		// We can get facing angle based on the type of active vehicle
+		if sub, ok := g.ActiveVehicle.(*ScoutSub); ok {
+			facingAngle = sub.Facing
+		} else if mech, ok := g.ActiveVehicle.(*HeavyMech); ok {
+			facingAngle = mech.Facing
+		}
+	}
 
-	// Draw the player body
-	playerBodyColor := color.RGBA{220, 95, 45, 255}
-	vector.DrawFilledCircle(screen, pX, pY, 9, playerBodyColor, false)
+	if !isPiloting {
+		// Draw yellow oxygen tank on the back (opposite to facing direction)
+		tankAngle := facingAngle + math.Pi
+		tx := pX + float32(math.Cos(tankAngle))*8
+		ty := pY + float32(math.Sin(tankAngle))*8
+		tankColor := color.RGBA{240, 220, 50, 255}
+		vector.DrawFilledCircle(screen, tx, ty, 6, tankColor, false)
 
-	// Draw helmet glass visor pointing in the Facing direction
-	vx := pX + float32(math.Cos(c.Player.Facing))*6
-	vy := pY + float32(math.Sin(c.Player.Facing))*6
-	visorColor := color.RGBA{80, 200, 255, 200}
-	vector.DrawFilledCircle(screen, vx, vy, 5, visorColor, false)
+		// Draw the player body
+		playerBodyColor := color.RGBA{220, 95, 45, 255}
+		vector.DrawFilledCircle(screen, pX, pY, 9, playerBodyColor, false)
+
+		// Draw helmet glass visor pointing in the Facing direction
+		vx := pX + float32(math.Cos(facingAngle))*6
+		vy := pY + float32(math.Sin(facingAngle))*6
+		visorColor := color.RGBA{80, 200, 255, 200}
+		vector.DrawFilledCircle(screen, vx, vy, 5, visorColor, false)
+	}
 
 	// --- Phase 4: Dynamic Lighting Shader Mask ---
 	if LightShader != nil {
 		op := &ebiten.DrawRectShaderOptions{}
+		
+		var sonarSourceX, sonarSourceY float32
+		var sonarRadius float32
+		if g.SonarTimer > 0 {
+			sonarSourceX = float32(g.SonarSourceX - g.camera.X)
+			sonarSourceY = float32(g.SonarSourceY - g.camera.Y)
+			sonarRadius = float32(g.SonarRadius)
+		}
+
 		op.Uniforms = map[string]interface{}{
 			"LightSource":    []float32{pX, pY},
-			"FlashlightDir":  []float32{float32(math.Cos(c.Player.Facing)), float32(math.Sin(c.Player.Facing))},
+			"FlashlightDir":  []float32{float32(math.Cos(facingAngle)), float32(math.Sin(facingAngle))},
 			"LightRadius":    float32(360.0),                     // Reach of flashlight
 			"ConeHalfAngle":  float32(math.Pi / 7.5),             // ~24 degree half-angle (48 degree beam)
 			"PersonalRadius": float32(65.0),                      // Direct glow around player
-			"AmbientColor":   []float32{0.01, 0.01, 0.03, 0.97},  // Crushing deep-sea darkness mask
+			"AmbientColor":   c.getAmbientColor(),
+			"SonarSource":    []float32{sonarSourceX, sonarSourceY},
+			"SonarRadius":    sonarRadius,
 		}
 		screen.DrawRectShader(ScreenWidth, ScreenHeight, LightShader, op)
 	}
@@ -351,4 +382,11 @@ func (c *CaveState) drawBioluminescence(screen *ebiten.Image, camX, camY float64
 			}
 		}
 	}
+}
+
+func (c *CaveState) getAmbientColor() []float32 {
+	if LightCaveForDebug {
+		return []float32{0.02, 0.02, 0.03, 0.15} // Light translucency for debugging (85% visibility)
+	}
+	return []float32{0.01, 0.01, 0.03, 0.97} // Crushing deep-sea darkness mask
 }

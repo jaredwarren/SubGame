@@ -6,4 +6,7 @@ const (
 	ScreenHeight = 720
 	Title        = "2D Subnautica-Inspired Game"
 	TileSize     = 64 // Size of each tile in pixels
+
+	// Debugging settings
+	LightCaveForDebug = true // Set to true to reveal the caves for debugging; false for darkness
 )

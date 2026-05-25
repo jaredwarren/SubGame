@@ -49,6 +49,22 @@ var CraftingRecipes = []Recipe{
 			{Type: ItemQuartz, Quantity: 2},
 		},
 	},
+	{
+		Result: ItemScoutSub,
+		Ingredients: []ItemStack{
+			{Type: ItemTitanium, Quantity: 6},
+			{Type: ItemCopper, Quantity: 4},
+			{Type: ItemQuartz, Quantity: 2},
+		},
+	},
+	{
+		Result: ItemHeavyMech,
+		Ingredients: []ItemStack{
+			{Type: ItemTitanium, Quantity: 8},
+			{Type: ItemCopper, Quantity: 6},
+			{Type: ItemQuartz, Quantity: 4},
+		},
+	},
 }
 
 // BaseMenu manages tab selections and base management interactions.
@@ -71,7 +87,7 @@ func (m *BaseMenu) Update(p *Player, b *BaseStation) {
 	// Panel placement calculations
 	const (
 		panelW = 800
-		panelH = 460
+		panelH = 500
 	)
 	panelX := float64(ScreenWidth-panelW) / 2.0
 	panelY := float64(ScreenHeight-panelH) / 2.0
@@ -124,11 +140,11 @@ func (m *BaseMenu) Update(p *Player, b *BaseStation) {
 		if leftClicked {
 			startX := int(panelX) + 40
 			startY := int(panelY) + 90
-			rowH := 70
+			rowH := 58
 
 			for i, rcp := range CraftingRecipes {
 				btnX := startX + 540
-				btnY := startY + i*rowH + 10
+				btnY := startY + i*rowH + 8
 
 				// Check if clicked the Craft button for this recipe
 				if mx >= btnX && mx < btnX+140 && my >= btnY && my < btnY+35 {
@@ -247,7 +263,7 @@ func (m *BaseMenu) Update(p *Player, b *BaseStation) {
 func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 	const (
 		panelW = 800
-		panelH = 460
+		panelH = 500
 	)
 	panelX := float32(ScreenWidth-panelW) / 2.0
 	panelY := float32(ScreenHeight-panelH) / 2.0
@@ -370,7 +386,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 	case 1: // FABRICATOR (Crafting menu)
 		startX := panelX + 30
 		startY := panelY + 95
-		rowH := float32(70)
+		rowH := float32(58)
 
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("FABRICATOR MENU (POWER COST: 10 HP PER CRAFT - CURRENT: %.0f HP)", b.Power), int(startX)+10, int(startY))
 
@@ -378,11 +394,11 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 			ry := startY + 25 + float32(i)*rowH
 
 			// Draw row background panel
-			vector.DrawFilledRect(screen, startX, ry, 740, 60, color.RGBA{18, 24, 38, 255}, false)
-			vector.StrokeRect(screen, startX, ry, 740, 60, 0.8, color.RGBA{45, 58, 78, 255}, false)
+			vector.DrawFilledRect(screen, startX, ry, 740, 52, color.RGBA{18, 24, 38, 255}, false)
+			vector.StrokeRect(screen, startX, ry, 740, 52, 0.8, color.RGBA{45, 58, 78, 255}, false)
 
 			// Draw output name
-			ebitenutil.DebugPrintAt(screen, rcp.Result.String(), int(startX)+15, int(ry)+10)
+			ebitenutil.DebugPrintAt(screen, rcp.Result.String(), int(startX)+15, int(ry)+6)
 
 			// Draw ingredients checklist
 			ingText := "Ingredients: "
@@ -407,7 +423,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 					ingText += "|  "
 				}
 			}
-			ebitenutil.DebugPrintAt(screen, ingText, int(startX)+15, int(ry)+33)
+			ebitenutil.DebugPrintAt(screen, ingText, int(startX)+15, int(ry)+28)
 
 			// Craft button
 			btnBg := color.RGBA{50, 70, 100, 255}
@@ -420,9 +436,9 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 				btnLabel = "NO POWER"
 			}
 
-			vector.DrawFilledRect(screen, startX+560, ry+12, 160, 35, btnBg, false)
-			vector.StrokeRect(screen, startX+560, ry+12, 160, 35, 1.0, color.RGBA{80, 100, 130, 255}, false)
-			ebitenutil.DebugPrintAt(screen, btnLabel, int(startX)+608, int(ry)+22)
+			vector.DrawFilledRect(screen, startX+560, ry+8, 160, 35, btnBg, false)
+			vector.StrokeRect(screen, startX+560, ry+8, 160, 35, 1.0, color.RGBA{80, 100, 130, 255}, false)
+			ebitenutil.DebugPrintAt(screen, btnLabel, int(startX)+608, int(ry)+18)
 		}
 
 	case 2: // BASE VAULT STORAGE (Items transfer)

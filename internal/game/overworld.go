@@ -29,41 +29,51 @@ func NewOverworldState(player *Player, world *world.World) *OverworldState {
 func (o *OverworldState) Update() (State, bool) {
 	p := o.Player
 
-	// Steering rotation (A/D or Left/Right arrows)
-	const turnSpeed = 0.05
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		p.Facing -= turnSpeed
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		p.Facing += turnSpeed
-	}
-
-	// Steering speed limits and acceleration (W/S or Up/Down arrows)
-	var accel = 0.12
-	var maxSpeed = 4.0
+	// On foot swimming in Overworld
+	var accel = 0.08
+	var maxSpeed = 1.6
 	isSprinting := ebiten.IsKeyPressed(ebiten.KeyShift)
 
 	if isSprinting && p.CurrentStamina > 0 {
-		accel = 0.25
-		maxSpeed = 6.5
+		accel = 0.16
+		maxSpeed = 2.6
 	}
 
-	// Apply Fins upgrade speed boost (30% increase in sailing speed)
+	// Apply Fins upgrade speed boost (30% increase)
 	if p.Inventory.HasItem(ItemFins, 1) {
 		accel *= 1.30
 		maxSpeed *= 1.30
 	}
 
+	// Direct WASD movement (no steering inertia when swimming on foot)
+	moving := false
+	var dx, dy float64
 	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-		p.Vx += math.Cos(p.Facing) * accel
-		p.Vy += math.Sin(p.Facing) * accel
-	} else if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-		p.Vx -= math.Cos(p.Facing) * (accel * 0.4)
-		p.Vy -= math.Sin(p.Facing) * (accel * 0.4)
+		dy -= 1.0
+		moving = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
+		dy += 1.0
+		moving = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+		dx -= 1.0
+		moving = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+		dx += 1.0
+		moving = true
 	}
 
-	// Apply fluid friction (drag) to the boat
-	const drag = 0.95
+	if moving {
+		angle := math.Atan2(dy, dx)
+		p.Facing = angle // Visor faces swim direction
+		p.Vx += math.Cos(angle) * accel
+		p.Vy += math.Sin(angle) * accel
+	}
+
+	// Apply fluid friction (drag) to the swimming player
+	const drag = 0.88
 	p.Vx *= drag
 	p.Vy *= drag
 
@@ -79,7 +89,7 @@ func (o *OverworldState) Update() (State, bool) {
 
 	// Update stats (not in cave, check if sprinting and actually moving)
 	isMoving := speed > 0.1
-	p.UpdateStats(false, isSprinting && isMoving)
+	p.UpdateStats(false, isSprinting && isMoving && moving)
 
 	// Check if player is overlapping a Trench tile to trigger dive transition
 	tx := int(p.X+p.Width/2) / TileSize
@@ -137,7 +147,7 @@ func (o *OverworldState) isSolid(x, y, w, h float64) bool {
 }
 
 // Draw renders the overworld tiles in a viewport centered on the player.
-func (o *OverworldState) Draw(screen *ebiten.Image, camera *Camera) {
+func (o *OverworldState) Draw(screen *ebiten.Image, camera *Camera, isPiloting bool) {
 	// Camera offset from camera controller
 	camX := camera.X
 	camY := camera.Y
@@ -187,41 +197,30 @@ func (o *OverworldState) Draw(screen *ebiten.Image, camera *Camera) {
 		}
 	}
 
-	// If player is sitting on a Trench, display dive prompt overlay
-	pTileX := int(o.Player.X+o.Player.Width/2) / TileSize
-	pTileY := int(o.Player.Y+o.Player.Height/2) / TileSize
-	if pTileX >= 0 && pTileX < o.World.Width && pTileY >= 0 && pTileY < o.World.Height {
-		if o.World.OverworldMap[pTileX][pTileY] == world.TileTrench {
-			promptX := float32(pCenterX(o.Player)) - 80
-			promptY := float32(pCenterY(o.Player)) - 40
-			vector.DrawFilledRect(screen, promptX, promptY, 160, 25, color.RGBA{0, 0, 0, 180}, false)
-			ebitenutil.DebugPrintAt(screen, "Press [E] to Dive", int(promptX)+25, int(promptY)+4)
+	// If player is sitting on a Trench, display dive prompt overlay (only if not piloting a vehicle)
+	if !isPiloting {
+		pTileX := int(o.Player.X+o.Player.Width/2) / TileSize
+		pTileY := int(o.Player.Y+o.Player.Height/2) / TileSize
+		if pTileX >= 0 && pTileX < o.World.Width && pTileY >= 0 && pTileY < o.World.Height {
+			if o.World.OverworldMap[pTileX][pTileY] == world.TileTrench {
+				promptX := float32(pCenterX(o.Player)) - 80
+				promptY := float32(pCenterY(o.Player)) - 40
+				vector.DrawFilledRect(screen, promptX, promptY, 160, 25, color.RGBA{0, 0, 0, 180}, false)
+				ebitenutil.DebugPrintAt(screen, "Press [E] to Dive", int(promptX)+25, int(promptY)+4)
+			}
 		}
+
+		// Draw the player swimming as a small diver circle centered on screen
+		pX := float32(pCenterX(o.Player))
+		pY := float32(pCenterY(o.Player))
+
+		// Player body circle
+		vector.DrawFilledCircle(screen, pX, pY, 8.0, color.RGBA{220, 95, 45, 255}, false)
+		// Helmet glass pointing in Facing direction
+		vx := pX + float32(math.Cos(o.Player.Facing))*5
+		vy := pY + float32(math.Sin(o.Player.Facing))*5
+		vector.DrawFilledCircle(screen, vx, vy, 4.0, color.RGBA{80, 200, 255, 200}, false)
 	}
-
-	// Draw the player's boat centered on screen
-	pX := float32(pCenterX(o.Player))
-	pY := float32(pCenterY(o.Player))
-	const size = 16.0
-
-	x1 := pX + float32(math.Cos(o.Player.Facing))*size*1.5
-	y1 := pY + float32(math.Sin(o.Player.Facing))*size*1.5
-	x2 := pX + float32(math.Cos(o.Player.Facing+math.Pi*0.8))*size
-	y2 := pY + float32(math.Sin(o.Player.Facing+math.Pi*0.8))*size
-	x3 := pX + float32(math.Cos(o.Player.Facing-math.Pi*0.8))*size
-	y3 := pY + float32(math.Sin(o.Player.Facing-math.Pi*0.8))*size
-
-	boatColor := color.RGBA{230, 238, 248, 255}
-	drawFilledTriangle(screen, x1, y1, x2, y2, x3, y3, boatColor)
-
-	cabinColor := color.RGBA{45, 90, 120, 255}
-	cx1 := pX + float32(math.Cos(o.Player.Facing))*size*0.4
-	cy1 := pY + float32(math.Sin(o.Player.Facing))*size*0.4
-	cx2 := pX + float32(math.Cos(o.Player.Facing+math.Pi*0.75))*size*0.6
-	cy2 := pY + float32(math.Sin(o.Player.Facing+math.Pi*0.75))*size*0.6
-	cx3 := pX + float32(math.Cos(o.Player.Facing-math.Pi*0.75))*size*0.6
-	cy3 := pY + float32(math.Sin(o.Player.Facing-math.Pi*0.75))*size*0.6
-	drawFilledTriangle(screen, cx1, cy1, cx2, cy2, cx3, cy3, cabinColor)
 }
 
 // Global empty white image for custom vector triangle rendering

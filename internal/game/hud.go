@@ -17,8 +17,8 @@ func NewHUD() *HUD {
 	return &HUD{}
 }
 
-// Draw renders the stats panel for the player.
-func (h *HUD) Draw(screen *ebiten.Image, p *Player) {
+// Draw renders the stats panel for the player and any active vehicle.
+func (h *HUD) Draw(screen *ebiten.Image, p *Player, activeVehicle Vehicle) {
 	// Panel dimensions and placement
 	const (
 		hudX = 20
@@ -36,13 +36,42 @@ func (h *HUD) Draw(screen *ebiten.Image, p *Player) {
 	hRatio := p.CurrentHealth / p.MaxHealth
 	drawStatBar(screen, hudX+15, hudY+15, w-30, hBar, hRatio, color.RGBA{210, 55, 75, 255}, "HP", p.CurrentHealth, p.MaxHealth)
 
-	// Draw Oxygen Bar
+	// Draw Oxygen Bar (indicate if sustained by vehicle)
 	oRatio := p.CurrentOxygen / p.MaxOxygen
-	drawStatBar(screen, hudX+15, hudY+48, w-30, hBar, oRatio, color.RGBA{45, 175, 215, 255}, "O2", p.CurrentOxygen, p.MaxOxygen)
+	oColor := color.RGBA{45, 175, 215, 255}
+	oLabel := "O2"
+	if activeVehicle != nil && activeVehicle.GetOxygen() > 0.0 {
+		oRatio = 1.0
+		oColor = color.RGBA{45, 215, 175, 255} // Teal-ish blue for sub life support
+		oLabel = "O2 [VEHICLE]"
+	}
+	drawStatBar(screen, hudX+15, hudY+48, w-30, hBar, oRatio, oColor, oLabel, p.CurrentOxygen, p.MaxOxygen)
 
 	// Draw Stamina Bar
 	sRatio := p.CurrentStamina / p.MaxStamina
 	drawStatBar(screen, hudX+15, hudY+81, w-30, hBar, sRatio, color.RGBA{45, 190, 110, 255}, "ST", p.CurrentStamina, p.MaxStamina)
+
+	// Draw active vehicle status at bottom-right if piloting
+	if activeVehicle != nil {
+		const (
+			vHudW = 240
+			vHudH = 90
+			vHudX = ScreenWidth - vHudW - 20
+			vHudY = ScreenHeight - vHudH - 20
+		)
+		vector.DrawFilledRect(screen, vHudX, vHudY, vHudW, vHudH, color.RGBA{18, 24, 38, 200}, false)
+		vector.StrokeRect(screen, vHudX, vHudY, vHudW, vHudH, 1.5, color.RGBA{70, 90, 120, 255}, false)
+
+		ebitenutil.DebugPrintAt(screen, activeVehicle.GetName(), vHudX+15, vHudY+8)
+
+		// Draw Hull integrity bar
+		hullRatio := activeVehicle.GetHealth() / activeVehicle.GetMaxHealth()
+		drawStatBar(screen, float32(vHudX+15), float32(vHudY+30), vHudW-30, 14, hullRatio, color.RGBA{220, 80, 50, 255}, "HULL", activeVehicle.GetHealth(), activeVehicle.GetMaxHealth())
+
+		// Draw Battery bar
+		battRatio := activeVehicle.GetBattery() / activeVehicle.GetMaxBattery()
+		drawStatBar(screen, float32(vHudX+15), float32(vHudY+54), vHudW-30, 14, battRatio, color.RGBA{220, 180, 40, 255}, "BATT", activeVehicle.GetBattery(), activeVehicle.GetMaxBattery())
+	}
 }
 
 func drawStatBar(screen *ebiten.Image, x, y, w, h float32, ratio float64, barColor color.Color, label string, val, max float64) {
@@ -62,8 +91,7 @@ func drawStatBar(screen *ebiten.Image, x, y, w, h float32, ratio float64, barCol
 
 	// Text readout on top of the bar using debug printer
 	text := fmt.Sprintf("%s: %.0f/%.0f", label, val, max)
-	// Vertically center text offsets
-	ebitenutil.DebugPrintAt(screen, text, int(x)+8, int(y)+2)
+	ebitenutil.DebugPrintAt(screen, text, int(x)+8, int(y)+(int(h)-14)/2)
 }
 
 // DrawInventory renders the player's grid inventory overlay, icons, counts, and hover tooltips.
@@ -129,45 +157,11 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, inv *Inventory) {
 			// Render item content
 			item := inv.Slots[slotIdx]
 			if item.Type != ItemNone {
-				// Establish visual icons/colors
-				var itemClr color.Color
-				var drawIconType = "circle"
-
-				switch item.Type {
-				case ItemTitanium:
-					itemClr = color.RGBA{168, 178, 188, 255}
-					drawIconType = "square"
-				case ItemCopper:
-					itemClr = color.RGBA{218, 118, 48, 255}
-					drawIconType = "square"
-				case ItemQuartz:
-					itemClr = color.RGBA{48, 218, 245, 255}
-					drawIconType = "diamond"
-				case ItemAbyssalOre:
-					itemClr = color.RGBA{148, 48, 218, 255}
-					drawIconType = "diamond"
-				default:
-					itemClr = color.RGBA{98, 198, 148, 255} // Upgrades/Tools
-					drawIconType = "circle"
-				}
-
-				cx := sx + slotSz/2.0
-				cy := sy + slotSz/2.0
-				const iSz = 14.0
-
-				if drawIconType == "square" {
-					vector.DrawFilledRect(screen, cx-iSz/2.0, cy-iSz/2.0, iSz, iSz, itemClr, false)
-				} else if drawIconType == "diamond" {
-					// Draw diamond visual
-					vector.DrawFilledCircle(screen, cx, cy, iSz/2.0, itemClr, false)
-					vector.StrokeCircle(screen, cx, cy, iSz/2.0, 0.5, color.RGBA{255, 255, 255, 200}, false)
-				} else {
-					vector.DrawFilledCircle(screen, cx, cy, iSz/2.0, itemClr, false)
-				}
+				drawItemIcon(screen, sx, sy, slotSz, item.Type)
 
 				// Draw stack count number
 				if item.Quantity > 1 {
-					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+6, int(sy)+slotSz-17)
+					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+6, int(sy)+int(slotSz)-17)
 				}
 			}
 		}
@@ -185,3 +179,185 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, inv *Inventory) {
 	ebitenutil.DebugPrintAt(screen, tooltipText, int(panelX)+30, int(tooltipY)+4)
 }
 
+// DrawVehicleInventory renders a split UI showing player inventory on the left and vehicle cargo on the right.
+func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, pInv *Inventory, vInv *Inventory, vName string) {
+	const (
+		panelW = 960
+		panelH = 360
+		colsP  = 8
+		rowsP  = 3
+		slotSz = 48
+		gap    = 8
+	)
+
+	panelX := float32(ScreenWidth-panelW) / 2.0
+	panelY := float32(ScreenHeight-panelH) / 2.0
+
+	// Draw panel background
+	panelBg := color.RGBA{14, 20, 32, 238}
+	vector.DrawFilledRect(screen, panelX, panelY, panelW, panelH, panelBg, false)
+	vector.StrokeRect(screen, panelX, panelY, panelW, panelH, 1.5, color.RGBA{68, 88, 120, 255}, false)
+
+	// Titles
+	vector.DrawFilledRect(screen, panelX+30, panelY+12, 160, 24, color.RGBA{22, 32, 50, 255}, false)
+	ebitenutil.DebugPrintAt(screen, " DIVER INVENTORY", int(panelX)+35, int(panelY)+16)
+
+	vector.DrawFilledRect(screen, panelX+510, panelY+12, 200, 24, color.RGBA{22, 32, 50, 255}, false)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf(" %s CARGO", vName), int(panelX)+515, int(panelY)+16)
+
+	mx, my := ebiten.CursorPosition()
+	var hoveredItemName = "None"
+
+	// 1. Draw Player Inventory Grid (Left)
+	startX_P := panelX + 30
+	startY_P := panelY + 60
+
+	for r := 0; r < rowsP; r++ {
+		for c := 0; c < colsP; c++ {
+			slotIdx := r*colsP + c
+			if slotIdx >= len(pInv.Slots) {
+				continue
+			}
+
+			sx := startX_P + float32(c*(slotSz+gap))
+			sy := startY_P + float32(r*(slotSz+gap))
+
+			slotBg := color.RGBA{20, 26, 38, 255}
+			slotBorder := color.RGBA{48, 60, 80, 255}
+
+			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
+			if isHovered {
+				slotBg = color.RGBA{32, 42, 62, 255}
+				slotBorder = color.RGBA{95, 125, 165, 255}
+				if pInv.Slots[slotIdx].Type != ItemNone {
+					hoveredItemName = pInv.Slots[slotIdx].Type.String()
+				}
+			}
+
+			vector.DrawFilledRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
+
+			item := pInv.Slots[slotIdx]
+			if item.Type != ItemNone {
+				drawItemIcon(screen, sx, sy, slotSz, item.Type)
+				if item.Quantity > 1 {
+					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
+				}
+			}
+		}
+	}
+
+	// 2. Draw Vehicle Inventory Grid (Right)
+	numSlots := len(vInv.Slots)
+	var vCols, vRows int
+	if numSlots == 24 {
+		vCols = 8
+		vRows = 3
+	} else if numSlots == 12 {
+		vCols = 6
+		vRows = 2
+	} else { // 8 slots
+		vCols = 4
+		vRows = 2
+	}
+
+	startX_V := panelX + 510
+	startY_V := panelY + 60
+
+	for r := 0; r < vRows; r++ {
+		for c := 0; c < vCols; c++ {
+			slotIdx := r*vCols + c
+			if slotIdx >= numSlots {
+				continue
+			}
+
+			sx := startX_V + float32(c*(slotSz+gap))
+			sy := startY_V + float32(r*(slotSz+gap))
+
+			slotBg := color.RGBA{20, 26, 38, 255}
+			slotBorder := color.RGBA{48, 60, 80, 255}
+
+			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
+			if isHovered {
+				slotBg = color.RGBA{32, 42, 62, 255}
+				slotBorder = color.RGBA{95, 125, 165, 255}
+				if vInv.Slots[slotIdx].Type != ItemNone {
+					hoveredItemName = vInv.Slots[slotIdx].Type.String()
+				}
+			}
+
+			vector.DrawFilledRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
+
+			item := vInv.Slots[slotIdx]
+			if item.Type != ItemNone {
+				drawItemIcon(screen, sx, sy, slotSz, item.Type)
+				if item.Quantity > 1 {
+					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
+				}
+			}
+		}
+	}
+
+	// Tooltip
+	tooltipY := panelY + panelH - 42
+	vector.DrawFilledRect(screen, panelX+20, tooltipY, panelW-40, 24, color.RGBA{8, 12, 18, 255}, false)
+	vector.StrokeRect(screen, panelX+20, tooltipY, panelW-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
+
+	tooltipText := "Hover an item to view details. Click item to transfer."
+	if hoveredItemName != "None" {
+		tooltipText = hoveredItemName
+	}
+	ebitenutil.DebugPrintAt(screen, tooltipText, int(panelX)+30, int(tooltipY)+4)
+}
+
+// drawItemIcon helper renders customized vector icons for each item type.
+func drawItemIcon(screen *ebiten.Image, sx, sy, slotSz float32, itemType ItemType) {
+	var itemClr color.Color
+	var drawIconType = "circle"
+
+	switch itemType {
+	case ItemTitanium:
+		itemClr = color.RGBA{168, 178, 188, 255}
+		drawIconType = "square"
+	case ItemCopper:
+		itemClr = color.RGBA{218, 118, 48, 255}
+		drawIconType = "square"
+	case ItemQuartz:
+		itemClr = color.RGBA{48, 218, 245, 255}
+		drawIconType = "diamond"
+	case ItemAbyssalOre:
+		itemClr = color.RGBA{148, 48, 218, 255}
+		drawIconType = "diamond"
+	case ItemScoutSub:
+		itemClr = color.RGBA{15, 160, 185, 255}
+		drawIconType = "sub"
+	case ItemHeavyMech:
+		itemClr = color.RGBA{218, 98, 16, 255}
+		drawIconType = "mech"
+	default:
+		itemClr = color.RGBA{98, 198, 148, 255} // Upgrades/Tools
+		drawIconType = "circle"
+	}
+
+	cx := sx + slotSz/2.0
+	cy := sy + slotSz/2.0
+	iSz := slotSz * 0.45
+
+	if drawIconType == "square" {
+		vector.DrawFilledRect(screen, cx-iSz/2.0, cy-iSz/2.0, iSz, iSz, itemClr, false)
+	} else if drawIconType == "diamond" {
+		vector.DrawFilledCircle(screen, cx, cy, iSz/2.0, itemClr, false)
+		vector.StrokeCircle(screen, cx, cy, iSz/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
+	} else if drawIconType == "sub" {
+		// Draw a small sub capsule silhouette
+		vector.DrawFilledRect(screen, cx-iSz/2.0, cy-iSz/4.0, iSz, iSz/2.0, itemClr, false)
+		vector.DrawFilledCircle(screen, cx+iSz/4.0, cy, iSz/4.0, color.RGBA{80, 205, 255, 255}, false)
+	} else if drawIconType == "mech" {
+		// Draw a tiny mech torso silhouette
+		vector.DrawFilledRect(screen, cx-iSz/3.0, cy-iSz/3.0, iSz/1.5, iSz/1.5, itemClr, false)
+		vector.DrawFilledRect(screen, cx-iSz/2.0, cy+iSz/6.0, iSz, iSz/6.0, color.RGBA{60, 70, 80, 255}, false)
+	} else {
+		vector.DrawFilledCircle(screen, cx, cy, iSz/2.0, itemClr, false)
+	}
+}

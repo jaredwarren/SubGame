@@ -7,11 +7,11 @@ import (
 // Player represents the player character, including their physics and stats.
 type Player struct {
 	// Physics
-	X, Y     float64
-	Vx, Vy   float64
-	Width    float64
-	Height   float64
-	Facing   float64 // Angle in radians (for flashlight/boat direction)
+	X, Y   float64
+	Vx, Vy float64
+	Width  float64
+	Height float64
+	Facing float64 // Angle in radians (for flashlight/boat direction)
 
 	// Stats
 	MaxHealth      float64
@@ -105,6 +105,8 @@ const (
 	ItemO2TankUHC
 	ItemFins
 	ItemScanner
+	ItemScoutSub
+	ItemHeavyMech
 )
 
 // String returns the user-facing name of the item type.
@@ -126,6 +128,10 @@ func (t ItemType) String() string {
 		return "Propulsion Fins"
 	case ItemScanner:
 		return "Scanner Tool"
+	case ItemScoutSub:
+		return "Scout Sub (Deployable)"
+	case ItemHeavyMech:
+		return "Heavy Mech (Deployable)"
 	default:
 		return "Empty"
 	}
@@ -159,8 +165,8 @@ func (inv *Inventory) AddItem(itemType ItemType, qty int) bool {
 	}
 
 	maxStack := 10
-	// Equipment items are non-stackable (max stack of 1)
-	if itemType == ItemO2TankHC || itemType == ItemO2TankUHC || itemType == ItemFins || itemType == ItemScanner {
+	// Equipment and vehicle items are non-stackable (max stack of 1)
+	if itemType == ItemO2TankHC || itemType == ItemO2TankUHC || itemType == ItemFins || itemType == ItemScanner || itemType == ItemScoutSub || itemType == ItemHeavyMech {
 		maxStack = 1
 	}
 
@@ -241,4 +247,3 @@ func (inv *Inventory) HasItem(itemType ItemType, qty int) bool {
 	}
 	return count >= qty
 }
-

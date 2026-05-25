@@ -12,6 +12,8 @@ var LightSource vec2
 var FlashlightDir vec2
 var LightRadius float
 var ConeHalfAngle float
+var SonarSource vec2
+var SonarRadius float
 var PersonalRadius float
 var AmbientColor vec4
 
@@ -45,8 +47,25 @@ func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 		}
 	}
 
+	// Sonar wave illumination
+	sonarIntensity := 0.0
+	if SonarRadius > 0.0 {
+		toSonar := pixelPos - SonarSource
+		distSonar := length(toSonar)
+		if distSonar < SonarRadius {
+			ageFactor := 1.0 - (SonarRadius / 600.0)
+			if ageFactor > 0.0 {
+				if distSonar > SonarRadius - 30.0 {
+					sonarIntensity = 0.85 * ageFactor
+				} else {
+					sonarIntensity = 0.3 * (distSonar / SonarRadius) * ageFactor
+				}
+			}
+		}
+	}
+
 	// Blend illumination channels
-	totalLight := max(personalIntensity, coneIntensity)
+	totalLight := max(personalIntensity, max(coneIntensity, sonarIntensity))
 	totalLight = clamp(totalLight, 0.0, 1.0)
 
 	// Dark overlay mask: fully lit areas remain transparent, dark areas become ambient color
