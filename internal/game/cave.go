@@ -274,13 +274,7 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 	facingAngle := c.Player.Facing
 
 	if isPiloting {
-		facingAngle = g.ActiveVehicle.(*ScoutSub).Facing // Default or specific vehicle casting, let's keep it robust
-		// We can get facing angle based on the type of active vehicle
-		if sub, ok := g.ActiveVehicle.(*ScoutSub); ok {
-			facingAngle = sub.Facing
-		} else if mech, ok := g.ActiveVehicle.(*HeavyMech); ok {
-			facingAngle = mech.Facing
-		}
+		facingAngle = g.ActiveVehicle.GetFacing()
 	}
 
 	if !isPiloting {

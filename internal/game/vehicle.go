@@ -28,6 +28,7 @@ type Vehicle interface {
 	GetName() string
 	GetBattery() float64
 	GetMaxBattery() float64
+	GetFacing() float64
 }
 
 // ---------------------------------------------------------
@@ -79,6 +80,7 @@ func (s *Skiff) GetPerspective() string { return "overworld" }
 func (s *Skiff) GetName() string        { return "The Skiff" }
 func (s *Skiff) GetBattery() float64    { return s.Battery }
 func (s *Skiff) GetMaxBattery() float64 { return s.MaxBattery }
+func (s *Skiff) GetFacing() float64     { return s.Facing }
 
 func (s *Skiff) Update(g *Game) {
 	// Day/night solar charging (TimeOfDay < 7200 is daytime)
@@ -292,6 +294,7 @@ func (sub *ScoutSub) GetPerspective() string { return "cave" }
 func (sub *ScoutSub) GetName() string        { return "Scout Sub" }
 func (sub *ScoutSub) GetBattery() float64    { return sub.Battery }
 func (sub *ScoutSub) GetMaxBattery() float64 { return sub.MaxBattery }
+func (sub *ScoutSub) GetFacing() float64     { return sub.Facing }
 
 func (sub *ScoutSub) Update(g *Game) {
 	if g.ActiveVehicle != sub {
@@ -519,6 +522,7 @@ func (m *HeavyMech) GetPerspective() string { return "cave" }
 func (m *HeavyMech) GetName() string        { return "Heavy Mech" }
 func (m *HeavyMech) GetBattery() float64    { return m.Battery }
 func (m *HeavyMech) GetMaxBattery() float64 { return m.MaxBattery }
+func (m *HeavyMech) GetFacing() float64     { return m.Facing }
 
 func (m *HeavyMech) Update(g *Game) {
 	if g.ActiveVehicle != m {

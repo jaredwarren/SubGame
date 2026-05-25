@@ -159,6 +159,52 @@ func (g *Game) Update() error {
 		g.currentState = StateGameOver
 	}
 
+	// Debug shortcuts for testing vehicles and resources
+	if g.currentState == StateOverworld || g.currentState == StateCave {
+		if inpututil.IsKeyJustPressed(ebiten.Key1) {
+			// Spawn Scout Sub at player location and pilot it
+			sub := NewScoutSub(g.player.X, g.player.Y)
+			if g.currentState == StateOverworld {
+				g.OverworldVehicles = append(g.OverworldVehicles, sub)
+			} else {
+				key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
+				g.CaveVehicles[key] = append(g.CaveVehicles[key], sub)
+			}
+			g.ActiveVehicle = sub
+		} else if inpututil.IsKeyJustPressed(ebiten.Key2) {
+			// Spawn Heavy Mech at player location and pilot it
+			mech := NewHeavyMech(g.player.X, g.player.Y)
+			if g.currentState == StateOverworld {
+				g.OverworldVehicles = append(g.OverworldVehicles, mech)
+			} else {
+				key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
+				g.CaveVehicles[key] = append(g.CaveVehicles[key], mech)
+			}
+			g.ActiveVehicle = mech
+		} else if inpututil.IsKeyJustPressed(ebiten.Key3) {
+			// Spawn Skiff at player location and pilot it
+			skiff := NewSkiff(g.player.X, g.player.Y)
+			if g.currentState == StateOverworld {
+				g.OverworldVehicles = append(g.OverworldVehicles, skiff)
+			} else {
+				key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
+				g.CaveVehicles[key] = append(g.CaveVehicles[key], skiff)
+			}
+			g.ActiveVehicle = skiff
+		} else if inpututil.IsKeyJustPressed(ebiten.Key4) {
+			// Add 10x Titanium, Copper, Quartz, Abyssal Ore to player inventory
+			g.player.Inventory.AddItem(ItemTitanium, 10)
+			g.player.Inventory.AddItem(ItemCopper, 10)
+			g.player.Inventory.AddItem(ItemQuartz, 10)
+			g.player.Inventory.AddItem(ItemAbyssalOre, 10)
+		} else if inpututil.IsKeyJustPressed(ebiten.Key5) {
+			// Heal player and restore stats
+			g.player.CurrentHealth = g.player.MaxHealth
+			g.player.CurrentOxygen = g.player.MaxOxygen
+			g.player.CurrentStamina = g.player.MaxStamina
+		}
+	}
+
 	// Update Base Station Solar power loops
 	if g.baseStation != nil {
 		g.baseStation.UpdatePower()
@@ -551,7 +597,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 		}
 
-		g.hud.Draw(screen, g.player, g.ActiveVehicle)
+		g.hud.Draw(screen, g)
 
 	case StateCave:
 		// Render cave tiles and flashlight mask
@@ -588,7 +634,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			vector.StrokeCircle(screen, scx, scy, float32(g.SonarRadius), 1.0, color.RGBA{220, 250, 255, uint8(255 * alpha)}, false)
 		}
 
-		g.hud.Draw(screen, g.player, g.ActiveVehicle)
+		g.hud.Draw(screen, g)
 
 	case StateBaseMenu:
 		g.baseMenu.Draw(screen, g.player, g.baseStation)

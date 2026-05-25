@@ -23,6 +23,12 @@ type Player struct {
 	MaxEnergy      float64
 	CurrentEnergy  float64
 
+	// Customizable Stat Rates (expressed per second)
+	O2DrainRate      float64 // default: 1.0 (O2 units per second)
+	StaminaDrainRate float64 // default: 1.5 (Stamina units per second when sprinting)
+	StaminaRegenRate float64 // default: 1.0 (Stamina units recovered per second)
+	DrownDamageRate  float64 // default: 30.0 (Health units lost per second when drowning)
+
 	// Inventory
 	Inventory *Inventory
 }
@@ -30,19 +36,23 @@ type Player struct {
 // NewPlayer initializes a player with default stats and empty inventory.
 func NewPlayer(x, y float64) *Player {
 	return &Player{
-		X:              x,
-		Y:              y,
-		Width:          20,
-		Height:         20,
-		MaxHealth:      100,
-		CurrentHealth:  100,
-		MaxOxygen:      100, // 100 seconds of O2 initially
-		CurrentOxygen:  100,
-		MaxStamina:     100,
-		CurrentStamina: 100,
-		MaxEnergy:      100,
-		CurrentEnergy:  100,
-		Inventory:      NewInventory(24),
+		X:                x,
+		Y:                y,
+		Width:            20,
+		Height:           20,
+		MaxHealth:        100,
+		CurrentHealth:    100,
+		MaxOxygen:        100, // 100 seconds of O2 initially
+		CurrentOxygen:    100,
+		MaxStamina:       100,
+		CurrentStamina:   100,
+		MaxEnergy:        100,
+		CurrentEnergy:    100,
+		O2DrainRate:      1.0,
+		StaminaDrainRate: 1.5,
+		StaminaRegenRate: 1.0,
+		DrownDamageRate:  30.0,
+		Inventory:        NewInventory(24),
 	}
 }
 
@@ -50,10 +60,10 @@ func NewPlayer(x, y float64) *Player {
 func (p *Player) UpdateStats(inCave bool, isSprinting bool) {
 	// Oxygen management
 	if inCave {
-		p.CurrentOxygen -= 1.0 / 60.0 // Drain 1 O2 per second (at 60 FPS)
+		p.CurrentOxygen -= p.O2DrainRate / 60.0 // Drain O2 per second (at 60 FPS)
 		if p.CurrentOxygen < 0 {
 			p.CurrentOxygen = 0
-			p.CurrentHealth -= 0.5 // Drowning damage
+			p.CurrentHealth -= p.DrownDamageRate / 60.0 // Drowning damage per second
 		}
 	} else {
 		// Instantly refill or quickly refill oxygen on surface
@@ -62,12 +72,12 @@ func (p *Player) UpdateStats(inCave bool, isSprinting bool) {
 
 	// Stamina management
 	if isSprinting && (math.Abs(p.Vx) > 0.1 || math.Abs(p.Vy) > 0.1) {
-		p.CurrentStamina -= 1.5 / 60.0 // Sprinting drains stamina
+		p.CurrentStamina -= p.StaminaDrainRate / 60.0 // Sprinting drains stamina
 		if p.CurrentStamina < 0 {
 			p.CurrentStamina = 0
 		}
 	} else {
-		p.CurrentStamina += 1.0 / 60.0 // Regenerate stamina when not sprinting
+		p.CurrentStamina += p.StaminaRegenRate / 60.0 // Regenerate stamina when not sprinting
 		if p.CurrentStamina > p.MaxStamina {
 			p.CurrentStamina = p.MaxStamina
 		}

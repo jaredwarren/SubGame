@@ -18,7 +18,99 @@ func NewHUD() *HUD {
 }
 
 // Draw renders the stats panel for the player and any active vehicle.
-func (h *HUD) Draw(screen *ebiten.Image, p *Player, activeVehicle Vehicle) {
+func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
+	p := g.player
+	activeVehicle := g.ActiveVehicle
+
+	// Environment Telemetry Panel (top-left)
+	const (
+		telX = 20
+		telY = 20
+		telW = 240
+		telH = 95
+	)
+
+	// Draw Telemetry background panel (glassmorphism feel)
+	vector.DrawFilledRect(screen, telX, telY, telW, telH, color.RGBA{18, 24, 38, 200}, false)
+	vector.StrokeRect(screen, telX, telY, telW, telH, 1.5, color.RGBA{70, 90, 120, 255}, false)
+
+	// Pulsing telemetry online indicator
+	pulseColor := color.RGBA{45, 215, 120, 255} // Safe green
+	if g.currentState == StateCave {
+		pulseColor = color.RGBA{45, 175, 215, 255} // Cyan for underwater
+	}
+	
+	// Pulsing effect based on g.TimeOfDay
+	isPulseOn := int(g.TimeOfDay/15)%2 == 0
+	if !isPulseOn {
+		pulseColor.A = 100 // dim it
+	}
+
+	vector.DrawFilledCircle(screen, telX+15, telY+15, 4, pulseColor, false)
+
+	if g.currentState == StateOverworld {
+		ebitenutil.DebugPrintAt(screen, "SYSTEMS MONITOR", telX+26, telY+8)
+		
+		// Time calculation
+		totalMinutes := int(g.TimeOfDay / 14400.0 * 1440.0)
+		hour := (totalMinutes / 60 + 6) % 24
+		minute := totalMinutes % 60
+		period := "AM"
+		displayHour := hour
+		if hour >= 12 {
+			period = "PM"
+		}
+		if hour > 12 {
+			displayHour = hour - 12
+		}
+		if hour == 0 {
+			displayHour = 12
+		}
+		
+		isDay := g.TimeOfDay < 7200
+		dayPhase := "Day"
+		if !isDay {
+			dayPhase = "Night"
+		}
+
+		timeText := fmt.Sprintf("Time: %02d:%02d %s (%s)", displayHour, minute, period, dayPhase)
+		posText := fmt.Sprintf("Pos: X:%.0f Y:%.0f", g.player.X, g.player.Y)
+		zoneText := "Zone: Surface Ocean"
+
+		ebitenutil.DebugPrintAt(screen, timeText, telX+15, telY+28)
+		ebitenutil.DebugPrintAt(screen, posText, telX+15, telY+48)
+		ebitenutil.DebugPrintAt(screen, zoneText, telX+15, telY+68)
+	} else if g.currentState == StateCave {
+		ebitenutil.DebugPrintAt(screen, "DIVE TELEMETRY", telX+26, telY+8)
+
+		// Depth in meters (1 tile = 1 meter)
+		depth := (g.player.Y + g.player.Height/2.0) / TileSize
+		pressure := 1.0 + depth*0.1
+
+		depthText := fmt.Sprintf("Depth: %.1fm", depth)
+		pressText := fmt.Sprintf("Pressure: %.2f atm", pressure)
+		trenchText := fmt.Sprintf("Trench Origin: (%d, %d)", g.activeTrenchX, g.activeTrenchY)
+
+		ebitenutil.DebugPrintAt(screen, depthText, telX+15, telY+28)
+		ebitenutil.DebugPrintAt(screen, pressText, telX+15, telY+48)
+		ebitenutil.DebugPrintAt(screen, trenchText, telX+15, telY+68)
+
+		// If exceeding depth limit
+		if g.ActiveVehicle != nil {
+			limit := g.ActiveVehicle.GetDepthLimit()
+			if limit > 0 {
+				limitText := fmt.Sprintf("Hull Limit: %.0fm", limit)
+				if depth > limit {
+					// Exceeding limit warning color (red/orange)
+					vector.DrawFilledRect(screen, telX+140, telY+25, 90, 18, color.RGBA{210, 55, 75, 200}, false)
+					ebitenutil.DebugPrintAt(screen, "CRITICAL!", telX+146, telY+27)
+				} else {
+					ebitenutil.DebugPrintAt(screen, limitText, telX+140, telY+28)
+				}
+			}
+		}
+	}
+
 	// Panel dimensions and placement
 	const (
 		hudX = 20
