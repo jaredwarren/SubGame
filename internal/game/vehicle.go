@@ -320,6 +320,11 @@ func (sub *ScoutSub) Update(g *Game) {
 		maxSpeed = 1.0
 	}
 
+	if g.playerSlowed {
+		force *= 0.5
+		maxSpeed *= 0.5
+	}
+
 	moving := false
 	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 		sub.Vy -= force
@@ -551,6 +556,11 @@ func (m *HeavyMech) Update(g *Game) {
 	if !hasPower {
 		walkForce = 0.08
 		maxSpeedH = 0.6
+	}
+
+	if g.playerSlowed {
+		walkForce *= 0.5
+		maxSpeedH *= 0.5
 	}
 
 	// 1. Move left/right on floor

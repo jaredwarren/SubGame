@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -48,6 +49,16 @@ type Game struct {
 	SonarSourceY      float64
 	MineWarning       string
 	MineWarningTimer  int
+
+	// Phase 8: Biomes & Predator AI
+	caveEntities        map[string][]*CaveEntity
+	FlashlightOn        bool
+	WeaverTrackingTimer float64
+	SoundWaveTimer      int
+	SoundWaveRadius     float64
+	SoundWaveX          float64
+	SoundWaveY          float64
+	playerSlowed        bool
 }
 
 // NewGame creates and returns a new Game instance.
@@ -99,12 +110,15 @@ func NewGame() *Game {
 		OverworldVehicles: overworldVehicles,
 		CaveVehicles:      make(map[string][]Vehicle),
 		TimeOfDay:         0.0,
+		caveEntities:      make(map[string][]*CaveEntity),
+		FlashlightOn:      true,
 	}
 }
 
 // Update updates the game logical state.
 func (g *Game) Update() error {
 	g.justExited = false
+	g.playerSlowed = false
 
 	// Increment day/night cycle timeOfDay (reset after 4 minutes)
 	g.TimeOfDay += 1.0
@@ -121,6 +135,17 @@ func (g *Game) Update() error {
 	if g.SonarTimer > 0 {
 		g.SonarTimer--
 		g.SonarRadius += 6.5 // Expanding wave speed
+	}
+
+	// Update popped Shatter-bulb sound wave circle
+	if g.SoundWaveTimer > 0 {
+		g.SoundWaveTimer--
+		g.SoundWaveRadius += 4.5
+	}
+
+	// Toggle flashlight keybind (T)
+	if inpututil.IsKeyJustPressed(ebiten.KeyT) {
+		g.FlashlightOn = !g.FlashlightOn
 	}
 
 	// Toggle inventory overlay
@@ -149,6 +174,11 @@ func (g *Game) Update() error {
 			g.caveNodes[key] = GenerateResourceNodes(g.caveState.CaveGrid, 50*97+50*41)
 		}
 		g.caveState.Nodes = g.caveNodes[key]
+
+		if _, exists := g.caveEntities[key]; !exists {
+			g.caveEntities[key] = GenerateCaveEntities(g.caveState.CaveGrid, 50*97+50*41)
+		}
+		g.caveState.Entities = g.caveEntities[key]
 
 		g.showInventory = false
 		g.camera.CenterOn(g.player.X, g.player.Y, g.player.Width, g.player.Height)
@@ -450,6 +480,11 @@ func (g *Game) Update() error {
 				}
 				g.caveState.Nodes = g.caveNodes[key]
 
+				if _, exists := g.caveEntities[key]; !exists {
+					g.caveEntities[key] = GenerateCaveEntities(g.caveState.CaveGrid, int64(tx*97+ty*41))
+				}
+				g.caveState.Entities = g.caveEntities[key]
+
 				g.player.X = float64(len(g.caveState.CaveGrid)/2*TileSize) + (TileSize-g.player.Width)/2
 				g.player.Y = TileSize * 2
 				g.player.Vx = 0
@@ -469,6 +504,24 @@ func (g *Game) Update() error {
 				v.Update(g)
 			}
 		}
+
+		// Reset electrical tracking timer; active Electro-Weavers will update it
+		g.WeaverTrackingTimer = 0.0
+
+		// Update cave entities
+		for _, ent := range g.caveState.Entities {
+			ent.Update(g, g.caveState)
+		}
+
+		// Clean up deactivated entities
+		var activeEnts []*CaveEntity
+		for _, ent := range g.caveState.Entities {
+			if ent.Active {
+				activeEnts = append(activeEnts, ent)
+			}
+		}
+		g.caveState.Entities = activeEnts
+		g.caveEntities[key] = activeEnts
 
 		// Heavy Mech drilling handler
 		if mech, ok := g.ActiveVehicle.(*HeavyMech); ok && !mech.IsDrilling {
@@ -525,6 +578,7 @@ func (g *Game) Update() error {
 				g.player.Vy = -1.5
 
 				g.caveNodes[key] = g.caveState.Nodes
+				g.caveEntities[key] = g.caveState.Entities
 				g.camera.CenterOn(g.player.X, g.player.Y, g.player.Width, g.player.Height)
 				g.currentState = StateOverworld
 			}
@@ -546,6 +600,13 @@ func (g *Game) Update() error {
 	// Smooth camera tracking
 	if g.currentState == StateOverworld || g.currentState == StateCave {
 		g.camera.Track(g.player.X, g.player.Y, g.player.Width, g.player.Height, 0.08)
+
+		// Apply camera shake/jitter if tracked by Electro-Weaver
+		if g.currentState == StateCave && g.WeaverTrackingTimer > 0 {
+			shakeMag := (g.WeaverTrackingTimer / 300.0) * 8.0
+			g.camera.X += rand.Float64()*shakeMag - (shakeMag / 2.0)
+			g.camera.Y += rand.Float64()*shakeMag - (shakeMag / 2.0)
+		}
 	}
 
 	// Oxygen and Health updates when on foot (prevent drains inside vehicles)

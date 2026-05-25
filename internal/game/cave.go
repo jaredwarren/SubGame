@@ -3,6 +3,7 @@ package game
 import (
 	"image/color"
 	"math"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -14,13 +15,15 @@ type CaveState struct {
 	Player   *Player
 	CaveGrid [][]bool
 	Nodes    []ResourceNode
+	Entities []*CaveEntity
 }
 
 // NewCaveState creates a new CaveState instance.
 func NewCaveState(player *Player) *CaveState {
 	return &CaveState{
-		Player: player,
-		Nodes:  []ResourceNode{},
+		Player:   player,
+		Nodes:    []ResourceNode{},
+		Entities: []*CaveEntity{},
 	}
 }
 
@@ -44,6 +47,21 @@ func (c *CaveState) Update(g *Game) (State, bool) {
 
 		mtx := int(worldX) / TileSize
 		mty := int(worldY) / TileSize
+
+		// Find clicked Shatter-bulb
+		for _, ent := range c.Entities {
+			if ent.Type == EntShatterBulb && ent.Active {
+				if worldX >= ent.X && worldX < ent.X+ent.Width && worldY >= ent.Y && worldY < ent.Y+ent.Height {
+					px := p.X + p.Width/2
+					py := p.Y + p.Height/2
+					dist := math.Hypot(px-(ent.X+ent.Width/2), py-(ent.Y+ent.Height/2))
+					if dist <= 96.0 {
+						ent.Pop(g, c)
+						break
+					}
+				}
+			}
+		}
 
 		// Find clicked resource node
 		for i := range c.Nodes {
@@ -97,6 +115,12 @@ func (c *CaveState) Update(g *Game) (State, bool) {
 	if p.Inventory.HasItem(ItemFins, 1) {
 		swimForce *= 1.35
 		maxSpeed *= 1.35
+	}
+
+	// Apply Nerve-Mat slow debuff (50% reduction)
+	if g.playerSlowed {
+		swimForce *= 0.5
+		maxSpeed *= 0.5
 	}
 
 	swimming := false
@@ -245,14 +269,31 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 					sx := float32(tx*TileSize - int(camX))
 					sy := float32(ty*TileSize - int(camY))
 
-					// Calculate depth ratio for visual shading (deeper rocks are darker)
-					depthRatio := float64(ty) / float64(gridH)
-					r := uint8(math.Max(12, 45-30*depthRatio))
-					g := uint8(math.Max(10, 40-30*depthRatio))
-					b := uint8(math.Max(18, 50-30*depthRatio))
-
-					rockColor := color.RGBA{r, g, b, 255}
-					strokeColor := color.RGBA{r + 12, g + 12, b + 12, 255}
+					var rockColor, strokeColor color.RGBA
+					if ty < 40 {
+						// Biome 1: Mid-Depth (Cyan/Teal) - Luminous Pneumatophore Grotto
+						// Shading is darker towards the bottom of the band
+						bandRatio := float64(ty) / 40.0
+						r := uint8(math.Max(8, 22-14*bandRatio))
+						g := uint8(math.Max(24, 64-40*bandRatio))
+						b := uint8(math.Max(32, 78-46*bandRatio))
+						rockColor = color.RGBA{r, g, b, 255}
+						strokeColor = color.RGBA{r + 20, g + 40, b + 48, 255}
+					} else if ty < 80 {
+						// Biome 2: Deep (Dark Grey/Orange) - Silicate Smoker Trenches
+						bandRatio := float64(ty-40) / 40.0
+						r := uint8(math.Max(25, 45-20*bandRatio))
+						g := uint8(math.Max(20, 32-12*bandRatio))
+						b := uint8(math.Max(18, 26-8*bandRatio))
+						rockColor = color.RGBA{r, g, b, 255}
+						// Heat-indicative orange stroke
+						strokeColor = color.RGBA{uint8(math.Max(80, 150-70*bandRatio)), 65, 40, 255}
+					} else {
+						// Biome 3: Abyssal (Vantablack/White) - Benthic Brine-Falls
+						rockColor = color.RGBA{5, 5, 8, 255}
+						// Stark white borders
+						strokeColor = color.RGBA{210, 210, 220, 255}
+					}
 
 					vector.DrawFilledRect(screen, sx, sy, TileSize, TileSize, rockColor, false)
 					vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, strokeColor, false)
@@ -308,9 +349,23 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 			sonarRadius = float32(g.SonarRadius)
 		}
 
+		var fDirX, fDirY float32
+		if g.FlashlightOn {
+			fDirX = float32(math.Cos(facingAngle))
+			fDirY = float32(math.Sin(facingAngle))
+			
+			// Flickering effect based on Electro-Weaver tracking intensity
+			if g.WeaverTrackingTimer > 0 {
+				flickerChance := (g.WeaverTrackingTimer / 300.0) * 0.20 // up to 20% flicker chance
+				if rand.Float64() < flickerChance {
+					fDirX, fDirY = 0, 0
+				}
+			}
+		}
+
 		op.Uniforms = map[string]interface{}{
 			"LightSource":    []float32{pX, pY},
-			"FlashlightDir":  []float32{float32(math.Cos(facingAngle)), float32(math.Sin(facingAngle))},
+			"FlashlightDir":  []float32{fDirX, fDirY},
 			"LightRadius":    float32(360.0),                     // Reach of flashlight
 			"ConeHalfAngle":  float32(math.Pi / 7.5),             // ~24 degree half-angle (48 degree beam)
 			"PersonalRadius": float32(65.0),                      // Direct glow around player
@@ -323,6 +378,18 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 
 	// --- Phase 4: Bioluminescent Highlights (drawn on top of the shader mask) ---
 	c.drawBioluminescence(screen, camX, camY)
+
+	// --- Phase 8: Render Biome Entities ---
+	for _, ent := range c.Entities {
+		ent.Draw(screen, g.camera, g.TimeOfDay)
+	}
+
+	// Draw popped bulb sound wave ripple circle
+	if g.SoundWaveTimer > 0 {
+		alpha := float32(g.SoundWaveTimer) / 60.0
+		clr := color.RGBA{245, 120, 20, uint8(200 * alpha)}
+		vector.StrokeCircle(screen, float32(g.SoundWaveX-g.camera.X), float32(g.SoundWaveY-g.camera.Y), float32(g.SoundWaveRadius), 2.0, clr, false)
+	}
 }
 
 // drawBioluminescence renders glowing flora and spores that remain visible in the pitch dark.

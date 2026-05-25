@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"image/color"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -22,10 +23,17 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 	p := g.player
 	activeVehicle := g.ActiveVehicle
 
+	var jx, jy float32
+	if g.currentState == StateCave && g.WeaverTrackingTimer > 0 {
+		mag := float32((g.WeaverTrackingTimer / 300.0) * 5.0)
+		jx = rand.Float32()*mag - mag/2.0
+		jy = rand.Float32()*mag - mag/2.0
+	}
+
 	// Environment Telemetry Panel (top-left)
+	telX := float32(20) + jx
+	telY := float32(20) + jy
 	const (
-		telX = 20
-		telY = 20
 		telW = 240
 		telH = 95
 	)
@@ -49,7 +57,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 	vector.DrawFilledCircle(screen, telX+15, telY+15, 4, pulseColor, false)
 
 	if g.currentState == StateOverworld {
-		ebitenutil.DebugPrintAt(screen, "SYSTEMS MONITOR", telX+26, telY+8)
+		ebitenutil.DebugPrintAt(screen, "SYSTEMS MONITOR", int(telX)+26, int(telY)+8)
 		
 		// Time calculation
 		totalMinutes := int(g.TimeOfDay / 14400.0 * 1440.0)
@@ -77,11 +85,11 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		posText := fmt.Sprintf("Pos: X:%.0f Y:%.0f", g.player.X, g.player.Y)
 		zoneText := "Zone: Surface Ocean"
 
-		ebitenutil.DebugPrintAt(screen, timeText, telX+15, telY+28)
-		ebitenutil.DebugPrintAt(screen, posText, telX+15, telY+48)
-		ebitenutil.DebugPrintAt(screen, zoneText, telX+15, telY+68)
+		ebitenutil.DebugPrintAt(screen, timeText, int(telX)+15, int(telY)+28)
+		ebitenutil.DebugPrintAt(screen, posText, int(telX)+15, int(telY)+48)
+		ebitenutil.DebugPrintAt(screen, zoneText, int(telX)+15, int(telY)+68)
 	} else if g.currentState == StateCave {
-		ebitenutil.DebugPrintAt(screen, "DIVE TELEMETRY", telX+26, telY+8)
+		ebitenutil.DebugPrintAt(screen, "DIVE TELEMETRY", int(telX)+26, int(telY)+8)
 
 		// Depth in meters (1 tile = 1 meter)
 		depth := (g.player.Y + g.player.Height/2.0) / TileSize
@@ -91,9 +99,9 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		pressText := fmt.Sprintf("Pressure: %.2f atm", pressure)
 		trenchText := fmt.Sprintf("Trench Origin: (%d, %d)", g.activeTrenchX, g.activeTrenchY)
 
-		ebitenutil.DebugPrintAt(screen, depthText, telX+15, telY+28)
-		ebitenutil.DebugPrintAt(screen, pressText, telX+15, telY+48)
-		ebitenutil.DebugPrintAt(screen, trenchText, telX+15, telY+68)
+		ebitenutil.DebugPrintAt(screen, depthText, int(telX)+15, int(telY)+28)
+		ebitenutil.DebugPrintAt(screen, pressText, int(telX)+15, int(telY)+48)
+		ebitenutil.DebugPrintAt(screen, trenchText, int(telX)+15, int(telY)+68)
 
 		// If exceeding depth limit
 		if g.ActiveVehicle != nil {
@@ -103,18 +111,18 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 				if depth > limit {
 					// Exceeding limit warning color (red/orange)
 					vector.DrawFilledRect(screen, telX+140, telY+25, 90, 18, color.RGBA{210, 55, 75, 200}, false)
-					ebitenutil.DebugPrintAt(screen, "CRITICAL!", telX+146, telY+27)
+					ebitenutil.DebugPrintAt(screen, "CRITICAL!", int(telX)+146, int(telY)+27)
 				} else {
-					ebitenutil.DebugPrintAt(screen, limitText, telX+140, telY+28)
+					ebitenutil.DebugPrintAt(screen, limitText, int(telX)+140, int(telY)+28)
 				}
 			}
 		}
 	}
 
 	// Panel dimensions and placement
+	hudX := float32(20) + jx
+	hudY := float32(ScreenHeight-140) + jy
 	const (
-		hudX = 20
-		hudY = ScreenHeight - 140
 		w    = 280
 		hBar = 18
 	)
@@ -148,13 +156,14 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		const (
 			vHudW = 240
 			vHudH = 90
-			vHudX = ScreenWidth - vHudW - 20
-			vHudY = ScreenHeight - vHudH - 20
 		)
+		vHudX := float32(ScreenWidth-vHudW-20) + jx
+		vHudY := float32(ScreenHeight-vHudH-20) + jy
+		
 		vector.DrawFilledRect(screen, vHudX, vHudY, vHudW, vHudH, color.RGBA{18, 24, 38, 200}, false)
 		vector.StrokeRect(screen, vHudX, vHudY, vHudW, vHudH, 1.5, color.RGBA{70, 90, 120, 255}, false)
 
-		ebitenutil.DebugPrintAt(screen, activeVehicle.GetName(), vHudX+15, vHudY+8)
+		ebitenutil.DebugPrintAt(screen, activeVehicle.GetName(), int(vHudX)+15, int(vHudY)+8)
 
 		// Draw Hull integrity bar
 		hullRatio := activeVehicle.GetHealth() / activeVehicle.GetMaxHealth()
@@ -163,6 +172,13 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		// Draw Battery bar
 		battRatio := activeVehicle.GetBattery() / activeVehicle.GetMaxBattery()
 		drawStatBar(screen, float32(vHudX+15), float32(vHudY+54), vHudW-30, 14, battRatio, color.RGBA{220, 180, 40, 255}, "BATT", activeVehicle.GetBattery(), activeVehicle.GetMaxBattery())
+	}
+
+	// Display warning banner at top center if tracked by Weaver
+	if g.currentState == StateCave && g.WeaverTrackingTimer > 0 {
+		vector.DrawFilledRect(screen, float32(ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, color.RGBA{24, 12, 10, 220}, false)
+		vector.StrokeRect(screen, float32(ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, 1.2, color.RGBA{230, 75, 45, 255}, false)
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[WARNING: ELECTRICAL STATIC DETECTED (%.0f%%)]", (g.WeaverTrackingTimer/300.0)*100.0), ScreenWidth/2-160+int(jx), 20+int(jy))
 	}
 }
 
