@@ -6,58 +6,78 @@ import (
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-// CaveState manages the side-view cave swimming controls, collision, and rendering.
-type CaveState struct {
-	Player    *Player
+// CaveScene manages the side-view cave swimming controls, collision, and rendering.
+type CaveScene struct {
 	CaveGrid  [][]bool
 	Nodes     []ResourceNode
-	Entities  []*CaveEntity
+	Entities  []CaveEntity
 	IsShallow bool
+
+	// Pre-allocated Draw parameters to prevent allocations in the hot path
+	shaderOpts    ebiten.DrawRectShaderOptions
+	uniforms      map[string]interface{}
+	lightSource   []float32
+	flashlightDir []float32
+	sonarSource   []float32
 }
 
-// NewCaveState creates a new CaveState instance.
-func NewCaveState(player *Player) *CaveState {
-	return &CaveState{
-		Player:   player,
-		Nodes:    []ResourceNode{},
-		Entities: []*CaveEntity{},
+// NewCaveScene creates a new CaveScene instance.
+func NewCaveScene() *CaveScene {
+	cs := &CaveScene{
+		Nodes:         []ResourceNode{},
+		Entities:      []CaveEntity{},
+		uniforms:      make(map[string]interface{}),
+		lightSource:   make([]float32, 2),
+		flashlightDir: make([]float32, 2),
+		sonarSource:   make([]float32, 2),
 	}
+	cs.shaderOpts.Uniforms = cs.uniforms
+	return cs
 }
+
+func (c *CaveScene) OnEnter(g *Game) {
+	g.currentState = StateCave
+}
+
+func (c *CaveScene) OnExit(g *Game) {}
 
 // Update handles player input, side-scroller swimming physics, and checks exit transitions.
-// Returns the next State, and true if a state transition occurred.
-func (c *CaveState) Update(g *Game) (State, bool) {
-	p := c.Player
+func (c *CaveScene) Update(g *Game) error {
+	p := g.player
 
-	// Exit cave back to Overworld if player swims past the surface (Y <= 0)
-	if p.Y < -8 {
-		return StateOverworld, true
+	// Exit cave back to Overworld if player swims past the surface (Y <= -8)
+	if p.Pos.Y < -8 {
+		g.ExitCave()
+		return nil
 	}
 
 	// --- Phase 5: Mining Strike Mechanic ---
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		mx, my := ebiten.CursorPosition()
-		camX := p.X - ScreenWidth/2 + p.Width/2
-		camY := p.Y - ScreenHeight/2 + p.Height/2
-		worldX := camX + float64(mx)
-		worldY := camY + float64(my)
+	if g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		cursor := g.Input.Cursor()
+		camX := p.Pos.X - ScreenWidth/2 + p.Width/2
+		camY := p.Pos.Y - ScreenHeight/2 + p.Height/2
+		worldX := camX + cursor.X
+		worldY := camY + cursor.Y
 
 		mtx := int(worldX) / TileSize
 		mty := int(worldY) / TileSize
 
 		// Find clicked Shatter-bulb
 		for _, ent := range c.Entities {
-			if ent.Type == EntShatterBulb && ent.Active {
-				if worldX >= ent.X && worldX < ent.X+ent.Width && worldY >= ent.Y && worldY < ent.Y+ent.Height {
-					px := p.X + p.Width/2
-					py := p.Y + p.Height/2
-					dist := math.Hypot(px-(ent.X+ent.Width/2), py-(ent.Y+ent.Height/2))
+			if ent.GetType() == EntShatterBulb && ent.IsActive() {
+				pos := ent.GetPos()
+				dims := ent.GetDimensions()
+				if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
+					px := p.Pos.X + p.Width/2
+					py := p.Pos.Y + p.Height/2
+					dist := math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2))
 					if dist <= 96.0 {
-						ent.Pop(g, c)
+						if bulb, ok := ent.(*ShatterBulb); ok {
+							bulb.Pop(g, c)
+						}
 						break
 					}
 				}
@@ -69,8 +89,8 @@ func (c *CaveState) Update(g *Game) (State, bool) {
 			node := &c.Nodes[i]
 			if node.Tx == mtx && node.Ty == mty && node.HitsToMine > 0 {
 				// Distance check (Reach limit of ~96 pixels = 1.5 tiles)
-				px := p.X + p.Width/2
-				py := p.Y + p.Height/2
+				px := p.Pos.X + p.Width/2
+				py := p.Pos.Y + p.Height/2
 				nx := float64(node.Tx*TileSize + TileSize/2)
 				ny := float64(node.Ty*TileSize + TileSize/2)
 				dist := math.Hypot(px-nx, py-ny)
@@ -95,9 +115,9 @@ func (c *CaveState) Update(g *Game) (State, bool) {
 	}
 
 	// Flashlight follows the mouse cursor - update player's facing angle
-	mx, my := ebiten.CursorPosition()
-	dx := float64(mx) - pCenterX(p)
-	dy := float64(my) - pCenterY(p)
+	cursor := g.Input.Cursor()
+	dx := cursor.X - pCenterX(p)
+	dy := cursor.Y - pCenterY(p)
 	p.Facing = math.Atan2(dy, dx)
 
 	// Movement physics settings
@@ -106,7 +126,7 @@ func (c *CaveState) Update(g *Game) (State, bool) {
 	const buoyancy = -0.04 // Upward force (drifts up slowly if not swimming down)
 	const drag = 0.92      // Drag resistance in water
 
-	isSprinting := ebiten.IsKeyPressed(ebiten.KeyShift)
+	isSprinting := g.Input.IsKeyPressed(ebiten.KeyShift)
 	if isSprinting && p.CurrentStamina > 0 {
 		swimForce = 0.28
 		maxSpeed = 5.5
@@ -127,70 +147,85 @@ func (c *CaveState) Update(g *Game) (State, bool) {
 	swimming := false
 
 	// Apply movement force based on inputs
-	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-		p.Vy -= swimForce
+	if g.Input.IsKeyPressed(ebiten.KeyW) || g.Input.IsKeyPressed(ebiten.KeyArrowUp) {
+		p.Vel.Y -= swimForce
 		swimming = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-		p.Vy += swimForce
+	if g.Input.IsKeyPressed(ebiten.KeyS) || g.Input.IsKeyPressed(ebiten.KeyArrowDown) {
+		p.Vel.Y += swimForce
 		swimming = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		p.Vx -= swimForce
+	if g.Input.IsKeyPressed(ebiten.KeyA) || g.Input.IsKeyPressed(ebiten.KeyArrowLeft) {
+		p.Vel.X -= swimForce
 		swimming = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		p.Vx += swimForce
+	if g.Input.IsKeyPressed(ebiten.KeyD) || g.Input.IsKeyPressed(ebiten.KeyArrowRight) {
+		p.Vel.X += swimForce
 		swimming = true
 	}
 
 	// Apply constant buoyancy
-	p.Vy += buoyancy
+	p.Vel.Y += buoyancy
 
 	// Apply water friction (drag)
-	p.Vx *= drag
-	p.Vy *= drag
+	p.Vel = p.Vel.Scale(drag)
 
 	// Speed clamp
-	speed := math.Sqrt(p.Vx*p.Vx + p.Vy*p.Vy)
+	speed := p.Vel.Length()
 	if speed > maxSpeed {
-		p.Vx = (p.Vx / speed) * maxSpeed
-		p.Vy = (p.Vy / speed) * maxSpeed
+		p.Vel = p.Vel.Scale(maxSpeed / speed)
 	}
 
 	// AABB Collision check and position updates
-	c.checkCollisions()
+	c.checkCollisions(p)
 
 	// Update stats (is in cave, checks sprinting if keys are pressed and player is moving)
 	isMoving := speed > 0.1
 	p.UpdateStats(true, isSprinting && isMoving && swimming)
 
-	return StateCave, false
+	// Reset electrical tracking timer; active Electro-Weavers will update it
+	g.WeaverTrackingTimer = 0.0
+
+	// Update cave entities
+	for _, ent := range c.Entities {
+		ent.Update(g, c)
+	}
+
+	// Clean up deactivated entities
+	activeCount := 0
+	for _, ent := range c.Entities {
+		if ent.IsActive() {
+			c.Entities[activeCount] = ent
+			activeCount++
+		}
+	}
+	c.Entities = c.Entities[:activeCount]
+	g.caveEntities[g.activeTrenchKey] = c.Entities
+
+	return nil
 }
 
 // checkCollisions resolves AABB collision with cave walls in X and Y directions.
-func (c *CaveState) checkCollisions() {
-	p := c.Player
-
+func (c *CaveScene) checkCollisions(p *Player) {
 	// X Axis collision
-	newX := p.X + p.Vx
-	if c.isSolid(newX, p.Y, p.Width, p.Height) {
-		p.Vx = 0
+	newX := p.Pos.X + p.Vel.X
+	if c.isSolid(newX, p.Pos.Y, p.Width, p.Height) {
+		p.Vel.X = 0
 	} else {
-		p.X = newX
+		p.Pos.X = newX
 	}
 
 	// Y Axis collision
-	newY := p.Y + p.Vy
-	if c.isSolid(p.X, newY, p.Width, p.Height) {
-		p.Vy = 0
+	newY := p.Pos.Y + p.Vel.Y
+	if c.isSolid(p.Pos.X, newY, p.Width, p.Height) {
+		p.Vel.Y = 0
 	} else {
-		p.Y = newY
+		p.Pos.Y = newY
 	}
 }
 
 // isSolid checks if the proposed bounding box overlaps with solid cave tiles.
-func (c *CaveState) isSolid(x, y, w, h float64) bool {
+func (c *CaveScene) isSolid(x, y, w, h float64) bool {
 	if c.CaveGrid == nil {
 		return false
 	}
@@ -225,10 +260,10 @@ func (c *CaveState) isSolid(x, y, w, h float64) bool {
 }
 
 // Draw renders the cave scene, solid tiles, and player assets.
-func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
+func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 	// Camera offset from camera controller
-	camX := camera.X
-	camY := camera.Y
+	camX := g.camera.Pos.X
+	camY := g.camera.Pos.Y
 
 	// Render ocean sky color if camera rises above the cave mouth (Y < 0)
 	if camY < 0 {
@@ -236,7 +271,7 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 		if !c.IsShallow {
 			skyColor = color.RGBA{14, 52, 115, 255} // Darker deep water for deep caves
 		}
-		vector.DrawFilledRect(screen, 0, 0, ScreenWidth, float32(-camY), skyColor, false)
+		vector.FillRect(screen, 0, 0, ScreenWidth, float32(-camY), skyColor, false)
 	}
 
 	// Cave ambient backdrop color
@@ -287,14 +322,12 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 					sy := float32(ty*TileSize - int(camY))
 
 					var rockColor, strokeColor color.RGBA
-					// TODO: make each of these bioms more generic and configurable. I want to be able to adjust the bioms, dynamically, and add new ones. same as biome_entity.go.
 					if c.IsShallow {
 						// Sandy reef rock
 						rockColor = color.RGBA{180, 155, 100, 255}
 						strokeColor = color.RGBA{210, 185, 120, 255}
 					} else if ty < 40 {
 						// Biome 1: Mid-Depth (Cyan/Teal) - Luminous Pneumatophore Grotto
-						// Shading is darker towards the bottom of the band
 						bandRatio := float64(ty) / 40.0
 						r := uint8(math.Max(8, 22-14*bandRatio))
 						g := uint8(math.Max(24, 64-40*bandRatio))
@@ -308,16 +341,14 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 						g := uint8(math.Max(20, 32-12*bandRatio))
 						b := uint8(math.Max(18, 26-8*bandRatio))
 						rockColor = color.RGBA{r, g, b, 255}
-						// Heat-indicative orange stroke
 						strokeColor = color.RGBA{uint8(math.Max(80, 150-70*bandRatio)), 65, 40, 255}
 					} else {
 						// Biome 3: Abyssal (Vantablack/White) - Benthic Brine-Falls
 						rockColor = color.RGBA{5, 5, 8, 255}
-						// Stark white borders
 						strokeColor = color.RGBA{210, 210, 220, 255}
 					}
 
-					vector.DrawFilledRect(screen, sx, sy, TileSize, TileSize, rockColor, false)
+					vector.FillRect(screen, sx, sy, TileSize, TileSize, rockColor, false)
 					vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, strokeColor, false)
 				}
 			}
@@ -332,9 +363,9 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 	isPiloting := g.ActiveVehicle != nil
 
 	// Draw player character centered on screen (only if not piloting a vehicle)
-	pX := float32(pCenterX(c.Player))
-	pY := float32(pCenterY(c.Player))
-	facingAngle := c.Player.Facing
+	pX := float32(pCenterX(g.player))
+	pY := float32(pCenterY(g.player))
+	facingAngle := g.player.Facing
 
 	if isPiloting {
 		facingAngle = g.ActiveVehicle.GetFacing()
@@ -346,28 +377,26 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 		tx := pX + float32(math.Cos(tankAngle))*8
 		ty := pY + float32(math.Sin(tankAngle))*8
 		tankColor := color.RGBA{240, 220, 50, 255}
-		vector.DrawFilledCircle(screen, tx, ty, 6, tankColor, false)
+		vector.FillCircle(screen, tx, ty, 6, tankColor, false)
 
 		// Draw the player body
 		playerBodyColor := color.RGBA{220, 95, 45, 255}
-		vector.DrawFilledCircle(screen, pX, pY, 9, playerBodyColor, false)
+		vector.FillCircle(screen, pX, pY, 9, playerBodyColor, false)
 
 		// Draw helmet glass visor pointing in the Facing direction
 		vx := pX + float32(math.Cos(facingAngle))*6
 		vy := pY + float32(math.Sin(facingAngle))*6
 		visorColor := color.RGBA{80, 200, 255, 200}
-		vector.DrawFilledCircle(screen, vx, vy, 5, visorColor, false)
+		vector.FillCircle(screen, vx, vy, 5, visorColor, false)
 	}
 
 	// --- Phase 4: Dynamic Lighting Shader Mask ---
 	if LightShader != nil && !c.IsShallow {
-		op := &ebiten.DrawRectShaderOptions{}
-
 		var sonarSourceX, sonarSourceY float32
 		var sonarRadius float32
 		if g.SonarTimer > 0 {
-			sonarSourceX = float32(g.SonarSourceX - g.camera.X)
-			sonarSourceY = float32(g.SonarSourceY - g.camera.Y)
+			sonarSourceX = float32(g.SonarSourceX - g.camera.Pos.X)
+			sonarSourceY = float32(g.SonarSourceY - g.camera.Pos.Y)
 			sonarRadius = float32(g.SonarRadius)
 		}
 
@@ -385,17 +414,21 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 			}
 		}
 
-		op.Uniforms = map[string]interface{}{
-			"LightSource":    []float32{pX, pY},
-			"FlashlightDir":  []float32{fDirX, fDirY},
-			"LightRadius":    float32(360.0),         // Reach of flashlight
-			"ConeHalfAngle":  float32(math.Pi / 7.5), // ~24 degree half-angle (48 degree beam)
-			"PersonalRadius": float32(65.0),          // Direct glow around player
-			"AmbientColor":   c.getAmbientColor(),
-			"SonarSource":    []float32{sonarSourceX, sonarSourceY},
-			"SonarRadius":    sonarRadius,
-		}
-		screen.DrawRectShader(ScreenWidth, ScreenHeight, LightShader, op)
+		// Update pre-allocated uniforms and arrays to avoid heap allocation
+		c.lightSource[0], c.lightSource[1] = pX, pY
+		c.flashlightDir[0], c.flashlightDir[1] = fDirX, fDirY
+		c.sonarSource[0], c.sonarSource[1] = sonarSourceX, sonarSourceY
+
+		c.uniforms["LightSource"] = c.lightSource
+		c.uniforms["FlashlightDir"] = c.flashlightDir
+		c.uniforms["LightRadius"] = float32(360.0)
+		c.uniforms["ConeHalfAngle"] = float32(math.Pi / 7.5)
+		c.uniforms["PersonalRadius"] = float32(65.0)
+		c.uniforms["AmbientColor"] = c.getAmbientColor()
+		c.uniforms["SonarSource"] = c.sonarSource
+		c.uniforms["SonarRadius"] = sonarRadius
+
+		screen.DrawRectShader(ScreenWidth, ScreenHeight, LightShader, &c.shaderOpts)
 	}
 
 	// --- Phase 4: Bioluminescent Highlights (drawn on top of the shader mask) ---
@@ -412,12 +445,12 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 	if g.SoundWaveTimer > 0 {
 		alpha := float32(g.SoundWaveTimer) / 60.0
 		clr := color.RGBA{245, 120, 20, uint8(200 * alpha)}
-		vector.StrokeCircle(screen, float32(g.SoundWaveX-g.camera.X), float32(g.SoundWaveY-g.camera.Y), float32(g.SoundWaveRadius), 2.0, clr, false)
+		vector.StrokeCircle(screen, float32(g.SoundWaveX-g.camera.Pos.X), float32(g.SoundWaveY-g.camera.Pos.Y), float32(g.SoundWaveRadius), 2.0, clr, false)
 	}
 }
 
 // drawBioluminescence renders glowing flora and spores that remain visible in the pitch dark.
-func (c *CaveState) drawBioluminescence(screen *ebiten.Image, camX, camY float64) {
+func (c *CaveScene) drawBioluminescence(screen *ebiten.Image, camX, camY float64) {
 	if c.CaveGrid == nil {
 		return
 	}
@@ -445,13 +478,11 @@ func (c *CaveState) drawBioluminescence(screen *ebiten.Image, camX, camY float64
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
 			if c.CaveGrid[tx][ty] {
-				// Deterministic pseudo-random pattern for placing glowing spores
 				hash := (tx*31 + ty*17) % 17
 				if hash == 0 {
 					sx := float32(tx*TileSize-int(camX)) + float32(TileSize)/2.0
 					sy := float32(ty*TileSize-int(camY)) + float32(TileSize)/2.0
 
-					// Alternate colors for variety
 					var glowColor color.RGBA
 					if (tx+ty)%2 == 0 {
 						glowColor = color.RGBA{0, 245, 210, 255} // Bioluminescent cyan
@@ -460,16 +491,16 @@ func (c *CaveState) drawBioluminescence(screen *ebiten.Image, camX, camY float64
 					}
 
 					// Draw soft outer light emission
-					vector.DrawFilledCircle(screen, sx, sy, 5.0, color.RGBA{glowColor.R, glowColor.G, glowColor.B, 70}, false)
+					vector.FillCircle(screen, sx, sy, 5.0, color.RGBA{glowColor.R, glowColor.G, glowColor.B, 70}, false)
 					// Draw hot white central core
-					vector.DrawFilledCircle(screen, sx, sy, 1.5, color.RGBA{255, 255, 255, 255}, false)
+					vector.FillCircle(screen, sx, sy, 1.5, color.RGBA{255, 255, 255, 255}, false)
 				}
 			}
 		}
 	}
 }
 
-func (c *CaveState) getAmbientColor() []float32 {
+func (c *CaveScene) getAmbientColor() []float32 {
 	if LightCaveForDebug {
 		return []float32{0.02, 0.02, 0.03, 0.15} // Light translucency for debugging (85% visibility)
 	}

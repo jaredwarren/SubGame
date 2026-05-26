@@ -73,7 +73,7 @@ func (n *ResourceNode) Draw(screen *ebiten.Image, camX, camY float64) {
 	sy := float32(n.Ty*TileSize - int(camY))
 
 	// Base backing block color
-	vector.DrawFilledRect(screen, sx, sy, TileSize, TileSize, color.RGBA{25, 22, 30, 255}, false)
+	vector.FillRect(screen, sx, sy, TileSize, TileSize, color.RGBA{25, 22, 30, 255}, false)
 	vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, color.RGBA{45, 40, 52, 255}, false)
 
 	// Mineral color settings
@@ -104,12 +104,12 @@ func (n *ResourceNode) Draw(screen *ebiten.Image, camX, camY float64) {
 	}
 
 	// Draw raw minerals as overlapping angled rectangles (crystal facets)
-	vector.DrawFilledRect(screen, cx-size/2.0, cy-size/2.0, size, size, mineralColor, false)
+	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, mineralColor, false)
 	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.0, coreColor, false)
 
 	// Additional crystal shard for quartz/abyssal to feel premium
 	if n.Type == ResourceQuartz || n.Type == ResourceAbyssalOre {
-		vector.DrawFilledRect(screen, cx-size/3.0, cy-size/1.2, size/1.5, size/1.5, coreColor, false)
+		vector.FillRect(screen, cx-size/3.0, cy-size/1.2, size/1.5, size/1.5, coreColor, false)
 	}
 }
 

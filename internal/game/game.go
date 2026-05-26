@@ -8,26 +8,31 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 // Game implements the ebiten.Game interface and coordinates scenes.
 type Game struct {
-	currentState   State
-	player         *Player
-	overworldState *OverworldState
-	caveState      *CaveState
-	hud            *HUD
-	world          *world.World
-	camera         *Camera
+	currentState    State // Enum tracking for compatibility
+	currentScene    Scene
+	nextScene       Scene
+	overworldState  *OverworldScene
+	caveState       *CaveScene
+	baseMenu        *BaseMenuScene
+	gameOverState   *GameOverScene
+	player          *Player
+	hud             *HUD
+	world           *world.World
+	camera          *Camera
+	Input           InputSource
 
 	// Surface return position
 	lastOverworldX float64
 	lastOverworldY float64
 	activeTrenchX  int
 	activeTrenchY  int
+	activeTrenchKey string
 	justExited     bool
 
 	// Phase 5: Resource nodes and inventory state
@@ -36,7 +41,6 @@ type Game struct {
 
 	// Phase 6: Base station and menu
 	baseStation *BaseStation
-	baseMenu    *BaseMenu
 
 	// Phase 7: Vehicle state tracking
 	ActiveVehicle     Vehicle
@@ -51,7 +55,7 @@ type Game struct {
 	MineWarningTimer  int
 
 	// Phase 8: Biomes & Predator AI
-	caveEntities        map[string][]*CaveEntity
+	caveEntities        map[string][]CaveEntity
 	FlashlightOn        bool
 	WeaverTrackingTimer float64
 	SoundWaveTimer      int
@@ -94,31 +98,107 @@ func NewGame() *Game {
 	skiff := NewSkiff(spawnX, spawnY)
 	overworldVehicles := []Vehicle{skiff}
 
-	return &Game{
+	g := &Game{
 		currentState:      StateOverworld,
 		player:            p,
-		overworldState:    NewOverworldState(p, w),
-		caveState:         NewCaveState(p),
 		hud:               NewHUD(),
 		world:             w,
 		camera:            cam,
+		Input:             NewEbitenInput(),
 		caveNodes:         make(map[string][]ResourceNode),
 		showInventory:     false,
 		baseStation:       baseStation,
-		baseMenu:          NewBaseMenu(),
 		ActiveVehicle:     skiff,
 		OverworldVehicles: overworldVehicles,
 		CaveVehicles:      make(map[string][]Vehicle),
 		TimeOfDay:         0.0,
-		caveEntities:      make(map[string][]*CaveEntity),
+		caveEntities:      make(map[string][]CaveEntity),
 		FlashlightOn:      true,
 	}
+
+	// Initialize scenes
+	g.overworldState = NewOverworldScene(w)
+	g.caveState = NewCaveScene()
+	g.baseMenu = NewBaseMenuScene()
+	g.gameOverState = NewGameOverScene()
+
+	// Set initial scene
+	g.TransitionTo(g.overworldState)
+
+	return g
+}
+
+// TransitionTo switches the active scene cleanly, executing teardown and initialization hooks.
+func (g *Game) TransitionTo(next Scene) {
+	if g.currentScene != nil {
+		g.currentScene.OnExit(g)
+	}
+	g.currentScene = next
+	if next != nil {
+		next.OnEnter(g)
+	}
+}
+
+// EnterCave handles the transition from Overworld to Cave at trench coordinate tx, ty.
+func (g *Game) EnterCave(tx, ty int) {
+	g.lastOverworldX = g.player.Pos.X
+	g.lastOverworldY = g.player.Pos.Y
+	g.activeTrenchX = tx
+	g.activeTrenchY = ty
+	g.activeTrenchKey = fmt.Sprintf("%d_%d", tx, ty)
+
+	g.caveState.CaveGrid = g.world.GetCave(tx, ty)
+	g.caveState.IsShallow = g.world.OverworldMap[tx][ty] != world.TileTrench
+
+	if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
+		g.caveNodes[g.activeTrenchKey] = GenerateResourceNodes(g.caveState.CaveGrid, int64(tx*97+ty*41))
+	}
+	g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
+
+	if _, exists := g.caveEntities[g.activeTrenchKey]; !exists {
+		g.caveEntities[g.activeTrenchKey] = GenerateCaveEntities(g.caveState.CaveGrid, int64(tx*97+ty*41), g.caveState.IsShallow)
+	}
+	g.caveState.Entities = g.caveEntities[g.activeTrenchKey]
+
+	g.player.Pos.X = float64(len(g.caveState.CaveGrid)/2*TileSize) + (TileSize-g.player.Width)/2
+	g.player.Pos.Y = TileSize * 2
+	g.player.Vel = Vec2{}
+
+	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+	g.TransitionTo(g.caveState)
+}
+
+// ExitCave handles the transition from Cave to Overworld.
+func (g *Game) ExitCave() {
+	g.player.Pos.X = g.lastOverworldX
+	g.player.Pos.Y = g.lastOverworldY - TileSize*0.6
+	g.player.Vel = Vec2{X: 0, Y: -1.5}
+
+	g.caveNodes[g.activeTrenchKey] = g.caveState.Nodes
+	g.caveEntities[g.activeTrenchKey] = g.caveState.Entities
+
+	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+	g.TransitionTo(g.overworldState)
+}
+
+// Respawn resets the game completely on death.
+func (g *Game) Respawn() {
+	*g = *NewGame()
 }
 
 // Update updates the game logical state.
 func (g *Game) Update() error {
+	// Update user input polling cache
+	g.Input.Update()
+
 	g.justExited = false
 	g.playerSlowed = false
+
+	// Check for queued scene changes
+	if g.nextScene != nil {
+		g.TransitionTo(g.nextScene)
+		g.nextScene = nil
+	}
 
 	// Increment day/night cycle timeOfDay (reset after 4 minutes)
 	g.TimeOfDay += 1.0
@@ -144,94 +224,84 @@ func (g *Game) Update() error {
 	}
 
 	// Toggle flashlight keybind (T)
-	if inpututil.IsKeyJustPressed(ebiten.KeyT) {
+	if g.Input.IsKeyJustPressed(ebiten.KeyT) {
 		g.FlashlightOn = !g.FlashlightOn
 	}
 
 	// Toggle inventory overlay
-	if inpututil.IsKeyJustPressed(ebiten.KeyTab) && (g.currentState == StateOverworld || g.currentState == StateCave) {
+	if g.Input.IsKeyJustPressed(ebiten.KeyTab) && (g.currentState == StateOverworld || g.currentState == StateCave) {
 		g.showInventory = !g.showInventory
 	}
 
 	// Debug overrides to switch states manually (forces ejecting vehicle to prevent coordinate glitches)
-	if inpututil.IsKeyJustPressed(ebiten.KeyO) {
+	if g.Input.IsKeyJustPressed(ebiten.KeyO) {
 		g.ActiveVehicle = nil
-		g.currentState = StateOverworld
 		g.showInventory = false
-		g.camera.CenterOn(g.player.X, g.player.Y, g.player.Width, g.player.Height)
-	} else if inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+		g.TransitionTo(g.overworldState)
+	} else if g.Input.IsKeyJustPressed(ebiten.KeyC) {
 		g.ActiveVehicle = nil
-		// Load default central cave for testing
 		g.activeTrenchX = 50
 		g.activeTrenchY = 50
+		g.activeTrenchKey = "50_50"
 		g.caveState.CaveGrid = g.world.GetCave(50, 50)
-		g.player.X = float64(len(g.caveState.CaveGrid) / 2 * TileSize)
-		g.player.Y = TileSize * 2
+		g.player.Pos.X = float64(len(g.caveState.CaveGrid) / 2 * TileSize)
+		g.player.Pos.Y = TileSize * 2
 
-		// Load nodes for debug cave
-		key := "50_50"
-		if _, exists := g.caveNodes[key]; !exists {
-			g.caveNodes[key] = GenerateResourceNodes(g.caveState.CaveGrid, 50*97+50*41)
+		if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
+			g.caveNodes[g.activeTrenchKey] = GenerateResourceNodes(g.caveState.CaveGrid, 50*97+50*41)
 		}
-		g.caveState.Nodes = g.caveNodes[key]
+		g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
 
 		isShallow := g.world.OverworldMap[50][50] != world.TileTrench
 		g.caveState.IsShallow = isShallow
 
-		if _, exists := g.caveEntities[key]; !exists {
-			g.caveEntities[key] = GenerateCaveEntities(g.caveState.CaveGrid, 50*97+50*41, isShallow)
+		if _, exists := g.caveEntities[g.activeTrenchKey]; !exists {
+			g.caveEntities[g.activeTrenchKey] = GenerateCaveEntities(g.caveState.CaveGrid, 50*97+50*41, isShallow)
 		}
-		g.caveState.Entities = g.caveEntities[key]
+		g.caveState.Entities = g.caveEntities[g.activeTrenchKey]
 
 		g.showInventory = false
-		g.camera.CenterOn(g.player.X, g.player.Y, g.player.Width, g.player.Height)
-		g.currentState = StateCave
-	} else if inpututil.IsKeyJustPressed(ebiten.KeyM) {
-		g.currentState = StateBaseMenu
-	} else if inpututil.IsKeyJustPressed(ebiten.KeyG) {
-		g.currentState = StateGameOver
+		g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+		g.TransitionTo(g.caveState)
+	} else if g.Input.IsKeyJustPressed(ebiten.KeyM) {
+		g.TransitionTo(g.baseMenu)
+	} else if g.Input.IsKeyJustPressed(ebiten.KeyG) {
+		g.TransitionTo(g.gameOverState)
 	}
 
 	// Debug shortcuts for testing vehicles and resources
 	if g.currentState == StateOverworld || g.currentState == StateCave {
-		if inpututil.IsKeyJustPressed(ebiten.Key1) {
-			// Spawn Scout Sub at player location and pilot it
-			sub := NewScoutSub(g.player.X, g.player.Y)
+		if g.Input.IsKeyJustPressed(ebiten.Key1) {
+			sub := NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
 			if g.currentState == StateOverworld {
 				g.OverworldVehicles = append(g.OverworldVehicles, sub)
 			} else {
-				key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
-				g.CaveVehicles[key] = append(g.CaveVehicles[key], sub)
+				g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
 			}
 			g.ActiveVehicle = sub
-		} else if inpututil.IsKeyJustPressed(ebiten.Key2) {
-			// Spawn Heavy Mech at player location and pilot it
-			mech := NewHeavyMech(g.player.X, g.player.Y)
+		} else if g.Input.IsKeyJustPressed(ebiten.Key2) {
+			mech := NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
 			if g.currentState == StateOverworld {
 				g.OverworldVehicles = append(g.OverworldVehicles, mech)
 			} else {
-				key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
-				g.CaveVehicles[key] = append(g.CaveVehicles[key], mech)
+				g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
 			}
 			g.ActiveVehicle = mech
-		} else if inpututil.IsKeyJustPressed(ebiten.Key3) {
-			// Spawn Skiff at player location and pilot it
-			skiff := NewSkiff(g.player.X, g.player.Y)
+		} else if g.Input.IsKeyJustPressed(ebiten.Key3) {
+			skiff := NewSkiff(g.player.Pos.X, g.player.Pos.Y)
 			if g.currentState == StateOverworld {
 				g.OverworldVehicles = append(g.OverworldVehicles, skiff)
 			} else {
-				key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
-				g.CaveVehicles[key] = append(g.CaveVehicles[key], skiff)
+				g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], skiff)
 			}
 			g.ActiveVehicle = skiff
-		} else if inpututil.IsKeyJustPressed(ebiten.Key4) {
-			// Add 10x Titanium, Copper, Quartz, Abyssal Ore to player inventory
+		} else if g.Input.IsKeyJustPressed(ebiten.Key4) {
 			g.player.Inventory.AddItem(ItemTitanium, 10)
 			g.player.Inventory.AddItem(ItemCopper, 10)
 			g.player.Inventory.AddItem(ItemQuartz, 10)
 			g.player.Inventory.AddItem(ItemAbyssalOre, 10)
-		} else if inpututil.IsKeyJustPressed(ebiten.Key5) {
-			// Heal player and restore stats
+		} else if g.Input.IsKeyJustPressed(ebiten.Key5) {
 			g.player.CurrentHealth = g.player.MaxHealth
 			g.player.CurrentOxygen = g.player.MaxOxygen
 			g.player.CurrentStamina = g.player.MaxStamina
@@ -248,9 +318,9 @@ func (g *Game) Update() error {
 	// ---------------------------------------------------------
 	if g.showInventory {
 		if g.ActiveVehicle != nil {
-			// Click checks to transfer cargo between player inventory and vehicle
-			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-				mx, my := ebiten.CursorPosition()
+			if g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				cursor := g.Input.Cursor()
+				mx, my := int(cursor.X), int(cursor.Y)
 				panelX := float64(ScreenWidth-960) / 2.0
 				panelY := float64(ScreenHeight-360) / 2.0
 
@@ -314,8 +384,9 @@ func (g *Game) Update() error {
 			}
 		} else {
 			// Single Player Inventory click deployments (Only inside Caves on foot)
-			if g.currentState == StateCave && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-				mx, my := ebiten.CursorPosition()
+			if g.currentState == StateCave && g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				cursor := g.Input.Cursor()
+				mx, my := int(cursor.X), int(cursor.Y)
 				panelX := float64(ScreenWidth-600) / 2.0
 				panelY := float64(ScreenHeight-340) / 2.0
 				cols := 8
@@ -333,16 +404,15 @@ func (g *Game) Update() error {
 						if mx >= sx && mx < sx+int(slotSz) && my >= sy && my < sy+int(slotSz) {
 							if idx < len(g.player.Inventory.Slots) {
 								item := &g.player.Inventory.Slots[idx]
-								key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
 
 								if item.Type == ItemScoutSub {
-									sub := NewScoutSub(g.player.X, g.player.Y)
-									g.CaveVehicles[key] = append(g.CaveVehicles[key], sub)
+									sub := NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
+									g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
 									g.player.Inventory.RemoveItem(ItemScoutSub, 1)
 									g.showInventory = false
 								} else if item.Type == ItemHeavyMech {
-									mech := NewHeavyMech(g.player.X, g.player.Y)
-									g.CaveVehicles[key] = append(g.CaveVehicles[key], mech)
+									mech := NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
+									g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
 									g.player.Inventory.RemoveItem(ItemHeavyMech, 1)
 									g.showInventory = false
 								}
@@ -360,9 +430,9 @@ func (g *Game) Update() error {
 	// ---------------------------------------------------------
 	if g.currentState == StateCave && g.ActiveVehicle != nil {
 		limit := g.ActiveVehicle.GetDepthLimit()
-		_, vy := g.ActiveVehicle.GetPos()
-		_, vh := g.ActiveVehicle.GetDimensions()
-		depth := (vy + vh/2.0) / TileSize
+		vPos := g.ActiveVehicle.GetPos()
+		vDims := g.ActiveVehicle.GetDimensions()
+		depth := (vPos.Y + vDims.Y/2.0) / TileSize
 
 		if limit > 0.0 && depth > limit {
 			g.ActiveVehicle.TakeDamage(0.08) // Apply crush damage over time
@@ -378,11 +448,10 @@ func (g *Game) Update() error {
 			g.MineWarningTimer = 180
 
 			// Remove vehicle from list
-			key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
-			list := g.CaveVehicles[key]
+			list := g.CaveVehicles[g.activeTrenchKey]
 			for idx, v := range list {
 				if v == g.ActiveVehicle {
-					g.CaveVehicles[key] = append(list[:idx], list[idx+1:]...)
+					g.CaveVehicles[g.activeTrenchKey] = append(list[:idx], list[idx+1:]...)
 					break
 				}
 			}
@@ -397,12 +466,11 @@ func (g *Game) Update() error {
 		g.ActiveVehicle.Update(g)
 
 		// Sync player location inside active vehicle
-		vx, vy := g.ActiveVehicle.GetPos()
-		vw, vh := g.ActiveVehicle.GetDimensions()
-		g.player.X = vx + (vw-g.player.Width)/2.0
-		g.player.Y = vy + (vh-g.player.Height)/2.0
-		g.player.Vx = 0
-		g.player.Vy = 0
+		vPos := g.ActiveVehicle.GetPos()
+		vDims := g.ActiveVehicle.GetDimensions()
+		g.player.Pos.X = vPos.X + (vDims.X-g.player.Width)/2.0
+		g.player.Pos.Y = vPos.Y + (vDims.Y-g.player.Height)/2.0
+		g.player.Vel = Vec2{}
 
 		// Vehicle cockpit replenishes/locks pilot oxygen
 		if g.ActiveVehicle.GetOxygen() > 0.0 {
@@ -410,219 +478,67 @@ func (g *Game) Update() error {
 		}
 
 		// Exit vehicle keybind (F)
-		if inpututil.IsKeyJustPressed(ebiten.KeyF) {
-			safeX, safeY := vx, vy
+		if g.Input.IsKeyJustPressed(ebiten.KeyF) {
+			safeX, safeY := vPos.X, vPos.Y
 			if g.currentState == StateCave {
-				// Eject safely next to vehicle check
-				if !g.caveState.isSolid(vx-32, vy, g.player.Width, g.player.Height) {
-					safeX = vx - 32
-				} else if !g.caveState.isSolid(vx+vw+12, vy, g.player.Width, g.player.Height) {
-					safeX = vx + vw + 12
-				} else if !g.caveState.isSolid(vx, vy-32, g.player.Width, g.player.Height) {
-					safeY = vy - 32
+				if !g.caveState.isSolid(vPos.X-32, vPos.Y, g.player.Width, g.player.Height) {
+					safeX = vPos.X - 32
+				} else if !g.caveState.isSolid(vPos.X+vDims.X+12, vPos.Y, g.player.Width, g.player.Height) {
+					safeX = vPos.X + vDims.X + 12
+				} else if !g.caveState.isSolid(vPos.X, vPos.Y-32, g.player.Width, g.player.Height) {
+					safeY = vPos.Y - 32
 				}
-				g.player.X = safeX
-				g.player.Y = safeY
+				g.player.Pos.X = safeX
+				g.player.Pos.Y = safeY
 			} else {
-				g.player.X = vx - 24
+				g.player.Pos.X = vPos.X - 24
 			}
 			g.ActiveVehicle = nil
 			g.justExited = true
 		}
 	}
 
-	// Update active scene
-	switch g.currentState {
-	case StateOverworld:
-		// Base solar charge updates for overworld vehicles
+	// Delegate active scene logic
+	if err := g.currentScene.Update(g); err != nil {
+		return err
+	}
+
+	// Solar power trickles for overworld vehicles if on foot
+	if g.currentState == StateOverworld {
 		for _, v := range g.OverworldVehicles {
 			if v != g.ActiveVehicle {
 				v.Update(g)
 			}
 		}
-
-		// Base terminal access check (only if on foot, or in Skiff next to it)
-		if g.baseStation.DistanceToPlayer(g.player) < 80.0 && inpututil.IsKeyJustPressed(ebiten.KeyE) {
-			g.currentState = StateBaseMenu
-			g.showInventory = false
-			return nil
-		}
-
-		// Proximity checks for entering overworld vehicles
-		if g.ActiveVehicle == nil && !g.justExited {
-			for _, v := range g.OverworldVehicles {
-				vx, vy := v.GetPos()
-				vw, vh := v.GetDimensions()
-				dist := math.Hypot(vx+vw/2.0-g.player.X-g.player.Width/2.0, vy+vh/2.0-g.player.Y-g.player.Height/2.0)
-				if dist < 60.0 {
-					if inpututil.IsKeyJustPressed(ebiten.KeyF) {
-						g.ActiveVehicle = v
-						break
-					}
-				}
-			}
-		}
-
-		// Swim on foot update
-		if g.ActiveVehicle == nil {
-			nextState, transited := g.overworldState.Update()
-			if transited && nextState == StateCave {
-				tx := int(g.player.X+g.player.Width/2) / TileSize
-				ty := int(g.player.Y+g.player.Height/2) / TileSize
-
-				g.lastOverworldX = g.player.X
-				g.lastOverworldY = g.player.Y
-				g.activeTrenchX = tx
-				g.activeTrenchY = ty
-
-				g.caveState.CaveGrid = g.world.GetCave(tx, ty)
-
-				key := fmt.Sprintf("%d_%d", tx, ty)
-				if _, exists := g.caveNodes[key]; !exists {
-					g.caveNodes[key] = GenerateResourceNodes(g.caveState.CaveGrid, int64(tx*97+ty*41))
-				}
-				g.caveState.Nodes = g.caveNodes[key]
-
-				isShallow := g.world.OverworldMap[tx][ty] != world.TileTrench
-				g.caveState.IsShallow = isShallow
-
-				if _, exists := g.caveEntities[key]; !exists {
-					g.caveEntities[key] = GenerateCaveEntities(g.caveState.CaveGrid, int64(tx*97+ty*41), isShallow)
-				}
-				g.caveState.Entities = g.caveEntities[key]
-
-				g.player.X = float64(len(g.caveState.CaveGrid)/2*TileSize) + (TileSize-g.player.Width)/2
-				g.player.Y = TileSize * 2
-				g.player.Vx = 0
-				g.player.Vy = 0
-
-				g.camera.CenterOn(g.player.X, g.player.Y, g.player.Width, g.player.Height)
-				g.currentState = StateCave
-			}
-		}
-
-	case StateCave:
-		key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
-
+	} else if g.currentState == StateCave {
 		// Update other cave vehicles left in this cavern
-		for _, v := range g.CaveVehicles[key] {
+		for _, v := range g.CaveVehicles[g.activeTrenchKey] {
 			if v != g.ActiveVehicle {
 				v.Update(g)
 			}
-		}
-
-		// Reset electrical tracking timer; active Electro-Weavers will update it
-		g.WeaverTrackingTimer = 0.0
-
-		// Update cave entities
-		for _, ent := range g.caveState.Entities {
-			ent.Update(g, g.caveState)
-		}
-
-		// Clean up deactivated entities
-		var activeEnts []*CaveEntity
-		for _, ent := range g.caveState.Entities {
-			if ent.Active {
-				activeEnts = append(activeEnts, ent)
-			}
-		}
-		g.caveState.Entities = activeEnts
-		g.caveEntities[key] = activeEnts
-
-		// Heavy Mech drilling handler
-		if mech, ok := g.ActiveVehicle.(*HeavyMech); ok && !mech.IsDrilling {
-			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-				mx, my := ebiten.CursorPosition()
-				camX := mech.X - ScreenWidth/2 + mech.Width/2
-				camY := mech.Y - ScreenHeight/2 + mech.Height/2
-				worldX := camX + float64(mx)
-				worldY := camY + float64(my)
-
-				mtx := int(worldX) / TileSize
-				mty := int(worldY) / TileSize
-
-				for i := range g.caveState.Nodes {
-					node := &g.caveState.Nodes[i]
-					if node.Tx == mtx && node.Ty == mty && node.HitsToMine > 0 {
-						px := mech.X + mech.Width/2
-						py := mech.Y + mech.Height/2
-						nx := float64(node.Tx*TileSize + TileSize/2)
-						ny := float64(node.Ty*TileSize + TileSize/2)
-						dist := math.Hypot(px-nx, py-ny)
-
-						if dist <= 120.0 {
-							mech.DrillStrike(node)
-							break
-						}
-					}
-				}
-			}
-		}
-
-		// Proximity checks for entering cave vehicles
-		if g.ActiveVehicle == nil && !g.justExited {
-			for _, v := range g.CaveVehicles[key] {
-				vx, vy := v.GetPos()
-				vw, vh := v.GetDimensions()
-				dist := math.Hypot(vx+vw/2.0-g.player.X-g.player.Width/2.0, vy+vh/2.0-g.player.Y-g.player.Height/2.0)
-				if dist < 60.0 {
-					if inpututil.IsKeyJustPressed(ebiten.KeyF) {
-						g.ActiveVehicle = v
-						break
-					}
-				}
-			}
-		}
-
-		// On foot swimming updates
-		if g.ActiveVehicle == nil {
-			nextState, transited := g.caveState.Update(g)
-			if transited && nextState == StateOverworld {
-				g.player.X = g.lastOverworldX
-				g.player.Y = g.lastOverworldY - TileSize*0.6
-				g.player.Vx = 0
-				g.player.Vy = -1.5
-
-				g.caveNodes[key] = g.caveState.Nodes
-				g.caveEntities[key] = g.caveState.Entities
-				g.camera.CenterOn(g.player.X, g.player.Y, g.player.Width, g.player.Height)
-				g.currentState = StateOverworld
-			}
-		}
-
-	case StateBaseMenu:
-		if inpututil.IsKeyJustPressed(ebiten.KeyE) || inpututil.IsKeyJustPressed(ebiten.KeyO) {
-			g.currentState = StateOverworld
-		} else {
-			g.baseMenu.Update(g.player, g.baseStation)
-		}
-
-	case StateGameOver:
-		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-			*g = *NewGame()
 		}
 	}
 
 	// Smooth camera tracking
 	if g.currentState == StateOverworld || g.currentState == StateCave {
-		g.camera.Track(g.player.X, g.player.Y, g.player.Width, g.player.Height, 0.08)
+		g.camera.Track(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height, 0.08)
 
 		// Apply camera shake/jitter if tracked by Electro-Weaver
 		if g.currentState == StateCave && g.WeaverTrackingTimer > 0 {
 			shakeMag := (g.WeaverTrackingTimer / 300.0) * 8.0
-			g.camera.X += rand.Float64()*shakeMag - (shakeMag / 2.0)
-			g.camera.Y += rand.Float64()*shakeMag - (shakeMag / 2.0)
+			g.camera.Pos.X += rand.Float64()*shakeMag - (shakeMag / 2.0)
+			g.camera.Pos.Y += rand.Float64()*shakeMag - (shakeMag / 2.0)
 		}
 	}
 
 	// Oxygen and Health updates when on foot (prevent drains inside vehicles)
 	if g.ActiveVehicle == nil {
 		inCave := g.currentState == StateCave
-		g.player.UpdateStats(inCave, ebiten.IsKeyPressed(ebiten.KeyShift))
+		g.player.UpdateStats(inCave, g.Input.IsKeyPressed(ebiten.KeyShift))
 	}
 
 	if g.player.CurrentHealth <= 0 {
-		g.currentState = StateGameOver
+		g.TransitionTo(g.gameOverState)
 	}
 
 	return nil
@@ -630,11 +546,11 @@ func (g *Game) Update() error {
 
 // Draw renders the game graphics.
 func (g *Game) Draw(screen *ebiten.Image) {
-	switch g.currentState {
-	case StateOverworld:
-		// Render tiles
-		g.overworldState.Draw(screen, g.camera, g.ActiveVehicle != nil)
+	// 1. Draw the active scene
+	g.currentScene.Draw(g, screen)
 
+	// 2. Render general scene independent overlays (overworld vehicles, Life Pod in overworld)
+	if g.currentState == StateOverworld {
 		// Render overworld vehicles (Skiff)
 		for _, v := range g.OverworldVehicles {
 			v.Draw(screen, g.camera)
@@ -643,49 +559,42 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		// Render Base Life Pod
 		g.baseStation.Draw(screen, g.camera)
 		if g.baseStation.DistanceToPlayer(g.player) < 80.0 {
-			sx := float32(g.baseStation.X-g.camera.X) + float32(g.baseStation.Width)/2.0 - 90
-			sy := float32(g.baseStation.Y-g.camera.Y) - 30
-			vector.DrawFilledRect(screen, sx, sy, 180, 24, color.RGBA{0, 0, 0, 180}, false)
+			sx := float32(g.baseStation.Pos.X-g.camera.Pos.X) + float32(g.baseStation.Size.X)/2.0 - 90
+			sy := float32(g.baseStation.Pos.Y-g.camera.Pos.Y) - 30
+			vector.FillRect(screen, sx, sy, 180, 24, color.RGBA{0, 0, 0, 180}, false)
 			ebitenutil.DebugPrintAt(screen, "Press [E] to Open Terminal", int(sx)+12, int(sy)+4)
 		}
 
 		// Entry prompt for overworld vehicles
 		if g.ActiveVehicle == nil {
 			for _, v := range g.OverworldVehicles {
-				vx, vy := v.GetPos()
-				vw, vh := v.GetDimensions()
-				dist := math.Hypot(vx+vw/2.0-g.player.X-g.player.Width/2.0, vy+vh/2.0-g.player.Y-g.player.Height/2.0)
+				vPos := v.GetPos()
+				vDims := v.GetDimensions()
+				dist := math.Hypot(vPos.X+vDims.X/2.0-g.player.Pos.X-g.player.Width/2.0, vPos.Y+vDims.Y/2.0-g.player.Pos.Y-g.player.Height/2.0)
 				if dist < 60.0 {
-					sx := float32(vx-g.camera.X) + float32(vw)/2.0 - 75
-					sy := float32(vy-g.camera.Y) - 25
-					vector.DrawFilledRect(screen, sx, sy, 150, 20, color.RGBA{0, 0, 0, 180}, false)
+					sx := float32(vPos.X-g.camera.Pos.X) + float32(vDims.X)/2.0 - 75
+					sy := float32(vPos.Y-g.camera.Pos.Y) - 25
+					vector.FillRect(screen, sx, sy, 150, 20, color.RGBA{0, 0, 0, 180}, false)
 					ebitenutil.DebugPrintAt(screen, "Press [F] to Pilot", int(sx)+22, int(sy)+2)
 				}
 			}
 		}
-
-		g.hud.Draw(screen, g)
-
-	case StateCave:
-		// Render cave tiles and flashlight mask
-		g.caveState.Draw(screen, g.camera, g)
-
+	} else if g.currentState == StateCave {
 		// Render cave vehicles
-		key := fmt.Sprintf("%d_%d", g.activeTrenchX, g.activeTrenchY)
-		for _, v := range g.CaveVehicles[key] {
+		for _, v := range g.CaveVehicles[g.activeTrenchKey] {
 			v.Draw(screen, g.camera)
 		}
 
 		// Entry prompt for cave vehicles
 		if g.ActiveVehicle == nil {
-			for _, v := range g.CaveVehicles[key] {
-				vx, vy := v.GetPos()
-				vw, vh := v.GetDimensions()
-				dist := math.Hypot(vx+vw/2.0-g.player.X-g.player.Width/2.0, vy+vh/2.0-g.player.Y-g.player.Height/2.0)
+			for _, v := range g.CaveVehicles[g.activeTrenchKey] {
+				vPos := v.GetPos()
+				vDims := v.GetDimensions()
+				dist := math.Hypot(vPos.X+vDims.X/2.0-g.player.Pos.X-g.player.Width/2.0, vPos.Y+vDims.Y/2.0-g.player.Pos.Y-g.player.Height/2.0)
 				if dist < 60.0 {
-					sx := float32(vx-g.camera.X) + float32(vw)/2.0 - 75
-					sy := float32(vy-g.camera.Y) - 25
-					vector.DrawFilledRect(screen, sx, sy, 150, 20, color.RGBA{0, 0, 0, 180}, false)
+					sx := float32(vPos.X-g.camera.Pos.X) + float32(vDims.X)/2.0 - 75
+					sy := float32(vPos.Y-g.camera.Pos.Y) - 25
+					vector.FillRect(screen, sx, sy, 150, 20, color.RGBA{0, 0, 0, 180}, false)
 					ebitenutil.DebugPrintAt(screen, "Press [F] to Pilot", int(sx)+22, int(sy)+2)
 				}
 			}
@@ -695,38 +604,25 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if g.SonarTimer > 0 {
 			alpha := float32(g.SonarTimer) / 180.0
 			clr := color.RGBA{45, 175, 215, uint8(255 * alpha * 0.45)}
-			scx := float32(g.SonarSourceX - g.camera.X)
-			scy := float32(g.SonarSourceY - g.camera.Y)
+			scx := float32(g.SonarSourceX - g.camera.Pos.X)
+			scy := float32(g.SonarSourceY - g.camera.Pos.Y)
 			vector.StrokeCircle(screen, scx, scy, float32(g.SonarRadius), 2.5, clr, false)
 			vector.StrokeCircle(screen, scx, scy, float32(g.SonarRadius), 1.0, color.RGBA{220, 250, 255, uint8(255 * alpha)}, false)
 		}
+	}
 
+	// 3. Draw HUD (which includes status bars, telemetry, warnings, and inventory)
+	if g.currentState == StateOverworld || g.currentState == StateCave {
 		g.hud.Draw(screen, g)
-
-	case StateBaseMenu:
-		g.baseMenu.Draw(screen, g.player, g.baseStation)
-
-	case StateGameOver:
-		screen.Fill(color.RGBA{50, 10, 10, 255})
-		ebitenutil.DebugPrint(screen, "GAME OVER\n\nYour hull cracked or you ran out of oxygen.\n\nPress ENTER to respawn.")
 	}
 
 	// Draw Warning messages if active
 	if g.MineWarningTimer > 0 {
 		wx := float32(ScreenWidth)/2.0 - 160
 		wy := float32(ScreenHeight) / 4.0
-		vector.DrawFilledRect(screen, wx, wy, 320, 30, color.RGBA{24, 6, 8, 220}, false)
+		vector.FillRect(screen, wx, wy, 320, 30, color.RGBA{24, 6, 8, 220}, false)
 		vector.StrokeRect(screen, wx, wy, 320, 30, 1.2, color.RGBA{235, 45, 45, 255}, false)
 		ebitenutil.DebugPrintAt(screen, g.MineWarning, int(wx)+12, int(wy)+7)
-	}
-
-	// Render inventory overlay
-	if g.showInventory {
-		if g.ActiveVehicle != nil {
-			g.hud.DrawVehicleInventory(screen, g.player.Inventory, g.ActiveVehicle.GetCargo(), g.ActiveVehicle.GetName())
-		} else {
-			g.hud.DrawInventory(screen, g.player.Inventory)
-		}
 	}
 }
 

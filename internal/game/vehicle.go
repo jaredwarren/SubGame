@@ -6,7 +6,6 @@ import (
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -15,9 +14,9 @@ import (
 type Vehicle interface {
 	Update(g *Game)
 	Draw(screen *ebiten.Image, camera *Camera)
-	GetPos() (float64, float64)
-	SetPos(x, y float64)
-	GetDimensions() (float64, float64)
+	GetPos() Vec2
+	SetPos(pos Vec2)
+	GetDimensions() Vec2
 	GetHealth() float64
 	GetMaxHealth() float64
 	TakeDamage(amount float64)
@@ -36,23 +35,21 @@ type Vehicle interface {
 // ---------------------------------------------------------
 
 type Skiff struct {
-	X, Y          float64
-	Vx, Vy        float64
-	Width, Height float64
-	Facing        float64
-	Health        float64
-	MaxHealth     float64
-	Battery       float64
-	MaxBattery    float64
-	Cargo         *Inventory
+	Pos        Vec2
+	Vel        Vec2
+	Dimensions Vec2
+	Facing     float64
+	Health     float64
+	MaxHealth  float64
+	Battery    float64
+	MaxBattery float64
+	Cargo      *Inventory
 }
 
 func NewSkiff(x, y float64) *Skiff {
 	return &Skiff{
-		X:          x,
-		Y:          y,
-		Width:      56,
-		Height:     24,
+		Pos:        Vec2{X: x, Y: y},
+		Dimensions: Vec2{X: 56, Y: 24},
 		Facing:     0.0,
 		Health:     150.0,
 		MaxHealth:  150.0,
@@ -62,11 +59,11 @@ func NewSkiff(x, y float64) *Skiff {
 	}
 }
 
-func (s *Skiff) GetPos() (float64, float64)       { return s.X, s.Y }
-func (s *Skiff) SetPos(x, y float64)              { s.X, s.Y = x, y }
-func (s *Skiff) GetDimensions() (float64, float64) { return s.Width, s.Height }
-func (s *Skiff) GetHealth() float64               { return s.Health }
-func (s *Skiff) GetMaxHealth() float64            { return s.MaxHealth }
+func (s *Skiff) GetPos() Vec2             { return s.Pos }
+func (s *Skiff) SetPos(pos Vec2)          { s.Pos = pos }
+func (s *Skiff) GetDimensions() Vec2      { return s.Dimensions }
+func (s *Skiff) GetHealth() float64       { return s.Health }
+func (s *Skiff) GetMaxHealth() float64    { return s.MaxHealth }
 func (s *Skiff) TakeDamage(amount float64) {
 	s.Health -= amount
 	if s.Health < 0 {
@@ -93,17 +90,16 @@ func (s *Skiff) Update(g *Game) {
 	}
 
 	if g.ActiveVehicle != s {
-		s.Vx = 0
-		s.Vy = 0
+		s.Vel = Vec2{}
 		return
 	}
 
 	// Steering inputs
 	const turnSpeed = 0.04
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+	if g.Input.IsKeyPressed(ebiten.KeyA) || g.Input.IsKeyPressed(ebiten.KeyArrowLeft) {
 		s.Facing -= turnSpeed
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+	if g.Input.IsKeyPressed(ebiten.KeyD) || g.Input.IsKeyPressed(ebiten.KeyArrowRight) {
 		s.Facing += turnSpeed
 	}
 
@@ -119,13 +115,13 @@ func (s *Skiff) Update(g *Game) {
 	}
 
 	moving := false
-	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-		s.Vx += math.Cos(s.Facing) * accel
-		s.Vy += math.Sin(s.Facing) * accel
+	if g.Input.IsKeyPressed(ebiten.KeyW) || g.Input.IsKeyPressed(ebiten.KeyArrowUp) {
+		s.Vel.X += math.Cos(s.Facing) * accel
+		s.Vel.Y += math.Sin(s.Facing) * accel
 		moving = true
-	} else if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-		s.Vx -= math.Cos(s.Facing) * (accel * 0.4)
-		s.Vy -= math.Sin(s.Facing) * (accel * 0.4)
+	} else if g.Input.IsKeyPressed(ebiten.KeyS) || g.Input.IsKeyPressed(ebiten.KeyArrowDown) {
+		s.Vel.X -= math.Cos(s.Facing) * (accel * 0.4)
+		s.Vel.Y -= math.Sin(s.Facing) * (accel * 0.4)
 		moving = true
 	}
 
@@ -138,39 +134,37 @@ func (s *Skiff) Update(g *Game) {
 
 	// Fluid drag
 	const drag = 0.94
-	s.Vx *= drag
-	s.Vy *= drag
+	s.Vel = s.Vel.Scale(drag)
 
-	speed := math.Sqrt(s.Vx*s.Vx + s.Vy*s.Vy)
+	speed := s.Vel.Length()
 	if speed > maxSpeed {
-		s.Vx = (s.Vx / speed) * maxSpeed
-		s.Vy = (s.Vy / speed) * maxSpeed
+		s.Vel = s.Vel.Scale(maxSpeed / speed)
 	}
 
 	s.checkCollisions(g)
 }
 
 func (s *Skiff) checkCollisions(g *Game) {
-	newX := s.X + s.Vx
-	if s.isSolid(g, newX, s.Y) {
-		s.Vx = 0
+	newX := s.Pos.X + s.Vel.X
+	if s.isSolid(g, Vec2{X: newX, Y: s.Pos.Y}) {
+		s.Vel.X = 0
 	} else {
-		s.X = newX
+		s.Pos.X = newX
 	}
 
-	newY := s.Y + s.Vy
-	if s.isSolid(g, s.X, newY) {
-		s.Vy = 0
+	newY := s.Pos.Y + s.Vel.Y
+	if s.isSolid(g, Vec2{X: s.Pos.X, Y: newY}) {
+		s.Vel.Y = 0
 	} else {
-		s.Y = newY
+		s.Pos.Y = newY
 	}
 }
 
-func (s *Skiff) isSolid(g *Game, x, y float64) bool {
-	x1 := int(math.Floor(x)) / TileSize
-	x2 := int(math.Floor(x+s.Width)) / TileSize
-	y1 := int(math.Floor(y)) / TileSize
-	y2 := int(math.Floor(y+s.Height)) / TileSize
+func (s *Skiff) isSolid(g *Game, pos Vec2) bool {
+	x1 := int(math.Floor(pos.X)) / TileSize
+	x2 := int(math.Floor(pos.X+s.Dimensions.X)) / TileSize
+	y1 := int(math.Floor(pos.Y)) / TileSize
+	y2 := int(math.Floor(pos.Y+s.Dimensions.Y)) / TileSize
 
 	for tx := x1; tx <= x2; tx++ {
 		for ty := y1; ty <= y2; ty++ {
@@ -193,7 +187,7 @@ func (s *Skiff) Draw(screen *ebiten.Image, camera *Camera) {
 	rotatePoint := func(px, py float64) (float32, float32) {
 		rx := px*cosF - py*sinF
 		ry := px*sinF + py*cosF
-		return float32(s.X + s.Width/2.0 + rx - camera.X), float32(s.Y + s.Height/2.0 + ry - camera.Y)
+		return float32(s.Pos.X + s.Dimensions.X/2.0 + rx - camera.Pos.X), float32(s.Pos.Y + s.Dimensions.Y/2.0 + ry - camera.Pos.Y)
 	}
 
 	// 1. Draw hull (rotated hexagon)
@@ -250,23 +244,21 @@ func (s *Skiff) Draw(screen *ebiten.Image, camera *Camera) {
 // ---------------------------------------------------------
 
 type ScoutSub struct {
-	X, Y          float64
-	Vx, Vy        float64
-	Width, Height float64
-	Facing        float64
-	Health        float64
-	MaxHealth     float64
-	Battery       float64
-	MaxBattery    float64
-	Cargo         *Inventory
+	Pos        Vec2
+	Vel        Vec2
+	Dimensions Vec2
+	Facing     float64
+	Health     float64
+	MaxHealth  float64
+	Battery    float64
+	MaxBattery float64
+	Cargo      *Inventory
 }
 
 func NewScoutSub(x, y float64) *ScoutSub {
 	return &ScoutSub{
-		X:          x,
-		Y:          y,
-		Width:      48,
-		Height:     32,
+		Pos:        Vec2{X: x, Y: y},
+		Dimensions: Vec2{X: 48, Y: 32},
 		Facing:     0.0,
 		Health:     100.0,
 		MaxHealth:  100.0,
@@ -276,11 +268,11 @@ func NewScoutSub(x, y float64) *ScoutSub {
 	}
 }
 
-func (sub *ScoutSub) GetPos() (float64, float64)       { return sub.X, sub.Y }
-func (sub *ScoutSub) SetPos(x, y float64)              { sub.X, sub.Y = x, y }
-func (sub *ScoutSub) GetDimensions() (float64, float64) { return sub.Width, sub.Height }
-func (sub *ScoutSub) GetHealth() float64               { return sub.Health }
-func (sub *ScoutSub) GetMaxHealth() float64            { return sub.MaxHealth }
+func (sub *ScoutSub) GetPos() Vec2             { return sub.Pos }
+func (sub *ScoutSub) SetPos(pos Vec2)          { sub.Pos = pos }
+func (sub *ScoutSub) GetDimensions() Vec2      { return sub.Dimensions }
+func (sub *ScoutSub) GetHealth() float64       { return sub.Health }
+func (sub *ScoutSub) GetMaxHealth() float64    { return sub.MaxHealth }
 func (sub *ScoutSub) TakeDamage(amount float64) {
 	sub.Health -= amount
 	if sub.Health < 0 {
@@ -298,15 +290,14 @@ func (sub *ScoutSub) GetFacing() float64     { return sub.Facing }
 
 func (sub *ScoutSub) Update(g *Game) {
 	if g.ActiveVehicle != sub {
-		sub.Vx = 0
-		sub.Vy = 0
+		sub.Vel = Vec2{}
 		return
 	}
 
 	// Flashlight pointing direction follows mouse cursor
-	mx, my := ebiten.CursorPosition()
-	dx := float64(mx) - pCenterX(g.player)
-	dy := float64(my) - pCenterY(g.player)
+	cursor := g.Input.Cursor()
+	dx := cursor.X - pCenterX(g.player)
+	dy := cursor.Y - pCenterY(g.player)
 	sub.Facing = math.Atan2(dy, dx)
 
 	// Physics forces
@@ -326,20 +317,20 @@ func (sub *ScoutSub) Update(g *Game) {
 	}
 
 	moving := false
-	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-		sub.Vy -= force
+	if g.Input.IsKeyPressed(ebiten.KeyW) || g.Input.IsKeyPressed(ebiten.KeyArrowUp) {
+		sub.Vel.Y -= force
 		moving = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-		sub.Vy += force
+	if g.Input.IsKeyPressed(ebiten.KeyS) || g.Input.IsKeyPressed(ebiten.KeyArrowDown) {
+		sub.Vel.Y += force
 		moving = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		sub.Vx -= force
+	if g.Input.IsKeyPressed(ebiten.KeyA) || g.Input.IsKeyPressed(ebiten.KeyArrowLeft) {
+		sub.Vel.X -= force
 		moving = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		sub.Vx += force
+	if g.Input.IsKeyPressed(ebiten.KeyD) || g.Input.IsKeyPressed(ebiten.KeyArrowRight) {
+		sub.Vel.X += force
 		moving = true
 	}
 
@@ -352,20 +343,18 @@ func (sub *ScoutSub) Update(g *Game) {
 	}
 
 	// Water friction
-	sub.Vx *= drag
-	sub.Vy *= drag
+	sub.Vel = sub.Vel.Scale(drag)
 
-	speed := math.Sqrt(sub.Vx*sub.Vx + sub.Vy*sub.Vy)
+	speed := sub.Vel.Length()
 	if speed > maxSpeed {
-		sub.Vx = (sub.Vx / speed) * maxSpeed
-		sub.Vy = (sub.Vy / speed) * maxSpeed
+		sub.Vel = sub.Vel.Scale(maxSpeed / speed)
 	}
 
 	// Collisions
 	sub.checkCollisions(g)
 
 	// Sonar Ping activation (Key Q)
-	if hasPower && inpututil.IsKeyJustPressed(ebiten.KeyQ) {
+	if hasPower && g.Input.IsKeyJustPressed(ebiten.KeyQ) {
 		if g.SonarTimer <= 0 {
 			sub.Battery -= 10.0
 			if sub.Battery < 0 {
@@ -373,40 +362,40 @@ func (sub *ScoutSub) Update(g *Game) {
 			}
 			g.SonarTimer = 180 // 3 seconds reveal duration
 			g.SonarRadius = 0
-			g.SonarSourceX = sub.X + sub.Width/2.0
-			g.SonarSourceY = sub.Y + sub.Height/2.0
+			g.SonarSourceX = sub.Pos.X + sub.Dimensions.X/2.0
+			g.SonarSourceY = sub.Pos.Y + sub.Dimensions.Y/2.0
 		}
 	}
 }
 
 func (sub *ScoutSub) checkCollisions(g *Game) {
-	newX := sub.X + sub.Vx
-	if sub.isSolid(g, newX, sub.Y) {
-		sub.Vx = -sub.Vx * 0.3 // Bounce back slightly
+	newX := sub.Pos.X + sub.Vel.X
+	if sub.isSolid(g, Vec2{X: newX, Y: sub.Pos.Y}) {
+		sub.Vel.X = -sub.Vel.X * 0.3 // Bounce back slightly
 		// High speed collision damages vehicle hull
-		speed := math.Abs(sub.Vx)
+		speed := math.Abs(sub.Vel.X)
 		if speed > 2.0 {
 			sub.TakeDamage(speed * 4.0)
 		}
-		sub.Vx = 0
+		sub.Vel.X = 0
 	} else {
-		sub.X = newX
+		sub.Pos.X = newX
 	}
 
-	newY := sub.Y + sub.Vy
-	if sub.isSolid(g, sub.X, newY) {
+	newY := sub.Pos.Y + sub.Vel.Y
+	if sub.isSolid(g, Vec2{X: sub.Pos.X, Y: newY}) {
 		// High speed collision damages vehicle hull
-		speed := math.Abs(sub.Vy)
+		speed := math.Abs(sub.Vel.Y)
 		if speed > 2.0 {
 			sub.TakeDamage(speed * 4.0)
 		}
-		sub.Vy = 0
+		sub.Vel.Y = 0
 	} else {
-		sub.Y = newY
+		sub.Pos.Y = newY
 	}
 }
 
-func (sub *ScoutSub) isSolid(g *Game, x, y float64) bool {
+func (sub *ScoutSub) isSolid(g *Game, pos Vec2) bool {
 	grid := g.caveState.CaveGrid
 	if grid == nil {
 		return false
@@ -414,10 +403,10 @@ func (sub *ScoutSub) isSolid(g *Game, x, y float64) bool {
 	gridW := len(grid)
 	gridH := len(grid[0])
 
-	x1 := int(math.Floor(x)) / TileSize
-	x2 := int(math.Floor(x+sub.Width)) / TileSize
-	y1 := int(math.Floor(y)) / TileSize
-	y2 := int(math.Floor(y+sub.Height)) / TileSize
+	x1 := int(math.Floor(pos.X)) / TileSize
+	x2 := int(math.Floor(pos.X+sub.Dimensions.X)) / TileSize
+	y1 := int(math.Floor(pos.Y)) / TileSize
+	y2 := int(math.Floor(pos.Y+sub.Dimensions.Y)) / TileSize
 
 	for tx := x1; tx <= x2; tx++ {
 		for ty := y1; ty <= y2; ty++ {
@@ -439,10 +428,10 @@ func (sub *ScoutSub) isSolid(g *Game, x, y float64) bool {
 }
 
 func (sub *ScoutSub) Draw(screen *ebiten.Image, camera *Camera) {
-	sx := float32(sub.X - camera.X)
-	sy := float32(sub.Y - camera.Y)
-	w := float32(sub.Width)
-	h := float32(sub.Height)
+	sx := float32(sub.Pos.X - camera.Pos.X)
+	sy := float32(sub.Pos.Y - camera.Pos.Y)
+	w := float32(sub.Dimensions.X)
+	h := float32(sub.Dimensions.Y)
 
 	// Flip drawing horizontally based on Facing angle (pointing left/right)
 	isFacingRight := math.Cos(sub.Facing) >= 0
@@ -452,26 +441,26 @@ func (sub *ScoutSub) Draw(screen *ebiten.Image, camera *Camera) {
 	outlineClr := color.RGBA{240, 240, 250, 255}
 
 	// Draw main capsule body
-	vector.DrawFilledRect(screen, sx+4, sy+4, w-8, h-8, subBgClr, false)
+	vector.FillRect(screen, sx+4, sy+4, w-8, h-8, subBgClr, false)
 	vector.StrokeRect(screen, sx+4, sy+4, w-8, h-8, 1.5, outlineClr, false)
 
 	// Draw cockpit window dome pointing in facing direction
 	if isFacingRight {
-		vector.DrawFilledRect(screen, sx+w-12, sy+6, 8, h-12, domeClr, false)
+		vector.FillRect(screen, sx+w-12, sy+6, 8, h-12, domeClr, false)
 		vector.StrokeRect(screen, sx+w-12, sy+6, 8, h-12, 1.0, color.RGBA{255, 255, 255, 255}, false)
 		
 		// Propeller/rudder at left
-		vector.DrawFilledRect(screen, sx, sy+h/2.0-8, 4, 16, color.RGBA{220, 100, 30, 255}, false)
+		vector.FillRect(screen, sx, sy+h/2.0-8, 4, 16, color.RGBA{220, 100, 30, 255}, false)
 	} else {
-		vector.DrawFilledRect(screen, sx, sy+6, 8, h-12, domeClr, false)
+		vector.FillRect(screen, sx, sy+6, 8, h-12, domeClr, false)
 		vector.StrokeRect(screen, sx, sy+6, 8, h-12, 1.0, color.RGBA{255, 255, 255, 255}, false)
 
 		// Propeller/rudder at right
-		vector.DrawFilledRect(screen, sx+w-4, sy+h/2.0-8, 4, 16, color.RGBA{220, 100, 30, 255}, false)
+		vector.FillRect(screen, sx+w-4, sy+h/2.0-8, 4, 16, color.RGBA{220, 100, 30, 255}, false)
 	}
 
 	// Draw sub engine vent/details
-	vector.DrawFilledCircle(screen, sx+w/2.0, sy+h/2.0, 5, color.RGBA{20, 30, 50, 255}, false)
+	vector.FillCircle(screen, sx+w/2.0, sy+h/2.0, 5, color.RGBA{20, 30, 50, 255}, false)
 }
 
 // ---------------------------------------------------------
@@ -479,9 +468,9 @@ func (sub *ScoutSub) Draw(screen *ebiten.Image, camera *Camera) {
 // ---------------------------------------------------------
 
 type HeavyMech struct {
-	X, Y            float64
-	Vx, Vy          float64
-	Width, Height   float64
+	Pos             Vec2
+	Vel             Vec2
+	Dimensions      Vec2
 	Facing          float64
 	Health          float64
 	MaxHealth       float64
@@ -491,14 +480,13 @@ type HeavyMech struct {
 	IsDrilling      bool
 	DrillTimer      int
 	TargetDrillNode *ResourceNode
+	ThrustersActive bool
 }
 
 func NewHeavyMech(x, y float64) *HeavyMech {
 	return &HeavyMech{
-		X:          x,
-		Y:          y,
-		Width:      48,
-		Height:     48,
+		Pos:        Vec2{X: x, Y: y},
+		Dimensions: Vec2{X: 48, Y: 48},
 		Facing:     0.0,
 		Health:     200.0,
 		MaxHealth:  200.0,
@@ -508,11 +496,11 @@ func NewHeavyMech(x, y float64) *HeavyMech {
 	}
 }
 
-func (m *HeavyMech) GetPos() (float64, float64)       { return m.X, m.Y }
-func (m *HeavyMech) SetPos(x, y float64)              { m.X, m.Y = x, y }
-func (m *HeavyMech) GetDimensions() (float64, float64) { return m.Width, m.Height }
-func (m *HeavyMech) GetHealth() float64               { return m.Health }
-func (m *HeavyMech) GetMaxHealth() float64            { return m.MaxHealth }
+func (m *HeavyMech) GetPos() Vec2             { return m.Pos }
+func (m *HeavyMech) SetPos(pos Vec2)          { m.Pos = pos }
+func (m *HeavyMech) GetDimensions() Vec2      { return m.Dimensions }
+func (m *HeavyMech) GetHealth() float64       { return m.Health }
+func (m *HeavyMech) GetMaxHealth() float64    { return m.MaxHealth }
 func (m *HeavyMech) TakeDamage(amount float64) {
 	// Heavy Mech ignores 40% of incoming damage
 	m.Health -= amount * 0.6
@@ -531,18 +519,18 @@ func (m *HeavyMech) GetFacing() float64     { return m.Facing }
 
 func (m *HeavyMech) Update(g *Game) {
 	if g.ActiveVehicle != m {
-		m.Vy += 0.12 // settle to bottom under gravity
+		m.Vel.Y += 0.12 // settle to bottom under gravity
 		const dragV = 0.95
-		m.Vy *= dragV
-		m.Vx = 0
+		m.Vel.Y *= dragV
+		m.Vel.X = 0
 		m.checkCollisions(g)
 		return
 	}
 
 	// Update facing angle towards mouse cursor
-	mx, my := ebiten.CursorPosition()
-	dx := float64(mx) - pCenterX(g.player)
-	dy := float64(my) - pCenterY(g.player)
+	cursor := g.Input.Cursor()
+	dx := cursor.X - pCenterX(g.player)
+	dy := cursor.Y - pCenterY(g.player)
 	m.Facing = math.Atan2(dy, dx)
 
 	// Heavy Mech physics (Buoyancy ignored, gravity heavy)
@@ -565,25 +553,27 @@ func (m *HeavyMech) Update(g *Game) {
 
 	// 1. Move left/right on floor
 	moving := false
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		m.Vx -= walkForce
+	if g.Input.IsKeyPressed(ebiten.KeyA) || g.Input.IsKeyPressed(ebiten.KeyArrowLeft) {
+		m.Vel.X -= walkForce
 		moving = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		m.Vx += walkForce
+	if g.Input.IsKeyPressed(ebiten.KeyD) || g.Input.IsKeyPressed(ebiten.KeyArrowRight) {
+		m.Vel.X += walkForce
 		moving = true
 	}
 
 	// Apply gravity downwards
-	m.Vy += gravity
+	m.Vel.Y += gravity
 
 	// 2. Thrusters vertical propulsion (W or Space)
-	if hasPower && (ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) || ebiten.IsKeyPressed(ebiten.KeySpace)) {
-		m.Vy -= 0.28 // Thrusters counter gravity
+	m.ThrustersActive = false
+	if hasPower && (g.Input.IsKeyPressed(ebiten.KeyW) || g.Input.IsKeyPressed(ebiten.KeyArrowUp) || g.Input.IsKeyPressed(ebiten.KeySpace)) {
+		m.Vel.Y -= 0.28 // Thrusters counter gravity
 		m.Battery -= 0.08
 		if m.Battery < 0 {
 			m.Battery = 0
 		}
+		m.ThrustersActive = true
 	}
 
 	if moving && hasPower {
@@ -594,12 +584,12 @@ func (m *HeavyMech) Update(g *Game) {
 	}
 
 	// Friction
-	m.Vx *= dragH
-	m.Vy *= dragV
+	m.Vel.X *= dragH
+	m.Vel.Y *= dragV
 
 	// Clamp horizontal speed
-	if math.Abs(m.Vx) > maxSpeedH {
-		m.Vx = math.Copysign(maxSpeedH, m.Vx)
+	if math.Abs(m.Vel.X) > maxSpeedH {
+		m.Vel.X = math.Copysign(maxSpeedH, m.Vel.X)
 	}
 
 	// Collisions
@@ -636,26 +626,26 @@ func (m *HeavyMech) DrillStrike(node *ResourceNode) {
 }
 
 func (m *HeavyMech) checkCollisions(g *Game) {
-	newX := m.X + m.Vx
-	if m.isSolid(g, newX, m.Y) {
-		m.Vx = 0
+	newX := m.Pos.X + m.Vel.X
+	if m.isSolid(g, Vec2{X: newX, Y: m.Pos.Y}) {
+		m.Vel.X = 0
 	} else {
-		m.X = newX
+		m.Pos.X = newX
 	}
 
-	newY := m.Y + m.Vy
-	if m.isSolid(g, m.X, newY) {
+	newY := m.Pos.Y + m.Vel.Y
+	if m.isSolid(g, Vec2{X: m.Pos.X, Y: newY}) {
 		// Sinking fall damage checked if landing hard
-		if m.Vy > 4.5 {
-			m.TakeDamage((m.Vy - 4.5) * 8.0)
+		if m.Vel.Y > 4.5 {
+			m.TakeDamage((m.Vel.Y - 4.5) * 8.0)
 		}
-		m.Vy = 0
+		m.Vel.Y = 0
 	} else {
-		m.Y = newY
+		m.Pos.Y = newY
 	}
 }
 
-func (m *HeavyMech) isSolid(g *Game, x, y float64) bool {
+func (m *HeavyMech) isSolid(g *Game, pos Vec2) bool {
 	grid := g.caveState.CaveGrid
 	if grid == nil {
 		return false
@@ -663,10 +653,10 @@ func (m *HeavyMech) isSolid(g *Game, x, y float64) bool {
 	gridW := len(grid)
 	gridH := len(grid[0])
 
-	x1 := int(math.Floor(x)) / TileSize
-	x2 := int(math.Floor(x+m.Width)) / TileSize
-	y1 := int(math.Floor(y)) / TileSize
-	y2 := int(math.Floor(y+m.Height)) / TileSize
+	x1 := int(math.Floor(pos.X)) / TileSize
+	x2 := int(math.Floor(pos.X+m.Dimensions.X)) / TileSize
+	y1 := int(math.Floor(pos.Y)) / TileSize
+	y2 := int(math.Floor(pos.Y+m.Dimensions.Y)) / TileSize
 
 	for tx := x1; tx <= x2; tx++ {
 		for ty := y1; ty <= y2; ty++ {
@@ -688,10 +678,10 @@ func (m *HeavyMech) isSolid(g *Game, x, y float64) bool {
 }
 
 func (m *HeavyMech) Draw(screen *ebiten.Image, camera *Camera) {
-	sx := float32(m.X - camera.X)
-	sy := float32(m.Y - camera.Y)
-	w := float32(m.Width)
-	h := float32(m.Height)
+	sx := float32(m.Pos.X - camera.Pos.X)
+	sy := float32(m.Pos.Y - camera.Pos.Y)
+	w := float32(m.Dimensions.X)
+	h := float32(m.Dimensions.Y)
 
 	isFacingRight := math.Cos(m.Facing) >= 0
 
@@ -700,22 +690,22 @@ func (m *HeavyMech) Draw(screen *ebiten.Image, camera *Camera) {
 	frameColor := color.RGBA{58, 68, 78, 255}
 
 	// 1. Draw legs
-	vector.DrawFilledRect(screen, sx+8, sy+h-14, 8, 14, frameColor, false)
-	vector.DrawFilledRect(screen, sx+w-16, sy+h-14, 8, 14, frameColor, false)
+	vector.FillRect(screen, sx+8, sy+h-14, 8, 14, frameColor, false)
+	vector.FillRect(screen, sx+w-16, sy+h-14, 8, 14, frameColor, false)
 	// Leg joints
-	vector.DrawFilledCircle(screen, sx+12, sy+h-14, 5, color.RGBA{38, 48, 58, 255}, false)
-	vector.DrawFilledCircle(screen, sx+w-12, sy+h-14, 5, color.RGBA{38, 48, 58, 255}, false)
+	vector.FillCircle(screen, sx+12, sy+h-14, 5, color.RGBA{38, 48, 58, 255}, false)
+	vector.FillCircle(screen, sx+w-12, sy+h-14, 5, color.RGBA{38, 48, 58, 255}, false)
 
 	// 2. Draw central main torso cockpit
-	vector.DrawFilledRect(screen, sx+4, sy+4, w-8, h-16, mechBodyColor, false)
+	vector.FillRect(screen, sx+4, sy+4, w-8, h-16, mechBodyColor, false)
 	vector.StrokeRect(screen, sx+4, sy+4, w-8, h-16, 1.5, color.RGBA{250, 160, 50, 255}, false)
 
 	// 3. Draw cockpit glass visor
 	if isFacingRight {
-		vector.DrawFilledRect(screen, sx+w-14, sy+8, 8, 12, visorColor, false)
+		vector.FillRect(screen, sx+w-14, sy+8, 8, 12, visorColor, false)
 		// Left arm: claw
-		vector.DrawFilledRect(screen, sx-6, sy+14, 10, 6, frameColor, false)
-		vector.DrawFilledRect(screen, sx-6, sy+10, 4, 14, frameColor, false)
+		vector.FillRect(screen, sx-6, sy+14, 10, 6, frameColor, false)
+		vector.FillRect(screen, sx-6, sy+10, 4, 14, frameColor, false)
 		
 		// Right arm: drill bit
 		drillX := sx + w
@@ -732,10 +722,10 @@ func (m *HeavyMech) Draw(screen *ebiten.Image, camera *Camera) {
 		drawFilledTriangle(screen, dx1, dy1, dx2, dy2, dx3, dy3, color.RGBA{140, 150, 160, 255})
 		vector.StrokeLine(screen, dx1, dy1, dx2, dy2, 1.0, color.RGBA{255, 255, 255, 255}, false)
 	} else {
-		vector.DrawFilledRect(screen, sx+6, sy+8, 8, 12, visorColor, false)
+		vector.FillRect(screen, sx+6, sy+8, 8, 12, visorColor, false)
 		// Right arm: claw
-		vector.DrawFilledRect(screen, sx+w-4, sy+14, 10, 6, frameColor, false)
-		vector.DrawFilledRect(screen, sx+w+2, sy+10, 4, 14, frameColor, false)
+		vector.FillRect(screen, sx+w-4, sy+14, 10, 6, frameColor, false)
+		vector.FillRect(screen, sx+w+2, sy+10, 4, 14, frameColor, false)
 
 		// Left arm: drill bit
 		drillX := sx - 12
@@ -752,13 +742,12 @@ func (m *HeavyMech) Draw(screen *ebiten.Image, camera *Camera) {
 	}
 
 	// 4. Thruster flames if thrusters are engaged
-	if m.Battery > 0 && (ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) || ebiten.IsKeyPressed(ebiten.KeySpace)) {
+	if m.Battery > 0 && m.ThrustersActive {
 		flameX1 := sx + 14
 		flameY1 := sy + h - 14
-		vector.DrawFilledCircle(screen, flameX1, flameY1+float32(rand.Intn(6)), 4, color.RGBA{240, 110, 30, 220}, false)
+		vector.FillCircle(screen, flameX1, flameY1+float32(rand.Intn(6)), 4, color.RGBA{240, 110, 30, 220}, false)
 		
 		flameX2 := sx + w - 22
-		vector.DrawFilledCircle(screen, flameX2, flameY1+float32(rand.Intn(6)), 4, color.RGBA{240, 110, 30, 220}, false)
+		vector.FillCircle(screen, flameX2, flameY1+float32(rand.Intn(6)), 4, color.RGBA{240, 110, 30, 220}, false)
 	}
 }
-

@@ -41,7 +41,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 	}
 
 	// Draw Telemetry background panel (glassmorphism feel)
-	vector.DrawFilledRect(screen, telX, telY, telW, telH, color.RGBA{18, 24, 38, 200}, false)
+	vector.FillRect(screen, telX, telY, telW, telH, color.RGBA{18, 24, 38, 200}, false)
 	vector.StrokeRect(screen, telX, telY, telW, telH, 1.5, color.RGBA{70, 90, 120, 255}, false)
 
 	// Pulsing telemetry online indicator
@@ -56,7 +56,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		pulseColor.A = 100 // dim it
 	}
 
-	vector.DrawFilledCircle(screen, telX+15, telY+15, 4, pulseColor, false)
+	vector.FillCircle(screen, telX+15, telY+15, 4, pulseColor, false)
 
 	if g.currentState == StateOverworld {
 		ebitenutil.DebugPrintAt(screen, "SYSTEMS MONITOR", int(telX)+26, int(telY)+8)
@@ -84,11 +84,11 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		}
 
 		timeText := fmt.Sprintf("Time: %02d:%02d %s (%s)", displayHour, minute, period, dayPhase)
-		posText := fmt.Sprintf("Pos: X:%.0f Y:%.0f", g.player.X, g.player.Y)
+		posText := fmt.Sprintf("Pos: X:%.0f Y:%.0f", g.player.Pos.X, g.player.Pos.Y)
 		zoneText := "Zone: Surface Ocean"
 
-		tx := int(g.player.X+g.player.Width/2) / TileSize
-		ty := int(g.player.Y+g.player.Height/2) / TileSize
+		tx := int(g.player.Pos.X+g.player.Width/2) / TileSize
+		ty := int(g.player.Pos.Y+g.player.Height/2) / TileSize
 		var depthText string
 		if tx >= 0 && tx < g.world.Width && ty >= 0 && ty < g.world.Height {
 			if g.world.OverworldMap[tx][ty] == world.TileTrench {
@@ -116,7 +116,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		ebitenutil.DebugPrintAt(screen, "DIVE TELEMETRY", int(telX)+26, int(telY)+8)
 
 		// Depth in meters (1 tile = 1 meter)
-		depth := (g.player.Y + g.player.Height/2.0) / TileSize
+		depth := (g.player.Pos.Y + g.player.Height/2.0) / TileSize
 		pressure := 1.0 + depth*0.1
 
 		depthText := fmt.Sprintf("Depth: %.1fm", depth)
@@ -134,7 +134,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 				limitText := fmt.Sprintf("Hull Limit: %.0fm", limit)
 				if depth > limit {
 					// Exceeding limit warning color (red/orange)
-					vector.DrawFilledRect(screen, telX+140, telY+25, 90, 18, color.RGBA{210, 55, 75, 200}, false)
+					vector.FillRect(screen, telX+140, telY+25, 90, 18, color.RGBA{210, 55, 75, 200}, false)
 					ebitenutil.DebugPrintAt(screen, "CRITICAL!", int(telX)+146, int(telY)+27)
 				} else {
 					ebitenutil.DebugPrintAt(screen, limitText, int(telX)+140, int(telY)+28)
@@ -153,7 +153,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 
 	// Draw HUD background panel (glassmorphism feel)
 	panelBg := color.RGBA{18, 24, 38, 200}
-	vector.DrawFilledRect(screen, hudX, hudY, w, 120, panelBg, false)
+	vector.FillRect(screen, hudX, hudY, w, 120, panelBg, false)
 	vector.StrokeRect(screen, hudX, hudY, w, 120, 1.5, color.RGBA{70, 90, 120, 255}, false)
 
 	// Draw Health Bar
@@ -184,7 +184,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		vHudX := float32(ScreenWidth-vHudW-20) + jx
 		vHudY := float32(ScreenHeight-vHudH-20) + jy
 		
-		vector.DrawFilledRect(screen, vHudX, vHudY, vHudW, vHudH, color.RGBA{18, 24, 38, 200}, false)
+		vector.FillRect(screen, vHudX, vHudY, vHudW, vHudH, color.RGBA{18, 24, 38, 200}, false)
 		vector.StrokeRect(screen, vHudX, vHudY, vHudW, vHudH, 1.5, color.RGBA{70, 90, 120, 255}, false)
 
 		ebitenutil.DebugPrintAt(screen, activeVehicle.GetName(), int(vHudX)+15, int(vHudY)+8)
@@ -200,21 +200,30 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 
 	// Display warning banner at top center if tracked by Weaver
 	if g.currentState == StateCave && g.WeaverTrackingTimer > 0 {
-		vector.DrawFilledRect(screen, float32(ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, color.RGBA{24, 12, 10, 220}, false)
+		vector.FillRect(screen, float32(ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, color.RGBA{24, 12, 10, 220}, false)
 		vector.StrokeRect(screen, float32(ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, 1.2, color.RGBA{230, 75, 45, 255}, false)
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[WARNING: ELECTRICAL STATIC DETECTED (%.0f%%)]", (g.WeaverTrackingTimer/300.0)*100.0), ScreenWidth/2-160+int(jx), 20+int(jy))
+	}
+	
+	// Render inventory overlay
+	if g.showInventory {
+		if g.ActiveVehicle != nil {
+			g.hud.DrawVehicleInventory(screen, g, g.player.Inventory, g.ActiveVehicle.GetCargo(), g.ActiveVehicle.GetName())
+		} else {
+			g.hud.DrawInventory(screen, g, g.player.Inventory)
+		}
 	}
 }
 
 func drawStatBar(screen *ebiten.Image, x, y, w, h float32, ratio float64, barColor color.Color, label string, val, max float64) {
 	// Bar background
 	bg := color.RGBA{32, 40, 52, 255}
-	vector.DrawFilledRect(screen, x, y, w, h, bg, false)
+	vector.FillRect(screen, x, y, w, h, bg, false)
 
 	// Bar fill
 	fillW := w * float32(ratio)
 	if fillW > 0 {
-		vector.DrawFilledRect(screen, x, y, fillW, h, barColor, false)
+		vector.FillRect(screen, x, y, fillW, h, barColor, false)
 	}
 
 	// Bar border outline
@@ -227,7 +236,7 @@ func drawStatBar(screen *ebiten.Image, x, y, w, h float32, ratio float64, barCol
 }
 
 // DrawInventory renders the player's grid inventory overlay, icons, counts, and hover tooltips.
-func (h *HUD) DrawInventory(screen *ebiten.Image, inv *Inventory) {
+func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *Inventory) {
 	// Center coordinates for the inventory panel overlay
 	const (
 		panelW = 600
@@ -243,15 +252,16 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, inv *Inventory) {
 
 	// Draw panel background panel (translucent glass/steel design)
 	panelBg := color.RGBA{14, 20, 32, 238}
-	vector.DrawFilledRect(screen, panelX, panelY, panelW, panelH, panelBg, false)
+	vector.FillRect(screen, panelX, panelY, panelW, panelH, panelBg, false)
 	vector.StrokeRect(screen, panelX, panelY, panelW, panelH, 1.5, color.RGBA{68, 88, 120, 255}, false)
 
 	// Draw Title label
-	vector.DrawFilledRect(screen, panelX+15, panelY+12, 110, 24, color.RGBA{22, 32, 50, 255}, false)
+	vector.FillRect(screen, panelX+15, panelY+12, 110, 24, color.RGBA{22, 32, 50, 255}, false)
 	ebitenutil.DebugPrintAt(screen, " INVENTORY", int(panelX)+20, int(panelY)+16)
 
 	// Get mouse positions to handle slot hover detection
-	mx, my := ebiten.CursorPosition()
+	cursor := g.Input.Cursor()
+	mx, my := int(cursor.X), int(cursor.Y)
 	var hoveredItemName = "None"
 
 	// Slot grid calculations
@@ -283,7 +293,7 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, inv *Inventory) {
 			}
 
 			// Render slot container
-			vector.DrawFilledRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
 			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
 			// Render item content
@@ -301,7 +311,7 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, inv *Inventory) {
 
 	// Tooltip details bar at bottom
 	tooltipY := panelY + panelH - 42
-	vector.DrawFilledRect(screen, panelX+20, tooltipY, panelW-40, 24, color.RGBA{8, 12, 18, 255}, false)
+	vector.FillRect(screen, panelX+20, tooltipY, panelW-40, 24, color.RGBA{8, 12, 18, 255}, false)
 	vector.StrokeRect(screen, panelX+20, tooltipY, panelW-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
 
 	tooltipText := "Hover an item to view details."
@@ -312,7 +322,7 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, inv *Inventory) {
 }
 
 // DrawVehicleInventory renders a split UI showing player inventory on the left and vehicle cargo on the right.
-func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, pInv *Inventory, vInv *Inventory, vName string) {
+func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *Inventory, vInv *Inventory, vName string) {
 	const (
 		panelW = 960
 		panelH = 360
@@ -327,17 +337,18 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, pInv *Inventory, vInv *
 
 	// Draw panel background
 	panelBg := color.RGBA{14, 20, 32, 238}
-	vector.DrawFilledRect(screen, panelX, panelY, panelW, panelH, panelBg, false)
+	vector.FillRect(screen, panelX, panelY, panelW, panelH, panelBg, false)
 	vector.StrokeRect(screen, panelX, panelY, panelW, panelH, 1.5, color.RGBA{68, 88, 120, 255}, false)
 
 	// Titles
-	vector.DrawFilledRect(screen, panelX+30, panelY+12, 160, 24, color.RGBA{22, 32, 50, 255}, false)
+	vector.FillRect(screen, panelX+30, panelY+12, 160, 24, color.RGBA{22, 32, 50, 255}, false)
 	ebitenutil.DebugPrintAt(screen, " DIVER INVENTORY", int(panelX)+35, int(panelY)+16)
 
-	vector.DrawFilledRect(screen, panelX+510, panelY+12, 200, 24, color.RGBA{22, 32, 50, 255}, false)
+	vector.FillRect(screen, panelX+510, panelY+12, 200, 24, color.RGBA{22, 32, 50, 255}, false)
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf(" %s CARGO", vName), int(panelX)+515, int(panelY)+16)
 
-	mx, my := ebiten.CursorPosition()
+	cursor := g.Input.Cursor()
+	mx, my := int(cursor.X), int(cursor.Y)
 	var hoveredItemName = "None"
 
 	// 1. Draw Player Inventory Grid (Left)
@@ -366,7 +377,7 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, pInv *Inventory, vInv *
 				}
 			}
 
-			vector.DrawFilledRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
 			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
 			item := pInv.Slots[slotIdx]
@@ -418,7 +429,7 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, pInv *Inventory, vInv *
 				}
 			}
 
-			vector.DrawFilledRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
 			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
 			item := vInv.Slots[slotIdx]
@@ -433,7 +444,7 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, pInv *Inventory, vInv *
 
 	// Tooltip
 	tooltipY := panelY + panelH - 42
-	vector.DrawFilledRect(screen, panelX+20, tooltipY, panelW-40, 24, color.RGBA{8, 12, 18, 255}, false)
+	vector.FillRect(screen, panelX+20, tooltipY, panelW-40, 24, color.RGBA{8, 12, 18, 255}, false)
 	vector.StrokeRect(screen, panelX+20, tooltipY, panelW-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
 
 	tooltipText := "Hover an item to view details. Click item to transfer."
@@ -477,19 +488,19 @@ func drawItemIcon(screen *ebiten.Image, sx, sy, slotSz float32, itemType ItemTyp
 	iSz := slotSz * 0.45
 
 	if drawIconType == "square" {
-		vector.DrawFilledRect(screen, cx-iSz/2.0, cy-iSz/2.0, iSz, iSz, itemClr, false)
+		vector.FillRect(screen, cx-iSz/2.0, cy-iSz/2.0, iSz, iSz, itemClr, false)
 	} else if drawIconType == "diamond" {
-		vector.DrawFilledCircle(screen, cx, cy, iSz/2.0, itemClr, false)
+		vector.FillCircle(screen, cx, cy, iSz/2.0, itemClr, false)
 		vector.StrokeCircle(screen, cx, cy, iSz/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
 	} else if drawIconType == "sub" {
 		// Draw a small sub capsule silhouette
-		vector.DrawFilledRect(screen, cx-iSz/2.0, cy-iSz/4.0, iSz, iSz/2.0, itemClr, false)
-		vector.DrawFilledCircle(screen, cx+iSz/4.0, cy, iSz/4.0, color.RGBA{80, 205, 255, 255}, false)
+		vector.FillRect(screen, cx-iSz/2.0, cy-iSz/4.0, iSz, iSz/2.0, itemClr, false)
+		vector.FillCircle(screen, cx+iSz/4.0, cy, iSz/4.0, color.RGBA{80, 205, 255, 255}, false)
 	} else if drawIconType == "mech" {
 		// Draw a tiny mech torso silhouette
-		vector.DrawFilledRect(screen, cx-iSz/3.0, cy-iSz/3.0, iSz/1.5, iSz/1.5, itemClr, false)
-		vector.DrawFilledRect(screen, cx-iSz/2.0, cy+iSz/6.0, iSz, iSz/6.0, color.RGBA{60, 70, 80, 255}, false)
+		vector.FillRect(screen, cx-iSz/3.0, cy-iSz/3.0, iSz/1.5, iSz/1.5, itemClr, false)
+		vector.FillRect(screen, cx-iSz/2.0, cy+iSz/6.0, iSz, iSz/6.0, color.RGBA{60, 70, 80, 255}, false)
 	} else {
-		vector.DrawFilledCircle(screen, cx, cy, iSz/2.0, itemClr, false)
+		vector.FillCircle(screen, cx, cy, iSz/2.0, itemClr, false)
 	}
 }

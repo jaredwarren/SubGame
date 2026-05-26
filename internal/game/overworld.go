@@ -10,29 +10,32 @@ import (
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
-// OverworldState manages the top-down surface sailing view.
-type OverworldState struct {
-	Player *Player
-	World  *world.World
+// OverworldScene manages the top-down surface sailing view.
+type OverworldScene struct {
+	World *world.World
 }
 
-// NewOverworldState creates a new OverworldState.
-func NewOverworldState(player *Player, world *world.World) *OverworldState {
-	return &OverworldState{
-		Player: player,
-		World:  world,
+// NewOverworldScene creates a new OverworldScene.
+func NewOverworldScene(world *world.World) *OverworldScene {
+	return &OverworldScene{
+		World: world,
 	}
 }
 
+func (o *OverworldScene) OnEnter(g *Game) {
+	g.currentState = StateOverworld
+}
+
+func (o *OverworldScene) OnExit(g *Game) {}
+
 // Update handles input, movement physics, and checks state transition triggers.
-// Returns the next State, and true if a state transition should occur.
-func (o *OverworldState) Update() (State, bool) {
-	p := o.Player
+func (o *OverworldScene) Update(g *Game) error {
+	p := g.player
 
 	// On foot swimming in Overworld
 	var accel = 0.08
 	var maxSpeed = 1.6
-	isSprinting := ebiten.IsKeyPressed(ebiten.KeyShift)
+	isSprinting := g.Input.IsKeyPressed(ebiten.KeyShift)
 
 	if isSprinting && p.CurrentStamina > 0 {
 		accel = 0.16
@@ -48,19 +51,19 @@ func (o *OverworldState) Update() (State, bool) {
 	// Direct WASD movement (no steering inertia when swimming on foot)
 	moving := false
 	var dx, dy float64
-	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+	if g.Input.IsKeyPressed(ebiten.KeyW) || g.Input.IsKeyPressed(ebiten.KeyArrowUp) {
 		dy -= 1.0
 		moving = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
+	if g.Input.IsKeyPressed(ebiten.KeyS) || g.Input.IsKeyPressed(ebiten.KeyArrowDown) {
 		dy += 1.0
 		moving = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+	if g.Input.IsKeyPressed(ebiten.KeyA) || g.Input.IsKeyPressed(ebiten.KeyArrowLeft) {
 		dx -= 1.0
 		moving = true
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+	if g.Input.IsKeyPressed(ebiten.KeyD) || g.Input.IsKeyPressed(ebiten.KeyArrowRight) {
 		dx += 1.0
 		moving = true
 	}
@@ -68,67 +71,64 @@ func (o *OverworldState) Update() (State, bool) {
 	if moving {
 		angle := math.Atan2(dy, dx)
 		p.Facing = angle // Visor faces swim direction
-		p.Vx += math.Cos(angle) * accel
-		p.Vy += math.Sin(angle) * accel
+		p.Vel.X += math.Cos(angle) * accel
+		p.Vel.Y += math.Sin(angle) * accel
 	}
 
 	// Apply fluid friction (drag) to the swimming player
 	const drag = 0.88
-	p.Vx *= drag
-	p.Vy *= drag
+	p.Vel = p.Vel.Scale(drag)
 
 	// Speed clamp
-	speed := math.Sqrt(p.Vx*p.Vx + p.Vy*p.Vy)
+	speed := p.Vel.Length()
 	if speed > maxSpeed {
-		p.Vx = (p.Vx / speed) * maxSpeed
-		p.Vy = (p.Vy / speed) * maxSpeed
+		p.Vel = p.Vel.Scale(maxSpeed / speed)
 	}
 
 	// AABB Collision check and position updates
-	o.checkCollisions()
+	o.checkCollisions(p)
 
 	// Update stats (not in cave, check if sprinting and actually moving)
 	isMoving := speed > 0.1
 	p.UpdateStats(false, isSprinting && isMoving && moving)
 
 	// Check if player is overlapping a Trench or Water tile to trigger dive transition
-	tx := int(p.X+p.Width/2) / TileSize
-	ty := int(p.Y+p.Height/2) / TileSize
+	tx := int(p.Pos.X+p.Width/2) / TileSize
+	ty := int(p.Pos.Y+p.Height/2) / TileSize
 	if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
 		tile := o.World.OverworldMap[tx][ty]
 		if tile == world.TileTrench || tile == world.TileWater {
-			if ebiten.IsKeyPressed(ebiten.KeyE) {
-				return StateCave, true
+			if g.Input.IsKeyPressed(ebiten.KeyE) {
+				g.EnterCave(tx, ty)
+				return nil
 			}
 		}
 	}
 
-	return StateOverworld, false
+	return nil
 }
 
 // checkCollisions resolves AABB collision with land tiles in X and Y directions.
-func (o *OverworldState) checkCollisions() {
-	p := o.Player
-
+func (o *OverworldScene) checkCollisions(p *Player) {
 	// X Axis collision
-	newX := p.X + p.Vx
-	if o.isSolid(newX, p.Y, p.Width, p.Height) {
-		p.Vx = 0
+	newX := p.Pos.X + p.Vel.X
+	if o.isSolid(newX, p.Pos.Y, p.Width, p.Height) {
+		p.Vel.X = 0
 	} else {
-		p.X = newX
+		p.Pos.X = newX
 	}
 
 	// Y Axis collision
-	newY := p.Y + p.Vy
-	if o.isSolid(p.X, newY, p.Width, p.Height) {
-		p.Vy = 0
+	newY := p.Pos.Y + p.Vel.Y
+	if o.isSolid(p.Pos.X, newY, p.Width, p.Height) {
+		p.Vel.Y = 0
 	} else {
-		p.Y = newY
+		p.Pos.Y = newY
 	}
 }
 
 // isSolid checks if the proposed bounding box overlaps with solid land.
-func (o *OverworldState) isSolid(x, y, w, h float64) bool {
+func (o *OverworldScene) isSolid(x, y, w, h float64) bool {
 	x1 := int(math.Floor(x)) / TileSize
 	x2 := int(math.Floor(x+w)) / TileSize
 	y1 := int(math.Floor(y)) / TileSize
@@ -148,10 +148,13 @@ func (o *OverworldState) isSolid(x, y, w, h float64) bool {
 }
 
 // Draw renders the overworld tiles in a viewport centered on the player.
-func (o *OverworldState) Draw(screen *ebiten.Image, camera *Camera, isPiloting bool) {
+func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
+	camera := g.camera
+	isPiloting := g.ActiveVehicle != nil
+
 	// Camera offset from camera controller
-	camX := camera.X
-	camY := camera.Y
+	camX := camera.Pos.X
+	camY := camera.Pos.Y
 
 	// Render tiles that fall within screen viewport bounds
 	startTileX := int(camX) / TileSize
@@ -193,35 +196,35 @@ func (o *OverworldState) Draw(screen *ebiten.Image, camera *Camera, isPiloting b
 				strokeClr = color.RGBA{10, 26, 58, 255}
 			}
 
-			vector.DrawFilledRect(screen, sx, sy, TileSize, TileSize, tileClr, false)
+			vector.FillRect(screen, sx, sy, TileSize, TileSize, tileClr, false)
 			vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, strokeClr, false)
 		}
 	}
 
 	// If player is sitting on a Trench, display dive prompt overlay (only if not piloting a vehicle)
 	if !isPiloting {
-		pTileX := int(o.Player.X+o.Player.Width/2) / TileSize
-		pTileY := int(o.Player.Y+o.Player.Height/2) / TileSize
+		pTileX := int(g.player.Pos.X+g.player.Width/2) / TileSize
+		pTileY := int(g.player.Pos.Y+g.player.Height/2) / TileSize
 		if pTileX >= 0 && pTileX < o.World.Width && pTileY >= 0 && pTileY < o.World.Height {
 			tile := o.World.OverworldMap[pTileX][pTileY]
 			if tile == world.TileTrench || tile == world.TileWater {
-				promptX := float32(pCenterX(o.Player)) - 80
-				promptY := float32(pCenterY(o.Player)) - 40
-				vector.DrawFilledRect(screen, promptX, promptY, 160, 25, color.RGBA{0, 0, 0, 180}, false)
+				promptX := float32(pCenterX(g.player)) - 80
+				promptY := float32(pCenterY(g.player)) - 40
+				vector.FillRect(screen, promptX, promptY, 160, 25, color.RGBA{0, 0, 0, 180}, false)
 				ebitenutil.DebugPrintAt(screen, "Press [E] to Dive", int(promptX)+25, int(promptY)+4)
 			}
 		}
 
 		// Draw the player swimming as a small diver circle centered on screen
-		pX := float32(pCenterX(o.Player))
-		pY := float32(pCenterY(o.Player))
+		pX := float32(pCenterX(g.player))
+		pY := float32(pCenterY(g.player))
 
 		// Player body circle
-		vector.DrawFilledCircle(screen, pX, pY, 8.0, color.RGBA{220, 95, 45, 255}, false)
+		vector.FillCircle(screen, pX, pY, 8.0, color.RGBA{220, 95, 45, 255}, false)
 		// Helmet glass pointing in Facing direction
-		vx := pX + float32(math.Cos(o.Player.Facing))*5
-		vy := pY + float32(math.Sin(o.Player.Facing))*5
-		vector.DrawFilledCircle(screen, vx, vy, 4.0, color.RGBA{80, 200, 255, 200}, false)
+		vx := pX + float32(math.Cos(g.player.Facing))*5
+		vy := pY + float32(math.Sin(g.player.Facing))*5
+		vector.FillCircle(screen, vx, vy, 4.0, color.RGBA{80, 200, 255, 200}, false)
 	}
 }
 
@@ -232,6 +235,12 @@ func init() {
 	emptyImage.Fill(color.White)
 }
 
+// Pre-allocated buffers for drawing triangles to eliminate garbage collection overhead.
+var (
+	triangleVertices = make([]ebiten.Vertex, 3)
+	triangleIndices  = []uint16{0, 1, 2}
+)
+
 // drawFilledTriangle fills a 2D triangle using Ebitengine DrawTriangles.
 func drawFilledTriangle(screen *ebiten.Image, x1, y1, x2, y2, x3, y3 float32, clr color.Color) {
 	r, g, b, a := clr.RGBA()
@@ -240,11 +249,10 @@ func drawFilledTriangle(screen *ebiten.Image, x1, y1, x2, y2, x3, y3 float32, cl
 	bf := float32(b) / 0xffff
 	af := float32(a) / 0xffff
 
-	vertices := []ebiten.Vertex{
-		{DstX: x1, DstY: y1, SrcX: 1, SrcY: 1, ColorR: rf, ColorG: gf, ColorB: bf, ColorA: af},
-		{DstX: x2, DstY: y2, SrcX: 1, SrcY: 1, ColorR: rf, ColorG: gf, ColorB: bf, ColorA: af},
-		{DstX: x3, DstY: y3, SrcX: 1, SrcY: 1, ColorR: rf, ColorG: gf, ColorB: bf, ColorA: af},
-	}
-	indices := []uint16{0, 1, 2}
-	screen.DrawTriangles(vertices, indices, emptyImage, nil)
+	// Update the shared scratch buffer (safe since Draw runs sequentially on the main OS thread)
+	triangleVertices[0] = ebiten.Vertex{DstX: x1, DstY: y1, SrcX: 1, SrcY: 1, ColorR: rf, ColorG: gf, ColorB: bf, ColorA: af}
+	triangleVertices[1] = ebiten.Vertex{DstX: x2, DstY: y2, SrcX: 1, SrcY: 1, ColorR: rf, ColorG: gf, ColorB: bf, ColorA: af}
+	triangleVertices[2] = ebiten.Vertex{DstX: x3, DstY: y3, SrcX: 1, SrcY: 1, ColorR: rf, ColorG: gf, ColorB: bf, ColorA: af}
+
+	screen.DrawTriangles(triangleVertices, triangleIndices, emptyImage, nil)
 }

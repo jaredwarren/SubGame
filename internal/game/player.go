@@ -7,8 +7,8 @@ import (
 // Player represents the player character, including their physics and stats.
 type Player struct {
 	// Physics
-	X, Y   float64
-	Vx, Vy float64
+	Pos    Vec2
+	Vel    Vec2
 	Width  float64
 	Height float64
 	Facing float64 // Angle in radians (for flashlight/boat direction)
@@ -36,8 +36,7 @@ type Player struct {
 // NewPlayer initializes a player with default stats and empty inventory.
 func NewPlayer(x, y float64) *Player {
 	return &Player{
-		X:                x,
-		Y:                y,
+		Pos:              Vec2{X: x, Y: y},
 		Width:            20,
 		Height:           20,
 		MaxHealth:        100,
@@ -71,7 +70,7 @@ func (p *Player) UpdateStats(inCave bool, isSprinting bool) {
 	}
 
 	// Stamina management
-	if isSprinting && (math.Abs(p.Vx) > 0.1 || math.Abs(p.Vy) > 0.1) {
+	if isSprinting && (math.Abs(p.Vel.X) > 0.1 || math.Abs(p.Vel.Y) > 0.1) {
 		p.CurrentStamina -= p.StaminaDrainRate / 60.0 // Sprinting drains stamina
 		if p.CurrentStamina < 0 {
 			p.CurrentStamina = 0

@@ -35,9 +35,8 @@ func (m BaseModule) String() string {
 
 // BaseStation represents a player base / Life Pod anchor terminal.
 type BaseStation struct {
-	X, Y     float64
-	Width    float64
-	Height   float64
+	Pos      Vec2
+	Size     Vec2
 	Power    float64
 	MaxPower float64
 	Storage  *Inventory
@@ -47,10 +46,8 @@ type BaseStation struct {
 // NewBaseStation instantiates a BaseStation (e.g. starting Life Pod).
 func NewBaseStation(x, y float64) *BaseStation {
 	b := &BaseStation{
-		X:        x,
-		Y:        y,
-		Width:    48,
-		Height:   48,
+		Pos:      Vec2{X: x, Y: y},
+		Size:     Vec2{X: 48, Y: 48},
 		Power:    75.0,
 		MaxPower: 100.0,
 		Storage:  NewInventory(24), // 24 storage slots in base vault
@@ -81,27 +78,27 @@ func (b *BaseStation) UpdatePower() {
 
 // Draw renders the base station in the overworld viewport.
 func (b *BaseStation) Draw(screen *ebiten.Image, camera *Camera) {
-	sx := float32(b.X - camera.X)
-	sy := float32(b.Y - camera.Y)
+	sx := float32(b.Pos.X - camera.Pos.X)
+	sy := float32(b.Pos.Y - camera.Pos.Y)
 
 	// Draw Life Pod hull (rounded hexagonal/pod shape)
 	podColor := color.RGBA{240, 240, 245, 255} // Clean white pod
-	vector.DrawFilledRect(screen, sx, sy, float32(b.Width), float32(b.Height), podColor, false)
-	vector.StrokeRect(screen, sx, sy, float32(b.Width), float32(b.Height), 2.0, color.RGBA{220, 100, 30, 255}, false) // Orange highlights
+	vector.FillRect(screen, sx, sy, float32(b.Size.X), float32(b.Size.Y), podColor, false)
+	vector.StrokeRect(screen, sx, sy, float32(b.Size.X), float32(b.Size.Y), 2.0, color.RGBA{220, 100, 30, 255}, false) // Orange highlights
 
 	// Inner window/hatch details
-	vector.DrawFilledCircle(screen, sx+24, sy+24, 10, color.RGBA{40, 80, 120, 255}, false)
+	vector.FillCircle(screen, sx+24, sy+24, 10, color.RGBA{40, 80, 120, 255}, false)
 	vector.StrokeCircle(screen, sx+24, sy+24, 10, 1.0, color.RGBA{180, 200, 220, 255}, false)
 
 	// Draw antenna blinking red light
-	vector.DrawFilledCircle(screen, sx+24, sy+4, 3, color.RGBA{235, 45, 45, 255}, false)
+	vector.FillCircle(screen, sx+24, sy+4, 3, color.RGBA{235, 45, 45, 255}, false)
 }
 
 // DistanceToPlayer returns the distance from base center to player center.
 func (b *BaseStation) DistanceToPlayer(p *Player) float64 {
-	bx := b.X + b.Width/2.0
-	by := b.Y + b.Height/2.0
-	px := p.X + p.Width/2.0
-	py := p.Y + p.Height/2.0
+	bx := b.Pos.X + b.Size.X/2.0
+	by := b.Pos.Y + b.Size.Y/2.0
+	px := p.Pos.X + p.Width/2.0
+	py := p.Pos.Y + p.Height/2.0
 	return math.Hypot(bx-px, by-py)
 }

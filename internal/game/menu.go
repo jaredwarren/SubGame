@@ -6,7 +6,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -67,22 +66,32 @@ var CraftingRecipes = []Recipe{
 	},
 }
 
-// BaseMenu manages tab selections and base management interactions.
-type BaseMenu struct {
+// BaseMenuScene manages tab selections and base management interactions.
+type BaseMenuScene struct {
 	ActiveTab int
 }
 
-// NewBaseMenu instantiates a BaseMenu.
-func NewBaseMenu() *BaseMenu {
-	return &BaseMenu{
+// NewBaseMenuScene instantiates a BaseMenuScene.
+func NewBaseMenuScene() *BaseMenuScene {
+	return &BaseMenuScene{
 		ActiveTab: 0,
 	}
 }
 
+func (m *BaseMenuScene) OnEnter(g *Game) {
+	g.currentState = StateBaseMenu
+}
+
+func (m *BaseMenuScene) OnExit(g *Game) {}
+
 // Update handles mouse interactions within the menu tabs, crafting, and vault transfers.
-func (m *BaseMenu) Update(p *Player, b *BaseStation) {
-	mx, my := ebiten.CursorPosition()
-	leftClicked := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+func (m *BaseMenuScene) Update(g *Game) error {
+	p := g.player
+	b := g.baseStation
+
+	cursor := g.Input.Cursor()
+	mx, my := int(cursor.X), int(cursor.Y)
+	leftClicked := g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 
 	// Panel placement calculations
 	const (
@@ -257,10 +266,15 @@ func (m *BaseMenu) Update(p *Player, b *BaseStation) {
 			}
 		}
 	}
+
+	return nil
 }
 
 // Draw renders the management base menu tabs and UI controls.
-func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
+func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
+	p := g.player
+	b := g.baseStation
+
 	const (
 		panelW = 800
 		panelH = 500
@@ -270,7 +284,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 
 	// Draw main window panel (transparent dark slate)
 	panelBg := color.RGBA{12, 16, 26, 242}
-	vector.DrawFilledRect(screen, panelX, panelY, panelW, panelH, panelBg, false)
+	vector.FillRect(screen, panelX, panelY, panelW, panelH, panelBg, false)
 	vector.StrokeRect(screen, panelX, panelY, panelW, panelH, 1.5, color.RGBA{68, 88, 120, 255}, false)
 
 	// Draw base title and stats
@@ -301,7 +315,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 			tabBorder = color.RGBA{95, 125, 165, 255}
 		}
 
-		vector.DrawFilledRect(screen, tx, ty, 140, 30, tabBg, false)
+		vector.FillRect(screen, tx, ty, 140, 30, tabBg, false)
 		vector.StrokeRect(screen, tx, ty, 140, 30, 1.0, tabBorder, false)
 		
 		// Draw label center offset (manual visual approximation)
@@ -318,7 +332,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 		schematicX := panelX + 30
 		schematicY := panelY + 95
 
-		vector.DrawFilledRect(screen, schematicX, schematicY, 380, 335, color.RGBA{16, 22, 34, 255}, false)
+		vector.FillRect(screen, schematicX, schematicY, 380, 335, color.RGBA{16, 22, 34, 255}, false)
 		vector.StrokeRect(screen, schematicX, schematicY, 380, 335, 1.0, color.RGBA{48, 62, 85, 255}, false)
 
 		ebitenutil.DebugPrintAt(screen, "BASE MODULE SCHEMATICS STATUS", int(schematicX)+15, int(schematicY)+15)
@@ -333,11 +347,11 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 			}
 
 			sy := schematicY + 50 + float32(idx*65)
-			vector.DrawFilledRect(screen, schematicX+15, sy, 350, 50, color.RGBA{24, 32, 48, 255}, false)
+			vector.FillRect(screen, schematicX+15, sy, 350, 50, color.RGBA{24, 32, 48, 255}, false)
 			vector.StrokeRect(screen, schematicX+15, sy, 350, 50, 0.8, color.RGBA{58, 75, 100, 255}, false)
 
 			ebitenutil.DebugPrintAt(screen, mod.String(), int(schematicX)+25, int(sy)+8)
-			vector.DrawFilledRect(screen, schematicX+25, sy+28, 90, 16, statusColor, false)
+			vector.FillRect(screen, schematicX+25, sy+28, 90, 16, statusColor, false)
 			ebitenutil.DebugPrintAt(screen, status, int(schematicX)+28, int(sy)+29)
 		}
 
@@ -349,7 +363,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 
 		// 1. Solar installation
 		sy := upgradeY + 45
-		vector.DrawFilledRect(screen, upgradeX, sy, 320, 100, color.RGBA{20, 26, 38, 255}, false)
+		vector.FillRect(screen, upgradeX, sy, 320, 100, color.RGBA{20, 26, 38, 255}, false)
 		vector.StrokeRect(screen, upgradeX, sy, 320, 100, 1.0, color.RGBA{50, 68, 92, 255}, false)
 
 		ebitenutil.DebugPrintAt(screen, "SOLAR ARRAY INSTALLATION", int(upgradeX)+12, int(sy)+10)
@@ -362,12 +376,12 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 			solBtnBg = color.RGBA{30, 80, 50, 255}
 			solBtnTxt = "CONSTRUCTED"
 		}
-		vector.DrawFilledRect(screen, upgradeX+12, sy+70, 296, 22, solBtnBg, false)
+		vector.FillRect(screen, upgradeX+12, sy+70, 296, 22, solBtnBg, false)
 		ebitenutil.DebugPrintAt(screen, solBtnTxt, int(upgradeX)+110, int(sy)+73)
 
 		// 2. Storage vault installation
 		vy := upgradeY + 165
-		vector.DrawFilledRect(screen, upgradeX, vy, 320, 100, color.RGBA{20, 26, 38, 255}, false)
+		vector.FillRect(screen, upgradeX, vy, 320, 100, color.RGBA{20, 26, 38, 255}, false)
 		vector.StrokeRect(screen, upgradeX, vy, 320, 100, 1.0, color.RGBA{50, 68, 92, 255}, false)
 
 		ebitenutil.DebugPrintAt(screen, "STORAGE VAULT INSTALLATION", int(upgradeX)+12, int(vy)+10)
@@ -380,7 +394,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 			vBtnBg = color.RGBA{30, 80, 50, 255}
 			vBtnTxt = "CONSTRUCTED"
 		}
-		vector.DrawFilledRect(screen, upgradeX+12, vy+70, 296, 22, vBtnBg, false)
+		vector.FillRect(screen, upgradeX+12, vy+70, 296, 22, vBtnBg, false)
 		ebitenutil.DebugPrintAt(screen, vBtnTxt, int(upgradeX)+110, int(vy)+73)
 
 	case 1: // FABRICATOR (Crafting menu)
@@ -394,7 +408,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 			ry := startY + 25 + float32(i)*rowH
 
 			// Draw row background panel
-			vector.DrawFilledRect(screen, startX, ry, 740, 52, color.RGBA{18, 24, 38, 255}, false)
+			vector.FillRect(screen, startX, ry, 740, 52, color.RGBA{18, 24, 38, 255}, false)
 			vector.StrokeRect(screen, startX, ry, 740, 52, 0.8, color.RGBA{45, 58, 78, 255}, false)
 
 			// Draw output name
@@ -436,7 +450,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 				btnLabel = "NO POWER"
 			}
 
-			vector.DrawFilledRect(screen, startX+560, ry+8, 160, 35, btnBg, false)
+			vector.FillRect(screen, startX+560, ry+8, 160, 35, btnBg, false)
 			vector.StrokeRect(screen, startX+560, ry+8, 160, 35, 1.0, color.RGBA{80, 100, 130, 255}, false)
 			ebitenutil.DebugPrintAt(screen, btnLabel, int(startX)+608, int(ry)+18)
 		}
@@ -447,14 +461,14 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 		pStartY := panelY + 110
 		ebitenutil.DebugPrintAt(screen, "PLAYER INVENTORY (CLICK TO STORE)", int(pStartX), int(pStartY)-25)
 
-		drawInventoryGrid(screen, pStartX, pStartY, p.Inventory)
+		drawInventoryGrid(g, screen, pStartX, pStartY, p.Inventory)
 
 		// Right: Base Vault Storage
 		bStartX := panelX + 430
 		bStartY := panelY + 110
 		ebitenutil.DebugPrintAt(screen, "BASE VAULT (CLICK TO TAKE)", int(bStartX), int(bStartY)-25)
 
-		drawInventoryGrid(screen, bStartX, bStartY, b.Storage)
+		drawInventoryGrid(g, screen, bStartX, bStartY, b.Storage)
 
 		// Middle arrow graphic
 		arrowX := panelX + 395
@@ -465,7 +479,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 		medX := panelX + 30
 		medY := panelY + 95
 
-		vector.DrawFilledRect(screen, medX, medY, 740, 335, color.RGBA{16, 22, 34, 255}, false)
+		vector.FillRect(screen, medX, medY, 740, 335, color.RGBA{16, 22, 34, 255}, false)
 		vector.StrokeRect(screen, medX, medY, 740, 335, 1.0, color.RGBA{48, 62, 85, 255}, false)
 
 		ebitenutil.DebugPrintAt(screen, "INFIRMARY / MEDICAL SCANNER UNIT", int(medX)+220, int(medY)+40)
@@ -474,7 +488,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 		ebitenutil.DebugPrintAt(screen, statusHp, int(medX)+240, int(medY)+100)
 
 		// Medical scan panel
-		vector.DrawFilledRect(screen, medX+230, medY+150, 280, 60, color.RGBA{22, 38, 55, 255}, false)
+		vector.FillRect(screen, medX+230, medY+150, 280, 60, color.RGBA{22, 38, 55, 255}, false)
 		
 		healText := "ACTIVATE DECONTAMINATION HEAL"
 		healSubText := "Costs 15 base energy (Heals +40 HP)"
@@ -496,7 +510,7 @@ func (m *BaseMenu) Draw(screen *ebiten.Image, p *Player, b *BaseStation) {
 }
 
 // drawInventoryGrid helper draws standard slots grid for items storage transfer.
-func drawInventoryGrid(screen *ebiten.Image, startX, startY float32, inv *Inventory) {
+func drawInventoryGrid(g *Game, screen *ebiten.Image, startX, startY float32, inv *Inventory) {
 	const (
 		cols   = 8
 		rows   = 3
@@ -504,7 +518,8 @@ func drawInventoryGrid(screen *ebiten.Image, startX, startY float32, inv *Invent
 		gap    = 6
 	)
 
-	mx, my := ebiten.CursorPosition()
+	cursor := g.Input.Cursor()
+	mx, my := int(cursor.X), int(cursor.Y)
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
@@ -525,7 +540,7 @@ func drawInventoryGrid(screen *ebiten.Image, startX, startY float32, inv *Invent
 				slotBorder = color.RGBA{100, 130, 180, 255}
 			}
 
-			vector.DrawFilledRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
 			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
 			item := inv.Slots[idx]
@@ -546,7 +561,7 @@ func drawInventoryGrid(screen *ebiten.Image, startX, startY float32, inv *Invent
 
 				cx := sx + slotSz/2.0
 				cy := sy + slotSz/2.0
-				vector.DrawFilledCircle(screen, cx, cy, 10, itemClr, false)
+				vector.FillCircle(screen, cx, cy, 10, itemClr, false)
 
 				if item.Quantity > 1 {
 					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+4, int(sy)+slotSz-15)
