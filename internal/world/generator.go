@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 )
 
@@ -87,22 +88,92 @@ func (w *World) generateOverworld() {
 	}
 }
 
+// DistanceToLand returns the Euclidean distance from (tx, ty) to the nearest TileLand tile.
+func (w *World) DistanceToLand(tx, ty int) float64 {
+	minDistSq := 999999.0
+	for x := 0; x < w.Width; x++ {
+		for y := 0; y < w.Height; y++ {
+			if w.OverworldMap[x][y] == TileLand {
+				dx := float64(x - tx)
+				dy := float64(y - ty)
+				distSq := dx*dx + dy*dy
+				if distSq < minDistSq {
+					minDistSq = distSq
+				}
+			}
+		}
+	}
+	return math.Sqrt(minDistSq)
+}
+
 // GetCave returns a procedurally generated cave linked to the trench position.
 func (w *World) GetCave(tx, ty int) [][]bool {
+	// Clamp inputs to safe overworld boundaries
+	if tx < 0 {
+		tx = 0
+	}
+	if tx >= w.Width {
+		tx = w.Width - 1
+	}
+	if ty < 0 {
+		ty = 0
+	}
+	if ty >= w.Height {
+		ty = w.Height - 1
+	}
+
 	key := fmt.Sprintf("%d_%d", tx, ty)
 	if cave, exists := w.Caves[key]; exists {
+		return cave
+	}
+
+	isTrench := w.OverworldMap[tx][ty] == TileTrench
+
+	const (
+		caveW  = 60
+		caveH  = 120
+		splitY = 60
+	)
+
+	if !isTrench {
+		dist := w.DistanceToLand(tx, ty)
+		floorY := 6 + int(dist*2.2)
+		if floorY < 6 {
+			floorY = 6
+		}
+		if floorY > 60 {
+			floorY = 60
+		}
+
+		// Create a local random generator seeded by coordinates to make every seabed layout unique
+		r := rand.New(rand.NewSource(w.Seed + int64(tx*73) + int64(ty*31)))
+		freq1 := 0.15 + r.Float64()*0.2
+		freq2 := 0.05 + r.Float64()*0.1
+		amp1 := 2.0 + r.Float64()*4.0
+		amp2 := 1.0 + r.Float64()*3.0
+
+		cave := make([][]bool, caveW)
+		for x := 0; x < caveW; x++ {
+			cave[x] = make([]bool, caveH)
+			colFloorY := floorY + int(math.Sin(float64(x)*freq1)*amp1+math.Cos(float64(x)*freq2)*amp2)
+			if colFloorY < 6 {
+				colFloorY = 6
+			}
+			for y := 0; y < caveH; y++ {
+				if x == 0 || x == caveW-1 || y >= colFloorY {
+					cave[x][y] = true
+				} else {
+					cave[x][y] = false
+				}
+			}
+		}
+		w.Caves[key] = cave
 		return cave
 	}
 
 	// Generate a new cave if it doesn't exist yet
 	r := rand.New(rand.NewSource(w.Seed + int64(tx*73) + int64(ty*31)))
 	
-	const (
-		caveW = 60
-		caveH = 120
-		splitY = 60
-	)
-
 	// 1. Generate upper shallow cave (Cellular Automata)
 	shallowCave := GenerateCellularCave(caveW, splitY, 0.42, 4, r)
 

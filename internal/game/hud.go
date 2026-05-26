@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 // HUD renders the health, oxygen, and stamina bars on the screen.
@@ -33,10 +34,11 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 	// Environment Telemetry Panel (top-left)
 	telX := float32(20) + jx
 	telY := float32(20) + jy
-	const (
-		telW = 240
-		telH = 95
-	)
+	telW := float32(240)
+	telH := float32(95)
+	if g.currentState == StateOverworld {
+		telH = 115
+	}
 
 	// Draw Telemetry background panel (glassmorphism feel)
 	vector.DrawFilledRect(screen, telX, telY, telW, telH, color.RGBA{18, 24, 38, 200}, false)
@@ -85,9 +87,31 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		posText := fmt.Sprintf("Pos: X:%.0f Y:%.0f", g.player.X, g.player.Y)
 		zoneText := "Zone: Surface Ocean"
 
+		tx := int(g.player.X+g.player.Width/2) / TileSize
+		ty := int(g.player.Y+g.player.Height/2) / TileSize
+		var depthText string
+		if tx >= 0 && tx < g.world.Width && ty >= 0 && ty < g.world.Height {
+			if g.world.OverworldMap[tx][ty] == world.TileTrench {
+				depthText = "Est. Dive Depth: Trench (120m)"
+			} else {
+				dist := g.world.DistanceToLand(tx, ty)
+				floorY := 6 + int(dist*2.2)
+				if floorY < 6 {
+					floorY = 6
+				}
+				if floorY > 60 {
+					floorY = 60
+				}
+				depthText = fmt.Sprintf("Est. Dive Depth: %dm", floorY)
+			}
+		} else {
+			depthText = "Est. Dive Depth: N/A"
+		}
+
 		ebitenutil.DebugPrintAt(screen, timeText, int(telX)+15, int(telY)+28)
 		ebitenutil.DebugPrintAt(screen, posText, int(telX)+15, int(telY)+48)
 		ebitenutil.DebugPrintAt(screen, zoneText, int(telX)+15, int(telY)+68)
+		ebitenutil.DebugPrintAt(screen, depthText, int(telX)+15, int(telY)+88)
 	} else if g.currentState == StateCave {
 		ebitenutil.DebugPrintAt(screen, "DIVE TELEMETRY", int(telX)+26, int(telY)+8)
 

@@ -91,11 +91,12 @@ func (o *OverworldState) Update() (State, bool) {
 	isMoving := speed > 0.1
 	p.UpdateStats(false, isSprinting && isMoving && moving)
 
-	// Check if player is overlapping a Trench tile to trigger dive transition
+	// Check if player is overlapping a Trench or Water tile to trigger dive transition
 	tx := int(p.X+p.Width/2) / TileSize
 	ty := int(p.Y+p.Height/2) / TileSize
 	if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
-		if o.World.OverworldMap[tx][ty] == world.TileTrench {
+		tile := o.World.OverworldMap[tx][ty]
+		if tile == world.TileTrench || tile == world.TileWater {
 			if ebiten.IsKeyPressed(ebiten.KeyE) {
 				return StateCave, true
 			}
@@ -202,7 +203,8 @@ func (o *OverworldState) Draw(screen *ebiten.Image, camera *Camera, isPiloting b
 		pTileX := int(o.Player.X+o.Player.Width/2) / TileSize
 		pTileY := int(o.Player.Y+o.Player.Height/2) / TileSize
 		if pTileX >= 0 && pTileX < o.World.Width && pTileY >= 0 && pTileY < o.World.Height {
-			if o.World.OverworldMap[pTileX][pTileY] == world.TileTrench {
+			tile := o.World.OverworldMap[pTileX][pTileY]
+			if tile == world.TileTrench || tile == world.TileWater {
 				promptX := float32(pCenterX(o.Player)) - 80
 				promptY := float32(pCenterY(o.Player)) - 40
 				vector.DrawFilledRect(screen, promptX, promptY, 160, 25, color.RGBA{0, 0, 0, 180}, false)

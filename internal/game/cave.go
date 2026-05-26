@@ -12,10 +12,11 @@ import (
 
 // CaveState manages the side-view cave swimming controls, collision, and rendering.
 type CaveState struct {
-	Player   *Player
-	CaveGrid [][]bool
-	Nodes    []ResourceNode
-	Entities []*CaveEntity
+	Player    *Player
+	CaveGrid  [][]bool
+	Nodes     []ResourceNode
+	Entities  []*CaveEntity
+	IsShallow bool
 }
 
 // NewCaveState creates a new CaveState instance.
@@ -231,13 +232,29 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 
 	// Render ocean sky color if camera rises above the cave mouth (Y < 0)
 	if camY < 0 {
-		skyColor := color.RGBA{14, 52, 115, 255}
+		skyColor := color.RGBA{135, 206, 250, 255} // Light sky blue for shallow dives
+		if !c.IsShallow {
+			skyColor = color.RGBA{14, 52, 115, 255} // Darker deep water for deep caves
+		}
 		vector.DrawFilledRect(screen, 0, 0, ScreenWidth, float32(-camY), skyColor, false)
 	}
 
 	// Cave ambient backdrop color
 	caveColor := color.RGBA{10, 8, 16, 255}
+	if c.IsShallow {
+		caveColor = color.RGBA{20, 70, 150, 255}
+	}
 	screen.Fill(caveColor)
+
+	// Draw a distinct line at the water surface boundary (Y = 0) if visible
+	surfaceY := float32(-camY)
+	if surfaceY >= 0 && surfaceY < float32(ScreenHeight) {
+		lineColor := color.RGBA{220, 240, 255, 255} // foam white
+		if !c.IsShallow {
+			lineColor = color.RGBA{30, 80, 160, 255} // dark water surface for deep cave
+		}
+		vector.StrokeLine(screen, 0, surfaceY, ScreenWidth, surfaceY, 3.0, lineColor, false)
+	}
 
 	if c.CaveGrid != nil {
 		gridW := len(c.CaveGrid)
@@ -245,9 +262,9 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 
 		// Calculate visible tiles in viewport
 		startTileX := int(camX) / TileSize
-		endTileX := (int(camX) + ScreenWidth) / TileSize + 1
+		endTileX := (int(camX)+ScreenWidth)/TileSize + 1
 		startTileY := int(camY) / TileSize
-		endTileY := (int(camY) + ScreenHeight) / TileSize + 1
+		endTileY := (int(camY)+ScreenHeight)/TileSize + 1
 
 		// Clamp bounds
 		if startTileX < 0 {
@@ -270,7 +287,12 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 					sy := float32(ty*TileSize - int(camY))
 
 					var rockColor, strokeColor color.RGBA
-					if ty < 40 {
+					// TODO: make each of these bioms more generic and configurable. I want to be able to adjust the bioms, dynamically, and add new ones. same as biome_entity.go.
+					if c.IsShallow {
+						// Sandy reef rock
+						rockColor = color.RGBA{180, 155, 100, 255}
+						strokeColor = color.RGBA{210, 185, 120, 255}
+					} else if ty < 40 {
 						// Biome 1: Mid-Depth (Cyan/Teal) - Luminous Pneumatophore Grotto
 						// Shading is darker towards the bottom of the band
 						bandRatio := float64(ty) / 40.0
@@ -338,9 +360,9 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 	}
 
 	// --- Phase 4: Dynamic Lighting Shader Mask ---
-	if LightShader != nil {
+	if LightShader != nil && !c.IsShallow {
 		op := &ebiten.DrawRectShaderOptions{}
-		
+
 		var sonarSourceX, sonarSourceY float32
 		var sonarRadius float32
 		if g.SonarTimer > 0 {
@@ -353,7 +375,7 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 		if g.FlashlightOn {
 			fDirX = float32(math.Cos(facingAngle))
 			fDirY = float32(math.Sin(facingAngle))
-			
+
 			// Flickering effect based on Electro-Weaver tracking intensity
 			if g.WeaverTrackingTimer > 0 {
 				flickerChance := (g.WeaverTrackingTimer / 300.0) * 0.20 // up to 20% flicker chance
@@ -366,9 +388,9 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 		op.Uniforms = map[string]interface{}{
 			"LightSource":    []float32{pX, pY},
 			"FlashlightDir":  []float32{fDirX, fDirY},
-			"LightRadius":    float32(360.0),                     // Reach of flashlight
-			"ConeHalfAngle":  float32(math.Pi / 7.5),             // ~24 degree half-angle (48 degree beam)
-			"PersonalRadius": float32(65.0),                      // Direct glow around player
+			"LightRadius":    float32(360.0),         // Reach of flashlight
+			"ConeHalfAngle":  float32(math.Pi / 7.5), // ~24 degree half-angle (48 degree beam)
+			"PersonalRadius": float32(65.0),          // Direct glow around player
 			"AmbientColor":   c.getAmbientColor(),
 			"SonarSource":    []float32{sonarSourceX, sonarSourceY},
 			"SonarRadius":    sonarRadius,
@@ -377,7 +399,9 @@ func (c *CaveState) Draw(screen *ebiten.Image, camera *Camera, g *Game) {
 	}
 
 	// --- Phase 4: Bioluminescent Highlights (drawn on top of the shader mask) ---
-	c.drawBioluminescence(screen, camX, camY)
+	if !c.IsShallow {
+		c.drawBioluminescence(screen, camX, camY)
+	}
 
 	// --- Phase 8: Render Biome Entities ---
 	for _, ent := range c.Entities {
@@ -401,9 +425,9 @@ func (c *CaveState) drawBioluminescence(screen *ebiten.Image, camX, camY float64
 	gridH := len(c.CaveGrid[0])
 
 	startTileX := int(camX) / TileSize
-	endTileX := (int(camX) + ScreenWidth) / TileSize + 1
+	endTileX := (int(camX)+ScreenWidth)/TileSize + 1
 	startTileY := int(camY) / TileSize
-	endTileY := (int(camY) + ScreenHeight) / TileSize + 1
+	endTileY := (int(camY)+ScreenHeight)/TileSize + 1
 
 	if startTileX < 0 {
 		startTileX = 0

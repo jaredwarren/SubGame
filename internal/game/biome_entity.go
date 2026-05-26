@@ -40,7 +40,7 @@ type CaveEntity struct {
 }
 
 // GenerateCaveEntities scans the cave grid and spawns biome-specific entities.
-func GenerateCaveEntities(grid [][]bool, seed int64) []*CaveEntity {
+func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []*CaveEntity {
 	r := rand.New(rand.NewSource(seed))
 	var entities []*CaveEntity
 
@@ -51,6 +51,23 @@ func GenerateCaveEntities(grid [][]bool, seed int64) []*CaveEntity {
 		for ty := 2; ty < gridH-2; ty++ {
 			// Ensure it's not a solid tile
 			if grid[tx][ty] {
+				continue
+			}
+
+			// TODO: make each of these bioms more generic and configurable. I want to be able to adjust the bioms, dynamically, and add new ones.
+			if isShallow {
+				// Only spawn Shatter-bulb (static oxygen plant) on floor/wall tiles
+				hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
+				if hasAdjacentWall && r.Float64() < 0.08 {
+					entities = append(entities, &CaveEntity{
+						Type:   EntShatterBulb,
+						X:      float64(tx*TileSize) + float64(TileSize-24)/2.0,
+						Y:      float64(ty*TileSize) + float64(TileSize-24)/2.0,
+						Width:  24,
+						Height: 24,
+						Active: true,
+					})
+				}
 				continue
 			}
 
@@ -131,7 +148,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64) []*CaveEntity {
 				if grid[tx][ty+1] && r.Float64() < 0.10 {
 					entities = append(entities, &CaveEntity{
 						Type:   EntNerveMat,
-						X:      float64(tx*TileSize),
+						X:      float64(tx * TileSize),
 						Y:      float64(ty*TileSize) + float64(TileSize-12),
 						Width:  float64(TileSize),
 						Height: 12,
@@ -181,6 +198,7 @@ func (ent *CaveEntity) Update(g *Game, cave *CaveState) {
 	ey := ent.Y + ent.Height/2.0
 	dist := math.Hypot(px-ex, py-ey)
 
+	// TODO: break this up into better organized methods and file structure
 	switch ent.Type {
 	case EntShatterBulb:
 		// Static plant. If player/vehicle collides, trigger pop
@@ -541,7 +559,7 @@ func (ent *CaveEntity) Draw(screen *ebiten.Image, camera *Camera, timeOfDay floa
 	case EntFalseBulbSnare:
 		// Mimics Shatter-bulb but hangs from ceiling
 		vector.StrokeLine(screen, cx, sy, cx, cy, 2.0, color.RGBA{45, 95, 75, 255}, false)
-		
+
 		bulbColor := color.RGBA{0, 220, 240, 255}
 		// If alert, show reddish core inside
 		if ent.State == 1 {
@@ -558,19 +576,19 @@ func (ent *CaveEntity) Draw(screen *ebiten.Image, camera *Camera, timeOfDay floa
 	case EntBrimstoneSiphon:
 		// Draw static volcanic vent cone
 		path := new(vector.Path)
-		path.MoveTo(cx - 16, sy + 32)
-		path.LineTo(cx + 16, sy + 32)
-		path.LineTo(cx + 8, sy + 12)
-		path.LineTo(cx - 8, sy + 12)
+		path.MoveTo(cx-16, sy+32)
+		path.LineTo(cx+16, sy+32)
+		path.LineTo(cx+8, sy+12)
+		path.LineTo(cx-8, sy+12)
 		path.Close()
-		
+
 		var ventColor color.RGBA
 		if ent.Timer >= 60 {
 			ventColor = color.RGBA{185, 85, 45, 255} // Glowing red hot
 		} else {
 			ventColor = color.RGBA{65, 55, 50, 255} // Cool rock
 		}
-		
+
 		op := &ebiten.DrawTrianglesOptions{FillRule: ebiten.EvenOdd}
 		vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
 		for i := range vs {
@@ -588,19 +606,19 @@ func (ent *CaveEntity) Draw(screen *ebiten.Image, camera *Camera, timeOfDay floa
 			var jx, jy float32
 			switch ent.Direction {
 			case "up":
-				jx, jy = cx, cy - jetLen/2.0
+				jx, jy = cx, cy-jetLen/2.0
 				vector.DrawFilledRect(screen, cx-8, cy-jetLen, 16, jetLen, color.RGBA{245, 120, 20, 90}, false)
 				vector.DrawFilledRect(screen, cx-3, cy-jetLen-10, 6, jetLen+10, color.RGBA{245, 220, 40, 160}, false)
 			case "down":
-				jx, jy = cx, cy + jetLen/2.0
+				jx, jy = cx, cy+jetLen/2.0
 				vector.DrawFilledRect(screen, cx-8, cy+16, 16, jetLen, color.RGBA{245, 120, 20, 90}, false)
 				vector.DrawFilledRect(screen, cx-3, cy+16, 6, jetLen+10, color.RGBA{245, 220, 40, 160}, false)
 			case "left":
-				jx, jy = cx - jetLen/2.0, cy
+				jx, jy = cx-jetLen/2.0, cy
 				vector.DrawFilledRect(screen, cx-jetLen-16, cy-8, jetLen, 16, color.RGBA{245, 120, 20, 90}, false)
 				vector.DrawFilledRect(screen, cx-jetLen-26, cy-3, jetLen+10, 6, color.RGBA{245, 220, 40, 160}, false)
 			default: // "right"
-				jx, jy = cx + jetLen/2.0, cy
+				jx, jy = cx+jetLen/2.0, cy
 				vector.DrawFilledRect(screen, cx+16, cy-8, jetLen, 16, color.RGBA{245, 120, 20, 90}, false)
 				vector.DrawFilledRect(screen, cx+16, cy-3, jetLen+10, 6, color.RGBA{245, 220, 40, 160}, false)
 			}
@@ -616,16 +634,16 @@ func (ent *CaveEntity) Draw(screen *ebiten.Image, camera *Camera, timeOfDay floa
 		// Draw fish body (grey-orange)
 		bodyColor := color.RGBA{195, 95, 45, 255}
 		vector.DrawFilledCircle(screen, cx, cy, 8.0, bodyColor, false)
-		
+
 		// Hard head skull (grey triangle)
 		path := new(vector.Path)
 		hx := cx + cosF*12
 		hy := cy + sinF*12
 		path.MoveTo(hx, hy)
-		path.LineTo(cx - sinF*6, cy + cosF*6)
-		path.LineTo(cx + sinF*6, cy - cosF*6)
+		path.LineTo(cx-sinF*6, cy+cosF*6)
+		path.LineTo(cx+sinF*6, cy-cosF*6)
 		path.Close()
-		
+
 		op := &ebiten.DrawTrianglesOptions{FillRule: ebiten.EvenOdd}
 		vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
 		for i := range vs {
@@ -639,8 +657,8 @@ func (ent *CaveEntity) Draw(screen *ebiten.Image, camera *Camera, timeOfDay floa
 		// Tail fin
 		tx := cx - cosF*10
 		ty := cy - sinF*10
-		vector.StrokeLine(screen, tx, ty, tx - sinF*8, ty + cosF*8, 2.0, color.RGBA{195, 95, 45, 255}, false)
-		vector.StrokeLine(screen, tx, ty, tx + sinF*8, ty - cosF*8, 2.0, color.RGBA{195, 95, 45, 255}, false)
+		vector.StrokeLine(screen, tx, ty, tx-sinF*8, ty+cosF*8, 2.0, color.RGBA{195, 95, 45, 255}, false)
+		vector.StrokeLine(screen, tx, ty, tx+sinF*8, ty-cosF*8, 2.0, color.RGBA{195, 95, 45, 255}, false)
 
 		// Stun stars above head if stunned
 		if ent.State == 2 {
@@ -680,7 +698,7 @@ func (ent *CaveEntity) Draw(screen *ebiten.Image, camera *Camera, timeOfDay floa
 
 			// Glow indicator on head
 			if i == 0 {
-				vector.DrawFilledCircle(screen, segmentX + float32(math.Cos(ent.Facing))*4, segmentY + float32(math.Sin(ent.Facing))*4, 2.0, color.RGBA{255, 255, 80, 255}, false)
+				vector.DrawFilledCircle(screen, segmentX+float32(math.Cos(ent.Facing))*4, segmentY+float32(math.Sin(ent.Facing))*4, 2.0, color.RGBA{255, 255, 80, 255}, false)
 			}
 		}
 

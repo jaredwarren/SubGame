@@ -175,8 +175,11 @@ func (g *Game) Update() error {
 		}
 		g.caveState.Nodes = g.caveNodes[key]
 
+		isShallow := g.world.OverworldMap[50][50] != world.TileTrench
+		g.caveState.IsShallow = isShallow
+
 		if _, exists := g.caveEntities[key]; !exists {
-			g.caveEntities[key] = GenerateCaveEntities(g.caveState.CaveGrid, 50*97+50*41)
+			g.caveEntities[key] = GenerateCaveEntities(g.caveState.CaveGrid, 50*97+50*41, isShallow)
 		}
 		g.caveState.Entities = g.caveEntities[key]
 
@@ -480,8 +483,11 @@ func (g *Game) Update() error {
 				}
 				g.caveState.Nodes = g.caveNodes[key]
 
+				isShallow := g.world.OverworldMap[tx][ty] != world.TileTrench
+				g.caveState.IsShallow = isShallow
+
 				if _, exists := g.caveEntities[key]; !exists {
-					g.caveEntities[key] = GenerateCaveEntities(g.caveState.CaveGrid, int64(tx*97+ty*41))
+					g.caveEntities[key] = GenerateCaveEntities(g.caveState.CaveGrid, int64(tx*97+ty*41), isShallow)
 				}
 				g.caveState.Entities = g.caveEntities[key]
 
