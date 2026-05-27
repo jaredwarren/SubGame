@@ -13,6 +13,7 @@ type InputSource interface {
 	IsKeyJustPressed(k ebiten.Key) bool
 	IsKeyPressed(k ebiten.Key) bool
 	IsMouseButtonJustPressed(b ebiten.MouseButton) bool
+	Wheel() (float64, float64)
 }
 
 // EbitenInput implements InputSource by polling the live Ebitengine input APIs.
@@ -22,6 +23,8 @@ type EbitenInput struct {
 	justPressedKeys  map[ebiten.Key]bool
 	pressedKeys      map[ebiten.Key]bool
 	justPressedMouse map[ebiten.MouseButton]bool
+	wheelX           float64
+	wheelY           float64
 }
 
 // NewEbitenInput creates a new EbitenInput manager.
@@ -37,6 +40,7 @@ func NewEbitenInput() *EbitenInput {
 func (e *EbitenInput) Update() {
 	mx, my := ebiten.CursorPosition()
 	e.cursor = gvec.Vec2{X: float64(mx), Y: float64(my)}
+	e.wheelX, e.wheelY = ebiten.Wheel()
 
 	// List of all keys used in the game
 	keys := []ebiten.Key{
@@ -81,12 +85,18 @@ func (e *EbitenInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool {
 	return e.justPressedMouse[b]
 }
 
+// Wheel returns the scroll wheel offset.
+func (e *EbitenInput) Wheel() (float64, float64) {
+	return e.wheelX, e.wheelY
+}
+
 // MockInput provides a mock implementation of InputSource for testing.
 type MockInput struct {
 	CursorPos        gvec.Vec2
 	JustPressedKeys  map[ebiten.Key]bool
 	PressedKeys      map[ebiten.Key]bool
 	JustPressedMouse map[ebiten.MouseButton]bool
+	WheelX, WheelY   float64
 }
 
 // NewMockInput creates a new MockInput instance.
@@ -103,3 +113,4 @@ func (m *MockInput) Cursor() gvec.Vec2                                  { return
 func (m *MockInput) IsKeyJustPressed(k ebiten.Key) bool                 { return m.JustPressedKeys[k] }
 func (m *MockInput) IsKeyPressed(k ebiten.Key) bool                     { return m.PressedKeys[k] }
 func (m *MockInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool { return m.JustPressedMouse[b] }
+func (m *MockInput) Wheel() (float64, float64)                          { return m.WheelX, m.WheelY }

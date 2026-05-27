@@ -206,21 +206,20 @@ To maintain a clean and scalable codebase, we will organize the project using st
 **Goal:** Build vehicle entities, handle vehicle piloting states, depth limits, and vehicle modules.
 
 ### **Tasks**
-- [ ] **7.1. Vehicle Interface (`internal/vehicle/vehicle.go`)**
+- [x] **7.1. Vehicle Interface (`internal/vehicle/vehicle.go`)**
   - Define `Vehicle` interface containing methods: `Update()`, `Draw()`, `GetPos()`, `GetOxygen()`, `TakeDamage()`, `GetPerspective()`.
-- [ ] **7.2. The Skiff (Surface Boat)**
+- [x] **7.2. The Skiff (Surface Boat)**
   - Implement Skiff rendering in Overworld.
   - Allow player to enter/exit. When piloting, player inventory is extended with Skiff's large storage.
-  - Implement Solar Charging module: charges internal battery in daytime.
-- [ ] **7.3. The Scout Sub (Cave Mini-Sub)**
+- [x] **7.3. The Scout Sub (Cave Mini-Sub)**
   - Small, agile 2-tile wide physics entity in the Caves.
   - Prevents player oxygen depletion while inside.
   - **Sonar module**: Pressing `Q` emits a radial wave that temporarily reveals cave outlines on the map (bypassing flashlight vignette for 3 seconds).
-- [ ] **7.4. The Heavy Mech**
+- [x] **7.4. The Heavy Mech**
   - Heavy physics entity: ignores buoyancy and sinks to the bottom.
   - Immune to minor predator damage.
   - **Drill Arm module**: Allows breaking deep "Abyssal Ore Blocks".
-- [ ] **7.5. Vehicle Depth Limits**
+- [x] **7.5. Vehicle Depth Limits**
   - Define depth limits for each vehicle. Exceeding the depth limit inflicts damage over time.
 
 ### **Verification**
@@ -234,20 +233,20 @@ To maintain a clean and scalable codebase, we will organize the project using st
 **Goal:** Implement biological behaviors for specific biomes, including visual palettes and interactive predator entities.
 
 ### **Tasks**
-- [ ] **8.1. Biome Mapping during Generation**
+- [x] **8.1. Biome Mapping during Generation**
   - Divide the cave grid height map into three bands:
     - **Mid-Depth (Cyan/Teal):** Luminous Pneumatophore Grotto.
     - **Deep (Dark Grey/Orange):** Silicate Smoker Trenches.
     - **Abyssal (Vantablack/White):** Benthic Brine-Falls.
-- [ ] **8.2. Biome 1 Entities: Shatter-Bulbs & False-Bulb Snare**
+- [x] **8.2. Biome 1 Entities: Shatter-Bulbs & False-Bulb Snare**
   - **Shatter-bulbs**: Breakable entities that release 20 units of oxygen but trigger a "sound radius" alert on pop.
   - **False-Bulb Snare AI**: Suspended ceiling predator. Mimics Shatter-bulb.
     - *AI Behavior*: Stays frozen if player's flashlight coordinates cross its position. If the player's flashlight points away (light vector doesn't intersect), it charges the player.
-- [ ] **8.3. Biome 2 Entities: Brimstone Siphons & Thermocline Rammer**
+- [x] **8.3. Biome 2 Entities: Brimstone Siphons & Thermocline Rammer**
   - **Brimstone Siphons**: Shoots fire/steam particles vertically or horizontally on a timer, hurting player on contact.
   - **Thermocline Rammer AI**: Eyeless fish.
     - *AI Behavior*: Ignores light. Aggros if player uses vehicle thrusters or swims fast within detection radius. Charges in straight horizontal or vertical lines. If it hits a cave wall, it enters a "stunned" state for 3 seconds.
-- [ ] **8.4. Biome 3 Entities: Pallid Nerve-Mats & Electro-Weaver**
+- [x] **8.4. Biome 3 Entities: Pallid Nerve-Mats & Electro-Weaver**
   - **Nerve-mats**: Ground plants that apply a slow debuff if player collides with them.
   - **Electro-Weaver AI**: Serpentine stalker.
     - *AI Behavior*: Tracks electrical output (flashlight on or sonar ping used). When tracking, screen UI begins to jitter and flickering lights occur. After 5 seconds of tracking, it strikes. Turning off flashlight and cutting vehicle power causes it to lose tracking.

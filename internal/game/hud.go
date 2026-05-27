@@ -241,7 +241,7 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *item.Inventory) 
 	// Center coordinates for the inventory panel overlay
 	const (
 		panelW = 600
-		panelH = 340
+		panelH = 420
 		cols   = 8
 		rows   = 3
 		slotSz = 56
@@ -306,6 +306,43 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *item.Inventory) 
 				if item.Quantity > 1 {
 					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+6, int(sy)+int(slotSz)-17)
 				}
+			}
+		}
+	}
+
+	// Draw Equipped Gear slots section
+	gearY := startY + float32(rows*(slotSz+gap)) + 5.0
+	ebitenutil.DebugPrintAt(screen, "EQUIPPED GEAR (CLICK ITEM TO EQUIP / UNEQUIP)", int(panelX)+20, int(gearY))
+
+	gearStartX := panelX + (panelW - (4.0 * float32(slotSz) + 3.0 * float32(gap))) / 2.0
+	gearSlotsY := gearY + 22.0
+
+	for c := 0; c < 4; c++ {
+		sx := gearStartX + float32(c*(slotSz+gap))
+		sy := gearSlotsY
+
+		slotBg := color.RGBA{20, 26, 38, 255}
+		slotBorder := color.RGBA{48, 60, 80, 255}
+
+		isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
+		if isHovered {
+			slotBg = color.RGBA{32, 42, 62, 255}
+			slotBorder = color.RGBA{95, 125, 165, 255}
+			if g.player.Upgrades != nil && c < len(g.player.Upgrades.Slots) {
+				itemStack := g.player.Upgrades.Slots[c]
+				if itemStack.Item != nil {
+					hoveredItemName = itemStack.Item.GetName()
+				}
+			}
+		}
+
+		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
+
+		if g.player.Upgrades != nil && c < len(g.player.Upgrades.Slots) {
+			itemStack := g.player.Upgrades.Slots[c]
+			if itemStack.Item != nil {
+				drawItemIcon(screen, sx, sy, slotSz, itemStack.Item)
 			}
 		}
 	}

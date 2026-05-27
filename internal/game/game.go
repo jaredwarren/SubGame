@@ -395,18 +395,19 @@ func (g *Game) Update() error {
 				}
 			}
 		} else {
-			// Single Player Inventory click deployments (Only inside Caves on foot)
-			if g.currentState == StateCave && g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			// Single Player Inventory click interactions (equipping upgrades & deploying vehicle kits)
+			if g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 				cursor := g.Input.Cursor()
 				mx, my := int(cursor.X), int(cursor.Y)
 				panelX := float64(ScreenWidth-600) / 2.0
-				panelY := float64(ScreenHeight-340) / 2.0
+				panelY := float64(ScreenHeight-420) / 2.0
 				cols := 8
 				slotSz := 56.0
 				gap := 10.0
 				startX := panelX + (600.0-float64(cols*(56+10)-10))/2.0
 				startY := panelY + 60.0
 
+				// 1. Check click on main inventory grid
 				for r := 0; r < 3; r++ {
 					for c := 0; c < 8; c++ {
 						idx := r*8 + c
@@ -417,20 +418,48 @@ func (g *Game) Update() error {
 							if idx < len(g.player.Inventory.Slots) {
 								slot := &g.player.Inventory.Slots[idx]
 								if slot.Item != nil {
-									switch slot.Item.(type) {
-									case *item.ScoutSubKit:
-										sub := vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
-										g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
+									// Try equipping as upgrade first
+									if g.player.EquipUpgrade(slot.Item) {
 										g.player.Inventory.Remove(slot.Item, 1)
 										g.player.RecalculateUpgrades()
-										g.showInventory = false
-									case *item.HeavyMechKit:
-										mech := vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
-										g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
-										g.player.Inventory.Remove(slot.Item, 1)
-										g.player.RecalculateUpgrades()
-										g.showInventory = false
+									} else if g.currentState == StateCave {
+										// Deploy vehicle kits only inside caves
+										switch slot.Item.(type) {
+										case *item.ScoutSubKit:
+											sub := vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
+											g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
+											g.player.Inventory.Remove(slot.Item, 1)
+											g.player.RecalculateUpgrades()
+											g.showInventory = false
+										case *item.HeavyMechKit:
+											mech := vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
+											g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
+											g.player.Inventory.Remove(slot.Item, 1)
+											g.player.RecalculateUpgrades()
+											g.showInventory = false
+										}
 									}
+								}
+							}
+						}
+					}
+				}
+
+				// 2. Check click on player equipped gear slots
+				gearStartX := panelX + (600.0-(4.0*slotSz+3.0*gap))/2.0
+				gearSlotsY := startY + 3.0*(slotSz+gap) + 5.0 + 22.0
+				for c := 0; c < 4; c++ {
+					sx := int(gearStartX) + c*int(slotSz+gap)
+					sy := int(gearSlotsY)
+
+					if mx >= sx && mx < sx+int(slotSz) && my >= sy && my < sy+int(slotSz) {
+						if g.player.Upgrades != nil && c < len(g.player.Upgrades.Slots) {
+							slot := &g.player.Upgrades.Slots[c]
+							if slot.Item != nil {
+								// Uninstall back to main inventory
+								if g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
+									g.player.Upgrades.Remove(slot.Item, 1)
+									g.player.RecalculateUpgrades()
 								}
 							}
 						}

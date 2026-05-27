@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -109,17 +110,20 @@ var CraftingRecipes = []Recipe{
 // BaseMenuScene manages tab selections and base management interactions.
 type BaseMenuScene struct {
 	ActiveTab int
+	ScrollY   float64
 }
 
 // NewBaseMenuScene instantiates a BaseMenuScene.
 func NewBaseMenuScene() *BaseMenuScene {
 	return &BaseMenuScene{
 		ActiveTab: 0,
+		ScrollY:   0,
 	}
 }
 
 func (m *BaseMenuScene) OnEnter(g *Game) {
 	g.currentState = StateBaseMenu
+	m.ScrollY = 0
 }
 
 func (m *BaseMenuScene) OnExit(g *Game) {}
@@ -169,8 +173,8 @@ func (m *BaseMenuScene) Update(g *Game) error {
 	case 0: // Overview tab (upgrades)
 		if leftClicked {
 			// 1. Click Player Inventory to install upgrade module
-			pStartX := panelX + 30
-			pStartY := panelY + 110
+			pStartX := panelX + 45
+			pStartY := panelY + 140
 			for r := 0; r < 3; r++ {
 				for c := 0; c < 8; c++ {
 					idx := r*8 + c
@@ -192,8 +196,8 @@ func (m *BaseMenuScene) Update(g *Game) error {
 			}
 
 			// 2. Click Base Upgrades to uninstall upgrade module
-			bStartX := panelX + 430
-			bStartY := panelY + 130
+			bStartX := panelX + 445
+			bStartY := panelY + 140
 			for c := 0; c < 4; c++ {
 				sx := int(bStartX) + c*(40+6)
 				sy := int(bStartY)
@@ -211,42 +215,60 @@ func (m *BaseMenuScene) Update(g *Game) error {
 		}
 
 	case 1: // Fabricator tab (crafting)
+		// Update scroll position using mouse wheel
+		_, wy := g.Input.Wheel()
+		if wy != 0 {
+			m.ScrollY -= wy * 15
+			maxScroll := float64(len(CraftingRecipes)*58 - 310)
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			if m.ScrollY < 0 {
+				m.ScrollY = 0
+			} else if m.ScrollY > maxScroll {
+				m.ScrollY = maxScroll
+			}
+		}
+
 		if leftClicked {
-			startX := int(panelX) + 40
-			startY := int(panelY) + 90
+			startX := int(panelX) + 30
+			startY := int(panelY) + 95
 			rowH := 58
+			viewportMinY := startY + 25
+			viewportMaxY := startY + 25 + 310
 
-			for i, rcp := range CraftingRecipes {
-				btnX := startX + 540
-				btnY := startY + i*rowH + 8
+			// Only register clicks inside the viewport bounds
+			if my >= viewportMinY && my < viewportMaxY {
+				for i, rcp := range CraftingRecipes {
+					// Apply scroll offset to find visual position
+					ry := float64(viewportMinY) + float64(i*rowH) - m.ScrollY
+					btnX := startX + 560
+					btnY := int(ry) + 8
 
-				// Check if clicked the Craft button for this recipe
-				if mx >= btnX && mx < btnX+140 && my >= btnY && my < btnY+35 {
-					// Check if base power is available (consuming 10 power per craft)
-					if b.Power >= 10.0 { // TODO: make configurable, based on recipe and maybe upgrade tiers
-						// Verify player has all ingredients
-						hasAll := true
-						for _, ing := range rcp.Ingredients {
-							if !p.Inventory.Has(ing.NewItem(), ing.Quantity) {
-								hasAll = false
-								break
-							}
-						}
-
-						if hasAll {
-							// create new item based on recipe result
-							newItem := rcp.NewResult()
-							// Check if inventory has slot space for result
-							if p.Inventory.AddItem(newItem, 1) {
-								// Consume ingredients
-								for _, ing := range rcp.Ingredients {
-									p.Inventory.Remove(ing.NewItem(), ing.Quantity)
+					// Verify if clicked the Craft button for this recipe
+					if mx >= btnX && mx < btnX+160 && my >= btnY && my < btnY+35 {
+						// Check if base power is available (consuming 10 power per craft)
+						if b.Power >= 10.0 {
+							// Verify player has all ingredients
+							hasAll := true
+							for _, ing := range rcp.Ingredients {
+								if !p.Inventory.Has(ing.NewItem(), ing.Quantity) {
+									hasAll = false
+									break
 								}
-								// Consume power
-								b.Power -= 10.0
+							}
 
-								// Recalculate upgrades immediately
-								p.RecalculateUpgrades()
+							if hasAll {
+								newItem := rcp.NewResult()
+								if p.Inventory.AddItem(newItem, 1) {
+									// Consume ingredients
+									for _, ing := range rcp.Ingredients {
+										p.Inventory.Remove(ing.NewItem(), ing.Quantity)
+									}
+									// Consume power
+									b.Power -= 10.0
+									p.RecalculateUpgrades()
+								}
 							}
 						}
 					}
@@ -321,7 +343,7 @@ func (m *BaseMenuScene) Update(g *Game) error {
 	case 3: // Medical Tab (healing)
 		if leftClicked {
 			healBtnX := int(panelX) + 260
-			healBtnY := int(panelY) + 160
+			healBtnY := int(panelY) + 245
 			if mx >= healBtnX && mx < healBtnX+280 && my >= healBtnY && my < healBtnY+60 {
 				// Costs 15 base power, heals 40 HP
 				if b.Power >= 15.0 && p.CurrentHealth < p.MaxHealth {
@@ -495,53 +517,85 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("FABRICATOR MENU (POWER COST: 10 HP PER CRAFT - CURRENT: %.0f HP)", b.Power), int(startX)+10, int(startY))
 
-		for i, rcp := range CraftingRecipes {
-			ry := startY + 25 + float32(i)*rowH
+		// Viewport parameters
+		viewportY := startY + 25
+		viewportH := float32(310)
 
-			// Draw row background panel
-			vector.FillRect(screen, startX, ry, 740, 52, color.RGBA{18, 24, 38, 255}, false)
-			vector.StrokeRect(screen, startX, ry, 740, 52, 0.8, color.RGBA{45, 58, 78, 255}, false)
+		// Draw clipped recipes
+		rect := image.Rect(int(startX), int(viewportY), int(startX)+740, int(viewportY+viewportH))
+		subImg := screen.SubImage(rect)
+		if subImg != nil {
+			clippedScreen := subImg.(*ebiten.Image)
+			for i, rcp := range CraftingRecipes {
+				ry := viewportY + float32(i)*rowH - float32(m.ScrollY)
 
-			// Draw output name
-			resultName := rcp.NewResult().GetName()
-			ebitenutil.DebugPrintAt(screen, resultName, int(startX)+15, int(ry)+6)
+				// Draw row background panel
+				vector.FillRect(clippedScreen, float32(startX), ry, 740, 52, color.RGBA{18, 24, 38, 255}, false)
+				vector.StrokeRect(clippedScreen, float32(startX), ry, 740, 52, 0.8, color.RGBA{45, 58, 78, 255}, false)
 
-			// Draw ingredients checklist
-			ingText := "Ingredients: "
-			hasAll := true
-			for j, ing := range rcp.Ingredients {
-				ingredient := ing.NewItem()
-				qtyInInv := p.Inventory.Count(ingredient)
+				// Draw output name
+				resultName := rcp.NewResult().GetName()
+				ebitenutil.DebugPrintAt(clippedScreen, resultName, int(startX)+15, int(ry)+6)
 
-				checkChar := "X"
-				if qtyInInv >= ing.Quantity {
-					checkChar = "✓"
-				} else {
-					hasAll = false
+				// Draw ingredients checklist
+				ingText := "Ingredients: "
+				hasAll := true
+				for j, ing := range rcp.Ingredients {
+					ingredient := ing.NewItem()
+					qtyInInv := p.Inventory.Count(ingredient)
+
+					checkChar := "X"
+					if qtyInInv >= ing.Quantity {
+						checkChar = "✓"
+					} else {
+						hasAll = false
+					}
+
+					ingName := ingredient.GetName()
+					ingText += fmt.Sprintf("[%s] %s (%d/%d)  ", checkChar, ingName, qtyInInv, ing.Quantity)
+					if j < len(rcp.Ingredients)-1 {
+						ingText += "|  "
+					}
+				}
+				ebitenutil.DebugPrintAt(clippedScreen, ingText, int(startX)+15, int(ry)+28)
+
+				// Craft button
+				btnBg := color.RGBA{50, 70, 100, 255}
+				btnLabel := "CRAFT ITEM"
+				if !hasAll {
+					btnBg = color.RGBA{38, 42, 50, 255}
+					btnLabel = "NO MATERIALS"
+				} else if b.Power < 10.0 {
+					btnBg = color.RGBA{50, 20, 20, 255}
+					btnLabel = "NO POWER"
 				}
 
-				ingName := ingredient.GetName()
-				ingText += fmt.Sprintf("[%s] %s (%d/%d)  ", checkChar, ingName, qtyInInv, ing.Quantity)
-				if j < len(rcp.Ingredients)-1 {
-					ingText += "|  "
-				}
+				vector.FillRect(clippedScreen, float32(startX)+560, ry+8, 160, 35, btnBg, false)
+				vector.StrokeRect(clippedScreen, float32(startX)+560, ry+8, 160, 35, 1.0, color.RGBA{80, 100, 130, 255}, false)
+				ebitenutil.DebugPrintAt(clippedScreen, btnLabel, int(startX)+608, int(ry)+18)
 			}
-			ebitenutil.DebugPrintAt(screen, ingText, int(startX)+15, int(ry)+28)
+		}
 
-			// Craft button
-			btnBg := color.RGBA{50, 70, 100, 255}
-			btnLabel := "CRAFT ITEM"
-			if !hasAll {
-				btnBg = color.RGBA{38, 42, 50, 255}
-				btnLabel = "NO MATERIALS"
-			} else if b.Power < 10.0 {
-				btnBg = color.RGBA{50, 20, 20, 255}
-				btnLabel = "NO POWER"
+		// Draw scrollbar on the right side if content overflows
+		totalH := float32(len(CraftingRecipes) * 58)
+		if totalH > viewportH {
+			scrollBarX := startX + 740 + 6
+			vector.FillRect(screen, float32(scrollBarX), viewportY, 6, viewportH, color.RGBA{24, 30, 44, 128}, false)
+
+			handleH := viewportH * (viewportH / totalH)
+			if handleH < 15 {
+				handleH = 15 // minimum size
+			}
+			maxScroll := totalH - viewportH
+			var handleY float32
+			if maxScroll > 0 {
+				handleY = viewportY + (float32(m.ScrollY)/maxScroll)*(viewportH-handleH)
+			} else {
+				handleY = viewportY
 			}
 
-			vector.FillRect(screen, startX+560, ry+8, 160, 35, btnBg, false)
-			vector.StrokeRect(screen, startX+560, ry+8, 160, 35, 1.0, color.RGBA{80, 100, 130, 255}, false)
-			ebitenutil.DebugPrintAt(screen, btnLabel, int(startX)+608, int(ry)+18)
+			vector.FillRect(screen, float32(scrollBarX), handleY, 6, handleH, color.RGBA{100, 130, 180, 255}, false)
+			vector.StrokeRect(screen, float32(scrollBarX), handleY, 6, handleH, 0.8, color.RGBA{140, 170, 220, 255}, false)
 		}
 
 	case 2: // BASE VAULT STORAGE (Items transfer)

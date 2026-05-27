@@ -1,8 +1,6 @@
 package game
 
 import (
-	"math"
-
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -34,6 +32,7 @@ type Player struct {
 
 	// Inventory
 	Inventory *item.Inventory
+	Upgrades  *item.Inventory // 4 upgrade/equipment slots
 
 	// Upgrade Cache (Option A)
 	HasFins bool
@@ -58,6 +57,7 @@ func NewPlayer(x, y float64) *Player {
 		StaminaRegenRate: 1.0,
 		DrownDamageRate:  30.0,
 		Inventory:        item.NewInventory(24),
+		Upgrades:         item.NewInventory(4),
 	}
 	p.RecalculateUpgrades()
 	return p
@@ -78,19 +78,33 @@ func (p *Player) UpdateStats(inCave bool, isSprinting bool) {
 	}
 
 	// Stamina management
-	if isSprinting && (math.Abs(p.Vel.X) > 0.1 || math.Abs(p.Vel.Y) > 0.1) {
-		p.CurrentStamina -= p.StaminaDrainRate / 60.0 // Sprinting drains stamina
+	if isSprinting {
+		p.CurrentStamina -= p.StaminaDrainRate / 60.0
 		if p.CurrentStamina < 0 {
 			p.CurrentStamina = 0
 		}
 	} else {
-		p.CurrentStamina += p.StaminaRegenRate / 60.0 // Regenerate stamina when not sprinting
+		p.CurrentStamina += p.StaminaRegenRate / 60.0
 		if p.CurrentStamina > p.MaxStamina {
 			p.CurrentStamina = p.MaxStamina
 		}
 	}
+}
 
-	// Health clamp
+// ClampStats restricts status metrics to their bounds.
+func (p *Player) ClampStats() {
+	if p.CurrentOxygen < 0 {
+		p.CurrentOxygen = 0
+	}
+	if p.CurrentOxygen > p.MaxOxygen {
+		p.CurrentOxygen = p.MaxOxygen
+	}
+	if p.CurrentStamina < 0 {
+		p.CurrentStamina = 0
+	}
+	if p.CurrentStamina > p.MaxStamina {
+		p.CurrentStamina = p.MaxStamina
+	}
 	if p.CurrentHealth < 0 {
 		p.CurrentHealth = 0
 	}
@@ -109,13 +123,30 @@ func pCenterY(p *Player) float64 {
 	return ScreenHeight / 2
 }
 
-// RecalculateUpgrades scans the inventory and updates cached upgrade flags and capacity stats.
-func (p *Player) RecalculateUpgrades() {
-	p.HasFins = item.HasItem[*item.Fins](p.Inventory, 1)
+// EquipUpgrade attempts to slot an item into the player's upgrades slots.
+func (p *Player) EquipUpgrade(it item.Item) bool {
+	if it == nil || p.Upgrades == nil {
+		return false
+	}
 
-	if item.HasItem[*item.O2TankUHC](p.Inventory, 1) {
+	// Only allow Fins and O2 Tanks for player upgrades
+	switch it.(type) {
+	case *item.Fins, *item.O2TankHC, *item.O2TankUHC:
+		if p.Upgrades.AddItem(it, 1) {
+			p.RecalculateUpgrades()
+			return true
+		}
+	}
+	return false
+}
+
+// RecalculateUpgrades scans the upgrades and updates cached upgrade flags and capacity stats.
+func (p *Player) RecalculateUpgrades() {
+	p.HasFins = item.HasItem[*item.Fins](p.Upgrades, 1)
+
+	if item.HasItem[*item.O2TankUHC](p.Upgrades, 1) {
 		p.MaxOxygen = 240.0
-	} else if item.HasItem[*item.O2TankHC](p.Inventory, 1) {
+	} else if item.HasItem[*item.O2TankHC](p.Upgrades, 1) {
 		p.MaxOxygen = 160.0
 	} else {
 		p.MaxOxygen = 100.0

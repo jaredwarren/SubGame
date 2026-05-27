@@ -312,3 +312,287 @@ func TestBaseMenu_OpenCloseFromVehicle(t *testing.T) {
 	}
 }
 
+func TestBaseMenu_InstallUpgrade(t *testing.T) {
+	g := NewGame()
+	g.Input = NewMockInput()
+	mockInput := g.Input.(*MockInput)
+
+	// Add an upgrade item to the player's inventory
+	upg := &item.UpgradeSolar{}
+	g.player.Inventory.AddItem(upg, 1)
+
+	// Transition to baseMenu
+	g.TransitionTo(g.baseMenu)
+	g.baseMenu.ActiveTab = 0
+
+	// Check if upgrade is in player's inventory
+	if !item.HasItem[*item.UpgradeSolar](g.player.Inventory, 1) {
+		t.Fatal("expected player to have UpgradeSolar")
+	}
+
+	// We click on the first slot of the player's inventory in Case 0.
+	// Player Inventory is drawn starting at panelX + 45, panelY + 140.
+	const (
+		panelW = 800
+		panelH = 500
+	)
+	panelX := float64(ScreenWidth-panelW) / 2.0
+	panelY := float64(ScreenHeight-panelH) / 2.0
+
+	mockInput.CursorPos = gvec.Vec2{X: panelX + 65, Y: panelY + 160}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+
+	// Call Update
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Upgrade should now be removed from player inventory and installed in Base Upgrades
+	if item.HasItem[*item.UpgradeSolar](g.player.Inventory, 1) {
+		t.Errorf("expected UpgradeSolar to be removed from player inventory")
+	}
+	if !g.baseStation.HasModule(item.ModuleSolar) {
+		t.Errorf("expected BaseStation to have ModuleSolar active")
+	}
+
+	// Now uninstall it by clicking on the first base upgrade slot.
+	// Base upgrades start at panelX + 445, panelY + 140.
+	mockInput.CursorPos = gvec.Vec2{X: panelX + 465, Y: panelY + 160}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+
+	// Call Update
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Upgrade should be back in player inventory and uninstalled from Base
+	if !item.HasItem[*item.UpgradeSolar](g.player.Inventory, 1) {
+		t.Errorf("expected UpgradeSolar to be back in player inventory")
+	}
+	if g.baseStation.HasModule(item.ModuleSolar) {
+		t.Errorf("expected BaseStation to not have ModuleSolar active")
+	}
+}
+
+func TestBaseMenu_FabricatorScrollAndCraft(t *testing.T) {
+	g := NewGame()
+	g.Input = NewMockInput()
+	mockInput := g.Input.(*MockInput)
+
+	// Transition to baseMenu Fabricator tab
+	g.TransitionTo(g.baseMenu)
+	g.baseMenu.ActiveTab = 1
+
+	// Scroll down so that we can test scrolling.
+	mockInput.WheelY = -2
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check if ScrollY increased (wy = -2, so ScrollY should increase by -(-2)*15 = 30)
+	if g.baseMenu.ScrollY != 30.0 {
+		t.Errorf("expected ScrollY to be 30.0, got %f", g.baseMenu.ScrollY)
+	}
+
+	// Now reset wheel
+	mockInput.WheelY = 0
+
+	// Let's check a craft click.
+	// We want to craft the first item (O2TankHC).
+	// Let's give player ingredients (4 Titanium, 2 Quartz).
+	g.player.Inventory.AddItem(&item.Titanium{}, 4)
+	g.player.Inventory.AddItem(&item.Quartz{}, 2)
+
+	// Since we scrolled by 30px, the first recipe visual row is shifted up by 30px.
+	// Row Y starts at viewportMinY = startY + 25 = panelY + 120.
+	// With ScrollY = 30, the first row (i=0) visual position is:
+	// ry = panelY + 120 + 0 - 30 = panelY + 90.
+	// Since Y = panelY + 98 is less than panelY + 120, it is outside the viewport and should NOT register click!
+	const (
+		panelW = 800
+		panelH = 500
+	)
+	panelX := float64(ScreenWidth-panelW) / 2.0
+	panelY := float64(ScreenHeight-panelH) / 2.0
+	startX := panelX + 30
+
+	btnX := startX + 560
+	btnY := panelY + 98 // visual button Y for scrolled-out first item
+
+	mockInput.CursorPos = gvec.Vec2{X: btnX + 10, Y: btnY + 10}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Player should NOT have crafted it because it was clipped out
+	if item.HasItem[*item.O2TankHC](g.player.Inventory, 1) {
+		t.Errorf("expected first item to not be crafted because it was scrolled out of viewport")
+	}
+
+	// Now scroll back to top (ScrollY = 0)
+	mockInput.WheelY = 2
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.baseMenu.ScrollY != 0.0 {
+		t.Errorf("expected ScrollY to be 0.0 after scroll up, got %f", g.baseMenu.ScrollY)
+	}
+	mockInput.WheelY = 0
+
+	// Now click first item (O2TankHC) button:
+	btnY = panelY + 128
+	mockInput.CursorPos = gvec.Vec2{X: btnX + 10, Y: btnY + 10}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Player should have successfully crafted O2TankHC!
+	if !item.HasItem[*item.O2TankHC](g.player.Inventory, 1) {
+		t.Errorf("expected O2TankHC to be crafted when scrolled into view")
+	}
+}
+
+func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
+	p := NewPlayer(0, 0)
+
+	// Initially, player stats should be default
+	if p.HasFins {
+		t.Error("expected player to not have fins initially")
+	}
+	if p.MaxOxygen != 100.0 {
+		t.Errorf("expected player initial MaxOxygen to be 100.0, got %f", p.MaxOxygen)
+	}
+
+	// Add Fins and High Capacity O2 tank to player inventory
+	fins := &item.Fins{}
+	tank := &item.O2TankHC{}
+	p.Inventory.AddItem(fins, 1)
+	p.Inventory.AddItem(tank, 1)
+
+	// Try equipping raw titanium - should fail
+	titanium := &item.Titanium{}
+	p.Inventory.AddItem(titanium, 1)
+	if p.EquipUpgrade(titanium) {
+		t.Error("expected equipping titanium to fail")
+	}
+
+	// Equip Fins
+	if !p.EquipUpgrade(fins) {
+		t.Fatal("expected equipping fins to succeed")
+	}
+	p.Inventory.Remove(fins, 1)
+
+	// HasFins should be true now
+	if !p.HasFins {
+		t.Error("expected HasFins to be true after equipping")
+	}
+
+	// Equip O2 Tank
+	if !p.EquipUpgrade(tank) {
+		t.Fatal("expected equipping High Capacity O2 Tank to succeed")
+	}
+	p.Inventory.Remove(tank, 1)
+
+	// MaxOxygen should be 160.0 now
+	if p.MaxOxygen != 160.0 {
+		t.Errorf("expected MaxOxygen to be 160.0 after equipping HC tank, got %f", p.MaxOxygen)
+	}
+
+	// Check upgrades inventory contents
+	if !item.HasItem[*item.Fins](p.Upgrades, 1) {
+		t.Error("expected upgrades inventory to have Fins")
+	}
+	if !item.HasItem[*item.O2TankHC](p.Upgrades, 1) {
+		t.Error("expected upgrades inventory to have High Capacity O2 Tank")
+	}
+
+	// Unequip Fins (remove from Upgrades and add back to Inventory)
+	p.Upgrades.Remove(fins, 1)
+	p.Inventory.AddItem(fins, 1)
+	p.RecalculateUpgrades()
+
+	if p.HasFins {
+		t.Error("expected HasFins to be false after unequipping")
+	}
+	if !item.HasItem[*item.Fins](p.Inventory, 1) {
+		t.Error("expected Fins to be back in main inventory")
+	}
+}
+
+func TestPlayer_InventoryClickEquip(t *testing.T) {
+	g := NewGame()
+	g.Input = NewMockInput()
+	mockInput := g.Input.(*MockInput)
+
+	// Open player inventory screen
+	g.showInventory = true
+	g.ActiveVehicle = nil
+
+	// Add Fins to player inventory
+	fins := &item.Fins{}
+	g.player.Inventory.AddItem(fins, 1)
+	g.player.RecalculateUpgrades() // sync stats
+
+	// Verify player does not have fins equipped initially
+	if g.player.HasFins {
+		t.Fatal("expected player to not have fins equipped initially")
+	}
+
+	// Click on the first slot of player inventory: (panelX + 65, panelY + 160)
+	// panelX = (1280 - 600) / 2 = 340.
+	// panelY = (720 - 420) / 2 = 150.
+	// startX = panelX + (600 - (8*66-10))/2 = 340 + (600 - 518)/2 = 340 + 41 = 381.
+	// startY = panelY + 60 = 150 + 60 = 210.
+	// Click center of first slot (r=0, c=0): (startX + 28, startY + 28) = (409, 238).
+	mockInput.CursorPos = gvec.Vec2{X: 409, Y: 238}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify Fins are removed from main inventory and equipped in upgrades slots
+	if g.player.Inventory.Slots[0].Item != nil {
+		t.Errorf("expected main inventory slot 0 to be empty after equipping")
+	}
+	if !g.player.HasFins {
+		t.Errorf("expected player to have fins equipped after click")
+	}
+	if !item.HasItem[*item.Fins](g.player.Upgrades, 1) {
+		t.Errorf("expected upgrades inventory to contain Fins")
+	}
+
+	// Now unequip by clicking on the first equipped gear slot:
+	// gearStartX = panelX + (600 - 254)/2 = 340 + 173 = 513.
+	// gearSlotsY = startY + 3*66 + 5 + 22 = 210 + 198 + 27 = 435.
+	// Click center of first gear slot: (gearStartX + 28, gearSlotsY + 28) = (541, 463).
+	mockInput.CursorPos = gvec.Vec2{X: 541, Y: 463}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify Fins are unequipped (removed from upgrades and added back to main inventory)
+	if g.player.HasFins {
+		t.Errorf("expected player to not have fins equipped after unequipping")
+	}
+	if !item.HasItem[*item.Fins](g.player.Inventory, 1) {
+		t.Errorf("expected Fins to be returned to player inventory")
+	}
+}
+
+
+
