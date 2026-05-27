@@ -7,13 +7,14 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 )
 
 // CaveScene manages the side-view cave swimming controls, collision, and rendering.
 type CaveScene struct {
 	CaveGrid  [][]bool
-	Nodes     []Resource
+	Nodes     []resource.Resource
 	Entities  []CaveEntity
 	IsShallow bool
 
@@ -28,7 +29,7 @@ type CaveScene struct {
 // NewCaveScene creates a new CaveScene instance.
 func NewCaveScene() *CaveScene {
 	cs := &CaveScene{
-		Nodes:         []Resource{},
+		Nodes:         []resource.Resource{},
 		Entities:      []CaveEntity{},
 		uniforms:      make(map[string]interface{}),
 		lightSource:   make([]float32, 2),

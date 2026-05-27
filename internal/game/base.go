@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
@@ -36,8 +37,8 @@ func (m BaseModule) String() string {
 
 // BaseStation represents a player base / Life Pod anchor terminal.
 type BaseStation struct {
-	Pos      Vec2
-	Size     Vec2
+	Pos      gvec.Vec2
+	Size     gvec.Vec2
 	Power    float64
 	MaxPower float64
 	Storage  *item.Inventory
@@ -47,8 +48,8 @@ type BaseStation struct {
 // NewBaseStation instantiates a BaseStation (e.g. starting Life Pod).
 func NewBaseStation(x, y float64) *BaseStation {
 	b := &BaseStation{
-		Pos:      Vec2{X: x, Y: y},
-		Size:     Vec2{X: 48, Y: 48},
+		Pos:      gvec.Vec2{X: x, Y: y},
+		Size:     gvec.Vec2{X: 48, Y: 48},
 		Power:    75.0,
 		MaxPower: 100.0,
 		Storage:  item.NewInventory(24), // 24 storage slots in base vault

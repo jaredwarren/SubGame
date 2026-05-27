@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 )
 
 type EntityType int
@@ -26,25 +27,25 @@ type CaveEntity interface {
 	Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64)
 	IsActive() bool
 	SetActive(active bool)
-	GetPos() Vec2
-	GetDimensions() Vec2
+	GetPos() gvec.Vec2
+	GetDimensions() gvec.Vec2
 	GetType() EntityType
 }
 
 // BaseEntity implements common fields and getters/setters for all entities.
 type BaseEntity struct {
 	Type       EntityType
-	Pos        Vec2
-	Vel        Vec2
-	Dimensions Vec2
+	Pos        gvec.Vec2
+	Vel        gvec.Vec2
+	Dimensions gvec.Vec2
 	Active     bool
 }
 
-func (b *BaseEntity) IsActive() bool       { return b.Active }
-func (b *BaseEntity) SetActive(active bool) { b.Active = active }
-func (b *BaseEntity) GetPos() Vec2          { return b.Pos }
-func (b *BaseEntity) GetDimensions() Vec2   { return b.Dimensions }
-func (b *BaseEntity) GetType() EntityType   { return b.Type }
+func (b *BaseEntity) IsActive() bool           { return b.Active }
+func (b *BaseEntity) SetActive(active bool)    { b.Active = active }
+func (b *BaseEntity) GetPos() gvec.Vec2        { return b.Pos }
+func (b *BaseEntity) GetDimensions() gvec.Vec2 { return b.Dimensions }
+func (b *BaseEntity) GetType() EntityType      { return b.Type }
 
 // GenerateCaveEntities scans the cave grid and spawns biome-specific entities.
 func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntity {
@@ -68,8 +69,8 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &ShatterBulb{
 						BaseEntity: BaseEntity{
 							Type:       EntShatterBulb,
-							Pos:        Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
-							Dimensions: Vec2{X: 24, Y: 24},
+							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
+							Dimensions: gvec.Vec2{X: 24, Y: 24},
 							Active:     true,
 						},
 					})
@@ -85,8 +86,8 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &ShatterBulb{
 						BaseEntity: BaseEntity{
 							Type:       EntShatterBulb,
-							Pos:        Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
-							Dimensions: Vec2{X: 24, Y: 24},
+							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
+							Dimensions: gvec.Vec2{X: 24, Y: 24},
 							Active:     true,
 						},
 					})
@@ -96,8 +97,8 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &FalseBulbSnare{
 						BaseEntity: BaseEntity{
 							Type:       EntFalseBulbSnare,
-							Pos:        Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + 4}, // Hang near ceiling
-							Dimensions: Vec2{X: 24, Y: 32},
+							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + 4}, // Hang near ceiling
+							Dimensions: gvec.Vec2{X: 24, Y: 32},
 							Active:     true,
 						},
 						State: 0,
@@ -124,8 +125,8 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 						entities = append(entities, &BrimstoneSiphon{
 							BaseEntity: BaseEntity{
 								Type:       EntBrimstoneSiphon,
-								Pos:        Vec2{X: float64(tx*TileSize) + float64(TileSize-32)/2.0, Y: float64(ty*TileSize) + float64(TileSize-32)/2.0},
-								Dimensions: Vec2{X: 32, Y: 32},
+								Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-32)/2.0, Y: float64(ty*TileSize) + float64(TileSize-32)/2.0},
+								Dimensions: gvec.Vec2{X: 32, Y: 32},
 								Active:     true,
 							},
 							Direction: dir,
@@ -140,8 +141,8 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &ThermoclineRammer{
 						BaseEntity: BaseEntity{
 							Type:       EntThermoclineRammer,
-							Pos:        Vec2{X: float64(tx*TileSize) + float64(TileSize-36)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
-							Dimensions: Vec2{X: 36, Y: 24},
+							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-36)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
+							Dimensions: gvec.Vec2{X: 36, Y: 24},
 							Active:     true,
 						},
 						Facing: r.Float64() * math.Pi * 2,
@@ -156,8 +157,8 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &NerveMat{
 						BaseEntity: BaseEntity{
 							Type:       EntNerveMat,
-							Pos:        Vec2{X: float64(tx * TileSize), Y: float64(ty*TileSize) + float64(TileSize-12)},
-							Dimensions: Vec2{X: float64(TileSize), Y: 12},
+							Pos:        gvec.Vec2{X: float64(tx * TileSize), Y: float64(ty*TileSize) + float64(TileSize-12)},
+							Dimensions: gvec.Vec2{X: float64(TileSize), Y: 12},
 							Active:     true,
 						},
 					})
@@ -178,8 +179,8 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 						entities = append(entities, &ElectroWeaver{
 							BaseEntity: BaseEntity{
 								Type:       EntElectroWeaver,
-								Pos:        Vec2{X: float64(tx*TileSize) + float64(TileSize-40)/2.0, Y: float64(ty*TileSize) + float64(TileSize-20)/2.0},
-								Dimensions: Vec2{X: 40, Y: 20},
+								Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-40)/2.0, Y: float64(ty*TileSize) + float64(TileSize-20)/2.0},
+								Dimensions: gvec.Vec2{X: 40, Y: 20},
 								Active:     true,
 							},
 						})
@@ -310,7 +311,7 @@ func (ent *FalseBulbSnare) Update(g *Game, cave *CaveScene) {
 
 	if isLit {
 		// Frozen!
-		ent.Vel = Vec2{}
+		ent.Vel = gvec.Vec2{}
 	} else {
 		// Pointing away or dark: lunges if player is close or sound popped
 		if dist < 180.0 || ent.State == 1 {
@@ -574,7 +575,7 @@ func (ent *ThermoclineRammer) Update(g *Game, cave *CaveScene) {
 		if cave.isSolid(nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
 			ent.State = 2 // Stunned!
 			ent.StunTimer = 180
-			ent.Vel = Vec2{}
+			ent.Vel = gvec.Vec2{}
 		} else {
 			ent.Pos.X = nextX
 			ent.Pos.Y = nextY
@@ -600,7 +601,7 @@ func (ent *ThermoclineRammer) Update(g *Game, cave *CaveScene) {
 			}
 			g.MineWarningTimer = 120
 			ent.State = 0 // return to patrol
-			ent.Vel = Vec2{}
+			ent.Vel = gvec.Vec2{}
 		}
 	}
 }

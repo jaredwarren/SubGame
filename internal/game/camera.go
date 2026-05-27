@@ -1,14 +1,16 @@
 package game
 
+import "github.com/jaredwarren/SubGame/internal/game/gvec"
+
 // Camera manages viewport translation and centers/tracks a target with linear interpolation.
 type Camera struct {
-	Pos Vec2
+	Pos gvec.Vec2
 }
 
 // NewCamera creates and returns an initialized Camera.
 func NewCamera(x, y float64) *Camera {
 	return &Camera{
-		Pos: Vec2{X: x, Y: y},
+		Pos: gvec.Vec2{X: x, Y: y},
 	}
 }
 

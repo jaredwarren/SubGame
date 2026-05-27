@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
@@ -14,9 +15,9 @@ import (
 type Vehicle interface {
 	Update(runtime Runtime)
 	Draw(screen *ebiten.Image, camX, camY float64)
-	GetPos() Vec2
-	SetPos(pos Vec2)
-	GetDimensions() Vec2
+	GetPos() gvec.Vec2
+	SetPos(pos gvec.Vec2)
+	GetDimensions() gvec.Vec2
 	GetHealth() float64
 	GetMaxHealth() float64
 	TakeDamage(amount float64)
@@ -32,29 +33,14 @@ type Vehicle interface {
 
 const TileSize = 64
 
-// Vec2 represents a 2D vector.
-type Vec2 struct {
-	X, Y float64
-}
-
-// Scale returns a new vector scaled by s.
-func (v Vec2) Scale(s float64) Vec2 {
-	return Vec2{X: v.X * s, Y: v.Y * s}
-}
-
-// Length returns the Euclidean length of the vector.
-func (v Vec2) Length() float64 {
-	return math.Sqrt(v.X*v.X + v.Y*v.Y)
-}
-
 // ---------------------------------------------------------
 // 1. THE SKIFF (Surface Boat)
 // ---------------------------------------------------------
 
 type Skiff struct {
-	Pos        Vec2
-	Vel        Vec2
-	Dimensions Vec2
+	Pos        gvec.Vec2
+	Vel        gvec.Vec2
+	Dimensions gvec.Vec2
 	Facing     float64
 	Health     float64
 	MaxHealth  float64
@@ -65,8 +51,8 @@ type Skiff struct {
 
 func NewSkiff(x, y float64) *Skiff {
 	return &Skiff{
-		Pos:        Vec2{X: x, Y: y},
-		Dimensions: Vec2{X: 56, Y: 24},
+		Pos:        gvec.Vec2{X: x, Y: y},
+		Dimensions: gvec.Vec2{X: 56, Y: 24},
 		Facing:     0.0,
 		Health:     150.0,
 		MaxHealth:  150.0,
@@ -76,11 +62,11 @@ func NewSkiff(x, y float64) *Skiff {
 	}
 }
 
-func (s *Skiff) GetPos() Vec2          { return s.Pos }
-func (s *Skiff) SetPos(pos Vec2)       { s.Pos = pos }
-func (s *Skiff) GetDimensions() Vec2   { return s.Dimensions }
-func (s *Skiff) GetHealth() float64    { return s.Health }
-func (s *Skiff) GetMaxHealth() float64 { return s.MaxHealth }
+func (s *Skiff) GetPos() gvec.Vec2        { return s.Pos }
+func (s *Skiff) SetPos(pos gvec.Vec2)     { s.Pos = pos }
+func (s *Skiff) GetDimensions() gvec.Vec2 { return s.Dimensions }
+func (s *Skiff) GetHealth() float64       { return s.Health }
+func (s *Skiff) GetMaxHealth() float64    { return s.MaxHealth }
 func (s *Skiff) TakeDamage(amount float64) {
 	s.Health -= amount
 	if s.Health < 0 {
@@ -107,7 +93,7 @@ func (s *Skiff) Update(runtime Runtime) {
 	}
 
 	if !runtime.IsActiveVehicle(s) {
-		s.Vel = Vec2{}
+		s.Vel = gvec.Vec2{}
 		return
 	}
 
@@ -164,21 +150,21 @@ func (s *Skiff) Update(runtime Runtime) {
 
 func (s *Skiff) checkCollisions(runtime Runtime) {
 	newX := s.Pos.X + s.Vel.X
-	if s.isSolid(runtime, Vec2{X: newX, Y: s.Pos.Y}) {
+	if s.isSolid(runtime, gvec.Vec2{X: newX, Y: s.Pos.Y}) {
 		s.Vel.X = 0
 	} else {
 		s.Pos.X = newX
 	}
 
 	newY := s.Pos.Y + s.Vel.Y
-	if s.isSolid(runtime, Vec2{X: s.Pos.X, Y: newY}) {
+	if s.isSolid(runtime, gvec.Vec2{X: s.Pos.X, Y: newY}) {
 		s.Vel.Y = 0
 	} else {
 		s.Pos.Y = newY
 	}
 }
 
-func (s *Skiff) isSolid(runtime Runtime, pos Vec2) bool {
+func (s *Skiff) isSolid(runtime Runtime, pos gvec.Vec2) bool {
 	x1 := int(math.Floor(pos.X)) / TileSize
 	x2 := int(math.Floor(pos.X+s.Dimensions.X)) / TileSize
 	y1 := int(math.Floor(pos.Y)) / TileSize
@@ -259,35 +245,48 @@ func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {
 // ---------------------------------------------------------
 
 type ScoutSub struct {
-	Pos        Vec2
-	Vel        Vec2
-	Dimensions Vec2
+	Pos        gvec.Vec2
+	Vel        gvec.Vec2
+	Dimensions gvec.Vec2
 	Facing     float64
 	Health     float64
 	MaxHealth  float64
 	Battery    float64
 	MaxBattery float64
 	Cargo      *item.Inventory
+	Sonar      SonarSettings
+}
+
+type SonarSettings struct {
+	BatteryCost float64
+	Pulse       SonarPulse
 }
 
 func NewScoutSub(x, y float64) *ScoutSub {
 	return &ScoutSub{
-		Pos:        Vec2{X: x, Y: y},
-		Dimensions: Vec2{X: 48, Y: 32},
+		Pos:        gvec.Vec2{X: x, Y: y},
+		Dimensions: gvec.Vec2{X: 48, Y: 32},
 		Facing:     0.0,
 		Health:     100.0,
 		MaxHealth:  100.0,
 		Battery:    100.0,
 		MaxBattery: 100.0,
 		Cargo:      item.NewInventory(12),
+		Sonar: SonarSettings{
+			BatteryCost: 10.0,
+			Pulse: SonarPulse{
+				DurationTicks: 180,
+				RadiusStep:    6.5,
+			},
+		},
 	}
 }
 
-func (sub *ScoutSub) GetPos() Vec2          { return sub.Pos }
-func (sub *ScoutSub) SetPos(pos Vec2)       { sub.Pos = pos }
-func (sub *ScoutSub) GetDimensions() Vec2   { return sub.Dimensions }
-func (sub *ScoutSub) GetHealth() float64    { return sub.Health }
-func (sub *ScoutSub) GetMaxHealth() float64 { return sub.MaxHealth }
+func (sub *ScoutSub) GetPos() gvec.Vec2        { return sub.Pos }
+func (sub *ScoutSub) SetPos(pos gvec.Vec2)     { sub.Pos = pos }
+func (sub *ScoutSub) GetDimensions() gvec.Vec2 { return sub.Dimensions }
+func (sub *ScoutSub) GetHealth() float64       { return sub.Health }
+func (sub *ScoutSub) GetMaxHealth() float64    { return sub.MaxHealth }
 func (sub *ScoutSub) TakeDamage(amount float64) {
 	sub.Health -= amount
 	if sub.Health < 0 {
@@ -305,7 +304,7 @@ func (sub *ScoutSub) GetFacing() float64        { return sub.Facing }
 
 func (sub *ScoutSub) Update(runtime Runtime) {
 	if !runtime.IsActiveVehicle(sub) {
-		sub.Vel = Vec2{}
+		sub.Vel = gvec.Vec2{}
 		return
 	}
 
@@ -372,22 +371,22 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 
 	// Sonar Ping activation (Key Q)
 	if hasPower && input.IsKeyJustPressed(ebiten.KeyQ) {
-		if runtime.CanUseSonar() {
-			sub.Battery -= 10.0
+		if runtime.CanUseSonar() && sub.Battery >= sub.Sonar.BatteryCost {
+			sub.Battery -= sub.Sonar.BatteryCost
 			if sub.Battery < 0 {
 				sub.Battery = 0
 			}
-			runtime.ActivateSonar(Vec2{
+			runtime.ActivateSonar(gvec.Vec2{
 				X: sub.Pos.X + sub.Dimensions.X/2.0,
 				Y: sub.Pos.Y + sub.Dimensions.Y/2.0,
-			})
+			}, sub.Sonar.Pulse)
 		}
 	}
 }
 
 func (sub *ScoutSub) checkCollisions(runtime Runtime) {
 	newX := sub.Pos.X + sub.Vel.X
-	if sub.isSolid(runtime, Vec2{X: newX, Y: sub.Pos.Y}) {
+	if sub.isSolid(runtime, gvec.Vec2{X: newX, Y: sub.Pos.Y}) {
 		sub.Vel.X = -sub.Vel.X * 0.3 // Bounce back slightly
 		// High speed collision damages vehicle hull
 		speed := math.Abs(sub.Vel.X)
@@ -400,7 +399,7 @@ func (sub *ScoutSub) checkCollisions(runtime Runtime) {
 	}
 
 	newY := sub.Pos.Y + sub.Vel.Y
-	if sub.isSolid(runtime, Vec2{X: sub.Pos.X, Y: newY}) {
+	if sub.isSolid(runtime, gvec.Vec2{X: sub.Pos.X, Y: newY}) {
 		// High speed collision damages vehicle hull
 		speed := math.Abs(sub.Vel.Y)
 		if speed > 2.0 {
@@ -412,7 +411,7 @@ func (sub *ScoutSub) checkCollisions(runtime Runtime) {
 	}
 }
 
-func (sub *ScoutSub) isSolid(runtime Runtime, pos Vec2) bool {
+func (sub *ScoutSub) isSolid(runtime Runtime, pos gvec.Vec2) bool {
 	x1 := int(math.Floor(pos.X)) / TileSize
 	x2 := int(math.Floor(pos.X+sub.Dimensions.X)) / TileSize
 	y1 := int(math.Floor(pos.Y)) / TileSize
@@ -469,9 +468,9 @@ func (sub *ScoutSub) Draw(screen *ebiten.Image, camX, camY float64) {
 // ---------------------------------------------------------
 
 type HeavyMech struct {
-	Pos             Vec2
-	Vel             Vec2
-	Dimensions      Vec2
+	Pos             gvec.Vec2
+	Vel             gvec.Vec2
+	Dimensions      gvec.Vec2
 	Facing          float64
 	Health          float64
 	MaxHealth       float64
@@ -486,8 +485,8 @@ type HeavyMech struct {
 
 func NewHeavyMech(x, y float64) *HeavyMech {
 	return &HeavyMech{
-		Pos:        Vec2{X: x, Y: y},
-		Dimensions: Vec2{X: 48, Y: 48},
+		Pos:        gvec.Vec2{X: x, Y: y},
+		Dimensions: gvec.Vec2{X: 48, Y: 48},
 		Facing:     0.0,
 		Health:     200.0,
 		MaxHealth:  200.0,
@@ -497,11 +496,11 @@ func NewHeavyMech(x, y float64) *HeavyMech {
 	}
 }
 
-func (m *HeavyMech) GetPos() Vec2          { return m.Pos }
-func (m *HeavyMech) SetPos(pos Vec2)       { m.Pos = pos }
-func (m *HeavyMech) GetDimensions() Vec2   { return m.Dimensions }
-func (m *HeavyMech) GetHealth() float64    { return m.Health }
-func (m *HeavyMech) GetMaxHealth() float64 { return m.MaxHealth }
+func (m *HeavyMech) GetPos() gvec.Vec2        { return m.Pos }
+func (m *HeavyMech) SetPos(pos gvec.Vec2)     { m.Pos = pos }
+func (m *HeavyMech) GetDimensions() gvec.Vec2 { return m.Dimensions }
+func (m *HeavyMech) GetHealth() float64       { return m.Health }
+func (m *HeavyMech) GetMaxHealth() float64    { return m.MaxHealth }
 func (m *HeavyMech) TakeDamage(amount float64) {
 	// Heavy Mech ignores 40% of incoming damage
 	m.Health -= amount * 0.6
@@ -625,14 +624,14 @@ func (m *HeavyMech) DrillStrike(node DrillableResource) {
 
 func (m *HeavyMech) checkCollisions(runtime Runtime) {
 	newX := m.Pos.X + m.Vel.X
-	if m.isSolid(runtime, Vec2{X: newX, Y: m.Pos.Y}) {
+	if m.isSolid(runtime, gvec.Vec2{X: newX, Y: m.Pos.Y}) {
 		m.Vel.X = 0
 	} else {
 		m.Pos.X = newX
 	}
 
 	newY := m.Pos.Y + m.Vel.Y
-	if m.isSolid(runtime, Vec2{X: m.Pos.X, Y: newY}) {
+	if m.isSolid(runtime, gvec.Vec2{X: m.Pos.X, Y: newY}) {
 		// Sinking fall damage checked if landing hard
 		if m.Vel.Y > 4.5 {
 			m.TakeDamage((m.Vel.Y - 4.5) * 8.0)
@@ -643,7 +642,7 @@ func (m *HeavyMech) checkCollisions(runtime Runtime) {
 	}
 }
 
-func (m *HeavyMech) isSolid(runtime Runtime, pos Vec2) bool {
+func (m *HeavyMech) isSolid(runtime Runtime, pos gvec.Vec2) bool {
 	x1 := int(math.Floor(pos.X)) / TileSize
 	x2 := int(math.Floor(pos.X+m.Dimensions.X)) / TileSize
 	y1 := int(math.Floor(pos.Y)) / TileSize

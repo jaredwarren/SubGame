@@ -2,11 +2,18 @@ package vehicle
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 )
+
+// SonarPulse defines gameplay tuning values for an emitted sonar ping.
+type SonarPulse struct {
+	DurationTicks int
+	RadiusStep    float64
+}
 
 // InputSource provides the subset of input APIs vehicle logic needs.
 type InputSource interface {
-	Cursor() Vec2
+	Cursor() gvec.Vec2
 	IsKeyJustPressed(k ebiten.Key) bool
 	IsKeyPressed(k ebiten.Key) bool
 }
@@ -25,11 +32,11 @@ type Runtime interface {
 	TimeOfDay() float64
 	IsActiveVehicle(v Vehicle) bool
 	Input() InputSource
-	PlayerScreenCenter() Vec2
+	PlayerScreenCenter() gvec.Vec2
 	PlayerSlowed() bool
 	IsOverworldSolidAt(tx, ty int) bool
 	IsCaveSolidAt(tx, ty int) bool
 	CanUseSonar() bool
-	ActivateSonar(source Vec2)
+	ActivateSonar(source gvec.Vec2, pulse SonarPulse)
 	RemoveCaveNodeAt(tx, ty int)
 }

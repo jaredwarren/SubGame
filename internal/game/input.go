@@ -3,12 +3,13 @@ package game
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 )
 
 // InputSource abstracts user input polling for decoupled game logic and unit testing.
 type InputSource interface {
 	Update()
-	Cursor() Vec2
+	Cursor() gvec.Vec2
 	IsKeyJustPressed(k ebiten.Key) bool
 	IsKeyPressed(k ebiten.Key) bool
 	IsMouseButtonJustPressed(b ebiten.MouseButton) bool
@@ -17,7 +18,7 @@ type InputSource interface {
 // EbitenInput implements InputSource by polling the live Ebitengine input APIs.
 // It caches values during Update() to allow safe access from both Update and Draw threads.
 type EbitenInput struct {
-	cursor           Vec2
+	cursor           gvec.Vec2
 	justPressedKeys  map[ebiten.Key]bool
 	pressedKeys      map[ebiten.Key]bool
 	justPressedMouse map[ebiten.MouseButton]bool
@@ -35,7 +36,7 @@ func NewEbitenInput() *EbitenInput {
 // Update polls all relevant input states. Call this once at the start of Game.Update().
 func (e *EbitenInput) Update() {
 	mx, my := ebiten.CursorPosition()
-	e.cursor = Vec2{X: float64(mx), Y: float64(my)}
+	e.cursor = gvec.Vec2{X: float64(mx), Y: float64(my)}
 
 	// List of all keys used in the game
 	keys := []ebiten.Key{
@@ -61,7 +62,7 @@ func (e *EbitenInput) Update() {
 }
 
 // Cursor returns the cached screen space mouse cursor position.
-func (e *EbitenInput) Cursor() Vec2 {
+func (e *EbitenInput) Cursor() gvec.Vec2 {
 	return e.cursor
 }
 
@@ -82,7 +83,7 @@ func (e *EbitenInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool {
 
 // MockInput provides a mock implementation of InputSource for testing.
 type MockInput struct {
-	CursorPos        Vec2
+	CursorPos        gvec.Vec2
 	JustPressedKeys  map[ebiten.Key]bool
 	PressedKeys      map[ebiten.Key]bool
 	JustPressedMouse map[ebiten.MouseButton]bool
@@ -97,8 +98,8 @@ func NewMockInput() *MockInput {
 	}
 }
 
-func (m *MockInput) Update()                                         {}
-func (m *MockInput) Cursor() Vec2                                    { return m.CursorPos }
-func (m *MockInput) IsKeyJustPressed(k ebiten.Key) bool              { return m.JustPressedKeys[k] }
-func (m *MockInput) IsKeyPressed(k ebiten.Key) bool                  { return m.PressedKeys[k] }
+func (m *MockInput) Update()                                            {}
+func (m *MockInput) Cursor() gvec.Vec2                                  { return m.CursorPos }
+func (m *MockInput) IsKeyJustPressed(k ebiten.Key) bool                 { return m.JustPressedKeys[k] }
+func (m *MockInput) IsKeyPressed(k ebiten.Key) bool                     { return m.PressedKeys[k] }
 func (m *MockInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool { return m.JustPressedMouse[b] }

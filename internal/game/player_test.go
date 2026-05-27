@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/resource"
 )
 
 func TestPlayer_UpdateStats(t *testing.T) {
@@ -13,7 +15,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 		name        string
 		inCave      string
 		isSprinting bool
-		vel         Vec2
+		vel         gvec.Vec2
 		initialO2   float64
 		initialHp   float64
 		initialSt   float64
@@ -25,7 +27,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 			name:        "O2 depletes in cave",
 			inCave:      "true",
 			isSprinting: false,
-			vel:         Vec2{},
+			vel:         gvec.Vec2{},
 			initialO2:   100.0,
 			initialHp:   100.0,
 			initialSt:   100.0,
@@ -38,7 +40,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 			name:        "O2 refills on surface",
 			inCave:      "false",
 			isSprinting: false,
-			vel:         Vec2{},
+			vel:         gvec.Vec2{},
 			initialO2:   50.0,
 			initialHp:   100.0,
 			initialSt:   100.0,
@@ -50,7 +52,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 			name:        "Drowning damage applied when O2 is 0",
 			inCave:      "true",
 			isSprinting: false,
-			vel:         Vec2{},
+			vel:         gvec.Vec2{},
 			initialO2:   0.0,
 			initialHp:   100.0,
 			initialSt:   100.0,
@@ -63,7 +65,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 			name:        "Stamina depletes when sprinting and moving",
 			inCave:      "false",
 			isSprinting: true,
-			vel:         Vec2{X: 1.0, Y: 0.0},
+			vel:         gvec.Vec2{X: 1.0, Y: 0.0},
 			initialO2:   100.0,
 			initialHp:   100.0,
 			initialSt:   100.0,
@@ -76,7 +78,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 			name:        "Stamina regens when idle",
 			inCave:      "false",
 			isSprinting: false,
-			vel:         Vec2{},
+			vel:         gvec.Vec2{},
 			initialO2:   100.0,
 			initialHp:   100.0,
 			initialSt:   50.0,
@@ -172,7 +174,7 @@ func TestVehicle_EntryExit(t *testing.T) {
 
 	// Now let's try to enter the skiff again.
 	// First, let's place the player close to the skiff.
-	g.player.Pos = Vec2{X: skiff.GetPos().X + 5, Y: skiff.GetPos().Y + 5}
+	g.player.Pos = gvec.Vec2{X: skiff.GetPos().X + 5, Y: skiff.GetPos().Y + 5}
 
 	// Reset inputs for the next frame
 	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
@@ -202,11 +204,11 @@ func TestInventory_AddItem(t *testing.T) {
 	}
 
 	// Test adding a ResourceNode (implements Item via Resource)
-	node := NewCopperNode(10, 10)
+	node := resource.NewCopperNode(10, 10)
 	if !inv.AddItem(node, 2) {
 		t.Error("expected successfully adding Copper resource node")
 	}
-	if !item.HasItem[*CopperNode](inv, 2) {
+	if !item.HasItem[*resource.CopperNode](inv, 2) {
 		t.Errorf("expected inventory to have 2 Copper resource nodes")
 	}
 }

@@ -9,7 +9,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -38,7 +40,7 @@ type Game struct {
 	justExited      bool
 
 	// Phase 5: Resource nodes and inventory state
-	caveNodes     map[string][]Resource
+	caveNodes     map[string][]resource.Resource
 	showInventory bool
 
 	// Phase 6: Base station and menu
@@ -51,6 +53,7 @@ type Game struct {
 	TimeOfDay         float64                      // 0 to 14400 ticks (4 min day/night cycle)
 	SonarTimer        int
 	SonarRadius       float64
+	SonarRadiusStep   float64
 	SonarSourceX      float64
 	SonarSourceY      float64
 	MineWarning       string
@@ -107,13 +110,14 @@ func NewGame() *Game {
 		world:             w,
 		camera:            cam,
 		Input:             NewEbitenInput(),
-		caveNodes:         make(map[string][]Resource),
+		caveNodes:         make(map[string][]resource.Resource),
 		showInventory:     false,
 		baseStation:       baseStation,
 		ActiveVehicle:     skiff,
 		OverworldVehicles: overworldVehicles,
 		CaveVehicles:      make(map[string][]vehicle.Vehicle),
 		TimeOfDay:         0.0,
+		SonarRadiusStep:   6.5,
 		caveEntities:      make(map[string][]CaveEntity),
 		FlashlightOn:      true,
 	}
@@ -153,7 +157,7 @@ func (g *Game) EnterCave(tx, ty int) {
 	g.caveState.IsShallow = g.world.OverworldMap[tx][ty] != world.TileTrench
 
 	if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
-		g.caveNodes[g.activeTrenchKey] = GenerateResourceNodes(g.caveState.CaveGrid, int64(tx*97+ty*41))
+		g.caveNodes[g.activeTrenchKey] = resource.GenerateResourceNodes(g.caveState.CaveGrid, int64(tx*97+ty*41))
 	}
 	g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
 
@@ -164,7 +168,7 @@ func (g *Game) EnterCave(tx, ty int) {
 
 	g.player.Pos.X = float64(len(g.caveState.CaveGrid)/2*TileSize) + (TileSize-g.player.Width)/2
 	g.player.Pos.Y = TileSize * 2
-	g.player.Vel = Vec2{}
+	g.player.Vel = gvec.Vec2{}
 
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	g.TransitionTo(g.caveState)
@@ -174,7 +178,7 @@ func (g *Game) EnterCave(tx, ty int) {
 func (g *Game) ExitCave() {
 	g.player.Pos.X = g.lastOverworldX
 	g.player.Pos.Y = g.lastOverworldY - TileSize*0.6
-	g.player.Vel = Vec2{X: 0, Y: -1.5}
+	g.player.Vel = gvec.Vec2{X: 0, Y: -1.5}
 
 	g.caveNodes[g.activeTrenchKey] = g.caveState.Nodes
 	g.caveEntities[g.activeTrenchKey] = g.caveState.Entities
@@ -216,7 +220,7 @@ func (g *Game) Update() error {
 	// Expand Sonar Ping wavefront inside caves
 	if g.SonarTimer > 0 {
 		g.SonarTimer--
-		g.SonarRadius += 6.5 // Expanding wave speed
+		g.SonarRadius += g.SonarRadiusStep
 	}
 
 	// Update popped Shatter-bulb sound wave circle
@@ -251,7 +255,7 @@ func (g *Game) Update() error {
 		g.player.Pos.Y = TileSize * 2
 
 		if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
-			g.caveNodes[g.activeTrenchKey] = GenerateResourceNodes(g.caveState.CaveGrid, 50*97+50*41)
+			g.caveNodes[g.activeTrenchKey] = resource.GenerateResourceNodes(g.caveState.CaveGrid, 50*97+50*41)
 		}
 		g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
 
@@ -480,7 +484,7 @@ func (g *Game) Update() error {
 		vDims := g.ActiveVehicle.GetDimensions()
 		g.player.Pos.X = vPos.X + (vDims.X-g.player.Width)/2.0
 		g.player.Pos.Y = vPos.Y + (vDims.Y-g.player.Height)/2.0
-		g.player.Vel = Vec2{}
+		g.player.Vel = gvec.Vec2{}
 
 		// Vehicle cockpit replenishes/locks pilot oxygen
 		if g.ActiveVehicle.GetOxygen() > 0.0 {

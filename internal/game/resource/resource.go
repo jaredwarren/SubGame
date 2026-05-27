@@ -1,4 +1,4 @@
-package game
+package resource
 
 import (
 	"image/color"
@@ -8,6 +8,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
+
+const TileSize = 64
 
 // Resource defines the interface that all mineable nodes/objects must implement.
 type Resource interface {

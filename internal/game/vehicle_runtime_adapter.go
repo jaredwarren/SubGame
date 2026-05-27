@@ -2,6 +2,7 @@ package game
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 	gv "github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -10,9 +11,9 @@ type vehicleInputAdapter struct {
 	input InputSource
 }
 
-func (a vehicleInputAdapter) Cursor() gv.Vec2 {
+func (a vehicleInputAdapter) Cursor() gvec.Vec2 {
 	cursor := a.input.Cursor()
-	return gv.Vec2{X: cursor.X, Y: cursor.Y}
+	return gvec.Vec2{X: cursor.X, Y: cursor.Y}
 }
 
 func (a vehicleInputAdapter) IsKeyJustPressed(k ebiten.Key) bool {
@@ -39,8 +40,8 @@ func (a vehicleRuntimeAdapter) Input() gv.InputSource {
 	return vehicleInputAdapter{input: a.g.Input}
 }
 
-func (a vehicleRuntimeAdapter) PlayerScreenCenter() gv.Vec2 {
-	return gv.Vec2{X: ScreenWidth / 2.0, Y: ScreenHeight / 2.0}
+func (a vehicleRuntimeAdapter) PlayerScreenCenter() gvec.Vec2 {
+	return gvec.Vec2{X: ScreenWidth / 2.0, Y: ScreenHeight / 2.0}
 }
 
 func (a vehicleRuntimeAdapter) PlayerSlowed() bool {
@@ -75,9 +76,10 @@ func (a vehicleRuntimeAdapter) CanUseSonar() bool {
 	return a.g.SonarTimer <= 0
 }
 
-func (a vehicleRuntimeAdapter) ActivateSonar(source gv.Vec2) {
-	a.g.SonarTimer = 180
+func (a vehicleRuntimeAdapter) ActivateSonar(source gvec.Vec2, pulse gv.SonarPulse) {
+	a.g.SonarTimer = pulse.DurationTicks
 	a.g.SonarRadius = 0
+	a.g.SonarRadiusStep = pulse.RadiusStep
 	a.g.SonarSourceX = source.X
 	a.g.SonarSourceY = source.Y
 }

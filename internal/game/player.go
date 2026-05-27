@@ -3,14 +3,15 @@ package game
 import (
 	"math"
 
+	"github.com/jaredwarren/SubGame/internal/game/gvec"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
 // Player represents the player character, including their physics and stats.
 type Player struct {
 	// Physics
-	Pos    Vec2
-	Vel    Vec2
+	Pos    gvec.Vec2
+	Vel    gvec.Vec2
 	Width  float64
 	Height float64
 	Facing float64 // Angle in radians (for flashlight/boat direction)
@@ -41,7 +42,7 @@ type Player struct {
 // NewPlayer initializes a player with default stats and empty inventory.
 func NewPlayer(x, y float64) *Player {
 	p := &Player{
-		Pos:              Vec2{X: x, Y: y},
+		Pos:              gvec.Vec2{X: x, Y: y},
 		Width:            20,
 		Height:           20,
 		MaxHealth:        100,
