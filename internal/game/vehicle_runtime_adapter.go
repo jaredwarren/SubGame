@@ -1,8 +1,6 @@
 package game
 
 import (
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	gv "github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -26,38 +24,47 @@ func (a vehicleInputAdapter) IsKeyPressed(k ebiten.Key) bool {
 	return a.input.IsKeyPressed(k)
 }
 
+// vehicleRuntimeAdapter satisfies vehicle.Runtime. Query methods are synchronous
+// and read directly from *Game. Mutations are submitted via Emit and buffered in
+// cmds; game.Update() drains the queue after all vehicles have ticked.
 type vehicleRuntimeAdapter struct {
-	g *Game
+	g    *Game
+	cmds []gv.GameCommand
 }
 
-func (a vehicleRuntimeAdapter) TimeOfDay() float64 {
+// Emit queues a fire-and-forget command to be processed after all vehicles tick.
+func (a *vehicleRuntimeAdapter) Emit(cmd gv.GameCommand) {
+	a.cmds = append(a.cmds, cmd)
+}
+
+func (a *vehicleRuntimeAdapter) TimeOfDay() float64 {
 	return a.g.TimeOfDay
 }
 
-func (a vehicleRuntimeAdapter) IsActiveVehicle(v gv.Vehicle) bool {
+func (a *vehicleRuntimeAdapter) IsActiveVehicle(v gv.Vehicle) bool {
 	return a.g.ActiveVehicle == v
 }
 
-func (a vehicleRuntimeAdapter) Input() gv.InputSource {
+func (a *vehicleRuntimeAdapter) Input() gv.InputSource {
 	return vehicleInputAdapter{input: a.g.Input}
 }
 
-func (a vehicleRuntimeAdapter) PlayerScreenCenter() gvec.Vec2 {
+func (a *vehicleRuntimeAdapter) PlayerScreenCenter() gvec.Vec2 {
 	return gvec.Vec2{X: ScreenWidth / 2.0, Y: ScreenHeight / 2.0}
 }
 
-func (a vehicleRuntimeAdapter) PlayerSlowed() bool {
+func (a *vehicleRuntimeAdapter) PlayerSlowed() bool {
 	return a.g.playerSlowed
 }
 
-func (a vehicleRuntimeAdapter) IsOverworldSolidAt(tx, ty int) bool {
+func (a *vehicleRuntimeAdapter) IsOverworldSolidAt(tx, ty int) bool {
 	if tx < 0 || tx >= a.g.world.Width || ty < 0 || ty >= a.g.world.Height {
 		return true
 	}
 	return a.g.world.OverworldMap[tx][ty] == world.TileLand
 }
 
-func (a vehicleRuntimeAdapter) IsCaveSolidAt(tx, ty int) bool {
+func (a *vehicleRuntimeAdapter) IsCaveSolidAt(tx, ty int) bool {
 	grid := a.g.caveState.CaveGrid
 	if len(grid) == 0 || len(grid[0]) == 0 {
 		return false
@@ -74,37 +81,6 @@ func (a vehicleRuntimeAdapter) IsCaveSolidAt(tx, ty int) bool {
 	return grid[tx][ty]
 }
 
-func (a vehicleRuntimeAdapter) CanUseSonar() bool {
-	return a.g.SonarTimer <= 0
+func (a *vehicleRuntimeAdapter) CanUseSonar() bool {
+	return a.g.Sonar.Timer <= 0
 }
-
-func (a vehicleRuntimeAdapter) ActivateSonar(source gvec.Vec2, pulse gv.SonarPulse) {
-	a.g.SonarTimer = pulse.DurationTicks
-	a.g.SonarRadius = 0
-	a.g.SonarRadiusStep = pulse.RadiusStep
-	a.g.SonarSourceX = source.X
-	a.g.SonarSourceY = source.Y
-}
-
-func (a vehicleRuntimeAdapter) RemoveCaveNodeAt(tx, ty int) {
-	for idx, node := range a.g.caveState.Nodes {
-		nodeTx, nodeTy := node.GetTilePos()
-		if nodeTx == tx && nodeTy == ty {
-			a.g.caveState.Nodes = append(a.g.caveState.Nodes[:idx], a.g.caveState.Nodes[idx+1:]...)
-			return
-		}
-	}
-}
-
-func (a vehicleRuntimeAdapter) SpawnBubble(pos gvec.Vec2) {
-	a.g.SpawnBubble(pos.X, pos.Y)
-}
-
-func (a vehicleRuntimeAdapter) SpawnDebris(pos gvec.Vec2, clr color.RGBA) {
-	a.g.SpawnDebris(pos.X, pos.Y, clr)
-}
-
-func (a vehicleRuntimeAdapter) TriggerScreenShake(duration int, intensity float64) {
-	a.g.TriggerScreenShake(duration, intensity)
-}
-

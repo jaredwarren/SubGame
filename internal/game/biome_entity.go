@@ -712,7 +712,7 @@ func (ent *ElectroWeaver) Update(g *Game, cave *CaveScene) {
 		return
 	}
 
-	isElectricity := g.FlashlightOn || g.SonarTimer > 0 || g.ActiveVehicle != nil
+	isElectricity := g.FlashlightOn || g.Sonar.Timer > 0 || g.ActiveVehicle != nil
 	if isElectricity && dist < 500.0 {
 		ent.Timer++
 		// Feed tracking value to game screen static/jitter

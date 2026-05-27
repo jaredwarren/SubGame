@@ -521,10 +521,10 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 	if LightShader != nil && !c.IsShallow {
 		var sonarSourceX, sonarSourceY float32
 		var sonarRadius float32
-		if g.SonarTimer > 0 {
-			sonarSourceX = float32(g.SonarSourceX - g.camera.Pos.X)
-			sonarSourceY = float32(g.SonarSourceY - g.camera.Pos.Y)
-			sonarRadius = float32(g.SonarRadius)
+		if g.Sonar.Timer > 0 {
+			sonarSourceX = float32(g.Sonar.SourceX - g.camera.Pos.X)
+			sonarSourceY = float32(g.Sonar.SourceY - g.camera.Pos.Y)
+			sonarRadius = float32(g.Sonar.Radius)
 		}
 
 		var fDirX, fDirY float32

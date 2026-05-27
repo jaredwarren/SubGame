@@ -29,8 +29,50 @@ type DrillableResource interface {
 	SetHitsToMine(hits int)
 }
 
+// GameCommand is a sealed interface for fire-and-forget mutations vehicles
+// request from the game. Commands are queued during vehicle Update calls and
+// processed by game.Update() after all vehicles have ticked.
+type GameCommand interface{ gameCommand() }
+
+// ActivateSonarCmd fires a sonar ping originating from Source.
+type ActivateSonarCmd struct {
+	Source gvec.Vec2
+	Pulse  SonarPulse
+}
+
+// RemoveCaveNodeCmd removes the resource node at tile position (TX, TY).
+type RemoveCaveNodeCmd struct {
+	TX, TY int
+}
+
+// SpawnBubbleCmd spawns a bubble particle at Pos.
+type SpawnBubbleCmd struct {
+	Pos gvec.Vec2
+}
+
+// SpawnDebrisCmd spawns a debris particle at Pos with the given Color.
+type SpawnDebrisCmd struct {
+	Pos   gvec.Vec2
+	Color color.RGBA
+}
+
+// TriggerShakeCmd requests a screen shake of the given Duration and Intensity.
+type TriggerShakeCmd struct {
+	Duration  int
+	Intensity float64
+}
+
+func (ActivateSonarCmd) gameCommand()  {}
+func (RemoveCaveNodeCmd) gameCommand() {}
+func (SpawnBubbleCmd) gameCommand()    {}
+func (SpawnDebrisCmd) gameCommand()    {}
+func (TriggerShakeCmd) gameCommand()   {}
+
 // Runtime exposes world/game state that vehicles need without importing package game.
+// Synchronous queries return values immediately; mutations are submitted via Emit
+// and applied by the game after all vehicle ticks complete.
 type Runtime interface {
+	// Queries — synchronous, must return a value this tick.
 	TimeOfDay() float64
 	IsActiveVehicle(v Vehicle) bool
 	Input() InputSource
@@ -39,9 +81,8 @@ type Runtime interface {
 	IsOverworldSolidAt(tx, ty int) bool
 	IsCaveSolidAt(tx, ty int) bool
 	CanUseSonar() bool
-	ActivateSonar(source gvec.Vec2, pulse SonarPulse)
-	RemoveCaveNodeAt(tx, ty int)
-	SpawnBubble(pos gvec.Vec2)
-	SpawnDebris(pos gvec.Vec2, clr color.RGBA)
-	TriggerScreenShake(duration int, intensity float64)
+
+	// Emit queues a fire-and-forget command to be processed by the game
+	// after all vehicles have finished updating.
+	Emit(cmd GameCommand)
 }

@@ -55,12 +55,12 @@ func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 		toSonar := pixelPos - SonarSource
 		distSonar := length(toSonar)
 		if distSonar < SonarRadius {
-			ageFactor := 1.0 - (SonarRadius / 600.0)
+			ageFactor := 1.0 - (SonarRadius / 800.0)
 			if ageFactor > 0.0 {
 				if distSonar > SonarRadius - 30.0 {
-					sonarIntensity = 0.85 * ageFactor
+					sonarIntensity = 1.0 * ageFactor
 				} else {
-					sonarIntensity = 0.3 * (distSonar / SonarRadius) * ageFactor
+					sonarIntensity = 0.72 * (distSonar / SonarRadius) * ageFactor
 				}
 			}
 		}

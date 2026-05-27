@@ -16,6 +16,16 @@ import (
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
+// SonarState tracks the currently active sonar ping in the cave.
+// All fields are zero-value when inactive (Timer == 0 means no active ping).
+type SonarState struct {
+	Timer      int
+	Radius     float64
+	RadiusStep float64
+	SourceX    float64
+	SourceY    float64
+}
+
 // Game implements the ebiten.Game interface and coordinates scenes.
 type Game struct {
 	currentState          State // Enum tracking for compatibility
@@ -53,11 +63,7 @@ type Game struct {
 	OverworldVehicles []vehicle.Vehicle
 	CaveVehicles      map[string][]vehicle.Vehicle // trenchKey -> list of vehicles spawned in that cave
 	TimeOfDay         float64                      // 0 to 14400 ticks (4 min day/night cycle)
-	SonarTimer        int
-	SonarRadius       float64
-	SonarRadiusStep   float64
-	SonarSourceX      float64
-	SonarSourceY      float64
+	Sonar             SonarState
 	MineWarning       string
 	MineWarningTimer  int
 
@@ -124,7 +130,7 @@ func NewGame() *Game {
 		OverworldVehicles: overworldVehicles,
 		CaveVehicles:      make(map[string][]vehicle.Vehicle),
 		TimeOfDay:         0.0,
-		SonarRadiusStep:   6.5,
+		Sonar:             SonarState{RadiusStep: 6.5},
 		caveEntities:      make(map[string][]CaveEntity),
 		FlashlightOn:      true,
 	}
@@ -264,9 +270,9 @@ func (g *Game) Update() error {
 	}
 
 	// Expand Sonar Ping wavefront inside caves
-	if g.SonarTimer > 0 {
-		g.SonarTimer--
-		g.SonarRadius += g.SonarRadiusStep
+	if g.Sonar.Timer > 0 {
+		g.Sonar.Timer--
+		g.Sonar.Radius += g.Sonar.RadiusStep
 	}
 
 	// Update popped Shatter-bulb sound wave circle
@@ -553,7 +559,7 @@ func (g *Game) Update() error {
 	// ---------------------------------------------------------
 	// Piloting / Vehicle Movement Loops
 	// ---------------------------------------------------------
-	vehicleRuntime := vehicleRuntimeAdapter{g: g}
+	vehicleRuntime := &vehicleRuntimeAdapter{g: g}
 	if g.ActiveVehicle != nil {
 		g.ActiveVehicle.Update(vehicleRuntime)
 
@@ -642,6 +648,9 @@ func (g *Game) Update() error {
 		}
 	}
 
+	// Drain all fire-and-forget commands emitted by vehicles this tick.
+	g.drainVehicleCommands(vehicleRuntime)
+
 	// Smooth camera tracking
 	if g.currentState == StateOverworld || g.currentState == StateCave {
 		g.camera.Track(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height, 0.08)
@@ -672,6 +681,38 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+// drainVehicleCommands processes all GameCommands queued by vehicles during
+// this tick. Separating this from vehicle Update calls ensures mutations happen
+// after all vehicles have finished their synchronous logic.
+func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
+	for _, cmd := range rt.cmds {
+		switch c := cmd.(type) {
+		case vehicle.ActivateSonarCmd:
+			g.Sonar.Timer = c.Pulse.DurationTicks
+			g.Sonar.Radius = 0
+			g.Sonar.RadiusStep = c.Pulse.RadiusStep
+			g.Sonar.SourceX = c.Source.X
+			g.Sonar.SourceY = c.Source.Y
+		case vehicle.RemoveCaveNodeCmd:
+			for idx, node := range g.caveState.Nodes {
+				nodeTx, nodeTy := node.GetTilePos()
+				if nodeTx == c.TX && nodeTy == c.TY {
+					g.caveState.Nodes = append(g.caveState.Nodes[:idx], g.caveState.Nodes[idx+1:]...)
+					break
+				}
+			}
+		case vehicle.SpawnBubbleCmd:
+			g.SpawnBubble(c.Pos.X, c.Pos.Y)
+		case vehicle.SpawnDebrisCmd:
+			g.SpawnDebris(c.Pos.X, c.Pos.Y, c.Color)
+		case vehicle.TriggerShakeCmd:
+			g.TriggerScreenShake(c.Duration, c.Intensity)
+		}
+	}
+	// Reset slice without reallocating the backing array.
+	rt.cmds = rt.cmds[:0]
 }
 
 // Draw renders the game graphics.
@@ -736,13 +777,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 
 		// Sonar ring overlay
-		if g.SonarTimer > 0 {
-			alpha := float32(g.SonarTimer) / 180.0
-			clr := color.RGBA{45, 175, 215, uint8(255 * alpha * 0.45)}
-			scx := float32(g.SonarSourceX - g.camera.Pos.X)
-			scy := float32(g.SonarSourceY - g.camera.Pos.Y)
-			vector.StrokeCircle(screen, scx, scy, float32(g.SonarRadius), 2.5, clr, false)
-			vector.StrokeCircle(screen, scx, scy, float32(g.SonarRadius), 1.0, color.RGBA{220, 250, 255, uint8(255 * alpha)}, false)
+		if g.Sonar.Timer > 0 {
+			alpha := float32(g.Sonar.Timer) / 180.0
+			scx := float32(g.Sonar.SourceX - g.camera.Pos.X)
+			scy := float32(g.Sonar.SourceY - g.camera.Pos.Y)
+			r := float32(g.Sonar.Radius)
+			// Tight soft glow bloom
+			vector.StrokeCircle(screen, scx, scy, r, 5.0, color.RGBA{30, 200, 240, uint8(255 * alpha * 0.5)}, false)
+			// Bright thin main ring
+			vector.StrokeCircle(screen, scx, scy, r, 2.0, color.RGBA{120, 240, 255, uint8(255 * alpha)}, false)
+			// Hot-white core line
+			vector.StrokeCircle(screen, scx, scy, r, 1.0, color.RGBA{255, 255, 255, uint8(255 * alpha)}, false)
 		}
 	}
 
