@@ -29,6 +29,7 @@ type Vehicle interface {
 	GetName() string
 	GetBattery() float64
 	GetMaxBattery() float64
+	RechargeBattery(amount float64)
 	GetFacing() float64
 }
 
@@ -82,6 +83,12 @@ func (s *Skiff) GetPerspective() string       { return "overworld" }
 func (s *Skiff) GetName() string              { return "The Skiff" }
 func (s *Skiff) GetBattery() float64          { return s.Battery }
 func (s *Skiff) GetMaxBattery() float64       { return s.MaxBattery }
+func (s *Skiff) RechargeBattery(amount float64) {
+	s.Battery += amount
+	if s.Battery > s.MaxBattery {
+		s.Battery = s.MaxBattery
+	}
+}
 func (s *Skiff) GetFacing() float64           { return s.Facing }
 
 func (s *Skiff) Update(runtime Runtime) {
@@ -266,7 +273,7 @@ type SonarSettings struct {
 }
 
 func NewScoutSub(x, y float64) *ScoutSub {
-	upg := item.NewInventory(1)
+	upg := item.NewInventory(2) // upgraded to 2 slots
 	upg.AddItem(&item.SonarAmplifier{}, 1)
 	return &ScoutSub{
 		Pos:        gvec.Vec2{X: x, Y: y},
@@ -310,9 +317,23 @@ func (sub *ScoutSub) GetPerspective() string { return "cave" }
 func (sub *ScoutSub) GetName() string        { return "Scout Sub" }
 func (sub *ScoutSub) GetBattery() float64    { return sub.Battery }
 func (sub *ScoutSub) GetMaxBattery() float64 { return sub.MaxBattery }
+func (sub *ScoutSub) RechargeBattery(amount float64) {
+	sub.Battery += amount
+	if sub.Battery > sub.MaxBattery {
+		sub.Battery = sub.MaxBattery
+	}
+}
 func (sub *ScoutSub) GetFacing() float64     { return sub.Facing }
 
 func (sub *ScoutSub) Update(runtime Runtime) {
+	// Option B: Thermal Generator upgrade recharges battery slowly over time in caves
+	if item.HasItem[*item.ThermalGenerator](sub.Upgrades, 1) {
+		sub.Battery += 0.02
+		if sub.Battery > sub.MaxBattery {
+			sub.Battery = sub.MaxBattery
+		}
+	}
+
 	if !runtime.IsActiveVehicle(sub) {
 		sub.Vel = gvec.Vec2{}
 		return
@@ -342,10 +363,13 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 		maxSpeed *= 0.5
 	}
 
+	const waterline = -8.0
 	moving := false
 	if input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) {
-		sub.Vel.Y -= force
-		moving = true
+		if sub.Pos.Y > waterline {
+			sub.Vel.Y -= force
+			moving = true
+		}
 	}
 	if input.IsKeyPressed(ebiten.KeyS) || input.IsKeyPressed(ebiten.KeyArrowDown) {
 		sub.Vel.Y += force
@@ -385,6 +409,19 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 	speed := sub.Vel.Length()
 	if speed > maxSpeed {
 		sub.Vel = sub.Vel.Scale(maxSpeed / speed)
+	}
+
+	// Water surface physics (Y = 0 is the waterline)
+	if sub.Pos.Y < waterline {
+		// Above water: apply gravity to pull it back down
+		sub.Vel.Y += 0.15
+	} else {
+		// If resting near surface and not moving, apply a gentle bobbing effect
+		if !moving && sub.Pos.Y < waterline + 16.0 {
+			bobY := waterline + 4.0 + math.Sin(float64(runtime.TimeOfDay())*0.05)*2.0
+			diff := bobY - sub.Pos.Y
+			sub.Vel.Y += diff * 0.03
+		}
 	}
 
 	// Collisions
@@ -548,6 +585,12 @@ func (m *HeavyMech) GetPerspective() string       { return "cave" }
 func (m *HeavyMech) GetName() string              { return "Heavy Mech" }
 func (m *HeavyMech) GetBattery() float64          { return m.Battery }
 func (m *HeavyMech) GetMaxBattery() float64       { return m.MaxBattery }
+func (m *HeavyMech) RechargeBattery(amount float64) {
+	m.Battery += amount
+	if m.Battery > m.MaxBattery {
+		m.Battery = m.MaxBattery
+	}
+}
 func (m *HeavyMech) GetFacing() float64           { return m.Facing }
 
 func (m *HeavyMech) Update(runtime Runtime) {
@@ -601,19 +644,22 @@ func (m *HeavyMech) Update(runtime Runtime) {
 	m.Vel.Y += gravity
 
 	// 2. Thrusters vertical propulsion (W or Space)
+	const waterline = -12.0
 	m.ThrustersActive = false
 	if hasPower && (input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) || input.IsKeyPressed(ebiten.KeySpace)) {
-		m.Vel.Y -= 0.28 // Thrusters counter gravity
-		m.Battery -= 0.08
-		if m.Battery < 0 {
-			m.Battery = 0
-		}
-		m.ThrustersActive = true
+		if m.Pos.Y > waterline {
+			m.Vel.Y -= 0.28 // Thrusters counter gravity
+			m.Battery -= 0.08
+			if m.Battery < 0 {
+				m.Battery = 0
+			}
+			m.ThrustersActive = true
 
-		// Spawn thruster bubbles
-		if rand.Float64() < 0.4 {
-			runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: m.Pos.X + 14, Y: m.Pos.Y + m.Dimensions.Y - 14}})
-			runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: m.Pos.X + m.Dimensions.X - 22, Y: m.Pos.Y + m.Dimensions.Y - 14}})
+			// Spawn thruster bubbles
+			if rand.Float64() < 0.4 {
+				runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: m.Pos.X + 14, Y: m.Pos.Y + m.Dimensions.Y - 14}})
+				runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: m.Pos.X + m.Dimensions.X - 22, Y: m.Pos.Y + m.Dimensions.Y - 14}})
+			}
 		}
 	}
 
@@ -631,6 +677,19 @@ func (m *HeavyMech) Update(runtime Runtime) {
 	// Clamp horizontal speed
 	if math.Abs(m.Vel.X) > maxSpeedH {
 		m.Vel.X = math.Copysign(maxSpeedH, m.Vel.X)
+	}
+
+	// Water surface physics (Y = 0 is the waterline)
+	if m.Pos.Y < waterline {
+		// Above water: apply gravity to pull it back down
+		m.Vel.Y += 0.20
+	} else {
+		// If using thrusters near surface, apply a gentle bobbing effect
+		if m.ThrustersActive && m.Pos.Y < waterline + 16.0 {
+			bobY := waterline + 4.0 + math.Sin(float64(runtime.TimeOfDay())*0.05)*2.0
+			diff := bobY - m.Pos.Y
+			m.Vel.Y += diff * 0.05
+		}
 	}
 
 	// Collisions

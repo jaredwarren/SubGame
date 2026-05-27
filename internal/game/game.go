@@ -405,17 +405,32 @@ func (g *Game) Update() error {
 								slot := &g.player.Inventory.Slots[idx]
 								if slot.Item != nil {
 									equipped := false
-									vUpg := g.ActiveVehicle.GetUpgrades()
-									if vUpg != nil {
-										switch slot.Item.(type) {
-										case *item.SonarAmplifier:
-											if vUpg.AddItem(item.Clone(slot.Item), 1) {
-												g.player.Inventory.Remove(slot.Item, 1)
-												g.player.RecalculateUpgrades()
-												equipped = true
+
+									// Handle Power Cell recharging regardless of upgrade slot presence
+									if _, isPowerCell := slot.Item.(*item.PowerCell); isPowerCell {
+										if g.ActiveVehicle.GetBattery() < g.ActiveVehicle.GetMaxBattery() {
+											g.ActiveVehicle.RechargeBattery(100.0)
+											g.player.Inventory.Remove(slot.Item, 1)
+											g.player.RecalculateUpgrades()
+											equipped = true
+										}
+									}
+
+									// Handle vehicle upgrades
+									if !equipped {
+										vUpg := g.ActiveVehicle.GetUpgrades()
+										if vUpg != nil {
+											switch slot.Item.(type) {
+											case *item.SonarAmplifier, *item.ThermalGenerator:
+												if vUpg.AddItem(item.Clone(slot.Item), 1) {
+													g.player.Inventory.Remove(slot.Item, 1)
+													g.player.RecalculateUpgrades()
+													equipped = true
+												}
 											}
 										}
 									}
+
 									if !equipped {
 										if g.ActiveVehicle.GetCargo().AddItem(item.Clone(slot.Item), 1) {
 											g.player.Inventory.Remove(slot.Item, 1)

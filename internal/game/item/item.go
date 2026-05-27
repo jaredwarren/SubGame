@@ -274,5 +274,27 @@ func (s *SonarAmplifier) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy, 3, s.GetColor(), false)
 }
 
+type PowerCell struct{}
+
+func (p *PowerCell) GetName() string       { return "Power Cell" }
+func (p *PowerCell) GetMaxStack() int      { return 5 }
+func (p *PowerCell) GetColor() color.Color { return color.RGBA{220, 180, 40, 255} }
+func (p *PowerCell) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Draw a yellow cylinder battery cell with a light grey top tip
+	vector.FillRect(screen, cx-size/4.0, cy-size/3.0, size/2.0, size*0.7, p.GetColor(), false)
+	vector.FillRect(screen, cx-size/8.0, cy-size/2.0, size/4.0, size/6.0, color.RGBA{180, 190, 200, 255}, false)
+}
+
+type ThermalGenerator struct{}
+
+func (t *ThermalGenerator) GetName() string       { return "Thermal Generator" }
+func (t *ThermalGenerator) GetMaxStack() int      { return 1 }
+func (t *ThermalGenerator) GetColor() color.Color { return color.RGBA{235, 100, 50, 255} }
+func (t *ThermalGenerator) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Draw a diamond container with an inner orange flame/core
+	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.5, t.GetColor(), false)
+	vector.FillCircle(screen, cx, cy, size/4.0, color.RGBA{255, 120, 0, 255}, false)
+}
+
 
 

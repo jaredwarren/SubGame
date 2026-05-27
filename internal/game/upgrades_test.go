@@ -4,8 +4,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 func TestInventory_Resize(t *testing.T) {
@@ -206,4 +208,128 @@ func TestScoutSub_SonarAmplifierUpgrade(t *testing.T) {
 		t.Errorf("expected upgraded radius step to be 9.1, got %f", pulseUpgraded.RadiusStep)
 	}
 }
+
+type mockRuntime struct {
+	vehicle.Runtime
+}
+
+func (m mockRuntime) IsActiveVehicle(v vehicle.Vehicle) bool {
+	return false
+}
+
+func TestRechargingMechanics(t *testing.T) {
+	// 1. Test Power Cell / RechargeBattery method
+	sub := vehicle.NewScoutSub(0, 0)
+	sub.Battery = 20.0
+
+	sub.RechargeBattery(100.0)
+	if sub.Battery != 100.0 {
+		t.Errorf("expected battery to be capped at 100.0, got %f", sub.Battery)
+	}
+
+	// 2. Test Thermal Generator passive recharge in cave
+	sub.Battery = 50.0
+	tg := &item.ThermalGenerator{}
+	if !sub.GetUpgrades().AddItem(tg, 1) {
+		t.Errorf("expected successful slotting of Thermal Generator")
+	}
+
+	// Run update step using mock runtime (where sub is inactive, but still recharges passively)
+	sub.Update(mockRuntime{})
+	if sub.Battery <= 50.0 {
+		t.Errorf("expected passive recharge to increase battery, but remained %f", sub.Battery)
+	}
+	if sub.Battery != 50.02 {
+		t.Errorf("expected battery to increase by 0.02, got %f", sub.Battery)
+	}
+}
+
+type mockInput struct {
+	vehicle.InputSource
+}
+
+func (mockInput) Cursor() gvec.Vec2                    { return gvec.Vec2{} }
+func (mockInput) IsKeyPressed(k ebiten.Key) bool       { return false }
+func (mockInput) IsKeyJustPressed(k ebiten.Key) bool   { return false }
+
+type mockActiveRuntime struct {
+	vehicle.Runtime
+}
+
+func (mockActiveRuntime) TimeOfDay() float64                     { return 0.0 }
+func (mockActiveRuntime) IsActiveVehicle(v vehicle.Vehicle) bool { return true }
+func (mockActiveRuntime) Input() vehicle.InputSource             { return mockInput{} }
+func (mockActiveRuntime) PlayerScreenCenter() gvec.Vec2          { return gvec.Vec2{} }
+func (mockActiveRuntime) PlayerSlowed() bool                     { return false }
+func (mockActiveRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
+
+func TestScoutSub_WaterlinePhysics(t *testing.T) {
+	sub := vehicle.NewScoutSub(0, 0)
+	sub.Battery = 100.0
+
+	// 1. Above waterline (e.g. Y = -20)
+	sub.Pos.Y = -20.0
+	sub.Vel.Y = 0.0
+
+	sub.Update(mockActiveRuntime{})
+	if sub.Vel.Y <= 0.0 {
+		t.Errorf("expected gravity to apply downward velocity when sub is above waterline, got %f", sub.Vel.Y)
+	}
+
+	// 2. Near waterline (e.g. Y = -6), should bob
+	sub.Pos.Y = -6.0
+	sub.Vel.Y = 0.0
+
+	sub.Update(mockActiveRuntime{})
+	// Since bobY = waterline + 4 + sin(...) = -4 + sin(...)*2, at Y = -6 we expect bobbing force to adjust Y speed
+	if sub.Vel.Y == 0.0 {
+		t.Errorf("expected surface bobbing force to be applied, got 0.0")
+	}
+}
+
+type mockMechInput struct {
+	vehicle.InputSource
+}
+
+func (mockMechInput) Cursor() gvec.Vec2                  { return gvec.Vec2{} }
+func (mockMechInput) IsKeyPressed(k ebiten.Key) bool     { return k == ebiten.KeyW }
+func (mockMechInput) IsKeyJustPressed(k ebiten.Key) bool { return false }
+
+type mockMechRuntime struct {
+	vehicle.Runtime
+}
+
+func (mockMechRuntime) TimeOfDay() float64                     { return 0.0 }
+func (mockMechRuntime) IsActiveVehicle(v vehicle.Vehicle) bool { return true }
+func (mockMechRuntime) Input() vehicle.InputSource             { return mockMechInput{} }
+func (mockMechRuntime) PlayerScreenCenter() gvec.Vec2          { return gvec.Vec2{} }
+func (mockMechRuntime) PlayerSlowed() bool                     { return false }
+func (mockMechRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
+
+func TestHeavyMech_WaterlinePhysics(t *testing.T) {
+	m := vehicle.NewHeavyMech(0, 0)
+	m.Battery = 100.0
+
+	// 1. Above waterline (e.g. Y = -25)
+	m.Pos.Y = -25.0
+	m.Vel.Y = 0.0
+
+	m.Update(mockMechRuntime{})
+	// Heavy Mech always has gravity (0.12) + above-water gravity (0.20)
+	if m.Vel.Y <= 0.12 {
+		t.Errorf("expected extra above-water gravity to pull Mech down, got Y velocity %f", m.Vel.Y)
+	}
+
+	// 2. Near waterline (e.g. Y = -10) with thrusters active, should bob
+	m.Pos.Y = -10.0
+	m.Vel.Y = 0.0
+
+	m.Update(mockMechRuntime{})
+	// Thrusters are active, so bobbing force should act
+	if m.Vel.Y == 0.0 {
+		t.Errorf("expected surface bobbing force to apply to Mech, got 0.0")
+	}
+}
+
+
 

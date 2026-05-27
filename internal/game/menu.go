@@ -114,6 +114,21 @@ var CraftingRecipes = []Recipe{
 		},
 	},
 	{
+		NewResult: func() item.Item { return &item.PowerCell{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 2},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 1},
+		},
+	},
+	{
+		NewResult: func() item.Item { return &item.ThermalGenerator{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 4},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 4},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
+		},
+	},
+	{
 		NewResult: func() item.Item { return &item.EscapeRocket{} },
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.AbyssalOre{} }, Quantity: 10},
