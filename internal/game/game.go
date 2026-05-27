@@ -34,6 +34,7 @@ type Game struct {
 	currentScene          Scene
 	nextScene             Scene
 	transitionedThisFrame bool
+	titleState            *TitleScene
 	overworldState        *OverworldScene
 	caveState             *CaveScene
 	baseMenu              *BaseMenuScene
@@ -119,7 +120,7 @@ func NewGame() *Game {
 	overworldVehicles := []vehicle.Vehicle{skiff}
 
 	g := &Game{
-		currentState:      StateOverworld,
+		currentState:      StateTitle,
 		player:            p,
 		hud:               NewHUD(),
 		world:             w,
@@ -138,6 +139,7 @@ func NewGame() *Game {
 	}
 
 	// Initialize scenes
+	g.titleState = NewTitleScene()
 	g.overworldState = NewOverworldScene(w)
 	g.caveState = NewCaveScene()
 	g.baseMenu = NewBaseMenuScene()
@@ -145,7 +147,7 @@ func NewGame() *Game {
 	g.gameWonState = NewGameWonScene()
 
 	// Set initial scene
-	g.TransitionTo(g.overworldState)
+	g.TransitionTo(g.titleState)
 
 	return g
 }

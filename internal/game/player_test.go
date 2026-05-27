@@ -115,6 +115,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 
 func TestPlayer_Movement(t *testing.T) {
 	g := NewGame()
+	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 
 	// Inject keypress mock input: D key to move right
@@ -142,6 +143,7 @@ func TestPlayer_Movement(t *testing.T) {
 
 func TestVehicle_EntryExit(t *testing.T) {
 	g := NewGame()
+	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
 
@@ -215,6 +217,7 @@ func TestInventory_AddItem(t *testing.T) {
 
 func TestBaseMenu_OpenClose(t *testing.T) {
 	g := NewGame()
+	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
 
@@ -270,6 +273,7 @@ func TestBaseMenu_OpenClose(t *testing.T) {
 
 func TestBaseMenu_OpenCloseFromVehicle(t *testing.T) {
 	g := NewGame()
+	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
 
@@ -314,6 +318,7 @@ func TestBaseMenu_OpenCloseFromVehicle(t *testing.T) {
 
 func TestBaseMenu_InstallUpgrade(t *testing.T) {
 	g := NewGame()
+	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
 
@@ -378,6 +383,7 @@ func TestBaseMenu_InstallUpgrade(t *testing.T) {
 
 func TestBaseMenu_FabricatorScrollAndCraft(t *testing.T) {
 	g := NewGame()
+	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
 
@@ -531,6 +537,7 @@ func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
 
 func TestPlayer_InventoryClickEquip(t *testing.T) {
 	g := NewGame()
+	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
 
@@ -591,6 +598,61 @@ func TestPlayer_InventoryClickEquip(t *testing.T) {
 	}
 	if !item.HasItem[*item.Fins](g.player.Inventory, 1) {
 		t.Errorf("expected Fins to be returned to player inventory")
+	}
+}
+
+func TestTitleScene_Transitions(t *testing.T) {
+	// 1. Verify initially in StateTitle
+	g := NewGame()
+	g.Input = NewMockInput()
+	mockInput := g.Input.(*MockInput)
+
+	if g.currentState != StateTitle {
+		t.Errorf("expected initial state to be StateTitle, got %s", g.currentState)
+	}
+	if g.currentScene != g.titleState {
+		t.Errorf("expected initial scene to be titleState, got %+v", g.currentScene)
+	}
+
+	// 2. Press Enter to transition to overworld
+	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if g.currentState != StateOverworld {
+		t.Errorf("expected state to transition to StateOverworld on Enter, got %s", g.currentState)
+	}
+
+	// 3. Reset back to title scene
+	g.TransitionTo(g.titleState)
+	if g.currentState != StateTitle {
+		t.Errorf("expected state to be StateTitle after resetting, got %s", g.currentState)
+	}
+
+	// 4. Click outside the "Dive" button -> should NOT transition
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	mockInput.CursorPos = gvec.Vec2{X: 10, Y: 10}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.currentState != StateTitle {
+		t.Errorf("expected state to remain StateTitle after clicking outside button, got %s", g.currentState)
+	}
+
+	// 5. Click inside the "Dive" button -> should transition
+	// Dive button is at X: 520, Y: 460, W: 240, H: 60
+	mockInput.CursorPos = gvec.Vec2{X: 640, Y: 490}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.currentState != StateOverworld {
+		t.Errorf("expected state to transition to StateOverworld on button click, got %s", g.currentState)
 	}
 }
 

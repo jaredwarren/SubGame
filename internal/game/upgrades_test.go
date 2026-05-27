@@ -217,6 +217,15 @@ func (m mockRuntime) IsActiveVehicle(v vehicle.Vehicle) bool {
 	return false
 }
 
+func (mockRuntime) TimeOfDay() float64                     { return 0.0 }
+func (mockRuntime) Input() vehicle.InputSource             { return mockInput{} }
+func (mockRuntime) PlayerScreenCenter() gvec.Vec2          { return gvec.Vec2{} }
+func (mockRuntime) PlayerSlowed() bool                     { return false }
+func (mockRuntime) IsOverworldSolidAt(tx, ty int) bool     { return false }
+func (mockRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
+func (mockRuntime) CanUseSonar() bool                      { return true }
+func (mockRuntime) Emit(cmd vehicle.GameCommand)           {}
+
 func TestRechargingMechanics(t *testing.T) {
 	// 1. Test Power Cell / RechargeBattery method
 	sub := vehicle.NewScoutSub(0, 0)
@@ -262,6 +271,9 @@ func (mockActiveRuntime) Input() vehicle.InputSource             { return mockIn
 func (mockActiveRuntime) PlayerScreenCenter() gvec.Vec2          { return gvec.Vec2{} }
 func (mockActiveRuntime) PlayerSlowed() bool                     { return false }
 func (mockActiveRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
+func (mockActiveRuntime) IsOverworldSolidAt(tx, ty int) bool     { return false }
+func (mockActiveRuntime) CanUseSonar() bool                      { return true }
+func (mockActiveRuntime) Emit(cmd vehicle.GameCommand)           {}
 
 func TestScoutSub_WaterlinePhysics(t *testing.T) {
 	sub := vehicle.NewScoutSub(0, 0)
@@ -305,6 +317,9 @@ func (mockMechRuntime) Input() vehicle.InputSource             { return mockMech
 func (mockMechRuntime) PlayerScreenCenter() gvec.Vec2          { return gvec.Vec2{} }
 func (mockMechRuntime) PlayerSlowed() bool                     { return false }
 func (mockMechRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
+func (mockMechRuntime) IsOverworldSolidAt(tx, ty int) bool     { return false }
+func (mockMechRuntime) CanUseSonar() bool                      { return true }
+func (mockMechRuntime) Emit(cmd vehicle.GameCommand)           {}
 
 func TestHeavyMech_WaterlinePhysics(t *testing.T) {
 	m := vehicle.NewHeavyMech(0, 0)

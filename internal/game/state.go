@@ -4,7 +4,8 @@ package game
 type State int
 
 const (
-	StateOverworld State = iota
+	StateTitle State = iota
+	StateOverworld
 	StateCave
 	StateBaseMenu
 	StateGameOver
@@ -14,6 +15,8 @@ const (
 // String returns the string representation of the State.
 func (s State) String() string {
 	switch s {
+	case StateTitle:
+		return "Title"
 	case StateOverworld:
 		return "Overworld"
 	case StateCave:
