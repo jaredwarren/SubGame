@@ -480,6 +480,45 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *item.Inv
 		}
 	}
 
+	// 3. Draw Vehicle Upgrades Grid (Below Cargo)
+	vUpg := g.ActiveVehicle.GetUpgrades()
+	if vUpg != nil {
+		upgY := panelY + 220
+		vector.FillRect(screen, startX_V, upgY, 200, 18, color.RGBA{22, 32, 50, 255}, false)
+		ebitenutil.DebugPrintAt(screen, " VEHICLE UPGRADES", int(startX_V), int(upgY)+2)
+
+		upgSlotsY := upgY + 24
+		for c := 0; c < len(vUpg.Slots); c++ {
+			sx := startX_V + float32(c*(slotSz+gap))
+			sy := upgSlotsY
+
+			slotBg := color.RGBA{20, 26, 38, 255}
+			slotBorder := color.RGBA{48, 60, 80, 255}
+
+			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
+			if isHovered {
+				slotBg = color.RGBA{32, 42, 62, 255}
+				slotBorder = color.RGBA{95, 125, 165, 255}
+				if c < len(vUpg.Slots) {
+					itemStack := vUpg.Slots[c]
+					if itemStack.Item != nil {
+						hoveredItemName = itemStack.Item.GetName()
+					}
+				}
+			}
+
+			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
+
+			if c < len(vUpg.Slots) {
+				itemStack := vUpg.Slots[c]
+				if itemStack.Item != nil {
+					drawItemIcon(screen, sx, sy, slotSz, itemStack.Item)
+				}
+			}
+		}
+	}
+
 	// Tooltip
 	tooltipY := panelY + panelH - 42
 	vector.FillRect(screen, panelX+20, tooltipY, panelW-40, 24, color.RGBA{8, 12, 18, 255}, false)

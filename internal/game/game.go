@@ -19,11 +19,13 @@ import (
 // SonarState tracks the currently active sonar ping in the cave.
 // All fields are zero-value when inactive (Timer == 0 means no active ping).
 type SonarState struct {
-	Timer      int
-	Radius     float64
-	RadiusStep float64
-	SourceX    float64
-	SourceY    float64
+	Timer       int
+	MaxDuration int
+	Radius      float64
+	RadiusStep  float64
+	SourceX     float64
+	SourceY     float64
+	Bright      bool
 }
 
 // Game implements the ebiten.Game interface and coordinates scenes.
@@ -391,7 +393,7 @@ func (g *Game) Update() error {
 				slotSz := 48.0
 				gap := 8.0
 
-				// 1. Move item from Player Inventory to Vehicle Cargo
+				// 1. Move item from Player Inventory to Vehicle Cargo or Upgrades
 				for r := 0; r < 3; r++ {
 					for c := 0; c < 8; c++ {
 						idx := r*8 + c
@@ -402,9 +404,23 @@ func (g *Game) Update() error {
 							if idx < len(g.player.Inventory.Slots) {
 								slot := &g.player.Inventory.Slots[idx]
 								if slot.Item != nil {
-									if g.ActiveVehicle.GetCargo().AddItem(item.Clone(slot.Item), 1) {
-										g.player.Inventory.Remove(slot.Item, 1)
-										g.player.RecalculateUpgrades()
+									equipped := false
+									vUpg := g.ActiveVehicle.GetUpgrades()
+									if vUpg != nil {
+										switch slot.Item.(type) {
+										case *item.SonarAmplifier:
+											if vUpg.AddItem(item.Clone(slot.Item), 1) {
+												g.player.Inventory.Remove(slot.Item, 1)
+												g.player.RecalculateUpgrades()
+												equipped = true
+											}
+										}
+									}
+									if !equipped {
+										if g.ActiveVehicle.GetCargo().AddItem(item.Clone(slot.Item), 1) {
+											g.player.Inventory.Remove(slot.Item, 1)
+											g.player.RecalculateUpgrades()
+										}
 									}
 								}
 							}
@@ -438,6 +454,29 @@ func (g *Game) Update() error {
 								if slot.Item != nil {
 									if g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
 										vInv.Remove(slot.Item, 1)
+										g.player.RecalculateUpgrades()
+									}
+								}
+							}
+						}
+					}
+				}
+
+				// 3. Move item from Vehicle Upgrades to Player Inventory
+				vUpg := g.ActiveVehicle.GetUpgrades()
+				if vUpg != nil {
+					upgY := panelY + 220
+					upgSlotsY := upgY + 20
+					for c := 0; c < len(vUpg.Slots); c++ {
+						sx := int(vStartX) + c*int(slotSz+gap)
+						sy := int(upgSlotsY)
+
+						if mx >= sx && mx < sx+int(slotSz) && my >= sy && my < sy+int(slotSz) {
+							if c < len(vUpg.Slots) {
+								slot := &vUpg.Slots[c]
+								if slot.Item != nil {
+									if g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
+										vUpg.Remove(slot.Item, 1)
 										g.player.RecalculateUpgrades()
 									}
 								}
@@ -691,10 +730,12 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 		switch c := cmd.(type) {
 		case vehicle.ActivateSonarCmd:
 			g.Sonar.Timer = c.Pulse.DurationTicks
+			g.Sonar.MaxDuration = c.Pulse.DurationTicks
 			g.Sonar.Radius = 0
 			g.Sonar.RadiusStep = c.Pulse.RadiusStep
 			g.Sonar.SourceX = c.Source.X
 			g.Sonar.SourceY = c.Source.Y
+			g.Sonar.Bright = c.Bright
 		case vehicle.RemoveCaveNodeCmd:
 			for idx, node := range g.caveState.Nodes {
 				nodeTx, nodeTy := node.GetTilePos()
@@ -778,16 +819,45 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 		// Sonar ring overlay
 		if g.Sonar.Timer > 0 {
-			alpha := float32(g.Sonar.Timer) / 180.0
+			maxDur := float32(g.Sonar.MaxDuration)
+			if maxDur <= 0 {
+				maxDur = 180.0
+			}
+			alpha := float32(g.Sonar.Timer) / maxDur
 			scx := float32(g.Sonar.SourceX - g.camera.Pos.X)
 			scy := float32(g.Sonar.SourceY - g.camera.Pos.Y)
 			r := float32(g.Sonar.Radius)
-			// Tight soft glow bloom
-			vector.StrokeCircle(screen, scx, scy, r, 5.0, color.RGBA{30, 200, 240, uint8(255 * alpha * 0.5)}, false)
-			// Bright thin main ring
-			vector.StrokeCircle(screen, scx, scy, r, 2.0, color.RGBA{120, 240, 255, uint8(255 * alpha)}, false)
-			// Hot-white core line
-			vector.StrokeCircle(screen, scx, scy, r, 1.0, color.RGBA{255, 255, 255, uint8(255 * alpha)}, false)
+
+			glowColor := color.RGBA{30, 200, 240, uint8(255 * alpha * 0.5)}
+			ringColor := color.RGBA{120, 240, 255, uint8(255 * alpha)}
+			coreColor := color.RGBA{255, 255, 255, uint8(255 * alpha)}
+
+			if g.Sonar.Bright {
+				// Upgraded: double ring ripple effect, thick bright cyan glow
+				glowColor = color.RGBA{0, 245, 255, uint8(255 * alpha * 0.8)}
+				ringColor = color.RGBA{100, 235, 255, uint8(255 * alpha)}
+
+				// Wide soft glow bloom
+				vector.StrokeCircle(screen, scx, scy, r, 12.0, glowColor, false)
+				// Outer thick main ring
+				vector.StrokeCircle(screen, scx, scy, r, 3.0, ringColor, false)
+				// Hot-white core line
+				vector.StrokeCircle(screen, scx, scy, r, 1.5, coreColor, false)
+
+				// Inner ripple trailing slightly behind
+				if r > 15.0 {
+					innerAlpha := alpha * 0.7
+					innerRingColor := color.RGBA{0, 200, 255, uint8(255 * innerAlpha)}
+					vector.StrokeCircle(screen, scx, scy, r-12.0, 1.5, innerRingColor, false)
+				}
+			} else {
+				// Tight soft glow bloom
+				vector.StrokeCircle(screen, scx, scy, r, 5.0, glowColor, false)
+				// Bright thin main ring
+				vector.StrokeCircle(screen, scx, scy, r, 2.0, ringColor, false)
+				// Hot-white core line
+				vector.StrokeCircle(screen, scx, scy, r, 1.0, coreColor, false)
+			}
 		}
 	}
 

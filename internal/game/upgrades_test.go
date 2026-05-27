@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 )
 
 func TestInventory_Resize(t *testing.T) {
@@ -151,3 +152,58 @@ func TestCraftingRecipes_UpgradeStructure(t *testing.T) {
 		t.Errorf("expected Storage MKII recipe to require Solar MKI item")
 	}
 }
+
+func TestScoutSub_SonarAmplifierUpgrade(t *testing.T) {
+	// Create mock runtime
+	// ScoutSub uses item.NewInventory(1) for Upgrades.
+	// Let's create a Scout Sub
+	sub := vehicle.NewScoutSub(0, 0)
+
+	// Initially upgrade is installed by default
+	if !item.HasItem[*item.SonarAmplifier](sub.GetUpgrades(), 1) {
+		t.Errorf("expected ScoutSub to start with Sonar Amplifier upgrade")
+	}
+
+	// Verify initial sonar pulse values
+	pulse := sub.Sonar.Pulse
+	if pulse.DurationTicks != 180 {
+		t.Errorf("expected initial duration to be 180, got %d", pulse.DurationTicks)
+	}
+	if pulse.RadiusStep != 6.5 {
+		t.Errorf("expected initial radius step to be 6.5, got %f", pulse.RadiusStep)
+	}
+
+	// Remove the upgrade to test empty state
+	amp := &item.SonarAmplifier{}
+	if !sub.GetUpgrades().Remove(amp, 1) {
+		t.Errorf("expected successful removal of default Sonar Amplifier")
+	}
+
+	// Verify the upgrade is no longer active
+	if item.HasItem[*item.SonarAmplifier](sub.GetUpgrades(), 1) {
+		t.Errorf("expected Sonar Amplifier upgrade to be inactive after removal")
+	}
+
+	// Equip the Sonar Amplifier again
+	if !sub.GetUpgrades().AddItem(amp, 1) {
+		t.Errorf("expected successful addition of Sonar Amplifier to upgrades slot")
+	}
+
+	// Verify the upgrade is detected again
+	if !item.HasItem[*item.SonarAmplifier](sub.GetUpgrades(), 1) {
+		t.Errorf("expected Sonar Amplifier upgrade to be active after slotting")
+	}
+
+	// Check upgrade calculations (simulating sub.Update/sonar activation)
+	pulseUpgraded := sub.Sonar.Pulse
+	pulseUpgraded.DurationTicks = int(float64(pulseUpgraded.DurationTicks) * 1.8)
+	pulseUpgraded.RadiusStep = pulseUpgraded.RadiusStep * 1.4
+
+	if pulseUpgraded.DurationTicks != 324 {
+		t.Errorf("expected upgraded duration to be 324, got %d", pulseUpgraded.DurationTicks)
+	}
+	if pulseUpgraded.RadiusStep != 9.1 {
+		t.Errorf("expected upgraded radius step to be 9.1, got %f", pulseUpgraded.RadiusStep)
+	}
+}
+

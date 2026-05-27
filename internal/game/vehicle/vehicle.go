@@ -24,6 +24,7 @@ type Vehicle interface {
 	GetOxygen() float64
 	GetDepthLimit() float64
 	GetCargo() *item.Inventory
+	GetUpgrades() *item.Inventory
 	GetPerspective() string // "overworld" or "cave"
 	GetName() string
 	GetBattery() float64
@@ -73,14 +74,15 @@ func (s *Skiff) TakeDamage(amount float64) {
 		s.Health = 0
 	}
 }
-func (s *Skiff) GetOxygen() float64        { return 100.0 } // Surface breathing
-func (s *Skiff) GetDepthLimit() float64    { return 0.0 }   // Surface only
-func (s *Skiff) GetCargo() *item.Inventory { return s.Cargo }
-func (s *Skiff) GetPerspective() string    { return "overworld" }
-func (s *Skiff) GetName() string           { return "The Skiff" }
-func (s *Skiff) GetBattery() float64       { return s.Battery }
-func (s *Skiff) GetMaxBattery() float64    { return s.MaxBattery }
-func (s *Skiff) GetFacing() float64        { return s.Facing }
+func (s *Skiff) GetOxygen() float64           { return 100.0 } // Surface breathing
+func (s *Skiff) GetDepthLimit() float64       { return 0.0 }   // Surface only
+func (s *Skiff) GetCargo() *item.Inventory    { return s.Cargo }
+func (s *Skiff) GetUpgrades() *item.Inventory { return nil }
+func (s *Skiff) GetPerspective() string       { return "overworld" }
+func (s *Skiff) GetName() string              { return "The Skiff" }
+func (s *Skiff) GetBattery() float64          { return s.Battery }
+func (s *Skiff) GetMaxBattery() float64       { return s.MaxBattery }
+func (s *Skiff) GetFacing() float64           { return s.Facing }
 
 func (s *Skiff) Update(runtime Runtime) {
 	// Day/night solar charging (TimeOfDay < 7200 is daytime)
@@ -254,6 +256,7 @@ type ScoutSub struct {
 	Battery    float64
 	MaxBattery float64
 	Cargo      *item.Inventory
+	Upgrades   *item.Inventory
 	Sonar      SonarSettings
 }
 
@@ -263,6 +266,8 @@ type SonarSettings struct {
 }
 
 func NewScoutSub(x, y float64) *ScoutSub {
+	upg := item.NewInventory(1)
+	upg.AddItem(&item.SonarAmplifier{}, 1)
 	return &ScoutSub{
 		Pos:        gvec.Vec2{X: x, Y: y},
 		Dimensions: gvec.Vec2{X: 48, Y: 32},
@@ -272,6 +277,7 @@ func NewScoutSub(x, y float64) *ScoutSub {
 		Battery:    100.0,
 		MaxBattery: 100.0,
 		Cargo:      item.NewInventory(12),
+		Upgrades:   upg,
 		Sonar: SonarSettings{
 			BatteryCost: 10.0,
 			Pulse: SonarPulse{
@@ -293,14 +299,18 @@ func (sub *ScoutSub) TakeDamage(amount float64) {
 		sub.Health = 0
 	}
 }
-func (sub *ScoutSub) GetOxygen() float64        { return 100.0 } // Replenishes diver oxygen
-func (sub *ScoutSub) GetDepthLimit() float64    { return 60.0 }  // Mid-depth limit (60 tiles)
-func (sub *ScoutSub) GetCargo() *item.Inventory { return sub.Cargo }
-func (sub *ScoutSub) GetPerspective() string    { return "cave" }
-func (sub *ScoutSub) GetName() string           { return "Scout Sub" }
-func (sub *ScoutSub) GetBattery() float64       { return sub.Battery }
-func (sub *ScoutSub) GetMaxBattery() float64    { return sub.MaxBattery }
-func (sub *ScoutSub) GetFacing() float64        { return sub.Facing }
+func (sub *ScoutSub) GetOxygen() float64           { return 100.0 } // Replenishes diver oxygen
+func (sub *ScoutSub) GetDepthLimit() float64       { return 60.0 }  // Mid-depth limit (60 tiles)
+func (sub *ScoutSub) GetCargo() *item.Inventory    { return sub.Cargo }
+func (sub *ScoutSub) GetUpgrades() *item.Inventory { return sub.Upgrades }
+func (sub *ScoutSub) hasUpgrade() bool {
+	return item.HasItem[*item.SonarAmplifier](sub.Upgrades, 1)
+}
+func (sub *ScoutSub) GetPerspective() string { return "cave" }
+func (sub *ScoutSub) GetName() string        { return "Scout Sub" }
+func (sub *ScoutSub) GetBattery() float64    { return sub.Battery }
+func (sub *ScoutSub) GetMaxBattery() float64 { return sub.MaxBattery }
+func (sub *ScoutSub) GetFacing() float64     { return sub.Facing }
 
 func (sub *ScoutSub) Update(runtime Runtime) {
 	if !runtime.IsActiveVehicle(sub) {
@@ -387,12 +397,19 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 			if sub.Battery < 0 {
 				sub.Battery = 0
 			}
+			pulse := sub.Sonar.Pulse
+			isUpgraded := sub.hasUpgrade()
+			if isUpgraded {
+				pulse.DurationTicks = int(float64(pulse.DurationTicks) * 1.8) // +80% duration
+				pulse.RadiusStep = pulse.RadiusStep * 1.4                     // +40% speed/radius step
+			}
 			runtime.Emit(ActivateSonarCmd{
 				Source: gvec.Vec2{
 					X: sub.Pos.X + sub.Dimensions.X/2.0,
 					Y: sub.Pos.Y + sub.Dimensions.Y/2.0,
 				},
-				Pulse: sub.Sonar.Pulse,
+				Pulse:  pulse,
+				Bright: isUpgraded,
 			})
 		}
 	}
@@ -523,14 +540,15 @@ func (m *HeavyMech) TakeDamage(amount float64) {
 		m.Health = 0
 	}
 }
-func (m *HeavyMech) GetOxygen() float64        { return 100.0 }
-func (m *HeavyMech) GetDepthLimit() float64    { return 120.0 } // Crevice depth (all the way)
-func (m *HeavyMech) GetCargo() *item.Inventory { return m.Cargo }
-func (m *HeavyMech) GetPerspective() string    { return "cave" }
-func (m *HeavyMech) GetName() string           { return "Heavy Mech" }
-func (m *HeavyMech) GetBattery() float64       { return m.Battery }
-func (m *HeavyMech) GetMaxBattery() float64    { return m.MaxBattery }
-func (m *HeavyMech) GetFacing() float64        { return m.Facing }
+func (m *HeavyMech) GetOxygen() float64           { return 100.0 }
+func (m *HeavyMech) GetDepthLimit() float64       { return 120.0 } // Crevice depth (all the way)
+func (m *HeavyMech) GetCargo() *item.Inventory    { return m.Cargo }
+func (m *HeavyMech) GetUpgrades() *item.Inventory { return nil }
+func (m *HeavyMech) GetPerspective() string       { return "cave" }
+func (m *HeavyMech) GetName() string              { return "Heavy Mech" }
+func (m *HeavyMech) GetBattery() float64          { return m.Battery }
+func (m *HeavyMech) GetMaxBattery() float64       { return m.MaxBattery }
+func (m *HeavyMech) GetFacing() float64           { return m.Facing }
 
 func (m *HeavyMech) Update(runtime Runtime) {
 	if !runtime.IsActiveVehicle(m) {

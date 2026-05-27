@@ -262,4 +262,17 @@ func (e *EscapeRocket) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillPath(screen, &flamePath, nil, &flameOpts)
 }
 
+type SonarAmplifier struct{}
+
+func (s *SonarAmplifier) GetName() string       { return "Sonar Amplifier" }
+func (s *SonarAmplifier) GetMaxStack() int      { return 1 }
+func (s *SonarAmplifier) GetColor() color.Color { return color.RGBA{0, 240, 255, 255} }
+func (s *SonarAmplifier) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// A nice cyan/white concentric rings icon representing sonar amplification
+	vector.StrokeCircle(screen, cx, cy, size/2.0, 2.0, s.GetColor(), false)
+	vector.StrokeCircle(screen, cx, cy, size/3.5, 1.5, color.RGBA{255, 255, 255, 200}, false)
+	vector.FillCircle(screen, cx, cy, 3, s.GetColor(), false)
+}
+
+
 

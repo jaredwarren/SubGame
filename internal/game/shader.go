@@ -14,6 +14,8 @@ var LightRadius float
 var ConeHalfAngle float
 var SonarSource vec2
 var SonarRadius float
+var SonarBright float
+var SonarFadeLimit float
 var PersonalRadius float
 var AmbientColor vec4
 var EntranceLight vec2
@@ -55,13 +57,22 @@ func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 		toSonar := pixelPos - SonarSource
 		distSonar := length(toSonar)
 		if distSonar < SonarRadius {
-			ageFactor := 1.0 - (SonarRadius / 800.0)
+			limit := SonarFadeLimit
+			if limit <= 0.0 {
+				limit = 800.0
+			}
+			ageFactor := 1.0 - (SonarRadius / limit)
 			if ageFactor > 0.0 {
 				if distSonar > SonarRadius - 30.0 {
 					sonarIntensity = 1.0 * ageFactor
 				} else {
 					sonarIntensity = 0.72 * (distSonar / SonarRadius) * ageFactor
 				}
+				multiplier := SonarBright
+				if multiplier <= 0.0 {
+					multiplier = 1.0
+				}
+				sonarIntensity = sonarIntensity * multiplier
 			}
 		}
 	}

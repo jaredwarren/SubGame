@@ -38,6 +38,7 @@ type GameCommand interface{ gameCommand() }
 type ActivateSonarCmd struct {
 	Source gvec.Vec2
 	Pulse  SonarPulse
+	Bright bool
 }
 
 // RemoveCaveNodeCmd removes the resource node at tile position (TX, TY).

@@ -559,6 +559,14 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 		c.uniforms["AmbientColor"] = c.getAmbientColor(c.IsShallow, g.TimeOfDay)
 		c.uniforms["SonarSource"] = c.sonarSource
 		c.uniforms["SonarRadius"] = sonarRadius
+		sonarBright := float32(1.0)
+		sonarFadeLimit := float32(1200.0)
+		if g.Sonar.Bright {
+			sonarBright = 2.5
+			sonarFadeLimit = 3000.0
+		}
+		c.uniforms["SonarBright"] = sonarBright
+		c.uniforms["SonarFadeLimit"] = sonarFadeLimit
 		c.uniforms["EntranceLight"] = c.entranceLight
 		c.uniforms["EntranceActive"] = float32(1.0)
 
