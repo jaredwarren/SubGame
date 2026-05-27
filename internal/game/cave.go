@@ -20,7 +20,7 @@ type CaveScene struct {
 
 	// Pre-allocated Draw parameters to prevent allocations in the hot path
 	shaderOpts    ebiten.DrawRectShaderOptions
-	uniforms      map[string]interface{}
+	uniforms      map[string]any
 	lightSource   []float32
 	flashlightDir []float32
 	sonarSource   []float32
@@ -32,7 +32,7 @@ func NewCaveScene() *CaveScene {
 	cs := &CaveScene{
 		Nodes:         []resource.Resource{},
 		Entities:      []CaveEntity{},
-		uniforms:      make(map[string]interface{}),
+		uniforms:      make(map[string]any),
 		lightSource:   make([]float32, 2),
 		flashlightDir: make([]float32, 2),
 		sonarSource:   make([]float32, 2),
@@ -316,10 +316,10 @@ func (c *CaveScene) isSolid(x, y, w, h float64) bool {
 // interpolating between night, dawn, day, and dusk phases.
 func getSkyColor(timeOfDay float64) color.RGBA {
 	// Key colors
-	nightSky := [3]float64{20, 30, 70}   // Deep dark blue
-	dawnSky := [3]float64{255, 160, 80}  // Warm orange sunrise
-	daySky := [3]float64{140, 200, 255}  // Bright sky blue (daytime)
-	duskSky := [3]float64{220, 100, 60}  // Warm orange sunset
+	nightSky := [3]float64{20, 30, 70}  // Deep dark blue
+	dawnSky := [3]float64{255, 160, 80} // Warm orange sunrise
+	daySky := [3]float64{140, 200, 255} // Bright sky blue (daytime)
+	duskSky := [3]float64{220, 100, 60} // Warm orange sunset
 
 	lerpF := func(a, b [3]float64, t float64) color.RGBA {
 		return color.RGBA{
@@ -352,12 +352,50 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 	camX := g.camera.Pos.X
 	camY := g.camera.Pos.Y
 
-	// Cave ambient backdrop color — fill first so sky can paint over it
-	caveColor := color.RGBA{10, 8, 16, 255}
+	// Cave ambient backdrop — fill first so sky can paint over it
 	if c.IsShallow {
-		caveColor = color.RGBA{20, 70, 150, 255}
+		// Draw a depth gradient: bright near the surface, darker at the floor.
+		// The maximum darkness at the floor is time-of-day dependent.
+		mult := GetOverworldLightMultiplier(g.TimeOfDay)
+
+		// Surface base color
+		baseR := float64(10) + float64(30)*mult  // 10 (night) → 40 (day)
+		baseG := float64(40) + float64(80)*mult  // 40 (night) → 120 (day)
+		baseB := float64(100) + float64(80)*mult // 100 (night) → 180 (day)
+
+		// Max fraction of brightness to remove at the floor:
+		// full day → 0.45 (still reasonably lit), full night → 0.90 (near total dark)
+		maxDarken := 0.45 + (1.0-mult)*0.45
+
+		// Cave floor depth in world pixels
+		maxDepth := float64(30 * TileSize) // fallback
+		if len(c.CaveGrid) > 0 {
+			maxDepth = float64(len(c.CaveGrid[0]) * TileSize)
+		}
+
+		// Draw horizontal strips, each slightly darker than the one above
+		const stripH = float32(6)
+		for sy := float32(0); sy < float32(ScreenHeight); sy += stripH {
+			worldY := camY + float64(sy)
+			depthFrac := 0.0
+			if worldY > 0 {
+				depthFrac = worldY / maxDepth
+				if depthFrac > 1 {
+					depthFrac = 1
+				}
+			}
+			darkFactor := 1.0 - depthFrac*maxDarken
+			sc := color.RGBA{
+				R: uint8(baseR * darkFactor),
+				G: uint8(baseG * darkFactor),
+				B: uint8(baseB * darkFactor),
+				A: 255,
+			}
+			vector.FillRect(screen, 0, sy, float32(ScreenWidth), stripH, sc, false)
+		}
+	} else {
+		screen.Fill(color.RGBA{10, 8, 16, 255})
 	}
-	screen.Fill(caveColor)
 
 	// Render sky color above the water surface (camY < 0 means camera is above Y=0)
 	if camY < 0 {
@@ -518,7 +556,7 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 		c.uniforms["LightRadius"] = float32(360.0)
 		c.uniforms["ConeHalfAngle"] = float32(math.Pi / 7.5)
 		c.uniforms["PersonalRadius"] = float32(65.0)
-		c.uniforms["AmbientColor"] = c.getAmbientColor()
+		c.uniforms["AmbientColor"] = c.getAmbientColor(c.IsShallow, g.TimeOfDay)
 		c.uniforms["SonarSource"] = c.sonarSource
 		c.uniforms["SonarRadius"] = sonarRadius
 		c.uniforms["EntranceLight"] = c.entranceLight
@@ -596,9 +634,17 @@ func (c *CaveScene) drawBioluminescence(screen *ebiten.Image, camX, camY float64
 	}
 }
 
-func (c *CaveScene) getAmbientColor() []float32 {
+func (c *CaveScene) getAmbientColor(isShallow bool, timeOfDay float64) []float32 {
 	if LightCaveForDebug {
 		return []float32{0.02, 0.02, 0.03, 0.15} // Light translucency for debugging (85% visibility)
+	}
+	if isShallow {
+		// Ambient mask: low alpha = bright (day), high alpha = dark (night).
+		// Use the overworld light multiplier: 1.0 = full day, 0.2 = deepest night.
+		mult := GetOverworldLightMultiplier(timeOfDay)
+		// Map mult [0.2, 1.0] -> alpha [0.75, 0.15]  (night darker, day bright)
+		alpha := float32(0.75 - (mult-0.2)/0.8*0.60)
+		return []float32{0.04, 0.06, 0.12, alpha}
 	}
 	return []float32{0.01, 0.01, 0.03, 0.97} // Crushing deep-sea darkness mask
 }
