@@ -122,3 +122,27 @@ func (inv *Inventory) CountOf(t reflect.Type) int {
 	}
 	return inv.counts[t]
 }
+
+// Has reports whether this inventory contains at least qty of the item type.
+func (inv *Inventory) Has(it Item, qty int) bool {
+	if it == nil {
+		return false
+	}
+	return inv.HasItem(reflect.TypeOf(it), qty)
+}
+
+// Remove consumes qty items of the same type as it.
+func (inv *Inventory) Remove(it Item, qty int) bool {
+	if it == nil {
+		return false
+	}
+	return inv.RemoveItem(reflect.TypeOf(it), qty)
+}
+
+// Count returns how many items of the same type as it are present.
+func (inv *Inventory) Count(it Item) int {
+	if it == nil {
+		return 0
+	}
+	return inv.CountOf(reflect.TypeOf(it))
+}

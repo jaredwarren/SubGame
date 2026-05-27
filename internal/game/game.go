@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"math"
 	"math/rand"
-	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -344,9 +343,8 @@ func (g *Game) Update() error {
 							if idx < len(g.player.Inventory.Slots) {
 								slot := &g.player.Inventory.Slots[idx]
 								if slot.Item != nil {
-									t := reflect.TypeOf(slot.Item)
-									if g.ActiveVehicle.GetCargo().AddItem(item.NewItemFromType(t), 1) {
-										g.player.Inventory.RemoveItem(t, 1)
+									if g.ActiveVehicle.GetCargo().AddItem(item.Clone(slot.Item), 1) {
+										g.player.Inventory.Remove(slot.Item, 1)
 										g.player.RecalculateUpgrades()
 									}
 								}
@@ -379,9 +377,8 @@ func (g *Game) Update() error {
 							if idx < numSlots {
 								slot := &vInv.Slots[idx]
 								if slot.Item != nil {
-									t := reflect.TypeOf(slot.Item)
-									if g.player.Inventory.AddItem(item.NewItemFromType(t), 1) {
-										vInv.RemoveItem(t, 1)
+									if g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
+										vInv.Remove(slot.Item, 1)
 										g.player.RecalculateUpgrades()
 									}
 								}
@@ -414,16 +411,16 @@ func (g *Game) Update() error {
 								slot := &g.player.Inventory.Slots[idx]
 								if slot.Item != nil {
 									switch slot.Item.(type) {
-									case *vehicle.ScoutSub:
+									case *item.ScoutSubKit:
 										sub := vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
 										g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
-										g.player.Inventory.RemoveItem(reflect.TypeOf(slot.Item), 1)
+										g.player.Inventory.Remove(slot.Item, 1)
 										g.player.RecalculateUpgrades()
 										g.showInventory = false
-									case *vehicle.HeavyMech:
+									case *item.HeavyMechKit:
 										mech := vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
 										g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
-										g.player.Inventory.RemoveItem(reflect.TypeOf(slot.Item), 1)
+										g.player.Inventory.Remove(slot.Item, 1)
 										g.player.RecalculateUpgrades()
 										g.showInventory = false
 									}

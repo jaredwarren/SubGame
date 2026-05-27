@@ -283,10 +283,6 @@ func NewScoutSub(x, y float64) *ScoutSub {
 	}
 }
 
-func (s *ScoutSub) GetMaxStack() int {
-	return 1
-}
-
 func (sub *ScoutSub) GetPos() Vec2          { return sub.Pos }
 func (sub *ScoutSub) SetPos(pos Vec2)       { sub.Pos = pos }
 func (sub *ScoutSub) GetDimensions() Vec2   { return sub.Dimensions }
@@ -499,10 +495,6 @@ func NewHeavyMech(x, y float64) *HeavyMech {
 		MaxBattery: 100.0,
 		Cargo:      item.NewInventory(8),
 	}
-}
-
-func (m *HeavyMech) GetMaxStack() int {
-	return 1
 }
 
 func (m *HeavyMech) GetPos() Vec2          { return m.Pos }

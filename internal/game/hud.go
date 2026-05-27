@@ -9,7 +9,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/item"
-	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -477,10 +476,10 @@ func drawItemIcon(screen *ebiten.Image, sx, sy, slotSz float32, i item.Item) {
 	case *item.AbyssalOre:
 		itemClr = color.RGBA{148, 48, 218, 255}
 		drawIconType = "diamond"
-	case *vehicle.ScoutSub:
+	case *item.ScoutSubKit:
 		itemClr = color.RGBA{15, 160, 185, 255}
 		drawIconType = "sub"
-	case *vehicle.HeavyMech:
+	case *item.HeavyMechKit:
 		itemClr = color.RGBA{218, 98, 16, 255}
 		drawIconType = "mech"
 	default:

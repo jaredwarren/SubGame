@@ -50,9 +50,28 @@ type Scanner struct{}
 func (s *Scanner) GetName() string  { return "Scanner Tool" }
 func (s *Scanner) GetMaxStack() int { return 1 }
 
+// Deployable vehicle kit item types.
+type ScoutSubKit struct{}
+
+func (k *ScoutSubKit) GetName() string  { return "Scout Sub Kit" }
+func (k *ScoutSubKit) GetMaxStack() int { return 1 }
+
+type HeavyMechKit struct{}
+
+func (k *HeavyMechKit) GetName() string  { return "Heavy Mech Kit" }
+func (k *HeavyMechKit) GetMaxStack() int { return 1 }
+
 // NewItemFromType instantiates a new concrete Item struct using reflect.New.
 func NewItemFromType(t reflect.Type) Item {
 	return reflect.New(t.Elem()).Interface().(Item)
+}
+
+// Clone returns a new instance of the same concrete item type.
+func Clone(it Item) Item {
+	if it == nil {
+		return nil
+	}
+	return NewItemFromType(reflect.TypeOf(it))
 }
 
 // ItemStack represents a quantity of a specific item type.
