@@ -7,12 +7,13 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 )
 
 // CaveScene manages the side-view cave swimming controls, collision, and rendering.
 type CaveScene struct {
 	CaveGrid  [][]bool
-	Nodes     []ResourceNode
+	Nodes     []Resource
 	Entities  []CaveEntity
 	IsShallow bool
 
@@ -27,7 +28,7 @@ type CaveScene struct {
 // NewCaveScene creates a new CaveScene instance.
 func NewCaveScene() *CaveScene {
 	cs := &CaveScene{
-		Nodes:         []ResourceNode{},
+		Nodes:         []Resource{},
 		Entities:      []CaveEntity{},
 		uniforms:      make(map[string]interface{}),
 		lightSource:   make([]float32, 2),
@@ -46,6 +47,59 @@ func (c *CaveScene) OnExit(g *Game) {}
 
 // Update handles player input, side-scroller swimming physics, and checks exit transitions.
 func (c *CaveScene) Update(g *Game) error {
+	// Reset electrical tracking timer; active Electro-Weavers will update it
+	g.WeaverTrackingTimer = 0.0
+
+	// Update cave entities
+	for _, ent := range c.Entities {
+		ent.Update(g, c)
+	}
+
+	// Clean up deactivated entities
+	activeCount := 0
+	for _, ent := range c.Entities {
+		if ent.IsActive() {
+			c.Entities[activeCount] = ent
+			activeCount++
+		}
+	}
+	c.Entities = c.Entities[:activeCount]
+	g.caveEntities[g.activeTrenchKey] = c.Entities
+
+	if g.ActiveVehicle != nil {
+		// Heavy Mech drilling handler
+		if mech, ok := g.ActiveVehicle.(*vehicle.HeavyMech); ok && !mech.IsDrilling {
+			if g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				cursor := g.Input.Cursor()
+				camX := mech.Pos.X - ScreenWidth/2 + mech.Dimensions.X/2
+				camY := mech.Pos.Y - ScreenHeight/2 + mech.Dimensions.Y/2
+				worldX := camX + cursor.X
+				worldY := camY + cursor.Y
+
+				mtx := int(worldX) / TileSize
+				mty := int(worldY) / TileSize
+
+				for i := 0; i < len(c.Nodes); i++ {
+					node := c.Nodes[i]
+					nodeTx, nodeTy := node.GetTilePos()
+					if nodeTx == mtx && nodeTy == mty && node.GetHitsToMine() > 0 {
+						px := mech.Pos.X + mech.Dimensions.X/2
+						py := mech.Pos.Y + mech.Dimensions.Y/2
+						nx := float64(nodeTx*TileSize + TileSize/2)
+						ny := float64(nodeTy*TileSize + TileSize/2)
+						dist := math.Hypot(px-nx, py-ny)
+
+						if dist <= 120.0 {
+							mech.DrillStrike(node)
+							break
+						}
+					}
+				}
+			}
+		}
+		return nil
+	}
+
 	p := g.player
 
 	// Exit cave back to Overworld if player swims past the surface (Y <= -8)
@@ -85,28 +139,30 @@ func (c *CaveScene) Update(g *Game) error {
 		}
 
 		// Find clicked resource node
-		for i := range c.Nodes {
-			node := &c.Nodes[i]
-			if node.Tx == mtx && node.Ty == mty && node.HitsToMine > 0 {
+		for i := 0; i < len(c.Nodes); i++ {
+			node := c.Nodes[i]
+			nodeTx, nodeTy := node.GetTilePos()
+			if nodeTx == mtx && nodeTy == mty && node.GetHitsToMine() > 0 {
 				// Distance check (Reach limit of ~96 pixels = 1.5 tiles)
 				px := p.Pos.X + p.Width/2
 				py := p.Pos.Y + p.Height/2
-				nx := float64(node.Tx*TileSize + TileSize/2)
-				ny := float64(node.Ty*TileSize + TileSize/2)
+				nx := float64(nodeTx*TileSize + TileSize/2)
+				ny := float64(nodeTy*TileSize + TileSize/2)
 				dist := math.Hypot(px-nx, py-ny)
 
 				if dist <= 96.0 {
-					if node.Type == ResourceAbyssalOre {
+					if node.RequiresMech() {
 						g.MineWarning = "Requires Heavy Mech Drill Arm to harvest"
 						g.MineWarningTimer = 120
 						continue
 					}
-					node.HitsToMine--
-					if node.HitsToMine <= 0 {
+					node.SetHitsToMine(node.GetHitsToMine() - 1)
+					if node.GetHitsToMine() <= 0 {
 						// Add to inventory
-						p.Inventory.AddItem(node.Type.ItemType(), 1)
+						p.Inventory.AddItem(node, 1)
 						// Drop node from active list
 						c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)
+						i--
 					}
 					break // Strike hits only one node per click
 				}
@@ -133,7 +189,7 @@ func (c *CaveScene) Update(g *Game) error {
 	}
 
 	// Apply Fins upgrade speed boost (35% increase)
-	if p.Inventory.HasItem(ItemFins, 1) {
+	if p.HasFins {
 		swimForce *= 1.35
 		maxSpeed *= 1.35
 	}
@@ -182,25 +238,6 @@ func (c *CaveScene) Update(g *Game) error {
 	// Update stats (is in cave, checks sprinting if keys are pressed and player is moving)
 	isMoving := speed > 0.1
 	p.UpdateStats(true, isSprinting && isMoving && swimming)
-
-	// Reset electrical tracking timer; active Electro-Weavers will update it
-	g.WeaverTrackingTimer = 0.0
-
-	// Update cave entities
-	for _, ent := range c.Entities {
-		ent.Update(g, c)
-	}
-
-	// Clean up deactivated entities
-	activeCount := 0
-	for _, ent := range c.Entities {
-		if ent.IsActive() {
-			c.Entities[activeCount] = ent
-			activeCount++
-		}
-	}
-	c.Entities = c.Entities[:activeCount]
-	g.caveEntities[g.activeTrenchKey] = c.Entities
 
 	return nil
 }
@@ -356,8 +393,8 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 	}
 
 	// --- Phase 5: Render Resource Nodes ---
-	for i := range c.Nodes {
-		c.Nodes[i].Draw(screen, camX, camY)
+	for _, node := range c.Nodes {
+		node.Draw(screen, camX, camY)
 	}
 
 	isPiloting := g.ActiveVehicle != nil

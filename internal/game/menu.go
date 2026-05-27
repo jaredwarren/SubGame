@@ -3,65 +3,74 @@ package game
 import (
 	"fmt"
 	"image/color"
+	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 )
+
+// Ingredient represents the type and quantity of an item required for a recipe.
+type Ingredient struct {
+	Type     reflect.Type
+	Quantity int
+}
 
 // Recipe defines ingredients needed to craft a target item.
 type Recipe struct {
-	Result      ItemType
-	Ingredients []ItemStack
+	Result      reflect.Type
+	Ingredients []Ingredient
 }
 
 // Global list of craftable item upgrades
 var CraftingRecipes = []Recipe{
 	{
-		Result: ItemO2TankHC,
-		Ingredients: []ItemStack{
-			{Type: ItemTitanium, Quantity: 4},
-			{Type: ItemQuartz, Quantity: 2},
+		Result: reflect.TypeOf((*item.O2TankHC)(nil)),
+		Ingredients: []Ingredient{
+			{Type: reflect.TypeOf((*item.Titanium)(nil)), Quantity: 4},
+			{Type: reflect.TypeOf((*item.Quartz)(nil)), Quantity: 2},
 		},
 	},
 	{
-		Result: ItemO2TankUHC,
-		Ingredients: []ItemStack{
-			{Type: ItemO2TankHC, Quantity: 1},
-			{Type: ItemTitanium, Quantity: 5},
-			{Type: ItemCopper, Quantity: 3},
-			{Type: ItemQuartz, Quantity: 2},
+		Result: reflect.TypeOf((*item.O2TankUHC)(nil)),
+		Ingredients: []Ingredient{
+			{Type: reflect.TypeOf((*item.O2TankHC)(nil)), Quantity: 1},
+			{Type: reflect.TypeOf((*item.Titanium)(nil)), Quantity: 5},
+			{Type: reflect.TypeOf((*item.Copper)(nil)), Quantity: 3},
+			{Type: reflect.TypeOf((*item.Quartz)(nil)), Quantity: 2},
 		},
 	},
 	{
-		Result: ItemFins,
-		Ingredients: []ItemStack{
-			{Type: ItemTitanium, Quantity: 3},
-			{Type: ItemCopper, Quantity: 2},
+		Result: reflect.TypeOf((*item.Fins)(nil)),
+		Ingredients: []Ingredient{
+			{Type: reflect.TypeOf((*item.Titanium)(nil)), Quantity: 3},
+			{Type: reflect.TypeOf((*item.Copper)(nil)), Quantity: 2},
 		},
 	},
 	{
-		Result: ItemScanner,
-		Ingredients: []ItemStack{
-			{Type: ItemTitanium, Quantity: 2},
-			{Type: ItemCopper, Quantity: 1},
-			{Type: ItemQuartz, Quantity: 2},
+		Result: reflect.TypeOf((*item.Scanner)(nil)),
+		Ingredients: []Ingredient{
+			{Type: reflect.TypeOf((*item.Titanium)(nil)), Quantity: 2},
+			{Type: reflect.TypeOf((*item.Copper)(nil)), Quantity: 1},
+			{Type: reflect.TypeOf((*item.Quartz)(nil)), Quantity: 2},
 		},
 	},
 	{
-		Result: ItemScoutSub,
-		Ingredients: []ItemStack{
-			{Type: ItemTitanium, Quantity: 6},
-			{Type: ItemCopper, Quantity: 4},
-			{Type: ItemQuartz, Quantity: 2},
+		Result: reflect.TypeOf((*vehicle.ScoutSub)(nil)),
+		Ingredients: []Ingredient{
+			{Type: reflect.TypeOf((*item.Titanium)(nil)), Quantity: 6},
+			{Type: reflect.TypeOf((*item.Copper)(nil)), Quantity: 4},
+			{Type: reflect.TypeOf((*item.Quartz)(nil)), Quantity: 2},
 		},
 	},
 	{
-		Result: ItemHeavyMech,
-		Ingredients: []ItemStack{
-			{Type: ItemTitanium, Quantity: 8},
-			{Type: ItemCopper, Quantity: 6},
-			{Type: ItemQuartz, Quantity: 4},
+		Result: reflect.TypeOf((*vehicle.HeavyMech)(nil)),
+		Ingredients: []Ingredient{
+			{Type: reflect.TypeOf((*item.Titanium)(nil)), Quantity: 8},
+			{Type: reflect.TypeOf((*item.Copper)(nil)), Quantity: 6},
+			{Type: reflect.TypeOf((*item.Quartz)(nil)), Quantity: 4},
 		},
 	},
 }
@@ -126,10 +135,13 @@ func (m *BaseMenuScene) Update(g *Game) error {
 			solarX := int(panelX) + 480
 			solarY := int(panelY) + 110
 			if mx >= solarX && mx < solarX+260 && my >= solarY && my < solarY+45 {
-				if !b.Modules[ModuleSolar] && p.Inventory.HasItem(ItemTitanium, 5) && p.Inventory.HasItem(ItemCopper, 3) {
-					p.Inventory.RemoveItem(ItemTitanium, 5)
-					p.Inventory.RemoveItem(ItemCopper, 3)
+				tTitanium := reflect.TypeOf((*item.Titanium)(nil))
+				tCopper := reflect.TypeOf((*item.Copper)(nil))
+				if !b.Modules[ModuleSolar] && p.Inventory.HasItem(tTitanium, 5) && p.Inventory.HasItem(tCopper, 3) {
+					p.Inventory.RemoveItem(tTitanium, 5)
+					p.Inventory.RemoveItem(tCopper, 3)
 					b.Modules[ModuleSolar] = true
+					p.RecalculateUpgrades()
 				}
 			}
 
@@ -137,10 +149,13 @@ func (m *BaseMenuScene) Update(g *Game) error {
 			vaultX := int(panelX) + 480
 			vaultY := int(panelY) + 175
 			if mx >= vaultX && mx < vaultX+260 && my >= vaultY && my < vaultY+45 {
-				if !b.Modules[ModuleStorage] && p.Inventory.HasItem(ItemTitanium, 4) && p.Inventory.HasItem(ItemQuartz, 2) {
-					p.Inventory.RemoveItem(ItemTitanium, 4)
-					p.Inventory.RemoveItem(ItemQuartz, 2)
+				tTitanium := reflect.TypeOf((*item.Titanium)(nil))
+				tQuartz := reflect.TypeOf((*item.Quartz)(nil))
+				if !b.Modules[ModuleStorage] && p.Inventory.HasItem(tTitanium, 4) && p.Inventory.HasItem(tQuartz, 2) {
+					p.Inventory.RemoveItem(tTitanium, 4)
+					p.Inventory.RemoveItem(tQuartz, 2)
 					b.Modules[ModuleStorage] = true
+					p.RecalculateUpgrades()
 				}
 			}
 		}
@@ -158,7 +173,7 @@ func (m *BaseMenuScene) Update(g *Game) error {
 				// Check if clicked the Craft button for this recipe
 				if mx >= btnX && mx < btnX+140 && my >= btnY && my < btnY+35 {
 					// Check if base power is available (consuming 10 power per craft)
-					if b.Power >= 10.0 {
+					if b.Power >= 10.0 { // TODO: make configurable, based on recipe and maybe upgrade tiers
 						// Verify player has all ingredients
 						hasAll := true
 						for _, ing := range rcp.Ingredients {
@@ -169,8 +184,10 @@ func (m *BaseMenuScene) Update(g *Game) error {
 						}
 
 						if hasAll {
+							// create new item based on recipe result
+							newItem := item.NewItemFromType(rcp.Result)
 							// Check if inventory has slot space for result
-							if p.Inventory.AddItem(rcp.Result, 1) {
+							if p.Inventory.AddItem(newItem, 1) {
 								// Consume ingredients
 								for _, ing := range rcp.Ingredients {
 									p.Inventory.RemoveItem(ing.Type, ing.Quantity)
@@ -178,16 +195,8 @@ func (m *BaseMenuScene) Update(g *Game) error {
 								// Consume power
 								b.Power -= 10.0
 
-								// Apply upgrades directly to player metrics immediately
-								if rcp.Result == ItemO2TankHC {
-									p.MaxOxygen = 160.0
-								} else if rcp.Result == ItemO2TankUHC {
-									// Remove O2TankHC from inventory since it's upgraded to UHC
-									p.Inventory.RemoveItem(ItemO2TankHC, 1)
-									p.MaxOxygen = 240.0
-								} else if rcp.Result == ItemFins {
-									// Swim speed boost will be checked in movement physics
-								}
+								// Recalculate upgrades immediately
+								p.RecalculateUpgrades()
 							}
 						}
 					}
@@ -216,11 +225,13 @@ func (m *BaseMenuScene) Update(g *Game) error {
 					sy := int(pStartY) + r*(slotSz+gap)
 
 					if mx >= sx && mx < sx+slotSz && my >= sy && my < sy+slotSz {
-						item := &p.Inventory.Slots[idx]
-						if item.Type != ItemNone {
+						slot := &p.Inventory.Slots[idx]
+						if slot.Item != nil {
+							t := reflect.TypeOf(slot.Item)
 							// Transfer 1 item to base storage
-							if b.Storage.AddItem(item.Type, 1) {
-								p.Inventory.RemoveItem(item.Type, 1)
+							if b.Storage.AddItem(item.NewItemFromType(t), 1) {
+								p.Inventory.RemoveItem(t, 1)
+								p.RecalculateUpgrades()
 							}
 						}
 					}
@@ -238,11 +249,13 @@ func (m *BaseMenuScene) Update(g *Game) error {
 					sy := int(bStartY) + r*(slotSz+gap)
 
 					if mx >= sx && mx < sx+slotSz && my >= sy && my < sy+slotSz {
-						item := &b.Storage.Slots[idx]
-						if item.Type != ItemNone {
+						slot := &b.Storage.Slots[idx]
+						if slot.Item != nil {
+							t := reflect.TypeOf(slot.Item)
 							// Transfer 1 item to player inventory
-							if p.Inventory.AddItem(item.Type, 1) {
-								b.Storage.RemoveItem(item.Type, 1)
+							if p.Inventory.AddItem(item.NewItemFromType(t), 1) {
+								b.Storage.RemoveItem(t, 1)
+								p.RecalculateUpgrades()
 							}
 						}
 					}
@@ -317,7 +330,7 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 
 		vector.FillRect(screen, tx, ty, 140, 30, tabBg, false)
 		vector.StrokeRect(screen, tx, ty, 140, 30, 1.0, tabBorder, false)
-		
+
 		// Draw label center offset (manual visual approximation)
 		ebitenutil.DebugPrintAt(screen, label, int(tx)+12, int(ty)+6)
 	}
@@ -412,18 +425,14 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 			vector.StrokeRect(screen, startX, ry, 740, 52, 0.8, color.RGBA{45, 58, 78, 255}, false)
 
 			// Draw output name
-			ebitenutil.DebugPrintAt(screen, rcp.Result.String(), int(startX)+15, int(ry)+6)
+			resultName := item.NewItemFromType(rcp.Result).GetName()
+			ebitenutil.DebugPrintAt(screen, resultName, int(startX)+15, int(ry)+6)
 
 			// Draw ingredients checklist
 			ingText := "Ingredients: "
 			hasAll := true
 			for j, ing := range rcp.Ingredients {
-				qtyInInv := 0
-				for _, slot := range p.Inventory.Slots {
-					if slot.Type == ing.Type {
-						qtyInInv += slot.Quantity
-					}
-				}
+				qtyInInv := p.Inventory.CountOf(ing.Type)
 
 				checkChar := "X"
 				if qtyInInv >= ing.Quantity {
@@ -432,7 +441,8 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 					hasAll = false
 				}
 
-				ingText += fmt.Sprintf("[%s] %s (%d/%d)  ", checkChar, ing.Type.String(), qtyInInv, ing.Quantity)
+				ingName := item.NewItemFromType(ing.Type).GetName()
+				ingText += fmt.Sprintf("[%s] %s (%d/%d)  ", checkChar, ingName, qtyInInv, ing.Quantity)
 				if j < len(rcp.Ingredients)-1 {
 					ingText += "|  "
 				}
@@ -483,13 +493,13 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 		vector.StrokeRect(screen, medX, medY, 740, 335, 1.0, color.RGBA{48, 62, 85, 255}, false)
 
 		ebitenutil.DebugPrintAt(screen, "INFIRMARY / MEDICAL SCANNER UNIT", int(medX)+220, int(medY)+40)
-		
+
 		statusHp := fmt.Sprintf("DIVER HEALTH STATUS: %.0f / %.0f HP", p.CurrentHealth, p.MaxHealth)
 		ebitenutil.DebugPrintAt(screen, statusHp, int(medX)+240, int(medY)+100)
 
 		// Medical scan panel
 		vector.FillRect(screen, medX+230, medY+150, 280, 60, color.RGBA{22, 38, 55, 255}, false)
-		
+
 		healText := "ACTIVATE DECONTAMINATION HEAL"
 		healSubText := "Costs 15 base energy (Heals +40 HP)"
 		if p.CurrentHealth >= p.MaxHealth {
@@ -510,7 +520,7 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 }
 
 // drawInventoryGrid helper draws standard slots grid for items storage transfer.
-func drawInventoryGrid(g *Game, screen *ebiten.Image, startX, startY float32, inv *Inventory) {
+func drawInventoryGrid(g *Game, screen *ebiten.Image, startX, startY float32, inv *item.Inventory) {
 	const (
 		cols   = 8
 		rows   = 3
@@ -543,17 +553,17 @@ func drawInventoryGrid(g *Game, screen *ebiten.Image, startX, startY float32, in
 			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
 			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
-			item := inv.Slots[idx]
-			if item.Type != ItemNone {
+			itemStack := inv.Slots[idx]
+			if itemStack.Item != nil {
 				var itemClr color.Color
-				switch item.Type {
-				case ItemTitanium:
+				switch itemStack.Item.(type) {
+				case *item.Titanium:
 					itemClr = color.RGBA{168, 178, 188, 255}
-				case ItemCopper:
+				case *item.Copper:
 					itemClr = color.RGBA{218, 118, 48, 255}
-				case ItemQuartz:
+				case *item.Quartz:
 					itemClr = color.RGBA{48, 218, 245, 255}
-				case ItemAbyssalOre:
+				case *item.AbyssalOre:
 					itemClr = color.RGBA{148, 48, 218, 255}
 				default:
 					itemClr = color.RGBA{98, 198, 148, 255}
@@ -563,8 +573,8 @@ func drawInventoryGrid(g *Game, screen *ebiten.Image, startX, startY float32, in
 				cy := sy + slotSz/2.0
 				vector.FillCircle(screen, cx, cy, 10, itemClr, false)
 
-				if item.Quantity > 1 {
-					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+4, int(sy)+slotSz-15)
+				if itemStack.Quantity > 1 {
+					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", itemStack.Quantity), int(sx)+4, int(sy)+slotSz-15)
 				}
 			}
 		}

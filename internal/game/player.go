@@ -2,6 +2,8 @@ package game
 
 import (
 	"math"
+
+	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
 // Player represents the player character, including their physics and stats.
@@ -30,12 +32,15 @@ type Player struct {
 	DrownDamageRate  float64 // default: 30.0 (Health units lost per second when drowning)
 
 	// Inventory
-	Inventory *Inventory
+	Inventory *item.Inventory
+
+	// Upgrade Cache (Option A)
+	HasFins bool
 }
 
 // NewPlayer initializes a player with default stats and empty inventory.
 func NewPlayer(x, y float64) *Player {
-	return &Player{
+	p := &Player{
 		Pos:              Vec2{X: x, Y: y},
 		Width:            20,
 		Height:           20,
@@ -51,8 +56,10 @@ func NewPlayer(x, y float64) *Player {
 		StaminaDrainRate: 1.5,
 		StaminaRegenRate: 1.0,
 		DrownDamageRate:  30.0,
-		Inventory:        NewInventory(24),
+		Inventory:        item.NewInventory(24),
 	}
+	p.RecalculateUpgrades()
+	return p
 }
 
 // UpdateStats handles core stat loops (depleting/regenerating O2, stamina, etc.)
@@ -101,158 +108,15 @@ func pCenterY(p *Player) float64 {
 	return ScreenHeight / 2
 }
 
-// ItemType represents different types of collectible items and equipment.
-type ItemType int
+// RecalculateUpgrades scans the inventory and updates cached upgrade flags and capacity stats.
+func (p *Player) RecalculateUpgrades() {
+	p.HasFins = item.HasItem[*item.Fins](p.Inventory, 1)
 
-const (
-	ItemNone ItemType = iota
-	ItemTitanium
-	ItemCopper
-	ItemQuartz
-	ItemAbyssalOre
-	ItemO2TankHC
-	ItemO2TankUHC
-	ItemFins
-	ItemScanner
-	ItemScoutSub
-	ItemHeavyMech
-)
-
-// String returns the user-facing name of the item type.
-func (t ItemType) String() string {
-	switch t {
-	case ItemTitanium:
-		return "Titanium"
-	case ItemCopper:
-		return "Copper"
-	case ItemQuartz:
-		return "Quartz"
-	case ItemAbyssalOre:
-		return "Abyssal Ore"
-	case ItemO2TankHC:
-		return "High Capacity O2 Tank"
-	case ItemO2TankUHC:
-		return "Ultra High Capacity O2 Tank"
-	case ItemFins:
-		return "Propulsion Fins"
-	case ItemScanner:
-		return "Scanner Tool"
-	case ItemScoutSub:
-		return "Scout Sub (Deployable)"
-	case ItemHeavyMech:
-		return "Heavy Mech (Deployable)"
-	default:
-		return "Empty"
+	if item.HasItem[*item.O2TankUHC](p.Inventory, 1) {
+		p.MaxOxygen = 240.0
+	} else if item.HasItem[*item.O2TankHC](p.Inventory, 1) {
+		p.MaxOxygen = 160.0
+	} else {
+		p.MaxOxygen = 100.0
 	}
-}
-
-// ItemStack represents a quantity of a specific item type.
-type ItemStack struct {
-	Type     ItemType
-	Quantity int
-}
-
-// Inventory manages a collection of item slots.
-type Inventory struct {
-	Slots []ItemStack
-}
-
-// NewInventory creates an empty Inventory of a specific size.
-func NewInventory(size int) *Inventory {
-	slots := make([]ItemStack, size)
-	for i := range slots {
-		slots[i] = ItemStack{Type: ItemNone, Quantity: 0}
-	}
-	return &Inventory{Slots: slots}
-}
-
-// AddItem inserts an item type into the inventory, stack-splitting if necessary.
-// Returns true if all items were successfully added.
-func (inv *Inventory) AddItem(itemType ItemType, qty int) bool {
-	if itemType == ItemNone || qty <= 0 {
-		return false
-	}
-
-	maxStack := 10
-	// Equipment and vehicle items are non-stackable (max stack of 1)
-	if itemType == ItemO2TankHC || itemType == ItemO2TankUHC || itemType == ItemFins || itemType == ItemScanner || itemType == ItemScoutSub || itemType == ItemHeavyMech {
-		maxStack = 1
-	}
-
-	// 1. First, attempt to fill existing stacks of this item
-	for i := range inv.Slots {
-		if inv.Slots[i].Type == itemType && inv.Slots[i].Quantity < maxStack {
-			space := maxStack - inv.Slots[i].Quantity
-			if qty <= space {
-				inv.Slots[i].Quantity += qty
-				return true
-			}
-			inv.Slots[i].Quantity = maxStack
-			qty -= space
-		}
-	}
-
-	// 2. Next, place remaining items in empty slots
-	for qty > 0 {
-		emptyIdx := -1
-		for i := range inv.Slots {
-			if inv.Slots[i].Type == ItemNone {
-				emptyIdx = i
-				break
-			}
-		}
-
-		// Inventory is full
-		if emptyIdx == -1 {
-			return false
-		}
-
-		addQty := qty
-		if addQty > maxStack {
-			addQty = maxStack
-		}
-
-		inv.Slots[emptyIdx] = ItemStack{Type: itemType, Quantity: addQty}
-		qty -= addQty
-	}
-
-	return true
-}
-
-// RemoveItem consumes a specific quantity of an item type from the inventory.
-// Returns true if the items were successfully removed.
-func (inv *Inventory) RemoveItem(itemType ItemType, qty int) bool {
-	if !inv.HasItem(itemType, qty) {
-		return false
-	}
-
-	// Remove from stacks starting from the end
-	for i := len(inv.Slots) - 1; i >= 0; i-- {
-		if inv.Slots[i].Type == itemType {
-			if inv.Slots[i].Quantity >= qty {
-				inv.Slots[i].Quantity -= qty
-				if inv.Slots[i].Quantity == 0 {
-					inv.Slots[i].Type = ItemNone
-				}
-				break
-			} else {
-				qty -= inv.Slots[i].Quantity
-				inv.Slots[i].Type = ItemNone
-				inv.Slots[i].Quantity = 0
-			}
-		}
-	}
-
-	return true
-}
-
-// HasItem checks if the inventory contains at least the specified quantity of an item type.
-func (inv *Inventory) HasItem(itemType ItemType, qty int) bool {
-	count := 0
-	for _, slot := range inv.Slots {
-		if slot.Type == itemType {
-			count += slot.Quantity
-		}
-	}
-	return count >= qty
 }

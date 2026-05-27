@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
 // BaseModule represents a functional slot upgrade in the base schematic.
@@ -39,7 +40,7 @@ type BaseStation struct {
 	Size     Vec2
 	Power    float64
 	MaxPower float64
-	Storage  *Inventory
+	Storage  *item.Inventory
 	Modules  map[BaseModule]bool
 }
 
@@ -50,7 +51,7 @@ func NewBaseStation(x, y float64) *BaseStation {
 		Size:     Vec2{X: 48, Y: 48},
 		Power:    75.0,
 		MaxPower: 100.0,
-		Storage:  NewInventory(24), // 24 storage slots in base vault
+		Storage:  item.NewInventory(24), // 24 storage slots in base vault
 		Modules:  make(map[BaseModule]bool),
 	}
 	// Starting base includes Fabricator and Medical Bay, solar is upgradeable

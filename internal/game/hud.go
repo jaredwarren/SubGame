@@ -8,6 +8,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -49,7 +51,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 	if g.currentState == StateCave {
 		pulseColor = color.RGBA{45, 175, 215, 255} // Cyan for underwater
 	}
-	
+
 	// Pulsing effect based on g.TimeOfDay
 	isPulseOn := int(g.TimeOfDay/15)%2 == 0
 	if !isPulseOn {
@@ -60,10 +62,10 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 
 	if g.currentState == StateOverworld {
 		ebitenutil.DebugPrintAt(screen, "SYSTEMS MONITOR", int(telX)+26, int(telY)+8)
-		
+
 		// Time calculation
 		totalMinutes := int(g.TimeOfDay / 14400.0 * 1440.0)
-		hour := (totalMinutes / 60 + 6) % 24
+		hour := (totalMinutes/60 + 6) % 24
 		minute := totalMinutes % 60
 		period := "AM"
 		displayHour := hour
@@ -76,7 +78,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		if hour == 0 {
 			displayHour = 12
 		}
-		
+
 		isDay := g.TimeOfDay < 7200
 		dayPhase := "Day"
 		if !isDay {
@@ -183,7 +185,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		)
 		vHudX := float32(ScreenWidth-vHudW-20) + jx
 		vHudY := float32(ScreenHeight-vHudH-20) + jy
-		
+
 		vector.FillRect(screen, vHudX, vHudY, vHudW, vHudH, color.RGBA{18, 24, 38, 200}, false)
 		vector.StrokeRect(screen, vHudX, vHudY, vHudW, vHudH, 1.5, color.RGBA{70, 90, 120, 255}, false)
 
@@ -204,7 +206,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		vector.StrokeRect(screen, float32(ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, 1.2, color.RGBA{230, 75, 45, 255}, false)
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[WARNING: ELECTRICAL STATIC DETECTED (%.0f%%)]", (g.WeaverTrackingTimer/300.0)*100.0), ScreenWidth/2-160+int(jx), 20+int(jy))
 	}
-	
+
 	// Render inventory overlay
 	if g.showInventory {
 		if g.ActiveVehicle != nil {
@@ -236,7 +238,7 @@ func drawStatBar(screen *ebiten.Image, x, y, w, h float32, ratio float64, barCol
 }
 
 // DrawInventory renders the player's grid inventory overlay, icons, counts, and hover tooltips.
-func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *Inventory) {
+func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *item.Inventory) {
 	// Center coordinates for the inventory panel overlay
 	const (
 		panelW = 600
@@ -287,8 +289,8 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *Inventory) {
 			if isHovered {
 				slotBg = color.RGBA{32, 42, 62, 255}
 				slotBorder = color.RGBA{95, 125, 165, 255}
-				if inv.Slots[slotIdx].Type != ItemNone {
-					hoveredItemName = inv.Slots[slotIdx].Type.String()
+				if inv.Slots[slotIdx].Item != nil {
+					hoveredItemName = inv.Slots[slotIdx].Item.GetName()
 				}
 			}
 
@@ -298,8 +300,8 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *Inventory) {
 
 			// Render item content
 			item := inv.Slots[slotIdx]
-			if item.Type != ItemNone {
-				drawItemIcon(screen, sx, sy, slotSz, item.Type)
+			if item.Item != nil {
+				drawItemIcon(screen, sx, sy, slotSz, item.Item)
 
 				// Draw stack count number
 				if item.Quantity > 1 {
@@ -322,7 +324,7 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *Inventory) {
 }
 
 // DrawVehicleInventory renders a split UI showing player inventory on the left and vehicle cargo on the right.
-func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *Inventory, vInv *Inventory, vName string) {
+func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *item.Inventory, vInv *item.Inventory, vName string) {
 	const (
 		panelW = 960
 		panelH = 360
@@ -372,8 +374,8 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *Inventor
 			if isHovered {
 				slotBg = color.RGBA{32, 42, 62, 255}
 				slotBorder = color.RGBA{95, 125, 165, 255}
-				if pInv.Slots[slotIdx].Type != ItemNone {
-					hoveredItemName = pInv.Slots[slotIdx].Type.String()
+				if pInv.Slots[slotIdx].Item != nil {
+					hoveredItemName = pInv.Slots[slotIdx].Item.GetName()
 				}
 			}
 
@@ -381,8 +383,8 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *Inventor
 			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
 			item := pInv.Slots[slotIdx]
-			if item.Type != ItemNone {
-				drawItemIcon(screen, sx, sy, slotSz, item.Type)
+			if item.Item != nil {
+				drawItemIcon(screen, sx, sy, slotSz, item.Item)
 				if item.Quantity > 1 {
 					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
 				}
@@ -424,8 +426,8 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *Inventor
 			if isHovered {
 				slotBg = color.RGBA{32, 42, 62, 255}
 				slotBorder = color.RGBA{95, 125, 165, 255}
-				if vInv.Slots[slotIdx].Type != ItemNone {
-					hoveredItemName = vInv.Slots[slotIdx].Type.String()
+				if vInv.Slots[slotIdx].Item != nil {
+					hoveredItemName = vInv.Slots[slotIdx].Item.GetName()
 				}
 			}
 
@@ -433,8 +435,8 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *Inventor
 			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
 			item := vInv.Slots[slotIdx]
-			if item.Type != ItemNone {
-				drawItemIcon(screen, sx, sy, slotSz, item.Type)
+			if item.Item != nil {
+				drawItemIcon(screen, sx, sy, slotSz, item.Item)
 				if item.Quantity > 1 {
 					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
 				}
@@ -454,28 +456,31 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *Inventor
 	ebitenutil.DebugPrintAt(screen, tooltipText, int(panelX)+30, int(tooltipY)+4)
 }
 
-// drawItemIcon helper renders customized vector icons for each item type.
-func drawItemIcon(screen *ebiten.Image, sx, sy, slotSz float32, itemType ItemType) {
+// drawItemIcon helper renders customized vector icons for each item.
+func drawItemIcon(screen *ebiten.Image, sx, sy, slotSz float32, i item.Item) {
+	if i == nil {
+		return
+	}
 	var itemClr color.Color
 	var drawIconType = "circle"
 
-	switch itemType {
-	case ItemTitanium:
+	switch i.(type) {
+	case *item.Titanium:
 		itemClr = color.RGBA{168, 178, 188, 255}
 		drawIconType = "square"
-	case ItemCopper:
+	case *item.Copper:
 		itemClr = color.RGBA{218, 118, 48, 255}
 		drawIconType = "square"
-	case ItemQuartz:
+	case *item.Quartz:
 		itemClr = color.RGBA{48, 218, 245, 255}
 		drawIconType = "diamond"
-	case ItemAbyssalOre:
+	case *item.AbyssalOre:
 		itemClr = color.RGBA{148, 48, 218, 255}
 		drawIconType = "diamond"
-	case ItemScoutSub:
+	case *vehicle.ScoutSub:
 		itemClr = color.RGBA{15, 160, 185, 255}
 		drawIconType = "sub"
-	case ItemHeavyMech:
+	case *vehicle.HeavyMech:
 		itemClr = color.RGBA{218, 98, 16, 255}
 		drawIconType = "mech"
 	default:

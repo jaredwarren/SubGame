@@ -30,6 +30,10 @@ func (o *OverworldScene) OnExit(g *Game) {}
 
 // Update handles input, movement physics, and checks state transition triggers.
 func (o *OverworldScene) Update(g *Game) error {
+	if g.ActiveVehicle != nil {
+		return nil
+	}
+
 	p := g.player
 
 	// On foot swimming in Overworld
@@ -43,7 +47,7 @@ func (o *OverworldScene) Update(g *Game) error {
 	}
 
 	// Apply Fins upgrade speed boost (30% increase)
-	if p.Inventory.HasItem(ItemFins, 1) {
+	if p.HasFins {
 		accel *= 1.30
 		maxSpeed *= 1.30
 	}

@@ -5,48 +5,51 @@ import (
 	"image/color"
 	"math"
 	"math/rand"
+	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 // Game implements the ebiten.Game interface and coordinates scenes.
 type Game struct {
-	currentState    State // Enum tracking for compatibility
-	currentScene    Scene
-	nextScene       Scene
-	overworldState  *OverworldScene
-	caveState       *CaveScene
-	baseMenu        *BaseMenuScene
-	gameOverState   *GameOverScene
-	player          *Player
-	hud             *HUD
-	world           *world.World
-	camera          *Camera
-	Input           InputSource
+	currentState   State // Enum tracking for compatibility
+	currentScene   Scene
+	nextScene      Scene
+	overworldState *OverworldScene
+	caveState      *CaveScene
+	baseMenu       *BaseMenuScene
+	gameOverState  *GameOverScene
+	player         *Player
+	hud            *HUD
+	world          *world.World
+	camera         *Camera
+	Input          InputSource
 
 	// Surface return position
-	lastOverworldX float64
-	lastOverworldY float64
-	activeTrenchX  int
-	activeTrenchY  int
+	lastOverworldX  float64
+	lastOverworldY  float64
+	activeTrenchX   int
+	activeTrenchY   int
 	activeTrenchKey string
-	justExited     bool
+	justExited      bool
 
 	// Phase 5: Resource nodes and inventory state
-	caveNodes     map[string][]ResourceNode
+	caveNodes     map[string][]Resource
 	showInventory bool
 
 	// Phase 6: Base station and menu
 	baseStation *BaseStation
 
 	// Phase 7: Vehicle state tracking
-	ActiveVehicle     Vehicle
-	OverworldVehicles []Vehicle
-	CaveVehicles      map[string][]Vehicle // trenchKey -> list of vehicles spawned in that cave
-	TimeOfDay         float64              // 0 to 14400 ticks (4 min day/night cycle)
+	ActiveVehicle     vehicle.Vehicle
+	OverworldVehicles []vehicle.Vehicle
+	CaveVehicles      map[string][]vehicle.Vehicle // trenchKey -> list of vehicles spawned in that cave
+	TimeOfDay         float64                      // 0 to 14400 ticks (4 min day/night cycle)
 	SonarTimer        int
 	SonarRadius       float64
 	SonarSourceX      float64
@@ -95,8 +98,8 @@ func NewGame() *Game {
 	baseStation := NewBaseStation(spawnX+96.0, spawnY-64.0)
 
 	// Phase 7: Create starting surface skiff and place player inside it
-	skiff := NewSkiff(spawnX, spawnY)
-	overworldVehicles := []Vehicle{skiff}
+	skiff := vehicle.NewSkiff(spawnX, spawnY)
+	overworldVehicles := []vehicle.Vehicle{skiff}
 
 	g := &Game{
 		currentState:      StateOverworld,
@@ -105,12 +108,12 @@ func NewGame() *Game {
 		world:             w,
 		camera:            cam,
 		Input:             NewEbitenInput(),
-		caveNodes:         make(map[string][]ResourceNode),
+		caveNodes:         make(map[string][]Resource),
 		showInventory:     false,
 		baseStation:       baseStation,
 		ActiveVehicle:     skiff,
 		OverworldVehicles: overworldVehicles,
-		CaveVehicles:      make(map[string][]Vehicle),
+		CaveVehicles:      make(map[string][]vehicle.Vehicle),
 		TimeOfDay:         0.0,
 		caveEntities:      make(map[string][]CaveEntity),
 		FlashlightOn:      true,
@@ -273,7 +276,7 @@ func (g *Game) Update() error {
 	// Debug shortcuts for testing vehicles and resources
 	if g.currentState == StateOverworld || g.currentState == StateCave {
 		if g.Input.IsKeyJustPressed(ebiten.Key1) {
-			sub := NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
+			sub := vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
 			if g.currentState == StateOverworld {
 				g.OverworldVehicles = append(g.OverworldVehicles, sub)
 			} else {
@@ -281,7 +284,7 @@ func (g *Game) Update() error {
 			}
 			g.ActiveVehicle = sub
 		} else if g.Input.IsKeyJustPressed(ebiten.Key2) {
-			mech := NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
+			mech := vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
 			if g.currentState == StateOverworld {
 				g.OverworldVehicles = append(g.OverworldVehicles, mech)
 			} else {
@@ -289,7 +292,7 @@ func (g *Game) Update() error {
 			}
 			g.ActiveVehicle = mech
 		} else if g.Input.IsKeyJustPressed(ebiten.Key3) {
-			skiff := NewSkiff(g.player.Pos.X, g.player.Pos.Y)
+			skiff := vehicle.NewSkiff(g.player.Pos.X, g.player.Pos.Y)
 			if g.currentState == StateOverworld {
 				g.OverworldVehicles = append(g.OverworldVehicles, skiff)
 			} else {
@@ -297,10 +300,11 @@ func (g *Game) Update() error {
 			}
 			g.ActiveVehicle = skiff
 		} else if g.Input.IsKeyJustPressed(ebiten.Key4) {
-			g.player.Inventory.AddItem(ItemTitanium, 10)
-			g.player.Inventory.AddItem(ItemCopper, 10)
-			g.player.Inventory.AddItem(ItemQuartz, 10)
-			g.player.Inventory.AddItem(ItemAbyssalOre, 10)
+			g.player.Inventory.AddItem(&item.Titanium{}, 10)
+			g.player.Inventory.AddItem(&item.Copper{}, 10)
+			g.player.Inventory.AddItem(&item.Quartz{}, 10)
+			g.player.Inventory.AddItem(&item.AbyssalOre{}, 10)
+			g.player.RecalculateUpgrades()
 		} else if g.Input.IsKeyJustPressed(ebiten.Key5) {
 			g.player.CurrentHealth = g.player.MaxHealth
 			g.player.CurrentOxygen = g.player.MaxOxygen
@@ -338,10 +342,12 @@ func (g *Game) Update() error {
 
 						if mx >= sx && mx < sx+int(slotSz) && my >= sy && my < sy+int(slotSz) {
 							if idx < len(g.player.Inventory.Slots) {
-								item := &g.player.Inventory.Slots[idx]
-								if item.Type != ItemNone {
-									if g.ActiveVehicle.GetCargo().AddItem(item.Type, 1) {
-										g.player.Inventory.RemoveItem(item.Type, 1)
+								slot := &g.player.Inventory.Slots[idx]
+								if slot.Item != nil {
+									t := reflect.TypeOf(slot.Item)
+									if g.ActiveVehicle.GetCargo().AddItem(item.NewItemFromType(t), 1) {
+										g.player.Inventory.RemoveItem(t, 1)
+										g.player.RecalculateUpgrades()
 									}
 								}
 							}
@@ -371,10 +377,12 @@ func (g *Game) Update() error {
 
 						if mx >= sx && mx < sx+int(slotSz) && my >= sy && my < sy+int(slotSz) {
 							if idx < numSlots {
-								item := &vInv.Slots[idx]
-								if item.Type != ItemNone {
-									if g.player.Inventory.AddItem(item.Type, 1) {
-										vInv.RemoveItem(item.Type, 1)
+								slot := &vInv.Slots[idx]
+								if slot.Item != nil {
+									t := reflect.TypeOf(slot.Item)
+									if g.player.Inventory.AddItem(item.NewItemFromType(t), 1) {
+										vInv.RemoveItem(t, 1)
+										g.player.RecalculateUpgrades()
 									}
 								}
 							}
@@ -403,18 +411,22 @@ func (g *Game) Update() error {
 
 						if mx >= sx && mx < sx+int(slotSz) && my >= sy && my < sy+int(slotSz) {
 							if idx < len(g.player.Inventory.Slots) {
-								item := &g.player.Inventory.Slots[idx]
-
-								if item.Type == ItemScoutSub {
-									sub := NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
-									g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
-									g.player.Inventory.RemoveItem(ItemScoutSub, 1)
-									g.showInventory = false
-								} else if item.Type == ItemHeavyMech {
-									mech := NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
-									g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
-									g.player.Inventory.RemoveItem(ItemHeavyMech, 1)
-									g.showInventory = false
+								slot := &g.player.Inventory.Slots[idx]
+								if slot.Item != nil {
+									switch slot.Item.(type) {
+									case *vehicle.ScoutSub:
+										sub := vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
+										g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
+										g.player.Inventory.RemoveItem(reflect.TypeOf(slot.Item), 1)
+										g.player.RecalculateUpgrades()
+										g.showInventory = false
+									case *vehicle.HeavyMech:
+										mech := vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
+										g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
+										g.player.Inventory.RemoveItem(reflect.TypeOf(slot.Item), 1)
+										g.player.RecalculateUpgrades()
+										g.showInventory = false
+									}
 								}
 							}
 						}
@@ -462,8 +474,9 @@ func (g *Game) Update() error {
 	// ---------------------------------------------------------
 	// Piloting / Vehicle Movement Loops
 	// ---------------------------------------------------------
+	vehicleRuntime := vehicleRuntimeAdapter{g: g}
 	if g.ActiveVehicle != nil {
-		g.ActiveVehicle.Update(g)
+		g.ActiveVehicle.Update(vehicleRuntime)
 
 		// Sync player location inside active vehicle
 		vPos := g.ActiveVehicle.GetPos()
@@ -498,6 +511,35 @@ func (g *Game) Update() error {
 		}
 	}
 
+	// Proximity checks for entering vehicles
+	if g.ActiveVehicle == nil && !g.justExited {
+		if g.currentState == StateOverworld {
+			for _, v := range g.OverworldVehicles {
+				vPos := v.GetPos()
+				vDims := v.GetDimensions()
+				dist := math.Hypot(vPos.X+vDims.X/2.0-g.player.Pos.X-g.player.Width/2.0, vPos.Y+vDims.Y/2.0-g.player.Pos.Y-g.player.Height/2.0)
+				if dist < 60.0 {
+					if g.Input.IsKeyJustPressed(ebiten.KeyF) {
+						g.ActiveVehicle = v
+						break
+					}
+				}
+			}
+		} else if g.currentState == StateCave {
+			for _, v := range g.CaveVehicles[g.activeTrenchKey] {
+				vPos := v.GetPos()
+				vDims := v.GetDimensions()
+				dist := math.Hypot(vPos.X+vDims.X/2.0-g.player.Pos.X-g.player.Width/2.0, vPos.Y+vDims.Y/2.0-g.player.Pos.Y-g.player.Height/2.0)
+				if dist < 60.0 {
+					if g.Input.IsKeyJustPressed(ebiten.KeyF) {
+						g.ActiveVehicle = v
+						break
+					}
+				}
+			}
+		}
+	}
+
 	// Delegate active scene logic
 	if err := g.currentScene.Update(g); err != nil {
 		return err
@@ -507,14 +549,14 @@ func (g *Game) Update() error {
 	if g.currentState == StateOverworld {
 		for _, v := range g.OverworldVehicles {
 			if v != g.ActiveVehicle {
-				v.Update(g)
+				v.Update(vehicleRuntime)
 			}
 		}
 	} else if g.currentState == StateCave {
 		// Update other cave vehicles left in this cavern
 		for _, v := range g.CaveVehicles[g.activeTrenchKey] {
 			if v != g.ActiveVehicle {
-				v.Update(g)
+				v.Update(vehicleRuntime)
 			}
 		}
 	}
@@ -553,7 +595,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.currentState == StateOverworld {
 		// Render overworld vehicles (Skiff)
 		for _, v := range g.OverworldVehicles {
-			v.Draw(screen, g.camera)
+			v.Draw(screen, g.camera.Pos.X, g.camera.Pos.Y)
 		}
 
 		// Render Base Life Pod
@@ -582,7 +624,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	} else if g.currentState == StateCave {
 		// Render cave vehicles
 		for _, v := range g.CaveVehicles[g.activeTrenchKey] {
-			v.Draw(screen, g.camera)
+			v.Draw(screen, g.camera.Pos.X, g.camera.Pos.Y)
 		}
 
 		// Entry prompt for cave vehicles
