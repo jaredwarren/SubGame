@@ -24,6 +24,7 @@ type CaveScene struct {
 	lightSource   []float32
 	flashlightDir []float32
 	sonarSource   []float32
+	entranceLight []float32
 }
 
 // NewCaveScene creates a new CaveScene instance.
@@ -35,6 +36,7 @@ func NewCaveScene() *CaveScene {
 		lightSource:   make([]float32, 2),
 		flashlightDir: make([]float32, 2),
 		sonarSource:   make([]float32, 2),
+		entranceLight: make([]float32, 2),
 	}
 	cs.shaderOpts.Uniforms = cs.uniforms
 	return cs
@@ -310,27 +312,63 @@ func (c *CaveScene) isSolid(x, y, w, h float64) bool {
 	return false
 }
 
+// getSkyColor returns a sky color appropriate for the given time-of-day tick,
+// interpolating between night, dawn, day, and dusk phases.
+func getSkyColor(timeOfDay float64) color.RGBA {
+	// Key colors
+	nightSky := [3]float64{20, 30, 70}   // Deep dark blue
+	dawnSky := [3]float64{255, 160, 80}  // Warm orange sunrise
+	daySky := [3]float64{140, 200, 255}  // Bright sky blue (daytime)
+	duskSky := [3]float64{220, 100, 60}  // Warm orange sunset
+
+	lerpF := func(a, b [3]float64, t float64) color.RGBA {
+		return color.RGBA{
+			R: uint8(a[0] + (b[0]-a[0])*t),
+			G: uint8(a[1] + (b[1]-a[1])*t),
+			B: uint8(a[2] + (b[2]-a[2])*t),
+			A: 255,
+		}
+	}
+
+	switch {
+	case timeOfDay < 1200: // Dawn: night → day
+		return lerpF(nightSky, dawnSky, timeOfDay/1200.0)
+	case timeOfDay < 2400: // Post-dawn: dawn → day
+		return lerpF(dawnSky, daySky, (timeOfDay-1200.0)/1200.0)
+	case timeOfDay < 6000: // Full day
+		return lerpF(daySky, daySky, 0)
+	case timeOfDay < 7200: // Dusk: day → dusk
+		return lerpF(daySky, duskSky, (timeOfDay-6000.0)/1200.0)
+	case timeOfDay < 8400: // Post-dusk: dusk → night
+		return lerpF(duskSky, nightSky, (timeOfDay-7200.0)/1200.0)
+	default: // Night
+		return lerpF(nightSky, nightSky, 0)
+	}
+}
+
 // Draw renders the cave scene, solid tiles, and player assets.
 func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 	// Camera offset from camera controller
 	camX := g.camera.Pos.X
 	camY := g.camera.Pos.Y
 
-	// Render ocean sky color if camera rises above the cave mouth (Y < 0)
-	if camY < 0 {
-		skyColor := color.RGBA{135, 206, 250, 255} // Light sky blue for shallow dives
-		if !c.IsShallow {
-			skyColor = color.RGBA{14, 52, 115, 255} // Darker deep water for deep caves
-		}
-		vector.FillRect(screen, 0, 0, ScreenWidth, float32(-camY), skyColor, false)
-	}
-
-	// Cave ambient backdrop color
+	// Cave ambient backdrop color — fill first so sky can paint over it
 	caveColor := color.RGBA{10, 8, 16, 255}
 	if c.IsShallow {
 		caveColor = color.RGBA{20, 70, 150, 255}
 	}
 	screen.Fill(caveColor)
+
+	// Render sky color above the water surface (camY < 0 means camera is above Y=0)
+	if camY < 0 {
+		var skyColor color.RGBA
+		if c.IsShallow {
+			skyColor = getSkyColor(g.TimeOfDay)
+		} else {
+			skyColor = color.RGBA{14, 52, 115, 255} // Darker deep water for deep caves
+		}
+		vector.FillRect(screen, 0, 0, ScreenWidth, float32(-camY), skyColor, false)
+	}
 
 	// Draw a distinct line at the water surface boundary (Y = 0) if visible
 	surfaceY := float32(-camY)
@@ -465,10 +503,15 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 			}
 		}
 
+		// Calculate screen-space coordinates of cave entrance
+		entranceX := float32(float64(len(c.CaveGrid)/2*TileSize) + TileSize/2.0 - g.camera.Pos.X)
+		entranceY := float32(0.0 - g.camera.Pos.Y)
+
 		// Update pre-allocated uniforms and arrays to avoid heap allocation
 		c.lightSource[0], c.lightSource[1] = pX, pY
 		c.flashlightDir[0], c.flashlightDir[1] = fDirX, fDirY
 		c.sonarSource[0], c.sonarSource[1] = sonarSourceX, sonarSourceY
+		c.entranceLight[0], c.entranceLight[1] = entranceX, entranceY
 
 		c.uniforms["LightSource"] = c.lightSource
 		c.uniforms["FlashlightDir"] = c.flashlightDir
@@ -478,6 +521,8 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 		c.uniforms["AmbientColor"] = c.getAmbientColor()
 		c.uniforms["SonarSource"] = c.sonarSource
 		c.uniforms["SonarRadius"] = sonarRadius
+		c.uniforms["EntranceLight"] = c.entranceLight
+		c.uniforms["EntranceActive"] = float32(1.0)
 
 		screen.DrawRectShader(ScreenWidth, ScreenHeight, LightShader, &c.shaderOpts)
 	}

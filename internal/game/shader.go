@@ -16,6 +16,8 @@ var SonarSource vec2
 var SonarRadius float
 var PersonalRadius float
 var AmbientColor vec4
+var EntranceLight vec2
+var EntranceActive float
 
 func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 	pixelPos := position.xy
@@ -64,8 +66,30 @@ func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 		}
 	}
 
+	// Entrance light cone beam (pointing straight down)
+	entranceIntensity := 0.0
+	if EntranceActive > 0.0 {
+		toEntrance := pixelPos - EntranceLight
+		distEntrance := length(toEntrance)
+		if distEntrance < 700.0 && distEntrance > 0.0 {
+			dirToEntrance := toEntrance / distEntrance
+			dotVal := dot(dirToEntrance, vec2(0.0, 1.0))
+			minDot := cos(0.65) // wide cone angle (~74 degrees total span)
+
+			if dotVal >= minDot {
+				radialFade := 1.0 - (distEntrance / 700.0)
+				radialFade = radialFade * radialFade * (3.0 - 2.0*radialFade)
+
+				angularFade := (dotVal - minDot) / (1.0 - minDot)
+				angularFade = clamp(angularFade * 4.0, 0.0, 1.0)
+
+				entranceIntensity = radialFade * angularFade * 1.0
+			}
+		}
+	}
+
 	// Blend illumination channels
-	totalLight := max(personalIntensity, max(coneIntensity, sonarIntensity))
+	totalLight := max(personalIntensity, max(coneIntensity, max(sonarIntensity, entranceIntensity)))
 	totalLight = clamp(totalLight, 0.0, 1.0)
 
 	// Dark overlay mask: fully lit areas remain transparent, dark areas become ambient color
