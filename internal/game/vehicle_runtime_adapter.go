@@ -1,6 +1,8 @@
 package game
 
 import (
+	"image/color"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	gv "github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -93,3 +95,16 @@ func (a vehicleRuntimeAdapter) RemoveCaveNodeAt(tx, ty int) {
 		}
 	}
 }
+
+func (a vehicleRuntimeAdapter) SpawnBubble(pos gvec.Vec2) {
+	a.g.SpawnBubble(pos.X, pos.Y)
+}
+
+func (a vehicleRuntimeAdapter) SpawnDebris(pos gvec.Vec2, clr color.RGBA) {
+	a.g.SpawnDebris(pos.X, pos.Y, clr)
+}
+
+func (a vehicleRuntimeAdapter) TriggerScreenShake(duration int, intensity float64) {
+	a.g.TriggerScreenShake(duration, intensity)
+}
+

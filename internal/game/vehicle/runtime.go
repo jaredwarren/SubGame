@@ -1,6 +1,8 @@
 package vehicle
 
 import (
+	"image/color"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -39,4 +41,7 @@ type Runtime interface {
 	CanUseSonar() bool
 	ActivateSonar(source gvec.Vec2, pulse SonarPulse)
 	RemoveCaveNodeAt(tx, ty int)
+	SpawnBubble(pos gvec.Vec2)
+	SpawnDebris(pos gvec.Vec2, clr color.RGBA)
+	TriggerScreenShake(duration int, intensity float64)
 }

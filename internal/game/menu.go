@@ -105,6 +105,15 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 3},
 		},
 	},
+	{
+		NewResult: func() item.Item { return &item.EscapeRocket{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.AbyssalOre{} }, Quantity: 10},
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 10},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 5},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 5},
+		},
+	},
 }
 
 // BaseMenuScene manages tab selections and base management interactions.
@@ -260,6 +269,15 @@ func (m *BaseMenuScene) Update(g *Game) error {
 
 							if hasAll {
 								newItem := rcp.NewResult()
+								if _, isRocket := newItem.(*item.EscapeRocket); isRocket {
+									for _, ing := range rcp.Ingredients {
+										p.Inventory.Remove(ing.NewItem(), ing.Quantity)
+									}
+									b.Power -= 10.0
+									p.RecalculateUpgrades()
+									g.TransitionTo(g.gameWonState)
+									return nil
+								}
 								if p.Inventory.AddItem(newItem, 1) {
 									// Consume ingredients
 									for _, ing := range rcp.Ingredients {

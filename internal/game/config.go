@@ -8,5 +8,5 @@ const (
 	TileSize     = 64 // Size of each tile in pixels
 
 	// Debugging settings
-	LightCaveForDebug = true // Set to true to reveal the caves for debugging; false for darkness
+	LightCaveForDebug = false // Set to true to reveal the caves for debugging; false for darkness
 )

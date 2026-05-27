@@ -175,3 +175,15 @@ func (inv *Inventory) Resize(newSize int) {
 	inv.Slots = newSlots
 }
 
+// Clear empties all slots in the inventory and resets counts.
+func (inv *Inventory) Clear() {
+	if inv == nil {
+		return
+	}
+	for i := range inv.Slots {
+		inv.Slots[i] = ItemStack{}
+	}
+	inv.counts = make(map[reflect.Type]int)
+}
+
+

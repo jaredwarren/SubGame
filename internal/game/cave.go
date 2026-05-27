@@ -158,6 +158,14 @@ func (c *CaveScene) Update(g *Game) error {
 						continue
 					}
 					node.SetHitsToMine(node.GetHitsToMine() - 1)
+
+					// Spawn mineral debris particles
+					nodeColor := color.RGBA{150, 150, 150, 255}
+					if cRgba, ok := node.GetColor().(color.RGBA); ok {
+						nodeColor = cRgba
+					}
+					g.SpawnDebris(nx, ny, nodeColor)
+
 					if node.GetHitsToMine() <= 0 {
 						// Add to inventory
 						p.Inventory.AddItem(node, 1)
@@ -231,6 +239,11 @@ func (c *CaveScene) Update(g *Game) error {
 	speed := p.Vel.Length()
 	if speed > maxSpeed {
 		p.Vel = p.Vel.Scale(maxSpeed / speed)
+	}
+
+	// Emit bubbles occasionally while swimming fast
+	if swimming && speed > 2.0 && rand.Float64() < 0.12 {
+		g.SpawnBubble(p.Pos.X+p.Width/2.0, p.Pos.Y+p.Height/2.0)
 	}
 
 	// AABB Collision check and position updates

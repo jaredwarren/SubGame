@@ -8,6 +8,7 @@ const (
 	StateCave
 	StateBaseMenu
 	StateGameOver
+	StateGameWon
 )
 
 // String returns the string representation of the State.
@@ -21,6 +22,8 @@ func (s State) String() string {
 		return "Base Menu"
 	case StateGameOver:
 		return "Game Over"
+	case StateGameWon:
+		return "Game Won"
 	default:
 		return "Unknown"
 	}

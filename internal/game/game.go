@@ -26,6 +26,7 @@ type Game struct {
 	caveState             *CaveScene
 	baseMenu              *BaseMenuScene
 	gameOverState         *GameOverScene
+	gameWonState          *GameWonScene
 	player                *Player
 	hud                   *HUD
 	world                 *world.World
@@ -69,6 +70,11 @@ type Game struct {
 	SoundWaveX          float64
 	SoundWaveY          float64
 	playerSlowed        bool
+
+	// Phase 9: Particles, screen shake
+	Particles      []Particle
+	shakeDuration  int
+	shakeIntensity float64
 }
 
 // NewGame creates and returns a new Game instance.
@@ -128,6 +134,7 @@ func NewGame() *Game {
 	g.caveState = NewCaveScene()
 	g.baseMenu = NewBaseMenuScene()
 	g.gameOverState = NewGameOverScene()
+	g.gameWonState = NewGameWonScene()
 
 	// Set initial scene
 	g.TransitionTo(g.overworldState)
@@ -191,7 +198,43 @@ func (g *Game) ExitCave() {
 
 // Respawn resets the game completely on death.
 func (g *Game) Respawn() {
-	*g = *NewGame()
+	// Reposition player to Life Pod coordinates
+	g.player.Pos = gvec.Vec2{X: g.baseStation.Pos.X - 96.0, Y: g.baseStation.Pos.Y + 64.0}
+	g.player.Vel = gvec.Vec2{}
+
+	// Refill stats
+	g.player.CurrentHealth = g.player.MaxHealth
+	g.player.CurrentOxygen = g.player.MaxOxygen
+	g.player.CurrentStamina = g.player.MaxStamina
+
+	// Eject from active vehicle
+	g.ActiveVehicle = nil
+
+	// Clear player's main inventory slots while keeping equipped upgrades safe
+	g.player.Inventory.Clear()
+
+	// Clear any active screen shake
+	g.shakeDuration = 0
+	g.shakeIntensity = 0.0
+
+	// Close inventory screen overlay
+	g.showInventory = false
+
+	// Position camera centered on player at the Life Pod
+	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+
+	// Transition back to overworld scene
+	g.TransitionTo(g.overworldState)
+}
+
+// TriggerScreenShake registers a screen shake request.
+func (g *Game) TriggerScreenShake(duration int, intensity float64) {
+	if intensity > g.shakeIntensity || g.shakeDuration <= 0 {
+		g.shakeIntensity = intensity
+	}
+	if duration > g.shakeDuration {
+		g.shakeDuration = duration
+	}
 }
 
 // Update updates the game logical state.
@@ -231,6 +274,9 @@ func (g *Game) Update() error {
 		g.SoundWaveTimer--
 		g.SoundWaveRadius += 4.5
 	}
+
+	// Update active particles (bubbles, mining debris)
+	g.UpdateParticles()
 
 	// Toggle flashlight keybind (T)
 	if g.Input.IsKeyJustPressed(ebiten.KeyT) {
@@ -320,7 +366,7 @@ func (g *Game) Update() error {
 
 	// Update Base Station Solar power loops
 	if g.baseStation != nil {
-		g.baseStation.UpdatePower()
+		g.baseStation.UpdatePower(g.TimeOfDay)
 	}
 
 	// ---------------------------------------------------------
@@ -606,6 +652,13 @@ func (g *Game) Update() error {
 			g.camera.Pos.X += rand.Float64()*shakeMag - (shakeMag / 2.0)
 			g.camera.Pos.Y += rand.Float64()*shakeMag - (shakeMag / 2.0)
 		}
+
+		// Apply dynamic vehicle collision/landing screen shake
+		if g.shakeDuration > 0 {
+			g.camera.Pos.X += rand.Float64()*g.shakeIntensity - (g.shakeIntensity / 2.0)
+			g.camera.Pos.Y += rand.Float64()*g.shakeIntensity - (g.shakeIntensity / 2.0)
+			g.shakeDuration--
+		}
 	}
 
 	// Oxygen and Health updates when on foot (prevent drains inside vehicles)
@@ -625,6 +678,11 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	// 1. Draw the active scene
 	g.currentScene.Draw(g, screen)
+
+	// Draw active particles if in overworld or cave
+	if g.currentState == StateOverworld || g.currentState == StateCave {
+		g.DrawParticles(screen)
+	}
 
 	// 2. Render general scene independent overlays (overworld vehicles, Life Pod in overworld)
 	if g.currentState == StateOverworld {

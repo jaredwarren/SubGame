@@ -186,8 +186,8 @@ func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
 			sx := float32(tx*TileSize - int(camX))
 			sy := float32(ty*TileSize - int(camY))
 
-			var tileClr color.Color
-			var strokeClr color.Color
+			var tileClr color.RGBA
+			var strokeClr color.RGBA
 
 			switch o.World.OverworldMap[tx][ty] {
 			case world.TileWater:
@@ -213,6 +213,11 @@ func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
 				tileClr = color.RGBA{6, 18, 42, 255} // Deep sinkhole
 				strokeClr = color.RGBA{10, 26, 58, 255}
 			}
+
+			// Apply daytime/night light multipliers
+			mult := GetOverworldLightMultiplier(g.TimeOfDay)
+			tileClr = applyLight(tileClr, mult)
+			strokeClr = applyLight(strokeClr, mult)
 
 			vector.FillRect(screen, sx, sy, TileSize, TileSize, tileClr, false)
 			vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, strokeClr, false)
@@ -258,3 +263,30 @@ var (
 	triangleVertices = make([]ebiten.Vertex, 3)
 	triangleIndices  = []uint16{0, 1, 2}
 )
+
+// GetOverworldLightMultiplier returns a light multiplier based on TimeOfDay.
+func GetOverworldLightMultiplier(timeOfDay float64) float64 {
+	// Dawn (ticks 0 to 1200): Lerp multiplier from 0.2 to 1.0
+	if timeOfDay >= 0 && timeOfDay < 1200 {
+		return 0.2 + (timeOfDay/1200.0)*0.8
+	}
+	// Day (ticks 1200 to 6000): Constant 1.0
+	if timeOfDay >= 1200 && timeOfDay < 6000 {
+		return 1.0
+	}
+	// Dusk (ticks 6000 to 7200): Lerp multiplier from 1.0 to 0.2
+	if timeOfDay >= 6000 && timeOfDay < 7200 {
+		return 1.0 - ((timeOfDay-6000.0)/1200.0)*0.8
+	}
+	// Night (ticks 7200 to 14400): Constant 0.2
+	return 0.2
+}
+
+func applyLight(c color.RGBA, mult float64) color.RGBA {
+	return color.RGBA{
+		R: uint8(float64(c.R) * mult),
+		G: uint8(float64(c.G) * mult),
+		B: uint8(float64(c.B) * mult),
+		A: c.A,
+	}
+}

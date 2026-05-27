@@ -356,6 +356,17 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 		if sub.Battery < 0 {
 			sub.Battery = 0
 		}
+		// Spawn bubble at propeller occasionally
+		if rand.Float64() < 0.35 {
+			propX := sub.Pos.X
+			if math.Cos(sub.Facing) >= 0 {
+				propX = sub.Pos.X
+			} else {
+				propX = sub.Pos.X + sub.Dimensions.X
+			}
+			propY := sub.Pos.Y + sub.Dimensions.Y/2.0
+			runtime.SpawnBubble(gvec.Vec2{X: propX, Y: propY})
+		}
 	}
 
 	// Water friction
@@ -387,11 +398,11 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 func (sub *ScoutSub) checkCollisions(runtime Runtime) {
 	newX := sub.Pos.X + sub.Vel.X
 	if sub.isSolid(runtime, gvec.Vec2{X: newX, Y: sub.Pos.Y}) {
-		sub.Vel.X = -sub.Vel.X * 0.3 // Bounce back slightly
 		// High speed collision damages vehicle hull
 		speed := math.Abs(sub.Vel.X)
 		if speed > 2.0 {
 			sub.TakeDamage(speed * 4.0)
+			runtime.TriggerScreenShake(15, speed * 2.0)
 		}
 		sub.Vel.X = 0
 	} else {
@@ -404,6 +415,7 @@ func (sub *ScoutSub) checkCollisions(runtime Runtime) {
 		speed := math.Abs(sub.Vel.Y)
 		if speed > 2.0 {
 			sub.TakeDamage(speed * 4.0)
+			runtime.TriggerScreenShake(15, speed * 2.0)
 		}
 		sub.Vel.Y = 0
 	} else {
@@ -576,6 +588,12 @@ func (m *HeavyMech) Update(runtime Runtime) {
 			m.Battery = 0
 		}
 		m.ThrustersActive = true
+
+		// Spawn thruster bubbles
+		if rand.Float64() < 0.4 {
+			runtime.SpawnBubble(gvec.Vec2{X: m.Pos.X + 14, Y: m.Pos.Y + m.Dimensions.Y - 14})
+			runtime.SpawnBubble(gvec.Vec2{X: m.Pos.X + m.Dimensions.X - 22, Y: m.Pos.Y + m.Dimensions.Y - 14})
+		}
 	}
 
 	if moving && hasPower {
@@ -604,10 +622,22 @@ func (m *HeavyMech) Update(runtime Runtime) {
 			m.IsDrilling = false
 			if m.TargetDrillNode != nil && m.TargetDrillNode.GetHitsToMine() > 0 {
 				m.TargetDrillNode.SetHitsToMine(m.TargetDrillNode.GetHitsToMine() - 1)
+
+				// Spawn debris
+				targetTx, targetTy := m.TargetDrillNode.GetTilePos()
+				drillPos := gvec.Vec2{
+					X: float64(targetTx*TileSize + TileSize/2),
+					Y: float64(targetTy*TileSize + TileSize/2),
+				}
+				nodeColor := color.RGBA{150, 150, 150, 255}
+				if cRgba, ok := m.TargetDrillNode.GetColor().(color.RGBA); ok {
+					nodeColor = cRgba
+				}
+				runtime.SpawnDebris(drillPos, nodeColor)
+
 				if m.TargetDrillNode.GetHitsToMine() <= 0 {
 					// Add to Mech cargo
 					m.Cargo.AddItem(m.TargetDrillNode, 1)
-					targetTx, targetTy := m.TargetDrillNode.GetTilePos()
 					runtime.RemoveCaveNodeAt(targetTx, targetTy)
 				}
 			}
@@ -635,6 +665,9 @@ func (m *HeavyMech) checkCollisions(runtime Runtime) {
 		// Sinking fall damage checked if landing hard
 		if m.Vel.Y > 4.5 {
 			m.TakeDamage((m.Vel.Y - 4.5) * 8.0)
+			runtime.TriggerScreenShake(20, (m.Vel.Y - 4.5) * 3.0)
+		} else if m.Vel.Y > 2.0 {
+			runtime.TriggerScreenShake(10, (m.Vel.Y - 2.0) * 1.5)
 		}
 		m.Vel.Y = 0
 	} else {
