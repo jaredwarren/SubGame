@@ -18,18 +18,19 @@ import (
 
 // Game implements the ebiten.Game interface and coordinates scenes.
 type Game struct {
-	currentState   State // Enum tracking for compatibility
-	currentScene   Scene
-	nextScene      Scene
-	overworldState *OverworldScene
-	caveState      *CaveScene
-	baseMenu       *BaseMenuScene
-	gameOverState  *GameOverScene
-	player         *Player
-	hud            *HUD
-	world          *world.World
-	camera         *Camera
-	Input          InputSource
+	currentState          State // Enum tracking for compatibility
+	currentScene          Scene
+	nextScene             Scene
+	transitionedThisFrame bool
+	overworldState        *OverworldScene
+	caveState             *CaveScene
+	baseMenu              *BaseMenuScene
+	gameOverState         *GameOverScene
+	player                *Player
+	hud                   *HUD
+	world                 *world.World
+	camera                *Camera
+	Input                 InputSource
 
 	// Surface return position
 	lastOverworldX  float64
@@ -143,6 +144,7 @@ func (g *Game) TransitionTo(next Scene) {
 	if next != nil {
 		next.OnEnter(g)
 	}
+	g.transitionedThisFrame = true
 }
 
 // EnterCave handles the transition from Overworld to Cave at trench coordinate tx, ty.
@@ -194,6 +196,7 @@ func (g *Game) Respawn() {
 
 // Update updates the game logical state.
 func (g *Game) Update() error {
+	g.transitionedThisFrame = false
 	// Update user input polling cache
 	g.Input.Update()
 
@@ -270,7 +273,7 @@ func (g *Game) Update() error {
 		g.showInventory = false
 		g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 		g.TransitionTo(g.caveState)
-	} else if g.Input.IsKeyJustPressed(ebiten.KeyM) {
+	} else if g.currentState == StateOverworld && g.baseStation.DistanceToPlayer(g.player) < 100.0 && g.Input.IsKeyJustPressed(ebiten.KeyE) {
 		g.TransitionTo(g.baseMenu)
 	} else if g.Input.IsKeyJustPressed(ebiten.KeyG) {
 		g.TransitionTo(g.gameOverState)
@@ -542,8 +545,10 @@ func (g *Game) Update() error {
 	}
 
 	// Delegate active scene logic
-	if err := g.currentScene.Update(g); err != nil {
-		return err
+	if !g.transitionedThisFrame {
+		if err := g.currentScene.Update(g); err != nil {
+			return err
+		}
 	}
 
 	// Solar power trickles for overworld vehicles if on foot
@@ -601,7 +606,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 		// Render Base Life Pod
 		g.baseStation.Draw(screen, g.camera)
-		if g.baseStation.DistanceToPlayer(g.player) < 80.0 {
+		if g.baseStation.DistanceToPlayer(g.player) < 100.0 {
 			sx := float32(g.baseStation.Pos.X-g.camera.Pos.X) + float32(g.baseStation.Size.X)/2.0 - 90
 			sy := float32(g.baseStation.Pos.Y-g.camera.Pos.Y) - 30
 			vector.FillRect(screen, sx, sy, 180, 24, color.RGBA{0, 0, 0, 180}, false)

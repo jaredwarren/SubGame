@@ -10,69 +10,36 @@ import (
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
-// BaseModule represents a functional slot upgrade in the base schematic.
-type BaseModule int
-
-const (
-	ModuleFabricator BaseModule = iota
-	ModuleStorage
-	ModuleMedical
-	ModuleSolar
-)
-
-func (m BaseModule) String() string {
-	switch m {
-	case ModuleFabricator:
-		return "Fabricator Module"
-	case ModuleStorage:
-		return "Storage Vault"
-	case ModuleMedical:
-		return "Medical Bay"
-	case ModuleSolar:
-		return "Solar Array"
-	default:
-		return "Module"
-	}
-}
-
 // BaseStation represents a player base / Life Pod anchor terminal.
 type BaseStation struct {
-	Pos      gvec.Vec2
-	Size     gvec.Vec2
-	Power    float64
-	MaxPower float64
-	Storage  *item.Inventory
-	Modules  map[BaseModule]bool
+	Pos               gvec.Vec2
+	Size              gvec.Vec2
+	Power             float64
+	MaxPower          float64
+	Storage           *item.Inventory
+	Upgrades          *item.Inventory // 4 slots for active upgrades/modules
+	SolarRechargeRate float64
+	ActiveModules     map[item.BaseModule]bool
 }
 
 // NewBaseStation instantiates a BaseStation (e.g. starting Life Pod).
 func NewBaseStation(x, y float64) *BaseStation {
 	b := &BaseStation{
-		Pos:      gvec.Vec2{X: x, Y: y},
-		Size:     gvec.Vec2{X: 48, Y: 48},
-		Power:    75.0,
-		MaxPower: 100.0,
-		Storage:  item.NewInventory(24), // 24 storage slots in base vault
-		Modules:  make(map[BaseModule]bool),
+		Pos:           gvec.Vec2{X: x, Y: y},
+		Size:          gvec.Vec2{X: 48, Y: 48},
+		Power:         75.0,
+		MaxPower:      100.0,
+		Storage:       item.NewInventory(24), // 24 storage slots in base vault
+		Upgrades:      item.NewInventory(4),  // 4 upgrade slots
+		ActiveModules: make(map[item.BaseModule]bool),
 	}
-	// Starting base includes Fabricator and Medical Bay, solar is upgradeable
-	b.Modules[ModuleFabricator] = true
-	b.Modules[ModuleMedical] = true
-	b.Modules[ModuleStorage] = false
-	b.Modules[ModuleSolar] = false
-
+	b.RecalculateProperties()
 	return b
 }
 
 // UpdatePower simulates base solar recharging and module draining.
 func (b *BaseStation) UpdatePower() {
-	// Recharging: if solar array is installed, recharge power
-	if b.Modules[ModuleSolar] {
-		b.Power += 0.08 // solar power trickle
-	} else {
-		b.Power += 0.01 // very slow emergency backup trickle
-	}
-
+	b.Power += b.SolarRechargeRate
 	if b.Power > b.MaxPower {
 		b.Power = b.MaxPower
 	}
@@ -103,4 +70,73 @@ func (b *BaseStation) DistanceToPlayer(p *Player) float64 {
 	px := p.Pos.X + p.Width/2.0
 	py := p.Pos.Y + p.Height/2.0
 	return math.Hypot(bx-px, by-py)
+}
+
+// RecalculateProperties updates dynamic stats and active modules from installed upgrades.
+func (b *BaseStation) RecalculateProperties() {
+	b.SolarRechargeRate = 0.01 // baseline trickle
+	storageSlots := 24          // baseline vault size
+
+	// Reset active modules map (Fabricator and Medical Bay are default built-ins)
+	b.ActiveModules = map[item.BaseModule]bool{
+		item.ModuleFabricator: true,
+		item.ModuleMedical:    true,
+		item.ModuleSolar:      false,
+		item.ModuleSolarMKII:  false,
+		item.ModuleStorage:    false,
+		item.ModuleStorageMKII: false,
+	}
+
+	if b.Upgrades != nil {
+		for _, slot := range b.Upgrades.Slots {
+			if slot.Item == nil {
+				continue
+			}
+			if upg, ok := slot.Item.(item.UpgradeItem); ok {
+				modType := upg.GetModuleType()
+				b.ActiveModules[modType] = true
+
+				if recharge := upg.GetSolarRecharge(); recharge > b.SolarRechargeRate {
+					b.SolarRechargeRate = recharge
+				}
+				if slots := upg.GetStorageSlots(); slots > storageSlots {
+					storageSlots = slots
+				}
+			}
+		}
+	}
+
+	// Upgrade level implications
+	if b.ActiveModules[item.ModuleSolarMKII] {
+		b.ActiveModules[item.ModuleSolar] = true
+	}
+	if b.ActiveModules[item.ModuleStorageMKII] {
+		b.ActiveModules[item.ModuleStorage] = true
+	}
+
+	if b.Storage != nil {
+		b.Storage.Resize(storageSlots)
+	}
+}
+
+// HasModule checks if a module is active, by checking default built-ins or scanning upgrades inventory.
+func (b *BaseStation) HasModule(mod item.BaseModule) bool {
+	if b.ActiveModules == nil {
+		return false
+	}
+	return b.ActiveModules[mod]
+}
+
+// InstallUpgrade attempts to slot an upgrade item into the base upgrades inventory.
+func (b *BaseStation) InstallUpgrade(it item.Item) bool {
+	if it == nil || b.Upgrades == nil {
+		return false
+	}
+	if _, ok := it.(item.UpgradeItem); ok {
+		if b.Upgrades.AddItem(it, 1) {
+			b.RecalculateProperties()
+			return true
+		}
+	}
+	return false
 }

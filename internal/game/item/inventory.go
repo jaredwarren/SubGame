@@ -146,3 +146,32 @@ func (inv *Inventory) Count(it Item) int {
 	}
 	return inv.CountOf(reflect.TypeOf(it))
 }
+
+// Resize changes the size of the inventory slots slice, keeping existing items.
+func (inv *Inventory) Resize(newSize int) {
+	if inv == nil {
+		return
+	}
+	if newSize == len(inv.Slots) {
+		return
+	}
+
+	// If shrinking, update counts map for lost items
+	if newSize < len(inv.Slots) {
+		for i := newSize; i < len(inv.Slots); i++ {
+			slot := inv.Slots[i]
+			if slot.Item != nil && slot.Quantity > 0 {
+				t := reflect.TypeOf(slot.Item)
+				inv.counts[t] -= slot.Quantity
+				if inv.counts[t] < 0 {
+					inv.counts[t] = 0
+				}
+			}
+		}
+	}
+
+	newSlots := make([]ItemStack, newSize)
+	copy(newSlots, inv.Slots)
+	inv.Slots = newSlots
+}
+

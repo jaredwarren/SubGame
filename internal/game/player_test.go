@@ -212,3 +212,103 @@ func TestInventory_AddItem(t *testing.T) {
 		t.Errorf("expected inventory to have 2 Copper resource nodes")
 	}
 }
+
+func TestBaseMenu_OpenClose(t *testing.T) {
+	g := NewGame()
+	g.Input = NewMockInput()
+	mockInput := g.Input.(*MockInput)
+
+	// Exit active vehicle so player is swimming
+	g.ActiveVehicle = nil
+
+	// Place player close to the base station
+	g.player.Pos = gvec.Vec2{
+		X: g.baseStation.Pos.X + g.baseStation.Size.X/2.0 - g.player.Width/2.0,
+		Y: g.baseStation.Pos.Y + g.baseStation.Size.Y/2.0 - g.player.Height/2.0 + 30, // 30px below base center
+	}
+
+	// Verify distance is less than 100.0
+	dist := g.baseStation.DistanceToPlayer(g.player)
+	if dist >= 100.0 {
+		t.Fatalf("expected player to be near base, got distance %f", dist)
+	}
+
+	// Press E
+	mockInput.JustPressedKeys[ebiten.KeyE] = true
+
+	// Call Update
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify scene transitioned to baseMenu
+	if g.currentScene != g.baseMenu {
+		t.Errorf("expected current scene to be baseMenu, got %+v", g.currentScene)
+	}
+
+	// In the next frame, E should NOT immediately close the menu (the frame-double-trigger fix)
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.currentScene != g.baseMenu {
+		t.Errorf("expected current scene to remain baseMenu, got %+v", g.currentScene)
+	}
+
+	// Now press E in the base menu to close it
+	mockInput.JustPressedKeys[ebiten.KeyE] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.currentScene != g.overworldState {
+		t.Errorf("expected current scene to transition back to overworldState, got %+v", g.currentScene)
+	}
+}
+
+func TestBaseMenu_OpenCloseFromVehicle(t *testing.T) {
+	g := NewGame()
+	g.Input = NewMockInput()
+	mockInput := g.Input.(*MockInput)
+
+	// Player is in skiff (the default active vehicle)
+	if g.ActiveVehicle == nil {
+		t.Fatal("expected player to start in a vehicle")
+	}
+
+	// Position active vehicle (skiff) close to base station
+	skiff := g.ActiveVehicle
+	skiff.SetPos(gvec.Vec2{
+		X: g.baseStation.Pos.X + g.baseStation.Size.X/2.0 - skiff.GetDimensions().X/2.0,
+		Y: g.baseStation.Pos.Y + g.baseStation.Size.Y/2.0 - skiff.GetDimensions().Y/2.0 + 40,
+	})
+
+	// Run update to sync player position inside vehicle
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check distance is less than 100.0
+	dist := g.baseStation.DistanceToPlayer(g.player)
+	if dist >= 100.0 {
+		t.Fatalf("expected vehicle/player to be near base, got distance %f", dist)
+	}
+
+	// Press E
+	mockInput.JustPressedKeys[ebiten.KeyE] = true
+
+	// Call Update
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify scene transitioned to baseMenu
+	if g.currentScene != g.baseMenu {
+		t.Errorf("expected current scene to be baseMenu, got %+v", g.currentScene)
+	}
+}
+

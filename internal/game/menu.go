@@ -71,6 +71,39 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 4},
 		},
 	},
+	{
+		NewResult: func() item.Item { return &item.UpgradeSolar{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 5},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 3},
+		},
+	},
+	{
+		NewResult: func() item.Item { return &item.UpgradeSolarMKII{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.UpgradeSolar{} }, Quantity: 1},
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 6},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 4},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
+		},
+	},
+	{
+		NewResult: func() item.Item { return &item.UpgradeStorage{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 4},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
+		},
+	},
+	{
+		NewResult: func() item.Item { return &item.UpgradeStorageMKII{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.UpgradeStorage{} }, Quantity: 1},
+			{NewItem: func() item.Item { return &item.UpgradeSolar{} }, Quantity: 1},
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 5},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 2},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 3},
+		},
+	},
 }
 
 // BaseMenuScene manages tab selections and base management interactions.
@@ -93,6 +126,12 @@ func (m *BaseMenuScene) OnExit(g *Game) {}
 
 // Update handles mouse interactions within the menu tabs, crafting, and vault transfers.
 func (m *BaseMenuScene) Update(g *Game) error {
+	// Exit terminal check
+	if g.Input.IsKeyJustPressed(ebiten.KeyE) || g.Input.IsKeyJustPressed(ebiten.KeyO) {
+		g.TransitionTo(g.overworldState)
+		return nil
+	}
+
 	p := g.player
 	b := g.baseStation
 
@@ -116,7 +155,7 @@ func (m *BaseMenuScene) Update(g *Game) error {
 				tx := int(panelX) + 30 + i*150
 				if mx >= tx && mx < tx+140 {
 					// Lock storage tab until storage vault module is built
-					if i == 2 && !b.Modules[ModuleStorage] {
+					if i == 2 && !b.HasModule(item.ModuleStorage) {
 						continue
 					}
 					m.ActiveTab = i
@@ -129,31 +168,44 @@ func (m *BaseMenuScene) Update(g *Game) error {
 	switch m.ActiveTab {
 	case 0: // Overview tab (upgrades)
 		if leftClicked {
-			// Solar Upgrade Button click check
-			solarX := int(panelX) + 480
-			solarY := int(panelY) + 110
-			if mx >= solarX && mx < solarX+260 && my >= solarY && my < solarY+45 {
-				titanium := &item.Titanium{}
-				copper := &item.Copper{}
-				if !b.Modules[ModuleSolar] && p.Inventory.Has(titanium, 5) && p.Inventory.Has(copper, 3) {
-					p.Inventory.Remove(titanium, 5)
-					p.Inventory.Remove(copper, 3)
-					b.Modules[ModuleSolar] = true
-					p.RecalculateUpgrades()
+			// 1. Click Player Inventory to install upgrade module
+			pStartX := panelX + 30
+			pStartY := panelY + 110
+			for r := 0; r < 3; r++ {
+				for c := 0; c < 8; c++ {
+					idx := r*8 + c
+					if idx >= len(p.Inventory.Slots) {
+						continue
+					}
+					sx := int(pStartX) + c*(40+6)
+					sy := int(pStartY) + r*(40+6)
+					if mx >= sx && mx < sx+40 && my >= sy && my < sy+40 {
+						slot := &p.Inventory.Slots[idx]
+						if slot.Item != nil {
+							if b.InstallUpgrade(slot.Item) {
+								p.Inventory.Remove(slot.Item, 1)
+								p.RecalculateUpgrades()
+							}
+						}
+					}
 				}
 			}
 
-			// Storage Upgrade Button click check
-			vaultX := int(panelX) + 480
-			vaultY := int(panelY) + 175
-			if mx >= vaultX && mx < vaultX+260 && my >= vaultY && my < vaultY+45 {
-				titanium := &item.Titanium{}
-				quartz := &item.Quartz{}
-				if !b.Modules[ModuleStorage] && p.Inventory.Has(titanium, 4) && p.Inventory.Has(quartz, 2) {
-					p.Inventory.Remove(titanium, 4)
-					p.Inventory.Remove(quartz, 2)
-					b.Modules[ModuleStorage] = true
-					p.RecalculateUpgrades()
+			// 2. Click Base Upgrades to uninstall upgrade module
+			bStartX := panelX + 430
+			bStartY := panelY + 130
+			for c := 0; c < 4; c++ {
+				sx := int(bStartX) + c*(40+6)
+				sy := int(bStartY)
+				if mx >= sx && mx < sx+40 && my >= sy && my < sy+40 {
+					slot := &b.Upgrades.Slots[c]
+					if slot.Item != nil {
+						if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+							b.Upgrades.Remove(slot.Item, 1)
+							b.RecalculateProperties()
+							p.RecalculateUpgrades()
+						}
+					}
 				}
 			}
 		}
@@ -203,22 +255,26 @@ func (m *BaseMenuScene) Update(g *Game) error {
 		}
 
 	case 2: // Storage Tab (Vault item transfer)
-		if leftClicked && b.Modules[ModuleStorage] {
+		if leftClicked && b.HasModule(item.ModuleStorage) {
 			// Layout offsets for inventories
 			const (
 				cols   = 8
-				rows   = 3
 				slotSz = 40
 				gap    = 6
 			)
+			pRows := len(p.Inventory.Slots) / cols
+			bRows := len(b.Storage.Slots) / cols
 
 			// Player Inventory Grid Bounds (Left)
 			pStartX := panelX + 30
 			pStartY := panelY + 110
 
-			for r := 0; r < rows; r++ {
+			for r := 0; r < pRows; r++ {
 				for c := 0; c < cols; c++ {
 					idx := r*cols + c
+					if idx >= len(p.Inventory.Slots) {
+						continue
+					}
 					sx := int(pStartX) + c*(slotSz+gap)
 					sy := int(pStartY) + r*(slotSz+gap)
 
@@ -239,9 +295,12 @@ func (m *BaseMenuScene) Update(g *Game) error {
 			bStartX := panelX + 430
 			bStartY := panelY + 110
 
-			for r := 0; r < rows; r++ {
+			for r := 0; r < bRows; r++ {
 				for c := 0; c < cols; c++ {
 					idx := r*cols + c
+					if idx >= len(b.Storage.Slots) {
+						continue
+					}
 					sx := int(bStartX) + c*(slotSz+gap)
 					sy := int(bStartY) + r*(slotSz+gap)
 
@@ -299,7 +358,7 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 	// Draw base title and stats
 	ebitenutil.DebugPrintAt(screen, "BASE ANCHOR TERMINAL - LIFE POD 5", int(panelX)+20, int(panelY)+12)
 	powerText := fmt.Sprintf("BASE POWER: %.0f/%.0f HP (Recharge: solar panels)", b.Power, b.MaxPower)
-	if b.Modules[ModuleSolar] {
+	if b.HasModule(item.ModuleSolar) {
 		powerText = fmt.Sprintf("BASE POWER: %.0f/%.0f HP (Recharging: +Solar Active)", b.Power, b.MaxPower)
 	}
 	ebitenutil.DebugPrintAt(screen, powerText, int(panelX)+420, int(panelY)+12)
@@ -312,7 +371,7 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 
 		// Locked vault indicator
 		label := tabLabels[i]
-		if i == 2 && !b.Modules[ModuleStorage] {
+		if i == 2 && !b.HasModule(item.ModuleStorage) {
 			label = "3. VAULT [LOCKED]"
 		}
 
@@ -337,74 +396,97 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 	// 2. Draw active tab container content
 	switch m.ActiveTab {
 	case 0: // OVERVIEW (Modular Schematic & Base Station upgrades)
-		// Draw Left: modular slots grid
+		// Left Side: Player Inventory for slotting upgrades
 		schematicX := panelX + 30
 		schematicY := panelY + 95
 
 		vector.FillRect(screen, schematicX, schematicY, 380, 335, color.RGBA{16, 22, 34, 255}, false)
 		vector.StrokeRect(screen, schematicX, schematicY, 380, 335, 1.0, color.RGBA{48, 62, 85, 255}, false)
 
-		ebitenutil.DebugPrintAt(screen, "BASE MODULE SCHEMATICS STATUS", int(schematicX)+15, int(schematicY)+15)
+		ebitenutil.DebugPrintAt(screen, "PLAYER INVENTORY (CLICK UPGRADE TO INSTALL)", int(schematicX)+15, int(schematicY)+15)
+		drawInventoryGrid(g, screen, float32(schematicX)+15, float32(schematicY)+45, p.Inventory)
 
-		modulesList := []BaseModule{ModuleFabricator, ModuleMedical, ModuleSolar, ModuleStorage}
-		for idx, mod := range modulesList {
-			status := "NOT INSTALLED"
-			statusColor := color.RGBA{220, 80, 80, 255}
-			if b.Modules[mod] {
-				status = "INSTALLED"
-				statusColor = color.RGBA{60, 210, 110, 255}
-			}
-
-			sy := schematicY + 50 + float32(idx*65)
-			vector.FillRect(screen, schematicX+15, sy, 350, 50, color.RGBA{24, 32, 48, 255}, false)
-			vector.StrokeRect(screen, schematicX+15, sy, 350, 50, 0.8, color.RGBA{58, 75, 100, 255}, false)
-
-			ebitenutil.DebugPrintAt(screen, mod.String(), int(schematicX)+25, int(sy)+8)
-			vector.FillRect(screen, schematicX+25, sy+28, 90, 16, statusColor, false)
-			ebitenutil.DebugPrintAt(screen, status, int(schematicX)+28, int(sy)+29)
-		}
-
-		// Draw Right: Upgrade installer shops
-		upgradeX := panelX + 440
+		// Right Side: Installed Upgrades Grid & Module status
+		upgradeX := panelX + 430
 		upgradeY := panelY + 95
 
-		ebitenutil.DebugPrintAt(screen, "AVAILABLE INSTALLATIONS", int(upgradeX), int(upgradeY)+15)
+		vector.FillRect(screen, upgradeX, upgradeY, 340, 335, color.RGBA{16, 22, 34, 255}, false)
+		vector.StrokeRect(screen, upgradeX, upgradeY, 340, 335, 1.0, color.RGBA{48, 62, 85, 255}, false)
 
-		// 1. Solar installation
-		sy := upgradeY + 45
-		vector.FillRect(screen, upgradeX, sy, 320, 100, color.RGBA{20, 26, 38, 255}, false)
-		vector.StrokeRect(screen, upgradeX, sy, 320, 100, 1.0, color.RGBA{50, 68, 92, 255}, false)
+		ebitenutil.DebugPrintAt(screen, "INSTALLED MODULES (CLICK TO UNINSTALL)", int(upgradeX)+15, int(upgradeY)+15)
 
-		ebitenutil.DebugPrintAt(screen, "SOLAR ARRAY INSTALLATION", int(upgradeX)+12, int(sy)+10)
-		ebitenutil.DebugPrintAt(screen, "Recharges base power during surface stays.", int(upgradeX)+12, int(sy)+30)
-		ebitenutil.DebugPrintAt(screen, "Cost: 5 Titanium, 3 Copper", int(upgradeX)+12, int(sy)+50)
+		// Draw base upgrades slots (4 slots)
+		const (
+			slotSz = 40
+			gap    = 6
+		)
+		cursor := g.Input.Cursor()
+		mx, my := int(cursor.X), int(cursor.Y)
 
-		solBtnBg := color.RGBA{38, 52, 75, 255}
-		solBtnTxt := "BUILD MODULE"
-		if b.Modules[ModuleSolar] {
-			solBtnBg = color.RGBA{30, 80, 50, 255}
-			solBtnTxt = "CONSTRUCTED"
+		for c := 0; c < 4; c++ {
+			sx := upgradeX + 15 + float32(c*(slotSz+gap))
+			sy := upgradeY + 45
+
+			slotBg := color.RGBA{24, 30, 44, 255}
+			slotBorder := color.RGBA{54, 68, 92, 255}
+
+			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
+			if isHovered {
+				slotBg = color.RGBA{38, 48, 70, 255}
+				slotBorder = color.RGBA{100, 130, 180, 255}
+			}
+
+			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
+
+			if b.Upgrades != nil && c < len(b.Upgrades.Slots) {
+				itemStack := b.Upgrades.Slots[c]
+				if itemStack.Item != nil {
+					itemClr := itemStack.Item.GetColor()
+					cx := sx + slotSz/2.0
+					cy := sy + slotSz/2.0
+					vector.FillCircle(screen, cx, cy, 10, itemClr, false)
+				}
+			}
 		}
-		vector.FillRect(screen, upgradeX+12, sy+70, 296, 22, solBtnBg, false)
-		ebitenutil.DebugPrintAt(screen, solBtnTxt, int(upgradeX)+110, int(sy)+73)
 
-		// 2. Storage vault installation
-		vy := upgradeY + 165
-		vector.FillRect(screen, upgradeX, vy, 320, 100, color.RGBA{20, 26, 38, 255}, false)
-		vector.StrokeRect(screen, upgradeX, vy, 320, 100, 1.0, color.RGBA{50, 68, 92, 255}, false)
+		// Draw Schematic Category status below upgrades grid
+		statusStartY := upgradeY + 110
+		ebitenutil.DebugPrintAt(screen, "BASE SCHEMATIC SYSTEMS STATUS", int(upgradeX)+15, int(statusStartY))
 
-		ebitenutil.DebugPrintAt(screen, "STORAGE VAULT INSTALLATION", int(upgradeX)+12, int(vy)+10)
-		ebitenutil.DebugPrintAt(screen, "Unlocks base storage chest tab for hoarding.", int(upgradeX)+12, int(vy)+30)
-		ebitenutil.DebugPrintAt(screen, "Cost: 4 Titanium, 2 Quartz", int(upgradeX)+12, int(vy)+50)
-
-		vBtnBg := color.RGBA{38, 52, 75, 255}
-		vBtnTxt := "BUILD MODULE"
-		if b.Modules[ModuleStorage] {
-			vBtnBg = color.RGBA{30, 80, 50, 255}
-			vBtnTxt = "CONSTRUCTED"
+		modulesList := []struct {
+			mod  item.BaseModule
+			name string
+		}{
+			{item.ModuleFabricator, "Fabricator Module"},
+			{item.ModuleMedical, "Medical Bay"},
+			{item.ModuleSolar, "Solar Array"},
+			{item.ModuleStorage, "Storage Vault"},
 		}
-		vector.FillRect(screen, upgradeX+12, vy+70, 296, 22, vBtnBg, false)
-		ebitenutil.DebugPrintAt(screen, vBtnTxt, int(upgradeX)+110, int(vy)+73)
+
+		for idx, modInfo := range modulesList {
+			status := "NOT INSTALLED"
+			statusColor := color.RGBA{220, 80, 80, 255}
+			displayName := modInfo.name
+
+			if b.HasModule(modInfo.mod) {
+				status = "ACTIVE"
+				statusColor = color.RGBA{60, 210, 110, 255}
+				if modInfo.mod == item.ModuleSolar && b.HasModule(item.ModuleSolarMKII) {
+					displayName = "Solar Array MKII"
+				} else if modInfo.mod == item.ModuleStorage && b.HasModule(item.ModuleStorageMKII) {
+					displayName = "Storage Vault MKII"
+				}
+			}
+
+			sy := statusStartY + 25 + float32(idx*50)
+			vector.FillRect(screen, upgradeX+15, sy, 310, 42, color.RGBA{24, 32, 48, 255}, false)
+			vector.StrokeRect(screen, upgradeX+15, sy, 310, 42, 0.8, color.RGBA{58, 75, 100, 255}, false)
+
+			ebitenutil.DebugPrintAt(screen, displayName, int(upgradeX)+25, int(sy)+6)
+			vector.FillRect(screen, upgradeX+25, sy+22, 95, 14, statusColor, false)
+			ebitenutil.DebugPrintAt(screen, status, int(upgradeX)+28, int(sy)+23)
+		}
 
 	case 1: // FABRICATOR (Crafting menu)
 		startX := panelX + 30
@@ -520,10 +602,10 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 func drawInventoryGrid(g *Game, screen *ebiten.Image, startX, startY float32, inv *item.Inventory) {
 	const (
 		cols   = 8
-		rows   = 3
 		slotSz = 40
 		gap    = 6
 	)
+	rows := len(inv.Slots) / cols
 
 	cursor := g.Input.Cursor()
 	mx, my := int(cursor.X), int(cursor.Y)
