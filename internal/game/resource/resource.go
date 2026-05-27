@@ -80,6 +80,10 @@ type TitaniumNode struct {
 func (n *TitaniumNode) GetName() string    { return "Titanium" }
 func (n *TitaniumNode) GetMaxStack() int   { return 10 }
 func (n *TitaniumNode) RequiresMech() bool { return false }
+func (n *TitaniumNode) GetColor() color.Color { return color.RGBA{168, 178, 188, 255} }
+func (n *TitaniumNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, n.GetColor(), false)
+}
 
 func (n *TitaniumNode) Draw(screen *ebiten.Image, camX, camY float64) {
 	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
@@ -99,6 +103,10 @@ type CopperNode struct {
 func (n *CopperNode) GetName() string    { return "Copper" }
 func (n *CopperNode) GetMaxStack() int   { return 10 }
 func (n *CopperNode) RequiresMech() bool { return false }
+func (n *CopperNode) GetColor() color.Color { return color.RGBA{218, 118, 48, 255} }
+func (n *CopperNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, n.GetColor(), false)
+}
 
 func (n *CopperNode) Draw(screen *ebiten.Image, camX, camY float64) {
 	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
@@ -118,6 +126,11 @@ type QuartzNode struct {
 func (n *QuartzNode) GetName() string    { return "Quartz" }
 func (n *QuartzNode) GetMaxStack() int   { return 10 }
 func (n *QuartzNode) RequiresMech() bool { return false }
+func (n *QuartzNode) GetColor() color.Color { return color.RGBA{48, 218, 245, 255} }
+func (n *QuartzNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	vector.FillCircle(screen, cx, cy, size/2.0, n.GetColor(), false)
+	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
+}
 
 func (n *QuartzNode) Draw(screen *ebiten.Image, camX, camY float64) {
 	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
@@ -137,6 +150,11 @@ type AbyssalOreNode struct {
 func (n *AbyssalOreNode) GetName() string    { return "Abyssal Ore" }
 func (n *AbyssalOreNode) GetMaxStack() int   { return 10 }
 func (n *AbyssalOreNode) RequiresMech() bool { return true }
+func (n *AbyssalOreNode) GetColor() color.Color { return color.RGBA{148, 48, 218, 255} }
+func (n *AbyssalOreNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	vector.FillCircle(screen, cx, cy, size/2.0, n.GetColor(), false)
+	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
+}
 
 func (n *AbyssalOreNode) Draw(screen *ebiten.Image, camX, camY float64) {
 	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)

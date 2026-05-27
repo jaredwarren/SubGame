@@ -2,7 +2,8 @@ package vehicle
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/jaredwarren/SubGame/internal/game/gvec"
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 // SonarPulse defines gameplay tuning values for an emitted sonar ping.
@@ -20,8 +21,7 @@ type InputSource interface {
 
 // DrillableResource represents a cave node that can be mined by the heavy mech.
 type DrillableResource interface {
-	GetName() string
-	GetMaxStack() int
+	item.Item
 	GetTilePos() (int, int)
 	GetHitsToMine() int
 	SetHitsToMine(hits int)

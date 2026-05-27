@@ -190,8 +190,21 @@ func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
 
 			switch o.World.OverworldMap[tx][ty] {
 			case world.TileWater:
-				tileClr = color.RGBA{14, 52, 115, 255}
-				strokeClr = color.RGBA{22, 64, 135, 255}
+				// Lerp water color based on distance to land:
+				// Close to land = lighter coastal blue, far = darker deep ocean
+				dist := o.World.LandDist[tx][ty]
+				const maxDist = 15 // tiles at which water reaches full dark
+				t := float64(dist) / float64(maxDist)
+				if t > 1.0 {
+					t = 1.0
+				}
+				// Coastal (light):  RGBA{28, 85, 165}
+				// Deep (dark):      RGBA{8, 32, 82}
+				r := uint8(28 - t*20)
+				g := uint8(85 - t*53)
+				b := uint8(165 - t*83)
+				tileClr = color.RGBA{r, g, b, 255}
+				strokeClr = color.RGBA{r + 8, g + 10, b + 15, 255}
 			case world.TileLand:
 				tileClr = color.RGBA{38, 142, 85, 255} // Reef green
 				strokeClr = color.RGBA{48, 160, 98, 255}

@@ -1,6 +1,6 @@
 package game
 
-import "github.com/jaredwarren/SubGame/internal/game/gvec"
+import "github.com/jaredwarren/SubGame/internal/gvec"
 
 // Camera manages viewport translation and centers/tracks a target with linear interpolation.
 type Camera struct {

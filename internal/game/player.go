@@ -3,8 +3,8 @@ package game
 import (
 	"math"
 
-	"github.com/jaredwarren/SubGame/internal/game/gvec"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 // Player represents the player character, including their physics and stats.

@@ -7,7 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/jaredwarren/SubGame/internal/game/gvec"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 type EntityType int

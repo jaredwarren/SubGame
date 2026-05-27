@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/jaredwarren/SubGame/internal/game/gvec"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 func TestPlayer_UpdateStats(t *testing.T) {

@@ -455,56 +455,13 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *item.Inv
 	ebitenutil.DebugPrintAt(screen, tooltipText, int(panelX)+30, int(tooltipY)+4)
 }
 
-// drawItemIcon helper renders customized vector icons for each item.
+// drawItemIcon helper renders the item's icon in the given inventory slot.
 func drawItemIcon(screen *ebiten.Image, sx, sy, slotSz float32, i item.Item) {
 	if i == nil {
 		return
 	}
-	var itemClr color.Color
-	var drawIconType = "circle"
-
-	switch i.(type) {
-	case *item.Titanium:
-		itemClr = color.RGBA{168, 178, 188, 255}
-		drawIconType = "square"
-	case *item.Copper:
-		itemClr = color.RGBA{218, 118, 48, 255}
-		drawIconType = "square"
-	case *item.Quartz:
-		itemClr = color.RGBA{48, 218, 245, 255}
-		drawIconType = "diamond"
-	case *item.AbyssalOre:
-		itemClr = color.RGBA{148, 48, 218, 255}
-		drawIconType = "diamond"
-	case *item.ScoutSubKit:
-		itemClr = color.RGBA{15, 160, 185, 255}
-		drawIconType = "sub"
-	case *item.HeavyMechKit:
-		itemClr = color.RGBA{218, 98, 16, 255}
-		drawIconType = "mech"
-	default:
-		itemClr = color.RGBA{98, 198, 148, 255} // Upgrades/Tools
-		drawIconType = "circle"
-	}
-
 	cx := sx + slotSz/2.0
 	cy := sy + slotSz/2.0
 	iSz := slotSz * 0.45
-
-	if drawIconType == "square" {
-		vector.FillRect(screen, cx-iSz/2.0, cy-iSz/2.0, iSz, iSz, itemClr, false)
-	} else if drawIconType == "diamond" {
-		vector.FillCircle(screen, cx, cy, iSz/2.0, itemClr, false)
-		vector.StrokeCircle(screen, cx, cy, iSz/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
-	} else if drawIconType == "sub" {
-		// Draw a small sub capsule silhouette
-		vector.FillRect(screen, cx-iSz/2.0, cy-iSz/4.0, iSz, iSz/2.0, itemClr, false)
-		vector.FillCircle(screen, cx+iSz/4.0, cy, iSz/4.0, color.RGBA{80, 205, 255, 255}, false)
-	} else if drawIconType == "mech" {
-		// Draw a tiny mech torso silhouette
-		vector.FillRect(screen, cx-iSz/3.0, cy-iSz/3.0, iSz/1.5, iSz/1.5, itemClr, false)
-		vector.FillRect(screen, cx-iSz/2.0, cy+iSz/6.0, iSz, iSz/6.0, color.RGBA{60, 70, 80, 255}, false)
-	} else {
-		vector.FillCircle(screen, cx, cy, iSz/2.0, itemClr, false)
-	}
+	i.DrawIcon(screen, cx, cy, iSz)
 }

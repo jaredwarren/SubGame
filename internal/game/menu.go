@@ -552,23 +552,7 @@ func drawInventoryGrid(g *Game, screen *ebiten.Image, startX, startY float32, in
 
 			itemStack := inv.Slots[idx]
 			if itemStack.Item != nil {
-				var itemClr color.Color
-				switch itemStack.Item.(type) {
-				case *item.Titanium:
-					itemClr = color.RGBA{168, 178, 188, 255}
-				case *item.Copper:
-					itemClr = color.RGBA{218, 118, 48, 255}
-				case *item.Quartz:
-					itemClr = color.RGBA{48, 218, 245, 255}
-				case *item.AbyssalOre:
-					itemClr = color.RGBA{148, 48, 218, 255}
-				case *item.ScoutSubKit:
-					itemClr = color.RGBA{15, 160, 185, 255}
-				case *item.HeavyMechKit:
-					itemClr = color.RGBA{218, 98, 16, 255}
-				default:
-					itemClr = color.RGBA{98, 198, 148, 255}
-				}
+				itemClr := itemStack.Item.GetColor()
 
 				cx := sx + slotSz/2.0
 				cy := sy + slotSz/2.0

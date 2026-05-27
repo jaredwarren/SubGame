@@ -3,7 +3,7 @@ package game
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/jaredwarren/SubGame/internal/game/gvec"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 // InputSource abstracts user input polling for decoupled game logic and unit testing.

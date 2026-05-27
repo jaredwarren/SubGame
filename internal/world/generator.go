@@ -18,7 +18,8 @@ const (
 // World orchestrates procedural generation of overworld and caves.
 type World struct {
 	OverworldMap  [][]TileType
-	Caves         map[string][][]bool // Key: "trenchX_trenchY" -> Cave grid
+	LandDist      [][]int              // Precomputed BFS distance from each tile to nearest land
+	Caves         map[string][][]bool  // Key: "trenchX_trenchY" -> Cave grid
 	Width, Height int
 	Seed          int64
 }
@@ -86,24 +87,56 @@ func (w *World) generateOverworld() {
 		}
 		attempts++
 	}
+
+	// Precompute BFS distance-to-land map for fast per-tile lookups
+	w.buildLandDistMap()
 }
 
-// DistanceToLand returns the Euclidean distance from (tx, ty) to the nearest TileLand tile.
-func (w *World) DistanceToLand(tx, ty int) float64 {
-	minDistSq := 999999.0
+// buildLandDistMap computes BFS distance from every tile to the nearest land tile.
+// Result is stored in w.LandDist[x][y] (0 for land tiles, increasing outward).
+func (w *World) buildLandDistMap() {
+	w.LandDist = make([][]int, w.Width)
+	for x := 0; x < w.Width; x++ {
+		w.LandDist[x] = make([]int, w.Height)
+		for y := 0; y < w.Height; y++ {
+			w.LandDist[x][y] = -1 // unvisited
+		}
+	}
+
+	type pos struct{ x, y int }
+	queue := make([]pos, 0, w.Width*w.Height/4)
+
+	// Seed BFS with all land tiles
 	for x := 0; x < w.Width; x++ {
 		for y := 0; y < w.Height; y++ {
 			if w.OverworldMap[x][y] == TileLand {
-				dx := float64(x - tx)
-				dy := float64(y - ty)
-				distSq := dx*dx + dy*dy
-				if distSq < minDistSq {
-					minDistSq = distSq
-				}
+				w.LandDist[x][y] = 0
+				queue = append(queue, pos{x, y})
 			}
 		}
 	}
-	return math.Sqrt(minDistSq)
+
+	// BFS expansion (4-directional Chebyshev would also work, but Manhattan is fine)
+	dirs := [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		for _, d := range dirs {
+			nx, ny := cur.x+d[0], cur.y+d[1]
+			if nx >= 0 && nx < w.Width && ny >= 0 && ny < w.Height && w.LandDist[nx][ny] == -1 {
+				w.LandDist[nx][ny] = w.LandDist[cur.x][cur.y] + 1
+				queue = append(queue, pos{nx, ny})
+			}
+		}
+	}
+}
+
+// DistanceToLand returns the BFS distance (in tiles) from (tx, ty) to the nearest land tile.
+func (w *World) DistanceToLand(tx, ty int) float64 {
+	if tx < 0 || tx >= w.Width || ty < 0 || ty >= w.Height {
+		return 999.0
+	}
+	return float64(w.LandDist[tx][ty])
 }
 
 // GetCave returns a procedurally generated cave linked to the trench position.
