@@ -477,8 +477,8 @@ func (g *Game) Update() error {
 									if !equipped {
 										vUpg := g.ActiveVehicle.GetUpgrades()
 										if vUpg != nil {
-											switch slot.Item.(type) {
-											case *item.SonarAmplifier, *item.ThermalGenerator:
+											_, ok := slot.Item.(item.VheicleUpgradeItem)
+											if ok {
 												if vUpg.AddItem(item.Clone(slot.Item), 1) {
 													g.player.Inventory.Remove(slot.Item, 1)
 													g.player.RecalculateUpgrades()
@@ -585,6 +585,19 @@ func (g *Game) Update() error {
 									if g.player.EquipUpgrade(slot.Item) {
 										g.player.Inventory.Remove(slot.Item, 1)
 										g.player.RecalculateUpgrades()
+									} else if consumable, ok := slot.Item.(item.Consumable); ok {
+										// Consume food to restore health/stamina
+										g.player.CurrentHealth += consumable.GetHealthRestore()
+										if g.player.CurrentHealth > g.player.MaxHealth {
+											g.player.CurrentHealth = g.player.MaxHealth
+										}
+										g.player.CurrentStamina += consumable.GetStaminaRestore()
+										if g.player.CurrentStamina > g.player.MaxStamina {
+											g.player.CurrentStamina = g.player.MaxStamina
+										}
+										g.player.Inventory.Remove(slot.Item, 1)
+										g.MineWarning = "Ate " + consumable.GetName() + "!"
+										g.MineWarningTimer = 90
 									} else if g.currentState == StateCave {
 										// Deploy vehicle kits only inside caves
 										switch slot.Item.(type) {

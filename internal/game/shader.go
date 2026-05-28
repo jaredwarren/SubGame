@@ -6,6 +6,7 @@ import (
 
 // LightConeShaderCode contains the Kage fragment shader string compiled at runtime.
 const LightConeShaderCode = `
+//kage:unit pixels
 package main
 
 var LightSource vec2

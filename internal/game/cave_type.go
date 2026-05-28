@@ -143,10 +143,39 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []CaveEntity {
 					},
 				})
 			}
+
+			// Spawn PassiveFish in open water
+			isOpenWater := !c.Grid[tx-1][ty] && !c.Grid[tx+1][ty] && !c.Grid[tx][ty-1] && !c.Grid[tx][ty+1]
+			if isOpenWater && r.Float64() < 0.012 {
+				entities = append(entities, &PassiveFish{
+					BaseEntity: BaseEntity{
+						Type:       EntPassiveFish,
+						Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-20)/2.0, Y: float64(ty*TileSize) + float64(TileSize-12)/2.0},
+						Dimensions: gvec.Vec2{X: 20, Y: 12},
+						Active:     true,
+					},
+					FacingRight: r.Float64() < 0.5,
+					SwimPhase:   r.Float64() * math.Pi * 2,
+				})
+			}
+
+			// Spawn PassiveCrab on floors
+			if ty < gridH-2 && c.Grid[tx][ty+1] && r.Float64() < 0.015 {
+				entities = append(entities, &PassiveCrab{
+					BaseEntity: BaseEntity{
+						Type:       EntPassiveCrab,
+						Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-16)/2.0, Y: float64(ty*TileSize) + float64(TileSize-10)},
+						Dimensions: gvec.Vec2{X: 16, Y: 10},
+						Active:     true,
+					},
+					FacingRight: r.Float64() < 0.5,
+				})
+			}
 		}
 	}
 	return entities
 }
+
 
 func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
 	// Standard depth generation delegate (depth tier 0)

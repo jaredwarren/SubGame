@@ -37,19 +37,14 @@ func (o *OverworldScene) Update(g *Game) error {
 	p := g.player
 
 	// On foot swimming in Overworld
-	var accel = 0.08
-	var maxSpeed = 1.6
+	speedProp := p.Speed["overworld"]
+	var accel = speedProp.Acceleration
+	var maxSpeed = speedProp.TopSpeed
 	isSprinting := g.Input.IsKeyPressed(ebiten.KeyShift)
 
 	if isSprinting && p.CurrentStamina > 0 {
-		accel = 0.16
-		maxSpeed = 2.6
-	}
-
-	// Apply Fins upgrade speed boost (30% increase)
-	if p.HasFins {
-		accel *= 1.30
-		maxSpeed *= 1.30
+		accel *= 1.5
+		maxSpeed *= 1.5
 	}
 
 	// Direct WASD movement (no steering inertia when swimming on foot)

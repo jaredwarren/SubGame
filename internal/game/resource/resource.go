@@ -13,7 +13,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
-
 const TileSize = 64
 
 // Resource defines the interface that all mineable nodes/objects must implement.
@@ -250,11 +249,11 @@ type TitaniumNode struct {
 	BaseResourceNode
 }
 
-func (n *TitaniumNode) GetName() string             { return "Titanium" }
-func (n *TitaniumNode) GetMaxStack() int            { return 10 }
-func (n *TitaniumNode) RequiresMech() bool          { return false }
-func (n *TitaniumNode) GetBaseItem() item.Item      { return &item.Titanium{} }
-func (n *TitaniumNode) GetColor() color.Color { return color.RGBA{168, 178, 188, 255} }
+func (n *TitaniumNode) GetName() string        { return "Titanium" }
+func (n *TitaniumNode) GetMaxStack() int       { return 10 }
+func (n *TitaniumNode) RequiresMech() bool     { return false }
+func (n *TitaniumNode) GetBaseItem() item.Item { return &item.Titanium{} }
+func (n *TitaniumNode) GetColor() color.Color  { return color.RGBA{168, 178, 188, 255} }
 func (n *TitaniumNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	loadSpritesLazy()
 	if drawNodeIconSprite(screen, cx, cy, size, TitaniumSprite) {
@@ -282,11 +281,11 @@ type CopperNode struct {
 	BaseResourceNode
 }
 
-func (n *CopperNode) GetName() string             { return "Copper" }
-func (n *CopperNode) GetMaxStack() int            { return 10 }
-func (n *CopperNode) RequiresMech() bool          { return false }
-func (n *CopperNode) GetBaseItem() item.Item      { return &item.Copper{} }
-func (n *CopperNode) GetColor() color.Color { return color.RGBA{218, 118, 48, 255} }
+func (n *CopperNode) GetName() string        { return "Copper" }
+func (n *CopperNode) GetMaxStack() int       { return 10 }
+func (n *CopperNode) RequiresMech() bool     { return false }
+func (n *CopperNode) GetBaseItem() item.Item { return &item.Copper{} }
+func (n *CopperNode) GetColor() color.Color  { return color.RGBA{218, 118, 48, 255} }
 func (n *CopperNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	loadSpritesLazy()
 	if drawNodeIconSprite(screen, cx, cy, size, CopperSprite) {
@@ -314,11 +313,11 @@ type QuartzNode struct {
 	BaseResourceNode
 }
 
-func (n *QuartzNode) GetName() string             { return "Quartz" }
-func (n *QuartzNode) GetMaxStack() int            { return 10 }
-func (n *QuartzNode) RequiresMech() bool          { return false }
-func (n *QuartzNode) GetBaseItem() item.Item      { return &item.Quartz{} }
-func (n *QuartzNode) GetColor() color.Color { return color.RGBA{48, 218, 245, 255} }
+func (n *QuartzNode) GetName() string        { return "Quartz" }
+func (n *QuartzNode) GetMaxStack() int       { return 10 }
+func (n *QuartzNode) RequiresMech() bool     { return false }
+func (n *QuartzNode) GetBaseItem() item.Item { return &item.Quartz{} }
+func (n *QuartzNode) GetColor() color.Color  { return color.RGBA{48, 218, 245, 255} }
 func (n *QuartzNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	loadSpritesLazy()
 	if drawNodeIconSprite(screen, cx, cy, size, QuartzSprite) {
@@ -347,11 +346,11 @@ type AbyssalOreNode struct {
 	BaseResourceNode
 }
 
-func (n *AbyssalOreNode) GetName() string             { return "Abyssal Ore" }
-func (n *AbyssalOreNode) GetMaxStack() int            { return 10 }
-func (n *AbyssalOreNode) RequiresMech() bool          { return true }
-func (n *AbyssalOreNode) GetBaseItem() item.Item      { return &item.AbyssalOre{} }
-func (n *AbyssalOreNode) GetColor() color.Color { return color.RGBA{148, 48, 218, 255} }
+func (n *AbyssalOreNode) GetName() string        { return "Abyssal Ore" }
+func (n *AbyssalOreNode) GetMaxStack() int       { return 10 }
+func (n *AbyssalOreNode) RequiresMech() bool     { return true }
+func (n *AbyssalOreNode) GetBaseItem() item.Item { return &item.AbyssalOre{} }
+func (n *AbyssalOreNode) GetColor() color.Color  { return color.RGBA{148, 48, 218, 255} }
 func (n *AbyssalOreNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	loadSpritesLazy()
 	if drawNodeIconSprite(screen, cx, cy, size, AbyssalSprite) {
@@ -404,11 +403,11 @@ type ScrapMetalNode struct {
 	BaseResourceNode
 }
 
-func (n *ScrapMetalNode) GetName() string             { return "Scrap Metal" }
-func (n *ScrapMetalNode) GetMaxStack() int            { return 10 }
-func (n *ScrapMetalNode) RequiresMech() bool          { return false }
-func (n *ScrapMetalNode) GetBaseItem() item.Item      { return &item.ScrapMetal{} }
-func (n *ScrapMetalNode) GetColor() color.Color { return color.RGBA{140, 110, 95, 255} }
+func (n *ScrapMetalNode) GetName() string        { return "Scrap Metal" }
+func (n *ScrapMetalNode) GetMaxStack() int       { return 10 }
+func (n *ScrapMetalNode) RequiresMech() bool     { return false }
+func (n *ScrapMetalNode) GetBaseItem() item.Item { return &item.ScrapMetal{} }
+func (n *ScrapMetalNode) GetColor() color.Color  { return color.RGBA{140, 110, 95, 255} }
 func (n *ScrapMetalNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	(&item.ScrapMetal{}).DrawIcon(screen, cx, cy, size)
 }
@@ -441,11 +440,11 @@ type ElectronicWasteNode struct {
 	BaseResourceNode
 }
 
-func (n *ElectronicWasteNode) GetName() string             { return "Electronic Waste" }
-func (n *ElectronicWasteNode) GetMaxStack() int            { return 10 }
-func (n *ElectronicWasteNode) RequiresMech() bool          { return false }
-func (n *ElectronicWasteNode) GetBaseItem() item.Item      { return &item.ElectronicWaste{} }
-func (n *ElectronicWasteNode) GetColor() color.Color { return color.RGBA{70, 130, 90, 255} }
+func (n *ElectronicWasteNode) GetName() string        { return "Electronic Waste" }
+func (n *ElectronicWasteNode) GetMaxStack() int       { return 10 }
+func (n *ElectronicWasteNode) RequiresMech() bool     { return false }
+func (n *ElectronicWasteNode) GetBaseItem() item.Item { return &item.ElectronicWaste{} }
+func (n *ElectronicWasteNode) GetColor() color.Color  { return color.RGBA{70, 130, 90, 255} }
 func (n *ElectronicWasteNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	(&item.ElectronicWaste{}).DrawIcon(screen, cx, cy, size)
 }
@@ -647,6 +646,7 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 						}
 					}
 
+					// TODO: fix below!
 					if activeTier != nil {
 						spawnChance = activeTier.SpawnChance
 						totalWeight := activeTier.TitaniumWeight + activeTier.CopperWeight + activeTier.QuartzWeight + activeTier.AbyssalOreWeight
@@ -687,4 +687,3 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 
 	return nodes
 }
-

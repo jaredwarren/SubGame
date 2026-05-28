@@ -13,12 +13,13 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 // -----------------------------------------------------------------------------
 // DIVER ANIMATION SPRITESHEET CONFIGURATION
 // -----------------------------------------------------------------------------
-// Adjust these variables to manually configure how the diver spritesheet is 
+// Adjust these variables to manually configure how the diver spritesheet is
 // sliced, scaled, and offset.
 // -----------------------------------------------------------------------------
 
@@ -30,9 +31,9 @@ var DiverDrawWidth = 36.0
 // By default, Rows 0, 1, and 3 are divided into an 8-column grid.
 // Row 2 (Mining) is divided into a 6-column grid because the frames are wider (including the tool).
 var (
-	DiverGridCols     = 8                 // Columns in standard rows (0, 1, 3)
-	DiverGridRows     = 4                 // Total rows in the spritesheet
-	DiverMineGridCols = 6                 // Columns in the mining row (Row 2)
+	DiverGridCols     = 8 // Columns in standard rows (0, 1, 3)
+	DiverGridRows     = 4 // Total rows in the spritesheet
+	DiverMineGridCols = 6 // Columns in the mining row (Row 2)
 )
 
 // Column mappings:
@@ -54,10 +55,10 @@ var (
 // CaveScene manages the side-view cave swimming controls, collision, and rendering.
 type CaveScene struct {
 	ActiveCave Cave
-	CaveGrid  [][]bool
-	Nodes     []resource.Resource
-	Entities  []CaveEntity
-	IsShallow bool
+	CaveGrid   [][]bool
+	Nodes      []resource.Resource
+	Entities   []CaveEntity
+	IsShallow  bool
 
 	// Pre-allocated Draw parameters to prevent allocations in the hot path
 	shaderOpts    ebiten.DrawRectShaderOptions
@@ -67,7 +68,7 @@ type CaveScene struct {
 	sonarSource   []float32
 	entranceLight []float32
 
-	offscreen        *ebiten.Image
+	offscreen *ebiten.Image
 
 	// Spritesheet animations
 	diverSheet       *ebiten.Image
@@ -184,45 +185,45 @@ func (c *CaveScene) loadDiverSheet() {
 
 	// -------------------------------------------------------------------------
 	// OPTION B: Manual Frame Rectangles (Pixel-Perfect Override)
-	// If the sheet columns are not uniform (e.g. have gaps or spacing), 
+	// If the sheet columns are not uniform (e.g. have gaps or spacing),
 	// uncomment the block below and specify the exact pixel coordinate boxes.
 	// -------------------------------------------------------------------------
 	/*
-	// Clear default slices first
-	c.diverIdleFrames = c.diverIdleFrames[:0]
-	c.diverSwimFrames = c.diverSwimFrames[:0]
-	c.diverMineFrames = c.diverMineFrames[:0]
+		// Clear default slices first
+		c.diverIdleFrames = c.diverIdleFrames[:0]
+		c.diverSwimFrames = c.diverSwimFrames[:0]
+		c.diverMineFrames = c.diverMineFrames[:0]
 
-	// 1. Row 0: Idle (4 frames) - Set image.Rect(x1, y1, x2, y2)
-	c.diverIdleFrames = []*ebiten.Image{
-		sheet.SubImage(image.Rect(0, 0, 352, 384)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(352, 0, 704, 384)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(704, 0, 1056, 384)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(1056, 0, 1408, 384)).(*ebiten.Image),
-	}
+		// 1. Row 0: Idle (4 frames) - Set image.Rect(x1, y1, x2, y2)
+		c.diverIdleFrames = []*ebiten.Image{
+			sheet.SubImage(image.Rect(0, 0, 352, 384)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(352, 0, 704, 384)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(704, 0, 1056, 384)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(1056, 0, 1408, 384)).(*ebiten.Image),
+		}
 
-	// 2. Row 1: Swim (8 frames)
-	c.diverSwimFrames = []*ebiten.Image{
-		sheet.SubImage(image.Rect(0, 384, 352, 768)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(352, 384, 704, 768)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(704, 384, 1056, 768)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(1056, 384, 1408, 768)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(1408, 384, 1760, 768)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(1760, 384, 2112, 768)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(2112, 384, 2464, 768)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(2464, 384, 2816, 768)).(*ebiten.Image),
-	}
+		// 2. Row 1: Swim (8 frames)
+		c.diverSwimFrames = []*ebiten.Image{
+			sheet.SubImage(image.Rect(0, 384, 352, 768)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(352, 384, 704, 768)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(704, 384, 1056, 768)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(1056, 384, 1408, 768)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(1408, 384, 1760, 768)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(1760, 384, 2112, 768)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(2112, 384, 2464, 768)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(2464, 384, 2816, 768)).(*ebiten.Image),
+		}
 
-	// 3. Row 2: Mine (4 frames) - 6-column grid with 469px width cells
-	c.diverMineFrames = []*ebiten.Image{
-		sheet.SubImage(image.Rect(0, 768, 469, 1152)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(469, 768, 938, 1152)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(938, 768, 1408, 1152)).(*ebiten.Image),
-		sheet.SubImage(image.Rect(1408, 768, 1877, 1152)).(*ebiten.Image),
-	}
+		// 3. Row 2: Mine (4 frames) - 6-column grid with 469px width cells
+		c.diverMineFrames = []*ebiten.Image{
+			sheet.SubImage(image.Rect(0, 768, 469, 1152)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(469, 768, 938, 1152)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(938, 768, 1408, 1152)).(*ebiten.Image),
+			sheet.SubImage(image.Rect(1408, 768, 1877, 1152)).(*ebiten.Image),
+		}
 
-	// 4. Row 3: Damage (1 frame)
-	c.diverDamageFrame = sheet.SubImage(image.Rect(0, 1152, 352, 1536)).(*ebiten.Image)
+		// 4. Row 3: Damage (1 frame)
+		c.diverDamageFrame = sheet.SubImage(image.Rect(0, 1152, 352, 1536)).(*ebiten.Image)
 	*/
 }
 
@@ -345,6 +346,33 @@ func (c *CaveScene) Update(g *Game) error {
 			}
 		}
 
+		// Find clicked passive creature (fish/crab) to catch
+		for i, ent := range c.Entities {
+			if !ent.IsActive() {
+				continue
+			}
+			if creature, ok := ent.(PassiveCreature); ok {
+				pos := ent.GetPos()
+				dims := ent.GetDimensions()
+				if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
+					playerCenter := gvec.Vec2{X: p.Pos.X + p.Width/2, Y: p.Pos.Y + p.Height/2}
+					if creature.CanCatch(playerCenter) {
+						harvestedItem := creature.GetHarvestedItem()
+						if p.Inventory.AddItem(harvestedItem, 1) {
+							ent.SetActive(false)
+							c.Entities = append(c.Entities[:i], c.Entities[i+1:]...)
+							g.MineWarning = "Caught " + harvestedItem.GetName() + "!"
+							g.MineWarningTimer = 90
+						} else {
+							g.MineWarning = "Inventory full!"
+							g.MineWarningTimer = 90
+						}
+						break
+					}
+				}
+			}
+		}
+
 		// Find clicked resource node
 		for i := 0; i < len(c.Nodes); i++ {
 			node := c.Nodes[i]
@@ -394,21 +422,16 @@ func (c *CaveScene) Update(g *Game) error {
 	p.Facing = math.Atan2(dy, dx)
 
 	// Movement physics settings
-	var swimForce = 0.15
-	var maxSpeed = 3.5
-	const buoyancy = -0.04 // Upward force (drifts up slowly if not swimming down)
-	const drag = 0.92      // Drag resistance in water
+	speedProps := p.Speed["cave"]
+	var swimForce = speedProps.Acceleration
+	var maxSpeed = speedProps.TopSpeed
+	var buoyancy = p.Buoyancy  // Upward force (drifts up slowly if not swimming down)
+	var drag = speedProps.Drag // Drag resistance in water // TODO: move to player property, so I can add a suite upgrade to reduce drag later.
 
 	isSprinting := g.Input.IsKeyPressed(ebiten.KeyShift)
 	if isSprinting && p.CurrentStamina > 0 {
-		swimForce = 0.28
-		maxSpeed = 5.5
-	}
-
-	// Apply Fins upgrade speed boost (35% increase)
-	if p.HasFins {
-		swimForce *= 1.35
-		maxSpeed *= 1.35
+		swimForce *= 1.5
+		maxSpeed *= 1.6
 	}
 
 	// Apply Nerve-Mat slow debuff (50% reduction)

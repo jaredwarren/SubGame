@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
@@ -19,6 +20,8 @@ const (
 	EntThermoclineRammer
 	EntNerveMat
 	EntElectroWeaver
+	EntPassiveFish
+	EntPassiveCrab
 )
 
 // CaveEntity represents any plant, predator, or interactive entity inside caves.
@@ -31,6 +34,14 @@ type CaveEntity interface {
 	GetDimensions() gvec.Vec2
 	GetType() EntityType
 }
+
+// PassiveCreature defines the interface for catchable cave creatures.
+type PassiveCreature interface {
+	CaveEntity
+	GetHarvestedItem() item.Item
+	CanCatch(playerPos gvec.Vec2) bool
+}
+
 
 // BaseEntity implements common fields and getters/setters for all entities.
 type BaseEntity struct {
@@ -75,8 +86,38 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 						},
 					})
 				}
+
+				// Spawn PassiveFish in open water (no adjacent walls)
+				isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
+				if isOpenWater && r.Float64() < 0.012 {
+					entities = append(entities, &PassiveFish{
+						BaseEntity: BaseEntity{
+							Type:       EntPassiveFish,
+							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-20)/2.0, Y: float64(ty*TileSize) + float64(TileSize-12)/2.0},
+							Dimensions: gvec.Vec2{X: 20, Y: 12},
+							Active:     true,
+						},
+						FacingRight: r.Float64() < 0.5,
+						SwimPhase:   r.Float64() * math.Pi * 2,
+					})
+				}
+
+				// Spawn PassiveCrab on floors (open tile above solid tile)
+				if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.015 {
+					entities = append(entities, &PassiveCrab{
+						BaseEntity: BaseEntity{
+							Type:       EntPassiveCrab,
+							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-16)/2.0, Y: float64(ty*TileSize) + float64(TileSize-10)},
+							Dimensions: gvec.Vec2{X: 16, Y: 10},
+							Active:     true,
+						},
+						FacingRight: r.Float64() < 0.5,
+					})
+				}
+
 				continue
 			}
+
 
 			// Biome 1: Mid-Depth (0 <= ty < 40) - Grotto
 			if ty >= 4 && ty < 40 {
@@ -816,9 +857,282 @@ func (ent *ElectroWeaver) Draw(screen *ebiten.Image, camera *Camera, timeOfDay f
 }
 
 // ---------------------------------------------------------
+// 7. PASSIVE FISH (Catchable Swimming Creature)
+// ---------------------------------------------------------
+
+type PassiveFish struct {
+	BaseEntity
+	FacingRight bool
+	SwimPhase   float64
+	FleeTimer   int
+}
+
+func (f *PassiveFish) GetHarvestedItem() item.Item {
+	return &item.RawFish{}
+}
+
+func (f *PassiveFish) CanCatch(playerPos gvec.Vec2) bool {
+	cx := f.Pos.X + f.Dimensions.X/2
+	cy := f.Pos.Y + f.Dimensions.Y/2
+	dist := math.Hypot(playerPos.X-cx, playerPos.Y-cy)
+	return dist <= 80.0
+}
+
+func (f *PassiveFish) Update(g *Game, cave *CaveScene) {
+	px := g.player.Pos.X + g.player.Width/2
+	py := g.player.Pos.Y + g.player.Height/2
+	fx := f.Pos.X + f.Dimensions.X/2
+	fy := f.Pos.Y + f.Dimensions.Y/2
+	dist := math.Hypot(px-fx, py-fy)
+
+	f.SwimPhase += 0.04
+
+	if f.FleeTimer > 0 {
+		f.FleeTimer--
+		// Dart away quickly
+		speed := 3.5
+		if f.FacingRight {
+			f.Vel.X = speed
+		} else {
+			f.Vel.X = -speed
+		}
+		f.Vel.Y = math.Sin(f.SwimPhase*2) * 1.0
+	} else if dist < 120 {
+		// Flee from player
+		f.FleeTimer = 60
+		f.FacingRight = px < fx // swim away from player
+	} else {
+		// Gentle sine-wave swimming
+		speed := 0.6
+		if f.FacingRight {
+			f.Vel.X = speed
+		} else {
+			f.Vel.X = -speed
+		}
+		f.Vel.Y = math.Sin(f.SwimPhase) * 0.4
+	}
+
+	nextX := f.Pos.X + f.Vel.X
+	nextY := f.Pos.Y + f.Vel.Y
+
+	if !cave.isSolid(nextX, nextY, f.Dimensions.X, f.Dimensions.Y) {
+		f.Pos.X = nextX
+		f.Pos.Y = nextY
+	} else {
+		// Turn around on wall bump
+		f.FacingRight = !f.FacingRight
+		f.FleeTimer = 0
+	}
+}
+
+func (f *PassiveFish) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+	sx := float32(f.Pos.X - camera.Pos.X)
+	sy := float32(f.Pos.Y - camera.Pos.Y)
+	sw := float32(f.Dimensions.X)
+	sh := float32(f.Dimensions.Y)
+	cx := sx + sw/2
+	cy := sy + sh/2
+
+	// Body colors: blue-green iridescent
+	bodyColor := color.RGBA{60, 160, 200, 255}
+	finColor := color.RGBA{40, 130, 180, 200}
+
+	// Body oval
+	vector.FillCircle(screen, cx, cy, 6.0, bodyColor, false)
+
+	// Tail fin (triangle pointing opposite to facing)
+	var tailX float32
+	if f.FacingRight {
+		tailX = cx - 8
+	} else {
+		tailX = cx + 8
+	}
+	wiggle := float32(math.Sin(timeOfDay*0.12+float64(f.SwimPhase))) * 3
+	entityPath.Reset()
+	entityPath.MoveTo(tailX, cy)
+	entityPath.LineTo(tailX-4+wiggle, cy-5)
+	entityPath.LineTo(tailX-4+wiggle, cy+5)
+	entityPath.Close()
+	var opts vector.DrawPathOptions
+	opts.ColorScale.ScaleWithColor(finColor)
+	vector.FillPath(screen, entityPath, nil, &opts)
+
+	// Eye
+	var eyeX float32
+	if f.FacingRight {
+		eyeX = cx + 3
+	} else {
+		eyeX = cx - 3
+	}
+	vector.FillCircle(screen, eyeX, cy-1.5, 1.5, color.White, false)
+	vector.FillCircle(screen, eyeX, cy-1.5, 0.8, color.Black, false)
+
+	// Subtle dorsal stripe
+	vector.StrokeLine(screen, cx-4, cy-3, cx+4, cy-3, 0.8, color.RGBA{80, 200, 240, 180}, false)
+}
+
+// ---------------------------------------------------------
+// 8. PASSIVE CRAB (Catchable Floor Creature)
+// ---------------------------------------------------------
+
+type PassiveCrab struct {
+	BaseEntity
+	FacingRight bool
+	InShell     bool
+	ShellTimer  int
+	WalkTimer   int
+}
+
+func (c *PassiveCrab) GetHarvestedItem() item.Item {
+	return &item.RawCrab{}
+}
+
+func (c *PassiveCrab) CanCatch(playerPos gvec.Vec2) bool {
+	cx := c.Pos.X + c.Dimensions.X/2
+	cy := c.Pos.Y + c.Dimensions.Y/2
+	dist := math.Hypot(playerPos.X-cx, playerPos.Y-cy)
+	return dist <= 64.0
+}
+
+func (c *PassiveCrab) Update(g *Game, cave *CaveScene) {
+	px := g.player.Pos.X + g.player.Width/2
+	py := g.player.Pos.Y + g.player.Height/2
+	cx := c.Pos.X + c.Dimensions.X/2
+	cy := c.Pos.Y + c.Dimensions.Y/2
+	dist := math.Hypot(px-cx, py-cy)
+
+	// Check if flashlight is pointing at the crab
+	isLit := false
+	if g.FlashlightOn && dist < 300 {
+		facingAngle := g.player.Facing
+		dx := cx - px
+		dy := cy - py
+		angleToEnt := math.Atan2(dy, dx)
+		diff := angleToEnt - facingAngle
+		for diff > math.Pi {
+			diff -= 2 * math.Pi
+		}
+		for diff < -math.Pi {
+			diff += 2 * math.Pi
+		}
+		if math.Abs(diff) < 0.42 {
+			isLit = true
+		}
+	}
+
+	// Retract into shell if player is close or flashlight is on them
+	if dist < 100 || isLit {
+		c.InShell = true
+		c.ShellTimer = 90
+		c.Vel.X = 0
+	} else if c.ShellTimer > 0 {
+		c.ShellTimer--
+		if c.ShellTimer <= 0 {
+			c.InShell = false
+		}
+	}
+
+	if !c.InShell {
+		c.WalkTimer++
+		// Change direction periodically
+		if c.WalkTimer%180 == 0 {
+			c.FacingRight = !c.FacingRight
+		}
+
+		speed := 0.35
+		if c.FacingRight {
+			c.Vel.X = speed
+		} else {
+			c.Vel.X = -speed
+		}
+
+		// Apply gravity
+		c.Vel.Y += 0.3
+		if c.Vel.Y > 4.0 {
+			c.Vel.Y = 4.0
+		}
+	} else {
+		c.Vel.Y += 0.3
+		if c.Vel.Y > 4.0 {
+			c.Vel.Y = 4.0
+		}
+	}
+
+	// Horizontal movement
+	nextX := c.Pos.X + c.Vel.X
+	if !cave.isSolid(nextX, c.Pos.Y, c.Dimensions.X, c.Dimensions.Y) {
+		c.Pos.X = nextX
+	} else {
+		c.FacingRight = !c.FacingRight
+		c.Vel.X = 0
+	}
+
+	// Vertical movement (gravity)
+	nextY := c.Pos.Y + c.Vel.Y
+	if !cave.isSolid(c.Pos.X, nextY, c.Dimensions.X, c.Dimensions.Y) {
+		c.Pos.Y = nextY
+	} else {
+		c.Vel.Y = 0
+	}
+}
+
+func (c *PassiveCrab) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+	sx := float32(c.Pos.X - camera.Pos.X)
+	sy := float32(c.Pos.Y - camera.Pos.Y)
+	sw := float32(c.Dimensions.X)
+	sh := float32(c.Dimensions.Y)
+	ccx := sx + sw/2
+	ccy := sy + sh/2
+
+	shellColor := color.RGBA{180, 60, 50, 255}
+	legColor := color.RGBA{160, 45, 40, 255}
+
+	if c.InShell {
+		// Retracted shell: just a circle
+		vector.FillCircle(screen, ccx, ccy, 6.0, shellColor, false)
+		vector.StrokeCircle(screen, ccx, ccy, 6.0, 1.0, color.RGBA{140, 40, 35, 255}, false)
+		// Shell lines
+		vector.StrokeLine(screen, ccx-3, ccy-2, ccx+3, ccy-2, 0.8, color.RGBA{130, 35, 30, 255}, false)
+		vector.StrokeLine(screen, ccx-2, ccy+1, ccx+2, ccy+1, 0.8, color.RGBA{130, 35, 30, 255}, false)
+		return
+	}
+
+	// Body
+	vector.FillCircle(screen, ccx, ccy, 5.0, shellColor, false)
+
+	// Legs (animated with walk cycle)
+	legWiggle := float32(math.Sin(timeOfDay*0.15+float64(c.WalkTimer)*0.1)) * 2
+
+	// Left legs
+	vector.StrokeLine(screen, ccx-4, ccy+2, ccx-7, ccy+5+legWiggle, 1.2, legColor, false)
+	vector.StrokeLine(screen, ccx-3, ccy+3, ccx-6, ccy+6-legWiggle, 1.2, legColor, false)
+
+	// Right legs
+	vector.StrokeLine(screen, ccx+4, ccy+2, ccx+7, ccy+5-legWiggle, 1.2, legColor, false)
+	vector.StrokeLine(screen, ccx+3, ccy+3, ccx+6, ccy+6+legWiggle, 1.2, legColor, false)
+
+	// Claws
+	clawColor := color.RGBA{200, 70, 55, 255}
+	if c.FacingRight {
+		vector.FillCircle(screen, ccx+7, ccy-2, 2.5, clawColor, false)
+		vector.FillCircle(screen, ccx-6, ccy-1, 2.0, clawColor, false)
+	} else {
+		vector.FillCircle(screen, ccx-7, ccy-2, 2.5, clawColor, false)
+		vector.FillCircle(screen, ccx+6, ccy-1, 2.0, clawColor, false)
+	}
+
+	// Eyes (little stalks)
+	vector.StrokeLine(screen, ccx-2, ccy-4, ccx-2, ccy-7, 0.8, legColor, false)
+	vector.FillCircle(screen, ccx-2, ccy-7, 1.0, color.White, false)
+	vector.StrokeLine(screen, ccx+2, ccy-4, ccx+2, ccy-7, 0.8, legColor, false)
+	vector.FillCircle(screen, ccx+2, ccy-7, 1.0, color.White, false)
+}
+
+// ---------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------
 
 func rectsOverlap(x1, y1, w1, h1, x2, y2, w2, h2 float64) bool {
 	return x1 < x2+w2 && x1+w1 > x2 && y1 < y2+h2 && y1+h1 > y2
 }
+

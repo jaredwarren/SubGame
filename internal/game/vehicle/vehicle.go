@@ -89,7 +89,7 @@ func (s *Skiff) RechargeBattery(amount float64) {
 		s.Battery = s.MaxBattery
 	}
 }
-func (s *Skiff) GetFacing() float64           { return s.Facing }
+func (s *Skiff) GetFacing() float64 { return s.Facing }
 
 func (s *Skiff) Update(runtime Runtime) {
 	// Day/night solar charging (TimeOfDay < 7200 is daytime)
@@ -323,7 +323,7 @@ func (sub *ScoutSub) RechargeBattery(amount float64) {
 		sub.Battery = sub.MaxBattery
 	}
 }
-func (sub *ScoutSub) GetFacing() float64     { return sub.Facing }
+func (sub *ScoutSub) GetFacing() float64 { return sub.Facing }
 
 func (sub *ScoutSub) Update(runtime Runtime) {
 	// Option B: Thermal Generator upgrade recharges battery slowly over time in caves
@@ -417,7 +417,7 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 		sub.Vel.Y += 0.15
 	} else {
 		// If resting near surface and not moving, apply a gentle bobbing effect
-		if !moving && sub.Pos.Y < waterline + 16.0 {
+		if !moving && sub.Pos.Y < waterline+16.0 {
 			bobY := waterline + 4.0 + math.Sin(float64(runtime.TimeOfDay())*0.05)*2.0
 			diff := bobY - sub.Pos.Y
 			sub.Vel.Y += diff * 0.03
@@ -591,7 +591,7 @@ func (m *HeavyMech) RechargeBattery(amount float64) {
 		m.Battery = m.MaxBattery
 	}
 }
-func (m *HeavyMech) GetFacing() float64           { return m.Facing }
+func (m *HeavyMech) GetFacing() float64 { return m.Facing }
 
 func (m *HeavyMech) Update(runtime Runtime) {
 	if !runtime.IsActiveVehicle(m) {
@@ -685,7 +685,7 @@ func (m *HeavyMech) Update(runtime Runtime) {
 		m.Vel.Y += 0.20
 	} else {
 		// If using thrusters near surface, apply a gentle bobbing effect
-		if m.ThrustersActive && m.Pos.Y < waterline + 16.0 {
+		if m.ThrustersActive && m.Pos.Y < waterline+16.0 {
 			bobY := waterline + 4.0 + math.Sin(float64(runtime.TimeOfDay())*0.05)*2.0
 			diff := bobY - m.Pos.Y
 			m.Vel.Y += diff * 0.05

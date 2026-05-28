@@ -35,7 +35,9 @@ type Player struct {
 	Upgrades  *item.Inventory // 4 upgrade/equipment slots
 
 	// Upgrade Cache (Option A)
-	HasFins bool
+	//HasFins bool
+	Speed    map[string]item.Speed
+	Buoyancy float64
 
 	// Animations
 	AnimTick        int
@@ -67,6 +69,19 @@ func NewPlayer(x, y float64) *Player {
 		Inventory:        item.NewInventory(24),
 		Upgrades:         item.NewInventory(4),
 		LastHealth:       100.0,
+		Speed: map[string]item.Speed{
+			"overworld": {
+				Drag:         0.88,
+				Acceleration: 0.08,
+				TopSpeed:     1.6,
+			},
+			"cave": {
+				Drag:         0.92,
+				Acceleration: 0.15,
+				TopSpeed:     3.5,
+			},
+		},
+		Buoyancy: -0.04,
 	}
 	p.RecalculateUpgrades()
 	return p
@@ -133,15 +148,15 @@ func pCenterY(p *Player) float64 {
 }
 
 // EquipUpgrade attempts to slot an item into the player's upgrades slots.
-func (p *Player) EquipUpgrade(it item.Item) bool {
+func (p *Player) EquipUpgrade(it any) bool {
 	if it == nil || p.Upgrades == nil {
 		return false
 	}
 
 	// Only allow Fins and O2 Tanks for player upgrades
-	switch it.(type) {
-	case *item.Fins, *item.O2TankHC, *item.O2TankUHC:
-		if p.Upgrades.AddItem(it, 1) {
+	_, ok := it.(item.PlayerUpgradeItem)
+	if ok {
+		if p.Upgrades.AddItem(it.(item.Item), 1) {
 			p.RecalculateUpgrades()
 			return true
 		}
@@ -151,15 +166,27 @@ func (p *Player) EquipUpgrade(it item.Item) bool {
 
 // RecalculateUpgrades scans the upgrades and updates cached upgrade flags and capacity stats.
 func (p *Player) RecalculateUpgrades() {
-	p.HasFins = item.HasItem[*item.Fins](p.Upgrades, 1)
+	for _, v := range p.Upgrades.Slots {
+		if _, ok := v.Item.(item.O2UpgradeItem); ok {
+			p.MaxOxygen += v.Item.(item.O2UpgradeItem).GetMaxO2Capacity()
+		}
 
-	if item.HasItem[*item.O2TankUHC](p.Upgrades, 1) {
-		p.MaxOxygen = 240.0
-	} else if item.HasItem[*item.O2TankHC](p.Upgrades, 1) {
-		p.MaxOxygen = 160.0
-	} else {
-		p.MaxOxygen = 100.0
+		if _, ok := v.Item.(item.SpeedUpgradeItem); ok {
+			p.Speed = v.Item.(item.SpeedUpgradeItem).GetSpeedUpgrade()
+		}
 	}
+
+	// // TODO; get upgrade speeds from item
+	// p.HasFins = item.HasItem[*item.Fins](p.Upgrades, 1)
+
+	// // TODO: lop through items and apply upgrade as  defined by item
+	// if item.HasItem[*item.O2TankUHC](p.Upgrades, 1) {
+	// 	p.MaxOxygen = 240.0
+	// } else if item.HasItem[*item.O2TankHC](p.Upgrades, 1) {
+	// 	p.MaxOxygen = 160.0
+	// } else {
+	// 	p.MaxOxygen = 100.0
+	// }
 }
 
 // UpdateAnimation increments frame counts and ticks for player visual animations.

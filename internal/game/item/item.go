@@ -18,11 +18,22 @@ type Item interface {
 	GetColor() color.Color
 }
 
+type PlayerUpgradeItem interface {
+	Item
+	IsPlayerUpgrade() bool
+}
+
 // BaseItemProvider allows items (like resource nodes) to define their base item type dynamically.
 type BaseItemProvider interface {
 	GetBaseItem() Item
 }
 
+// Consumable defines items that can be consumed from inventory for health/stamina effects.
+type Consumable interface {
+	Item
+	GetHealthRestore() float64
+	GetStaminaRestore() float64
+}
 
 // Mineral item types
 type Titanium struct{}
@@ -63,6 +74,11 @@ func (a *AbyssalOre) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
 }
 
+type O2UpgradeItem interface {
+	PlayerUpgradeItem
+	GetMaxO2Capacity() float64
+}
+
 // Equipment item types
 type O2TankHC struct{}
 
@@ -72,6 +88,7 @@ func (o *O2TankHC) GetColor() color.Color { return color.RGBA{98, 198, 148, 255}
 func (o *O2TankHC) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy, size/2.0, o.GetColor(), false)
 }
+func (o *O2TankHC) IsPlayerUpgrade() bool { return true }
 
 type O2TankUHC struct{}
 
@@ -80,6 +97,18 @@ func (o *O2TankUHC) GetMaxStack() int      { return 1 }
 func (o *O2TankUHC) GetColor() color.Color { return color.RGBA{98, 198, 148, 255} }
 func (o *O2TankUHC) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy, size/2.0, o.GetColor(), false)
+}
+func (o *O2TankUHC) IsPlayerUpgrade() bool { return true }
+
+type SpeedUpgradeItem interface {
+	PlayerUpgradeItem
+	GetSpeedUpgrade() map[string]Speed
+}
+
+type Speed struct {
+	Drag         float64
+	Acceleration float64
+	TopSpeed     float64
 }
 
 type Fins struct{}
@@ -90,6 +119,22 @@ func (f *Fins) GetColor() color.Color { return color.RGBA{98, 198, 148, 255} }
 func (f *Fins) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy, size/2.0, f.GetColor(), false)
 }
+func (f *Fins) IsPlayerUpgrade() bool { return true }
+
+func (s *Fins) GetSpeedUpgrade() map[string]Speed {
+	return map[string]Speed{
+		"overworld": {
+			Drag:         0.92,
+			Acceleration: 0.12,
+			TopSpeed:     2.6,
+		},
+		"cave": {
+			Drag:         0.96,
+			Acceleration: 0.30,
+			TopSpeed:     6.5,
+		},
+	}
+}
 
 type Scanner struct{}
 
@@ -99,6 +144,7 @@ func (s *Scanner) GetColor() color.Color { return color.RGBA{98, 198, 148, 255} 
 func (s *Scanner) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy, size/2.0, s.GetColor(), false)
 }
+func (s *Scanner) IsPlayerUpgrade() bool { return true }
 
 // Deployable vehicle kit item types.
 type ScoutSubKit struct{}
@@ -111,6 +157,7 @@ func (k *ScoutSubKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillRect(screen, cx-size/2.0, cy-size/4.0, size, size/2.0, k.GetColor(), false)
 	vector.FillCircle(screen, cx+size/4.0, cy, size/4.0, color.RGBA{80, 205, 255, 255}, false)
 }
+func (k *ScoutSubKit) IsPlayerUpgrade() bool { return false }
 
 type HeavyMechKit struct{}
 
@@ -122,6 +169,7 @@ func (k *HeavyMechKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillRect(screen, cx-size/3.0, cy-size/3.0, size/1.5, size/1.5, k.GetColor(), false)
 	vector.FillRect(screen, cx-size/2.0, cy+size/6.0, size, size/6.0, color.RGBA{60, 70, 80, 255}, false)
 }
+func (k *HeavyMechKit) IsPlayerUpgrade() bool { return false }
 
 // NewItemFromType instantiates a new concrete Item struct using reflect.New.
 func NewItemFromType(t reflect.Type) Item {
@@ -152,25 +200,6 @@ const (
 	ModuleStorageMKII
 	ModuleSolarMKII
 )
-
-func (m BaseModule) String() string {
-	switch m {
-	case ModuleFabricator:
-		return "Fabricator Module"
-	case ModuleStorage:
-		return "Storage Vault"
-	case ModuleStorageMKII:
-		return "Storage Vault MKII"
-	case ModuleMedical:
-		return "Medical Bay"
-	case ModuleSolar:
-		return "Solar Array"
-	case ModuleSolarMKII:
-		return "Solar Array MKII"
-	default:
-		return "Module"
-	}
-}
 
 type UpgradeItem interface {
 	Item
@@ -259,13 +288,18 @@ func (e *EscapeRocket) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 
 	// Thruster flame (orange triangle at bottom)
 	var flamePath vector.Path
-	flamePath.MoveTo(cx, bottomY + size/4.0)
+	flamePath.MoveTo(cx, bottomY+size/4.0)
 	flamePath.LineTo(cx-size/6.0, bottomY)
 	flamePath.LineTo(cx+size/6.0, bottomY)
 	flamePath.Close()
 	var flameOpts vector.DrawPathOptions
 	flameOpts.ColorScale.ScaleWithColor(color.RGBA{255, 165, 0, 255})
 	vector.FillPath(screen, &flamePath, nil, &flameOpts)
+}
+
+type VheicleUpgradeItem interface {
+	Item
+	IsVehicleUpgrade() bool
 }
 
 type SonarAmplifier struct{}
@@ -279,6 +313,7 @@ func (s *SonarAmplifier) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.StrokeCircle(screen, cx, cy, size/3.5, 1.5, color.RGBA{255, 255, 255, 200}, false)
 	vector.FillCircle(screen, cx, cy, 3, s.GetColor(), false)
 }
+func (s *SonarAmplifier) IsVehicleUpgrade() bool { return true }
 
 type PowerCell struct{}
 
@@ -301,6 +336,7 @@ func (t *ThermalGenerator) DrawIcon(screen *ebiten.Image, cx, cy, size float32) 
 	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.5, t.GetColor(), false)
 	vector.FillCircle(screen, cx, cy, size/4.0, color.RGBA{255, 120, 0, 255}, false)
 }
+func (t *ThermalGenerator) IsVehicleUpgrade() bool { return true }
 
 type ScrapMetal struct{}
 
@@ -358,6 +394,8 @@ func (f *RawFish) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	// Eye
 	vector.FillCircle(screen, cx+size/6.0, cy-size/10.0, 2.0, color.White, false)
 }
+func (f *RawFish) GetHealthRestore() float64  { return 10.0 }
+func (f *RawFish) GetStaminaRestore() float64 { return 5.0 }
 
 type CookedFish struct{}
 
@@ -379,6 +417,8 @@ func (f *CookedFish) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.StrokeLine(screen, cx, cy-size/6.0, cx-size/6.0, cy+size/6.0, 1.5, color.RGBA{100, 60, 30, 255}, false)
 	vector.StrokeLine(screen, cx+size/8.0, cy-size/6.0, cx-size/12.0, cy+size/6.0, 1.5, color.RGBA{100, 60, 30, 255}, false)
 }
+func (f *CookedFish) GetHealthRestore() float64  { return 25.0 }
+func (f *CookedFish) GetStaminaRestore() float64 { return 15.0 }
 
 type RawCrab struct{}
 
@@ -395,6 +435,8 @@ func (c *RawCrab) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx-size/10.0, cy-size/4.0, 1.5, color.White, false)
 	vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.White, false)
 }
+func (c *RawCrab) GetHealthRestore() float64  { return 8.0 }
+func (c *RawCrab) GetStaminaRestore() float64 { return 8.0 }
 
 type CookedCrab struct{}
 
@@ -409,6 +451,5 @@ func (c *CookedCrab) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx-size/10.0, cy-size/4.0, 1.5, color.RGBA{255, 230, 200, 255}, false)
 	vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.RGBA{255, 230, 200, 255}, false)
 }
-
-
-
+func (c *CookedCrab) GetHealthRestore() float64  { return 20.0 }
+func (c *CookedCrab) GetStaminaRestore() float64 { return 20.0 }
