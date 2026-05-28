@@ -84,6 +84,7 @@ type Game struct {
 	Particles      []Particle
 	shakeDuration  int
 	shakeIntensity float64
+	Ticks          float64
 }
 
 // NewGame creates and returns a new Game instance.
@@ -262,6 +263,9 @@ func (g *Game) Update() error {
 		g.TransitionTo(g.nextScene)
 		g.nextScene = nil
 	}
+
+	// Increment monotonic frame tick counter
+	g.Ticks += 1.0
 
 	// Increment day/night cycle timeOfDay (reset after 4 minutes)
 	g.TimeOfDay += 1.0

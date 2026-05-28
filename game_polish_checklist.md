@@ -32,7 +32,7 @@ The game currently relies on primitive vector shapes (`vector.FillCircle`, `vect
     - [internal/game/vehicle/vehicle.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/vehicle.go) (vehicle drawing)
     - [internal/game/biome_entity.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/biome_entity.go) (creature updating & drawing)
 
-- [ ] **Ambient & Underwater Effects**
+- [x] **Ambient & Underwater Effects**
   - **Goal:** Establish a deep-sea atmosphere using water filters and micro-particles.
   - **Details:**
     - **Floating Plankton/Detritus:** Spawn passive, slow-drifting dust particles ("marine snow") in the background layer of the caves.
@@ -43,7 +43,7 @@ The game currently relies on primitive vector shapes (`vector.FillCircle`, `vect
     - [internal/game/shader.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/shader.go) (Kage shaders)
     - [internal/game/biome_entity.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/biome_entity.go) (Brimstone Siphon rendering)
 
-- [ ] **Flashlight & Bioluminescent Lighting Improvements**
+- [x] **Flashlight & Bioluminescent Lighting Improvements**
   - **Goal:** Improve contrast and immersion in dark zones.
   - **Details:**
     - Add a soft bloom or gradient falloff to the edges of the flashlight cone (currently a sharp angle cut).

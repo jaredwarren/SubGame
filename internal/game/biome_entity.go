@@ -251,8 +251,14 @@ func (s *ShatterBulb) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float
 
 	// Draw plant stem
 	vector.StrokeLine(screen, cx, cy, cx, cy+16, 2.0, color.RGBA{45, 95, 75, 255}, false)
-	// Draw glowing outer aura
-	vector.FillCircle(screen, cx, cy, 11, color.RGBA{0, 220, 240, 60}, false)
+	// Draw glowing outer aura with pulsing effect
+	phase := s.Pos.X + s.Pos.Y
+	pulse := float32(math.Cos(timeOfDay*0.02 + phase)) * 2.5
+	radius := float32(11.0) + pulse
+	if radius < 5.0 {
+		radius = 5.0
+	}
+	vector.FillCircle(screen, cx, cy, radius, color.RGBA{0, 220, 240, 60}, false)
 	// Draw central bulb
 	vector.FillCircle(screen, cx, cy, 7, color.RGBA{0, 230, 245, 255}, false)
 	vector.StrokeCircle(screen, cx, cy, 7, 0.8, color.RGBA{255, 255, 255, 200}, false)
@@ -367,7 +373,14 @@ func (ent *FalseBulbSnare) Draw(screen *ebiten.Image, camera *Camera, timeOfDay 
 		// Slit pupil eye
 		vector.StrokeLine(screen, cx, cy-4, cx, cy+4, 1.5, color.RGBA{0, 0, 0, 255}, false)
 	} else {
-		vector.FillCircle(screen, cx, cy, 11, color.RGBA{0, 220, 240, 60}, false)
+		// Mimics Shatter-bulb pulsing outer aura
+		phase := ent.Pos.X + ent.Pos.Y
+		pulse := float32(math.Cos(timeOfDay*0.02 + phase)) * 2.5
+		radius := float32(11.0) + pulse
+		if radius < 5.0 {
+			radius = 5.0
+		}
+		vector.FillCircle(screen, cx, cy, radius, color.RGBA{0, 220, 240, 60}, false)
 		vector.FillCircle(screen, cx, cy, 7, bulbColor, false)
 		vector.StrokeCircle(screen, cx, cy, 7, 0.8, color.RGBA{255, 255, 255, 180}, false)
 	}

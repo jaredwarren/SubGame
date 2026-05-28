@@ -15,6 +15,7 @@ type ParticleType int
 const (
 	ParticleBubble ParticleType = iota
 	ParticleDebris
+	ParticlePlankton
 )
 
 type Particle struct {
@@ -65,6 +66,23 @@ func (g *Game) SpawnDebris(x, y float64, c color.RGBA) {
 	}
 }
 
+// SpawnPlankton spawns a slow-drifting plankton / marine snow particle.
+func (g *Game) SpawnPlankton(x, y float64) {
+	vx := (rand.Float64() - 0.5) * 0.15
+	vy := rand.Float64()*0.2 + 0.1 // floating downwards slowly
+
+	g.Particles = append(g.Particles, Particle{
+		Pos:    gvec.Vec2{X: x, Y: y},
+		Vel:    gvec.Vec2{X: vx, Y: vy},
+		Color:  color.RGBA{220, 240, 255, 120}, // soft translucent white/cyan
+		Type:   ParticlePlankton,
+		Size:   float32(rand.Float64()*1.6 + 0.8),
+		Life:   1.0,
+		Decay:  rand.Float64()*0.003 + 0.002, // long-lived
+		Wobble: rand.Float64() * 100.0,
+	})
+}
+
 // UpdateParticles updates all active particles and decays/reaps them.
 func (g *Game) UpdateParticles() {
 	var active []Particle
@@ -83,6 +101,10 @@ func (g *Game) UpdateParticles() {
 			p.Vel.Y += 0.06 // Gravity in water
 			p.Vel = p.Vel.Scale(0.93)
 			p.Pos = p.Pos.Add(p.Vel)
+		case ParticlePlankton:
+			p.Wobble += 0.03
+			p.Vel.X = math.Sin(p.Wobble) * 0.15
+			p.Pos = p.Pos.Add(p.Vel)
 		}
 		active = append(active, p)
 	}
@@ -95,6 +117,11 @@ func (g *Game) DrawParticles(screen *ebiten.Image) {
 	camY := g.camera.Pos.Y
 
 	for _, p := range g.Particles {
+		if p.Type == ParticlePlankton {
+			// Skip plankton, drawn in the cave background layer
+			continue
+		}
+
 		sx := float32(p.Pos.X - camX)
 		sy := float32(p.Pos.Y - camY)
 

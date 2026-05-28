@@ -66,6 +66,8 @@ type CaveScene struct {
 	sonarSource   []float32
 	entranceLight []float32
 
+	offscreen        *ebiten.Image
+
 	// Spritesheet animations
 	diverSheet       *ebiten.Image
 	diverIdleFrames  []*ebiten.Image
@@ -234,6 +236,23 @@ func (c *CaveScene) Update(g *Game) error {
 	// Reset electrical tracking timer; active Electro-Weavers will update it
 	g.WeaverTrackingTimer = 0.0
 
+	// Spawn passive plankton / marine snow particles in the viewport
+	planktonCount := 0
+	for _, p := range g.Particles {
+		if p.Type == ParticlePlankton {
+			planktonCount++
+		}
+	}
+	if planktonCount < 120 {
+		for i := 0; i < 2; i++ {
+			rx := g.camera.Pos.X + rand.Float64()*float64(ScreenWidth)
+			ry := g.camera.Pos.Y + rand.Float64()*float64(ScreenHeight)
+			if ry >= 0 {
+				g.SpawnPlankton(rx, ry)
+			}
+		}
+	}
+
 	// Update cave entities
 	for _, ent := range c.Entities {
 		ent.Update(g, c)
@@ -367,8 +386,10 @@ func (c *CaveScene) Update(g *Game) error {
 
 	// Flashlight follows the mouse cursor - update player's facing angle
 	cursor := g.Input.Cursor()
-	dx := cursor.X - pCenterX(p)
-	dy := cursor.Y - pCenterY(p)
+	pScreenX := p.Pos.X + p.Width/2.0 - g.camera.Pos.X
+	pScreenY := p.Pos.Y + p.Height/2.0 - g.camera.Pos.Y
+	dx := cursor.X - pScreenX
+	dy := cursor.Y - pScreenY
 	p.Facing = math.Atan2(dy, dx)
 
 	// Movement physics settings
@@ -531,7 +552,16 @@ func getSkyColor(timeOfDay float64) color.RGBA {
 }
 
 // Draw renders the cave scene, solid tiles, and player assets.
-func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
+func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
+	// Allocate offscreen texture if nil
+	if c.offscreen == nil {
+		c.offscreen = ebiten.NewImage(ScreenWidth, ScreenHeight)
+	}
+	c.offscreen.Clear()
+
+	// Capture the target drawing buffer as 'screen' to redirect all drawing calls
+	screen := c.offscreen
+
 	// Camera offset from camera controller
 	camX := g.camera.Pos.X
 	camY := g.camera.Pos.Y
@@ -601,6 +631,9 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 		}
 		vector.StrokeLine(screen, 0, surfaceY, ScreenWidth, surfaceY, 3.0, lineColor, false)
 	}
+
+	// Draw background particles (plankton/marine snow) behind the rock tiles
+	c.drawBackgroundParticles(g, screen)
 
 	if c.CaveGrid != nil {
 		gridW := len(c.CaveGrid)
@@ -673,9 +706,9 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 
 	isPiloting := g.ActiveVehicle != nil
 
-	// Draw player character centered on screen (only if not piloting a vehicle)
-	pX := float32(pCenterX(g.player))
-	pY := float32(pCenterY(g.player))
+	// Draw player character at screen coordinates (handles camera tracking/shake/lag)
+	pX := float32(g.player.Pos.X + g.player.Width/2.0 - g.camera.Pos.X)
+	pY := float32(g.player.Pos.Y + g.player.Height/2.0 - g.camera.Pos.Y)
 	facingAngle := g.player.Facing
 
 	if isPiloting {
@@ -807,8 +840,46 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 
 		c.uniforms["LightSource"] = c.lightSource
 		c.uniforms["FlashlightDir"] = c.flashlightDir
-		c.uniforms["LightRadius"] = float32(360.0)
-		c.uniforms["ConeHalfAngle"] = float32(math.Pi / 7.5)
+		// Determine base flashlight stats
+		baseRadius := float32(360.0)
+		baseAngle := float32(math.Pi / 7.5) // ~24 degrees half-cone
+
+		// Calculate depth-based decay (gets narrower and dimmer as depth increases)
+		maxDepth := 6000.0
+		if len(c.CaveGrid) > 0 && len(c.CaveGrid[0]) > 0 {
+			maxDepth = float64(len(c.CaveGrid[0]) * TileSize)
+		}
+
+		depth := g.player.Pos.Y
+		if depth < 0 {
+			depth = 0
+		}
+		depthFrac := depth / maxDepth
+		if depthFrac > 1.0 {
+			depthFrac = 1.0
+		}
+
+		// Decay factors based on upgrades
+		maxRadiusDecay := float32(0.65) // 65% decay without upgrades
+		maxAngleDecay := float32(0.50)  // 50% decay without upgrades
+
+		// Check player upgrades using MaxOxygen cache proxy
+		if g.player.MaxOxygen >= 240.0 {
+			// Ultra High Capacity: 15% radius decay, 10% angle decay
+			maxRadiusDecay = 0.15
+			maxAngleDecay = 0.10
+		} else if g.player.MaxOxygen >= 160.0 {
+			// High Capacity: 35% radius decay, 25% angle decay
+			maxRadiusDecay = 0.35
+			maxAngleDecay = 0.25
+		}
+
+		// Apply decay
+		radius := baseRadius * (1.0 - float32(depthFrac)*maxRadiusDecay)
+		angle := baseAngle * (1.0 - float32(depthFrac)*maxAngleDecay)
+
+		c.uniforms["LightRadius"] = radius
+		c.uniforms["ConeHalfAngle"] = angle
 		c.uniforms["PersonalRadius"] = float32(65.0)
 		c.uniforms["AmbientColor"] = c.getAmbientColor(c.IsShallow, g.TimeOfDay)
 		c.uniforms["SonarSource"] = c.sonarSource
@@ -829,7 +900,7 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 
 	// --- Phase 4: Bioluminescent Highlights (drawn on top of the shader mask) ---
 	if !c.IsShallow {
-		c.drawBioluminescence(screen, camX, camY)
+		c.drawBioluminescence(g, screen, camX, camY)
 	}
 
 	// --- Phase 8: Render Biome Entities ---
@@ -843,10 +914,41 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 		clr := color.RGBA{245, 120, 20, uint8(200 * alpha)}
 		vector.StrokeCircle(screen, float32(g.SoundWaveX-g.camera.Pos.X), float32(g.SoundWaveY-g.camera.Pos.Y), float32(g.SoundWaveRadius), 2.0, clr, false)
 	}
+
+	// Collect active Brimstone Siphon screen coordinates for heat wave shader
+	var ventPositions [16]float32
+	var ventCount float32 = 0
+	for _, ent := range c.Entities {
+		if siphon, ok := ent.(*BrimstoneSiphon); ok && siphon.IsActive() {
+			if siphon.Timer >= 60 && ventCount < 8 {
+				vx := float32(siphon.Pos.X - g.camera.Pos.X + siphon.Dimensions.X/2.0)
+				vy := float32(siphon.Pos.Y - g.camera.Pos.Y + siphon.Dimensions.Y/2.0)
+				idx := int(ventCount) * 2
+				ventPositions[idx] = vx
+				ventPositions[idx+1] = vy
+				ventCount++
+			}
+		}
+	}
+
+	// Apply water shimmer & heat distortion displacement shader
+	if WaterDisplacementShader != nil {
+		op := &ebiten.DrawRectShaderOptions{}
+		op.Images[0] = c.offscreen
+		op.Uniforms = map[string]any{
+			"Time":          float32(g.Ticks),
+			"VentPositions": ventPositions,
+			"VentCount":     ventCount,
+			"SurfaceY":      float32(-g.camera.Pos.Y),
+		}
+		finalScreen.DrawRectShader(ScreenWidth, ScreenHeight, WaterDisplacementShader, op)
+	} else {
+		finalScreen.DrawImage(c.offscreen, nil)
+	}
 }
 
 // drawBioluminescence renders glowing flora and spores that remain visible in the pitch dark.
-func (c *CaveScene) drawBioluminescence(screen *ebiten.Image, camX, camY float64) {
+func (c *CaveScene) drawBioluminescence(g *Game, screen *ebiten.Image, camX, camY float64) {
 	if c.CaveGrid == nil {
 		return
 	}
@@ -886,8 +988,13 @@ func (c *CaveScene) drawBioluminescence(screen *ebiten.Image, camX, camY float64
 						glowColor = color.RGBA{245, 75, 140, 255} // Bioluminescent hot pink
 					}
 
-					// Draw soft outer light emission
-					vector.FillCircle(screen, sx, sy, 5.0, color.RGBA{glowColor.R, glowColor.G, glowColor.B, 70}, false)
+					// Draw soft outer light emission with a pulsing effect over time
+					pulse := float32(math.Cos(float64(g.Ticks)*0.015+float64(hash))) * 1.5
+					radius := float32(5.0) + pulse
+					if radius < 2.0 {
+						radius = 2.0
+					}
+					vector.FillCircle(screen, sx, sy, radius, color.RGBA{glowColor.R, glowColor.G, glowColor.B, 70}, false)
 					// Draw hot white central core
 					vector.FillCircle(screen, sx, sy, 1.5, color.RGBA{255, 255, 255, 255}, false)
 				}
@@ -909,4 +1016,35 @@ func (c *CaveScene) getAmbientColor(isShallow bool, timeOfDay float64) []float32
 		return []float32{0.04, 0.06, 0.12, alpha}
 	}
 	return []float32{0.01, 0.01, 0.03, 0.97} // Crushing deep-sea darkness mask
+}
+
+// drawBackgroundParticles renders the plankton/marine snow behind the rock tiles.
+func (c *CaveScene) drawBackgroundParticles(g *Game, screen *ebiten.Image) {
+	camX := g.camera.Pos.X
+	camY := g.camera.Pos.Y
+
+	for _, p := range g.Particles {
+		if p.Type != ParticlePlankton {
+			continue
+		}
+
+		if p.Pos.Y < 0 {
+			// Skip plankton in the air/sky (Y < 0 is above water surface)
+			continue
+		}
+
+		sx := float32(p.Pos.X - camX)
+		sy := float32(p.Pos.Y - camY)
+
+		clr := p.Color
+		// Fade in for the first 10% of life, then fade out for the rest
+		opacity := p.Life
+		if p.Life > 0.9 {
+			opacity = (1.0 - p.Life) * 10.0
+		}
+		clr.A = uint8(float64(clr.A) * opacity)
+
+		// Draw plankton as soft small squares/pixels
+		vector.FillRect(screen, sx-p.Size/2.0, sy-p.Size/2.0, p.Size, p.Size, clr, false)
+	}
 }
