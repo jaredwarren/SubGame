@@ -1,14 +1,54 @@
 package game
 
 import (
+	"image"
 	"image/color"
+	_ "image/png"
+	"log"
 	"math"
 	"math/rand"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
+)
+
+// -----------------------------------------------------------------------------
+// DIVER ANIMATION SPRITESHEET CONFIGURATION
+// -----------------------------------------------------------------------------
+// Adjust these variables to manually configure how the diver spritesheet is 
+// sliced, scaled, and offset.
+// -----------------------------------------------------------------------------
+
+// DiverDrawWidth defines the targeted width of the diver sprite on screen.
+// Decrease this value if the diver is too big; increase to make it larger.
+var DiverDrawWidth = 36.0
+
+// Slicing parameters:
+// By default, Rows 0, 1, and 3 are divided into an 8-column grid.
+// Row 2 (Mining) is divided into a 6-column grid because the frames are wider (including the tool).
+var (
+	DiverGridCols     = 8                 // Columns in standard rows (0, 1, 3)
+	DiverGridRows     = 4                 // Total rows in the spritesheet
+	DiverMineGridCols = 6                 // Columns in the mining row (Row 2)
+)
+
+// Column mappings:
+// Map each animation frame to a specific column index on the sheet (0-indexed).
+var (
+	DiverIdleCols   = []int{0, 1, 2, 3}             // Row 0: 4 frames
+	DiverSwimCols   = []int{0, 1, 2, 3, 4, 5, 6, 7} // Row 1: 8 frames
+	DiverMineCols   = []int{0, 1, 2, 3}             // Row 2: 4 frames inside 6-col grid
+	DiverDamageCols = []int{0}                      // Row 3: 1 frame
+)
+
+// Slicing offsets:
+// Adjust these if you need to offset the entire grid horizontally or vertically.
+var (
+	DiverXOffset = 0 // Shift all slices horizontally by this many pixels
+	DiverYOffset = 0 // Shift all slices vertically by this many pixels
 )
 
 // CaveScene manages the side-view cave swimming controls, collision, and rendering.
@@ -25,6 +65,13 @@ type CaveScene struct {
 	flashlightDir []float32
 	sonarSource   []float32
 	entranceLight []float32
+
+	// Spritesheet animations
+	diverSheet       *ebiten.Image
+	diverIdleFrames  []*ebiten.Image
+	diverSwimFrames  []*ebiten.Image
+	diverMineFrames  []*ebiten.Image
+	diverDamageFrame *ebiten.Image
 }
 
 // NewCaveScene creates a new CaveScene instance.
@@ -39,7 +86,141 @@ func NewCaveScene() *CaveScene {
 		entranceLight: make([]float32, 2),
 	}
 	cs.shaderOpts.Uniforms = cs.uniforms
+	cs.loadDiverSheet()
 	return cs
+}
+
+// loadDiverSheet searches for assets/textures/diver_sheet.png, removes the green background, and slices it into animation frames.
+func (c *CaveScene) loadDiverSheet() {
+	paths := []string{
+		"assets/textures/diver_sheet.png",
+		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/diver_sheet.png",
+		"../../assets/textures/diver_sheet.png",
+		"../assets/textures/diver_sheet.png",
+	}
+
+	var file *os.File
+	var err error
+	for _, p := range paths {
+		file, err = os.Open(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Printf("Warning: Failed to open assets/textures/diver_sheet.png: %v", err)
+		return
+	}
+	defer file.Close()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		log.Printf("Warning: Failed to decode assets/textures/diver_sheet.png: %v", err)
+		return
+	}
+
+	bounds := img.Bounds()
+	rgba := image.NewRGBA(bounds)
+
+	// Chroma keying: set green background to transparent (Alpha 0)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			clr := img.At(x, y)
+			r, g, b, a := clr.RGBA()
+			ru := uint8(r >> 8)
+			gu := uint8(g >> 8)
+			bu := uint8(b >> 8)
+			au := uint8(a >> 8)
+
+			// Green background keying: dominant green channel, low red and blue channels
+			if gu > 140 && ru < 100 && bu < 100 {
+				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
+			} else {
+				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
+			}
+		}
+	}
+
+	sheet := ebiten.NewImageFromImage(rgba)
+	c.diverSheet = sheet
+
+	// Dynamically calculate default frame sizes based on grid configuration
+	frameW := bounds.Dx() / DiverGridCols
+	frameH := bounds.Dy() / DiverGridRows
+
+	// -------------------------------------------------------------------------
+	// OPTION A: Config-driven Slicing (Default)
+	// Uses the variables defined at the top of this file.
+	// -------------------------------------------------------------------------
+
+	// Row 0: Idle
+	for _, col := range DiverIdleCols {
+		rect := image.Rect(DiverXOffset+col*frameW, DiverYOffset+0, DiverXOffset+(col+1)*frameW, DiverYOffset+frameH)
+		c.diverIdleFrames = append(c.diverIdleFrames, sheet.SubImage(rect).(*ebiten.Image))
+	}
+
+	// Row 1: Swim
+	for _, col := range DiverSwimCols {
+		rect := image.Rect(DiverXOffset+col*frameW, DiverYOffset+frameH, DiverXOffset+(col+1)*frameW, DiverYOffset+frameH*2)
+		c.diverSwimFrames = append(c.diverSwimFrames, sheet.SubImage(rect).(*ebiten.Image))
+	}
+
+	// Row 2: Mine
+	mineFrameW := bounds.Dx() / DiverMineGridCols
+	for _, col := range DiverMineCols {
+		rect := image.Rect(DiverXOffset+col*mineFrameW, DiverYOffset+frameH*2, DiverXOffset+(col+1)*mineFrameW, DiverYOffset+frameH*3)
+		c.diverMineFrames = append(c.diverMineFrames, sheet.SubImage(rect).(*ebiten.Image))
+	}
+
+	// Row 3: Damage
+	if len(DiverDamageCols) > 0 {
+		col := DiverDamageCols[0]
+		rect := image.Rect(DiverXOffset+col*frameW, DiverYOffset+frameH*3, DiverXOffset+(col+1)*frameW, DiverYOffset+frameH*4)
+		c.diverDamageFrame = sheet.SubImage(rect).(*ebiten.Image)
+	}
+
+	// -------------------------------------------------------------------------
+	// OPTION B: Manual Frame Rectangles (Pixel-Perfect Override)
+	// If the sheet columns are not uniform (e.g. have gaps or spacing), 
+	// uncomment the block below and specify the exact pixel coordinate boxes.
+	// -------------------------------------------------------------------------
+	/*
+	// Clear default slices first
+	c.diverIdleFrames = c.diverIdleFrames[:0]
+	c.diverSwimFrames = c.diverSwimFrames[:0]
+	c.diverMineFrames = c.diverMineFrames[:0]
+
+	// 1. Row 0: Idle (4 frames) - Set image.Rect(x1, y1, x2, y2)
+	c.diverIdleFrames = []*ebiten.Image{
+		sheet.SubImage(image.Rect(0, 0, 352, 384)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(352, 0, 704, 384)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(704, 0, 1056, 384)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(1056, 0, 1408, 384)).(*ebiten.Image),
+	}
+
+	// 2. Row 1: Swim (8 frames)
+	c.diverSwimFrames = []*ebiten.Image{
+		sheet.SubImage(image.Rect(0, 384, 352, 768)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(352, 384, 704, 768)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(704, 384, 1056, 768)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(1056, 384, 1408, 768)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(1408, 384, 1760, 768)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(1760, 384, 2112, 768)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(2112, 384, 2464, 768)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(2464, 384, 2816, 768)).(*ebiten.Image),
+	}
+
+	// 3. Row 2: Mine (4 frames) - 6-column grid with 469px width cells
+	c.diverMineFrames = []*ebiten.Image{
+		sheet.SubImage(image.Rect(0, 768, 469, 1152)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(469, 768, 938, 1152)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(938, 768, 1408, 1152)).(*ebiten.Image),
+		sheet.SubImage(image.Rect(1408, 768, 1877, 1152)).(*ebiten.Image),
+	}
+
+	// 4. Row 3: Damage (1 frame)
+	c.diverDamageFrame = sheet.SubImage(image.Rect(0, 1152, 352, 1536)).(*ebiten.Image)
+	*/
 }
 
 func (c *CaveScene) OnEnter(g *Game) {
@@ -113,6 +294,9 @@ func (c *CaveScene) Update(g *Game) error {
 
 	// --- Phase 5: Mining Strike Mechanic ---
 	if g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		p.IsMining = true
+		p.MiningAnimTimer = 24
+
 		cursor := g.Input.Cursor()
 		camX := p.Pos.X - ScreenWidth/2 + p.Width/2
 		camY := p.Pos.Y - ScreenHeight/2 + p.Height/2
@@ -499,22 +683,92 @@ func (c *CaveScene) Draw(g *Game, screen *ebiten.Image) {
 	}
 
 	if !isPiloting {
-		// Draw yellow oxygen tank on the back (opposite to facing direction)
-		tankAngle := facingAngle + math.Pi
-		tx := pX + float32(math.Cos(tankAngle))*8
-		ty := pY + float32(math.Sin(tankAngle))*8
-		tankColor := color.RGBA{240, 220, 50, 255}
-		vector.FillCircle(screen, tx, ty, 6, tankColor, false)
+		var activeFrame *ebiten.Image
+		p := g.player
 
-		// Draw the player body
-		playerBodyColor := color.RGBA{220, 95, 45, 255}
-		vector.FillCircle(screen, pX, pY, 9, playerBodyColor, false)
+		if c.diverSheet != nil {
+			if p.IsDamaged {
+				activeFrame = c.diverDamageFrame
+			} else if p.IsMining {
+				// Calculate frame index relative to when the swing started
+				// (24 total ticks, 4 frames = 6 ticks per frame)
+				elapsed := 24 - p.MiningAnimTimer
+				frameIdx := elapsed / 6
+				if frameIdx < 0 {
+					frameIdx = 0
+				}
+				if frameIdx > 3 {
+					frameIdx = 3
+				}
+				if frameIdx < len(c.diverMineFrames) {
+					activeFrame = c.diverMineFrames[frameIdx]
+				}
+			} else if math.Hypot(p.Vel.X, p.Vel.Y) > 0.2 {
+				frameIdx := (p.AnimTick / 5) % 8
+				if frameIdx < len(c.diverSwimFrames) {
+					activeFrame = c.diverSwimFrames[frameIdx]
+				}
+			} else {
+				frameIdx := (p.AnimTick / 10) % 4
+				if frameIdx < len(c.diverIdleFrames) {
+					activeFrame = c.diverIdleFrames[frameIdx]
+				}
+			}
+		}
 
-		// Draw helmet glass visor pointing in the Facing direction
-		vx := pX + float32(math.Cos(facingAngle))*6
-		vy := pY + float32(math.Sin(facingAngle))*6
-		visorColor := color.RGBA{80, 200, 255, 200}
-		vector.FillCircle(screen, vx, vy, 5, visorColor, false)
+		if activeFrame != nil {
+			op := &ebiten.DrawImageOptions{}
+			frameW := activeFrame.Bounds().Dx()
+			frameH := activeFrame.Bounds().Dy()
+
+			// Scale the sprite relative to the standard idle frame width to keep the diver's
+			// body size consistent across all animations. This allows the wider tool/pickaxe
+			// in the mining frames to extend outward naturally without shrinking the diver's body.
+			baseFrameW := float64(frameW)
+			baseFrameH := float64(frameH)
+			if len(c.diverIdleFrames) > 0 {
+				baseFrameW = float64(c.diverIdleFrames[0].Bounds().Dx())
+				baseFrameH = float64(c.diverIdleFrames[0].Bounds().Dy())
+			}
+
+			// Center the frame on the origin before drawing.
+			// By translating by -baseFrameW/2 rather than -frameW/2, we align the diver's
+			// body horizontally in all frames (standard or wider mining frames). The extra width
+			// for the pickaxe/tool on the right side of the mining frame will project outward.
+			op.GeoM.Translate(-baseFrameW/2.0, -baseFrameH/2.0)
+
+			// Flip horizontally if facing left
+			isFacingLeft := math.Cos(facingAngle) < 0
+			if isFacingLeft {
+				op.GeoM.Scale(-1, 1)
+			}
+
+			scale := DiverDrawWidth / baseFrameW
+			op.GeoM.Scale(scale, scale)
+
+			// Translate to screen coordinates
+			op.GeoM.Translate(float64(pX), float64(pY))
+
+			screen.DrawImage(activeFrame, op)
+		} else {
+			// Fallback: original vector drawing
+			// Draw yellow oxygen tank on the back (opposite to facing direction)
+			tankAngle := facingAngle + math.Pi
+			tx := pX + float32(math.Cos(tankAngle))*8
+			ty := pY + float32(math.Sin(tankAngle))*8
+			tankColor := color.RGBA{240, 220, 50, 255}
+			vector.FillCircle(screen, tx, ty, 6, tankColor, false)
+
+			// Draw the player body
+			playerBodyColor := color.RGBA{220, 95, 45, 255}
+			vector.FillCircle(screen, pX, pY, 9, playerBodyColor, false)
+
+			// Draw helmet glass visor pointing in the Facing direction
+			vx := pX + float32(math.Cos(facingAngle))*6
+			vy := pY + float32(math.Sin(facingAngle))*6
+			visorColor := color.RGBA{80, 200, 255, 200}
+			vector.FillCircle(screen, vx, vy, 5, visorColor, false)
+		}
 	}
 
 	// --- Phase 4: Dynamic Lighting Shader Mask ---

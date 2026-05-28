@@ -36,6 +36,14 @@ type Player struct {
 
 	// Upgrade Cache (Option A)
 	HasFins bool
+
+	// Animations
+	AnimTick        int
+	IsMining        bool
+	MiningAnimTimer int
+	LastHealth      float64
+	IsDamaged       bool
+	DamageAnimTimer int
 }
 
 // NewPlayer initializes a player with default stats and empty inventory.
@@ -58,6 +66,7 @@ func NewPlayer(x, y float64) *Player {
 		DrownDamageRate:  30.0,
 		Inventory:        item.NewInventory(24),
 		Upgrades:         item.NewInventory(4),
+		LastHealth:       100.0,
 	}
 	p.RecalculateUpgrades()
 	return p
@@ -150,5 +159,33 @@ func (p *Player) RecalculateUpgrades() {
 		p.MaxOxygen = 160.0
 	} else {
 		p.MaxOxygen = 100.0
+	}
+}
+
+// UpdateAnimation increments frame counts and ticks for player visual animations.
+func (p *Player) UpdateAnimation() {
+	p.AnimTick++
+
+	// Handle mining timer
+	if p.IsMining {
+		p.MiningAnimTimer--
+		if p.MiningAnimTimer <= 0 {
+			p.IsMining = false
+		}
+	}
+
+	// Handle damage detection (health drops)
+	if p.CurrentHealth < p.LastHealth {
+		p.IsDamaged = true
+		p.DamageAnimTimer = 20 // ~0.3 seconds at 60 FPS
+	}
+	p.LastHealth = p.CurrentHealth
+
+	// Handle damage timer
+	if p.IsDamaged {
+		p.DamageAnimTimer--
+		if p.DamageAnimTimer <= 0 {
+			p.IsDamaged = false
+		}
 	}
 }

@@ -214,6 +214,7 @@ func (g *Game) Respawn() {
 
 	// Refill stats
 	g.player.CurrentHealth = g.player.MaxHealth
+	g.player.LastHealth = g.player.MaxHealth
 	g.player.CurrentOxygen = g.player.MaxOxygen
 	g.player.CurrentStamina = g.player.MaxStamina
 
@@ -731,6 +732,8 @@ func (g *Game) Update() error {
 		inCave := g.currentState == StateCave
 		g.player.UpdateStats(inCave, g.Input.IsKeyPressed(ebiten.KeyShift))
 	}
+
+	g.player.UpdateAnimation()
 
 	if g.player.CurrentHealth <= 0 {
 		g.TransitionTo(g.gameOverState)
