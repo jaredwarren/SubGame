@@ -224,8 +224,18 @@ func (g *Game) EnterCave(tx, ty int) {
 
 // ExitCave handles the transition from Cave to Overworld.
 func (g *Game) ExitCave() {
-	g.player.Pos.X = g.lastOverworldX
-	g.player.Pos.Y = g.lastOverworldY - TileSize*0.6
+	targetX := g.lastOverworldX
+	targetY := g.lastOverworldY - TileSize*0.6
+
+	// Fallback to the original entry position (guaranteed to be water/non-solid)
+	// if the shifted target position would place the player inside solid land.
+	if g.overworldState != nil && g.overworldState.isSolid(targetX, targetY, g.player.Width, g.player.Height) {
+		targetX = g.lastOverworldX
+		targetY = g.lastOverworldY
+	}
+
+	g.player.Pos.X = targetX
+	g.player.Pos.Y = targetY
 	g.player.Vel = gvec.Vec2{X: 0, Y: -1.5}
 
 	g.caveNodes[g.activeTrenchKey] = g.caveState.Nodes
@@ -359,7 +369,7 @@ func (g *Game) Update() error {
 		g.caveState.ActiveCave = activeCave
 
 		if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
-			g.caveNodes[g.activeTrenchKey] = resource.GenerateResourceNodes(g.caveState.CaveGrid, 50*97+50*41)
+			g.caveNodes[g.activeTrenchKey] = activeCave.GenerateResources(50*97 + 50*41)
 		}
 		g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
 

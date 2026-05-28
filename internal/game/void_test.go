@@ -239,3 +239,57 @@ func TestWreckageCaveGeneration(t *testing.T) {
 		t.Error("expected wreckage cave to generate some scrap metal or electronic waste nodes")
 	}
 }
+
+func TestCaveExitLandSpawningFix(t *testing.T) {
+	g := NewGame()
+	g.TransitionTo(g.overworldState)
+
+	// Set up a mock overworld tile grid where (10, 10) is TileWater,
+	// and (10, 9) is TileLand (directly above).
+	tx, ty := 10, 10
+	g.world.OverworldMap[tx][ty] = world.TileWater
+	g.world.OverworldMap[tx][ty-1] = world.TileLand
+
+	// Place the player at (10, 10) in pixel coordinates, but close to the top of the tile
+	// so that shifting up by TileSize*0.6 would normally push them into (10, 9).
+	playerStartX := float64(tx*TileSize + 10)
+	playerStartY := float64(ty*TileSize + 5)
+	g.player.Pos = gvec.Vec2{X: playerStartX, Y: playerStartY}
+
+	// Enter the cave. This sets lastOverworldX/Y.
+	g.EnterCave(tx, ty)
+
+	// Verify coordinates were stored
+	if g.lastOverworldX != playerStartX || g.lastOverworldY != playerStartY {
+		t.Errorf("expected last overworld coords to be (%f, %f), got (%f, %f)",
+			playerStartX, playerStartY, g.lastOverworldX, g.lastOverworldY)
+	}
+
+	// Now exit the cave.
+	g.ExitCave()
+
+	// Check if player's position is still safe (i.e. not overlapping TileLand).
+	// With the fix, since moving up by 0.6*TileSize would overlap TileLand,
+	// it should fall back to the original entry coordinates.
+	if g.player.Pos.X != playerStartX || g.player.Pos.Y != playerStartY {
+		t.Errorf("expected player position to fall back to start position (%f, %f) because of land above, but got (%f, %f)",
+			playerStartX, playerStartY, g.player.Pos.X, g.player.Pos.Y)
+	}
+
+	// Verify that the player is indeed not stuck (the position is not solid)
+	if g.overworldState.isSolid(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height) {
+		t.Errorf("player spawned in a solid/stuck state at %+v", g.player.Pos)
+	}
+
+	// Now test the case where the tile above is NOT land (i.e. it's water).
+	// It should shift the player up by TileSize*0.6.
+	g.world.OverworldMap[tx][ty-1] = world.TileWater
+	g.EnterCave(tx, ty)
+	g.ExitCave()
+
+	expectedY := playerStartY - TileSize*0.6
+	if g.player.Pos.Y != expectedY {
+		t.Errorf("expected player Y to be shifted to %f, got %f", expectedY, g.player.Pos.Y)
+	}
+}
+
