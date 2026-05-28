@@ -18,6 +18,12 @@ type Item interface {
 	GetColor() color.Color
 }
 
+// BaseItemProvider allows items (like resource nodes) to define their base item type dynamically.
+type BaseItemProvider interface {
+	GetBaseItem() Item
+}
+
+
 // Mineral item types
 type Titanium struct{}
 

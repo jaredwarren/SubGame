@@ -4,7 +4,10 @@ import (
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/gvec"
+	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 func TestOverworldVoidBoundaries(t *testing.T) {
@@ -180,5 +183,59 @@ func TestCaveActiveVehicleAndDebugCaveSetup(t *testing.T) {
 	}
 	if g.caveState.ActiveCave == nil {
 		t.Error("expected KeyC transition to initialize ActiveCave in caveState")
+	}
+}
+
+func TestMiningAndCraftingCompatibility(t *testing.T) {
+	g := NewGame()
+	node := resource.NewTitaniumNode(0, 0)
+	g.player.Inventory.AddItem(node, 1)
+	if !g.player.Inventory.Has(&item.Titanium{}, 1) {
+		t.Error("game-breaking bug: inventory does not recognize TitaniumNode as item.Titanium")
+	}
+}
+
+func TestWreckageCaveGeneration(t *testing.T) {
+	g := NewGame()
+
+	// Create wreckage cave coordinate
+	tx, ty := 10, 10
+	g.world.OverworldMap[tx][ty] = world.TileWreckage
+
+	// Transition to wreckage cave
+	g.EnterCave(tx, ty)
+
+	// Assert cave dimensions
+	grid := g.caveState.CaveGrid
+	if len(grid) != 60 || len(grid[0]) != 120 {
+		t.Errorf("expected wreckage cave size 60x120, got %dx%d", len(grid), len(grid[0]))
+	}
+
+	// Assert active cave type is wreckage
+	if g.caveState.ActiveCave.GetCaveType() != CaveWreckage {
+		t.Errorf("expected active cave to be CaveWreckage, got %v", g.caveState.ActiveCave.GetCaveType())
+	}
+
+	// Assert central elevator shaft is hollow (solid == false)
+	for y := 5; y < 100; y++ {
+		for x := 27; x <= 32; x++ {
+			if grid[x][y] {
+				t.Errorf("expected central elevator shaft tile at (%d, %d) to be hollow (false), but was solid (true)", x, y)
+			}
+		}
+	}
+
+	// Assert that we have ScrapMetalNode and ElectronicWasteNode in the cave nodes
+	var scrapCount, electronicCount int
+	for _, node := range g.caveState.Nodes {
+		if node.GetName() == "Scrap Metal" {
+			scrapCount++
+		} else if node.GetName() == "Electronic Waste" {
+			electronicCount++
+		}
+	}
+	t.Logf("Generated %d Scrap Metal nodes and %d Electronic Waste nodes in wreckage cave", scrapCount, electronicCount)
+	if scrapCount == 0 && electronicCount == 0 {
+		t.Error("expected wreckage cave to generate some scrap metal or electronic waste nodes")
 	}
 }

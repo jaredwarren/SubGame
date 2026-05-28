@@ -13,6 +13,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
+
 const TileSize = 64
 
 // Resource defines the interface that all mineable nodes/objects must implement.
@@ -249,9 +250,10 @@ type TitaniumNode struct {
 	BaseResourceNode
 }
 
-func (n *TitaniumNode) GetName() string    { return "Titanium" }
-func (n *TitaniumNode) GetMaxStack() int   { return 10 }
-func (n *TitaniumNode) RequiresMech() bool { return false }
+func (n *TitaniumNode) GetName() string             { return "Titanium" }
+func (n *TitaniumNode) GetMaxStack() int            { return 10 }
+func (n *TitaniumNode) RequiresMech() bool          { return false }
+func (n *TitaniumNode) GetBaseItem() item.Item      { return &item.Titanium{} }
 func (n *TitaniumNode) GetColor() color.Color { return color.RGBA{168, 178, 188, 255} }
 func (n *TitaniumNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	loadSpritesLazy()
@@ -280,9 +282,10 @@ type CopperNode struct {
 	BaseResourceNode
 }
 
-func (n *CopperNode) GetName() string    { return "Copper" }
-func (n *CopperNode) GetMaxStack() int   { return 10 }
-func (n *CopperNode) RequiresMech() bool { return false }
+func (n *CopperNode) GetName() string             { return "Copper" }
+func (n *CopperNode) GetMaxStack() int            { return 10 }
+func (n *CopperNode) RequiresMech() bool          { return false }
+func (n *CopperNode) GetBaseItem() item.Item      { return &item.Copper{} }
 func (n *CopperNode) GetColor() color.Color { return color.RGBA{218, 118, 48, 255} }
 func (n *CopperNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	loadSpritesLazy()
@@ -311,9 +314,10 @@ type QuartzNode struct {
 	BaseResourceNode
 }
 
-func (n *QuartzNode) GetName() string    { return "Quartz" }
-func (n *QuartzNode) GetMaxStack() int   { return 10 }
-func (n *QuartzNode) RequiresMech() bool { return false }
+func (n *QuartzNode) GetName() string             { return "Quartz" }
+func (n *QuartzNode) GetMaxStack() int            { return 10 }
+func (n *QuartzNode) RequiresMech() bool          { return false }
+func (n *QuartzNode) GetBaseItem() item.Item      { return &item.Quartz{} }
 func (n *QuartzNode) GetColor() color.Color { return color.RGBA{48, 218, 245, 255} }
 func (n *QuartzNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	loadSpritesLazy()
@@ -343,9 +347,10 @@ type AbyssalOreNode struct {
 	BaseResourceNode
 }
 
-func (n *AbyssalOreNode) GetName() string    { return "Abyssal Ore" }
-func (n *AbyssalOreNode) GetMaxStack() int   { return 10 }
-func (n *AbyssalOreNode) RequiresMech() bool { return true }
+func (n *AbyssalOreNode) GetName() string             { return "Abyssal Ore" }
+func (n *AbyssalOreNode) GetMaxStack() int            { return 10 }
+func (n *AbyssalOreNode) RequiresMech() bool          { return true }
+func (n *AbyssalOreNode) GetBaseItem() item.Item      { return &item.AbyssalOre{} }
 func (n *AbyssalOreNode) GetColor() color.Color { return color.RGBA{148, 48, 218, 255} }
 func (n *AbyssalOreNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	loadSpritesLazy()
@@ -392,8 +397,200 @@ func NewAbyssalOreNode(tx, ty int) *AbyssalOreNode {
 }
 
 // ---------------------------------------------------------
-// World Generation
+// ScrapMetalNode
 // ---------------------------------------------------------
+
+type ScrapMetalNode struct {
+	BaseResourceNode
+}
+
+func (n *ScrapMetalNode) GetName() string             { return "Scrap Metal" }
+func (n *ScrapMetalNode) GetMaxStack() int            { return 10 }
+func (n *ScrapMetalNode) RequiresMech() bool          { return false }
+func (n *ScrapMetalNode) GetBaseItem() item.Item      { return &item.ScrapMetal{} }
+func (n *ScrapMetalNode) GetColor() color.Color { return color.RGBA{140, 110, 95, 255} }
+func (n *ScrapMetalNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	(&item.ScrapMetal{}).DrawIcon(screen, cx, cy, size)
+}
+
+func (n *ScrapMetalNode) Draw(screen *ebiten.Image, camX, camY float64) {
+	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
+	cx := sx + float32(TileSize)/2.0
+	cy := sy + float32(TileSize)/2.0
+	size := float32(14.0) * (float32(n.HitsToMine) / 3.0)
+	if size < 4.0 {
+		size = 4.0
+	}
+	// Scrap crate: brown/rust box with dark gray outline
+	vector.FillRect(screen, cx-size, cy-size, size*2.0, size*2.0, color.RGBA{130, 95, 75, 255}, false)
+	vector.StrokeRect(screen, cx-size, cy-size, size*2.0, size*2.0, 1.5, color.RGBA{90, 80, 75, 255}, false)
+	vector.StrokeLine(screen, cx-size, cy-size, cx+size, cy+size, 1.5, color.RGBA{90, 80, 75, 255}, false)
+
+	drawCracks(screen, float32(sx), float32(sy), n.HitsToMine)
+}
+
+func NewScrapMetalNode(tx, ty int) *ScrapMetalNode {
+	return &ScrapMetalNode{BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3}}
+}
+
+// ---------------------------------------------------------
+// ElectronicWasteNode
+// ---------------------------------------------------------
+
+type ElectronicWasteNode struct {
+	BaseResourceNode
+}
+
+func (n *ElectronicWasteNode) GetName() string             { return "Electronic Waste" }
+func (n *ElectronicWasteNode) GetMaxStack() int            { return 10 }
+func (n *ElectronicWasteNode) RequiresMech() bool          { return false }
+func (n *ElectronicWasteNode) GetBaseItem() item.Item      { return &item.ElectronicWaste{} }
+func (n *ElectronicWasteNode) GetColor() color.Color { return color.RGBA{70, 130, 90, 255} }
+func (n *ElectronicWasteNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	(&item.ElectronicWaste{}).DrawIcon(screen, cx, cy, size)
+}
+
+func (n *ElectronicWasteNode) Draw(screen *ebiten.Image, camX, camY float64) {
+	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
+	cx := sx + float32(TileSize)/2.0
+	cy := sy + float32(TileSize)/2.0
+	size := float32(14.0) * (float32(n.HitsToMine) / 3.0)
+	if size < 4.0 {
+		size = 4.0
+	}
+	// Electronic green container crate
+	vector.FillRect(screen, cx-size, cy-size, size*2.0, size*2.0, color.RGBA{50, 110, 70, 255}, false)
+	vector.StrokeRect(screen, cx-size, cy-size, size*2.0, size*2.0, 1.5, color.RGBA{110, 190, 130, 255}, false)
+	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, color.RGBA{30, 30, 30, 255}, false)
+
+	drawCracks(screen, float32(sx), float32(sy), n.HitsToMine)
+}
+
+func NewElectronicWasteNode(tx, ty int) *ElectronicWasteNode {
+	return &ElectronicWasteNode{BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3}}
+}
+
+// ---------------------------------------------------------
+// World Generation Configuration
+// ---------------------------------------------------------
+
+// ResourceTier defines configuration for resource spawning at a specific depth range.
+type ResourceTier struct {
+	MaxDepth         int     // The maximum depth (exclusive threshold, e.g. ty < MaxDepth)
+	SpawnChance      float64 // The density/chance of spawning a resource on an exposed rock tile
+	TitaniumWeight   float64 // Relative weight for Titanium spawning
+	CopperWeight     float64 // Relative weight for Copper spawning
+	QuartzWeight     float64 // Relative weight for Quartz spawning
+	AbyssalOreWeight float64 // Relative weight for Abyssal Ore spawning
+}
+
+// ResourceGenConfig holds the configuration parameters for resource generation.
+type ResourceGenConfig struct {
+	FallbackSpawnChance float64        // Fallback spawn chance if no tier matches
+	BaseHitsToMine      int            // Base health/hits to mine a node
+	HitsDepthScale      int            // Scaling factor for health: depth / HitsDepthScale
+	Tiers               []ResourceTier // List of depth-based configuration tiers (ordered by MaxDepth ascending)
+	WreckageSpawnChance float64        // Spawn chance for wreckage resources on wreckage floor tiles
+	ScrapMetalWeight    float64        // Relative weight for Scrap Metal in wreckage
+	ElecWasteWeight     float64        // Relative weight for Electronic Waste in wreckage
+}
+
+// DefaultGenConfig represents the default generation settings matching the original game balance.
+var DefaultGenConfig = ResourceGenConfig{
+	FallbackSpawnChance: 0.05,
+	BaseHitsToMine:      3,
+	HitsDepthScale:      30,
+	Tiers: []ResourceTier{
+		{
+			MaxDepth:         30,
+			SpawnChance:      0.04,
+			TitaniumWeight:   70.0,
+			CopperWeight:     30.0,
+			QuartzWeight:     0.0,
+			AbyssalOreWeight: 0.0,
+		},
+		{
+			MaxDepth:         60,
+			SpawnChance:      0.055,
+			TitaniumWeight:   40.0,
+			CopperWeight:     40.0,
+			QuartzWeight:     20.0,
+			AbyssalOreWeight: 0.0,
+		},
+		{
+			MaxDepth:         90,
+			SpawnChance:      0.07,
+			TitaniumWeight:   30.0,
+			CopperWeight:     30.0,
+			QuartzWeight:     30.0,
+			AbyssalOreWeight: 10.0,
+		},
+		{
+			MaxDepth:         999999, // Catch-all for super deep zones
+			SpawnChance:      0.085,
+			TitaniumWeight:   20.0,
+			CopperWeight:     20.0,
+			QuartzWeight:     35.0,
+			AbyssalOreWeight: 25.0,
+		},
+	},
+	WreckageSpawnChance: 0.08,
+	ScrapMetalWeight:    65.0,
+	ElecWasteWeight:     35.0,
+}
+
+// GenConfig is the active resource generation configuration.
+// It can be adjusted at runtime to easily change spawning behavior.
+var GenConfig = DefaultGenConfig
+
+// ---------------------------------------------------------
+// World Generation Functions
+// ---------------------------------------------------------
+
+// GenerateWreckageResources spawns scrap metal and electronic waste nodes on room floors in wreckage caves.
+func GenerateWreckageResources(grid [][]bool, seed int64) []Resource {
+	nodes := []Resource{}
+	if grid == nil {
+		return nodes
+	}
+	gridW := len(grid)
+	gridH := len(grid[0])
+	r := rand.New(rand.NewSource(seed))
+
+	// Find room floor tiles (open space above a solid tile, not in the central elevator shaft)
+	for tx := 1; tx < gridW-1; tx++ {
+		// Central elevator shaft is tx 27..32
+		if tx >= 27 && tx <= 32 {
+			continue
+		}
+		for ty := 1; ty < gridH-2; ty++ {
+			if !grid[tx][ty] { // open tile
+				if grid[tx][ty+1] { // solid tile below (floor)
+					if r.Float64() < GenConfig.WreckageSpawnChance {
+						var node Resource
+						totalW := GenConfig.ScrapMetalWeight + GenConfig.ElecWasteWeight
+						var isScrap bool
+						if totalW > 0 {
+							isScrap = r.Float64()*totalW < GenConfig.ScrapMetalWeight
+						} else {
+							isScrap = true
+						}
+
+						if isScrap {
+							node = NewScrapMetalNode(tx, ty)
+						} else {
+							node = NewElectronicWasteNode(tx, ty)
+						}
+						// Scale hits with depth
+						node.SetHitsToMine(GenConfig.BaseHitsToMine + (ty / GenConfig.HitsDepthScale))
+						nodes = append(nodes, node)
+					}
+				}
+			}
+		}
+	}
+	return nodes
+}
 
 // GenerateResourceNodes scans the cave tile grid and generates mineral nodes on exposed wall surfaces.
 func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
@@ -424,7 +621,6 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 		return false
 	}
 
-	// newNode creates the appropriate concrete resource node for a given depth.
 	type nodeKind int
 	const (
 		kindTitanium nodeKind = iota
@@ -439,54 +635,50 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 			if grid[tx][ty] {
 				if isAdjacentToEmpty(tx, ty) {
 					spawnRoll := r.Float64()
-					var kind nodeKind
-					var spawnChance = 0.05 // 5% chance per eligible tile face
+					var kind nodeKind = kindTitanium
+					var spawnChance = GenConfig.FallbackSpawnChance
 
-					// Determine resource distribution based on depth
-					if ty > 90 {
-						// Abyssal depths: mostly Titanium/Quartz, but introduces Abyssal Ore
-						roll := r.Float64()
-						if roll < 0.18 {
-							kind = kindAbyssalOre
-							spawnChance = 0.035
-						} else if roll < 0.45 {
-							kind = kindQuartz
-						} else if roll < 0.75 {
-							kind = kindCopper
-						} else {
-							kind = kindTitanium
+					// Find the matching tier based on depth ty
+					var activeTier *ResourceTier
+					for i := range GenConfig.Tiers {
+						if ty < GenConfig.Tiers[i].MaxDepth {
+							activeTier = &GenConfig.Tiers[i]
+							break
 						}
-					} else if ty > 45 {
-						// Mid depths: Quartz and Copper common
-						roll := r.Float64()
-						if roll < 0.35 {
-							kind = kindQuartz
-						} else if roll < 0.70 {
-							kind = kindCopper
-						} else {
-							kind = kindTitanium
-						}
-					} else {
-						// Shallow depths: Titanium and Copper only
-						roll := r.Float64()
-						if roll < 0.28 {
-							kind = kindCopper
-						} else {
-							kind = kindTitanium
+					}
+
+					if activeTier != nil {
+						spawnChance = activeTier.SpawnChance
+						totalWeight := activeTier.TitaniumWeight + activeTier.CopperWeight + activeTier.QuartzWeight + activeTier.AbyssalOreWeight
+						if totalWeight > 0 {
+							roll := r.Float64() * totalWeight
+							if roll < activeTier.TitaniumWeight {
+								kind = kindTitanium
+							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight {
+								kind = kindCopper
+							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight+activeTier.QuartzWeight {
+								kind = kindQuartz
+							} else {
+								kind = kindAbyssalOre
+							}
 						}
 					}
 
 					if spawnRoll < spawnChance {
+						var node Resource
 						switch kind {
 						case kindTitanium:
-							nodes = append(nodes, NewTitaniumNode(tx, ty))
+							node = NewTitaniumNode(tx, ty)
 						case kindCopper:
-							nodes = append(nodes, NewCopperNode(tx, ty))
+							node = NewCopperNode(tx, ty)
 						case kindQuartz:
-							nodes = append(nodes, NewQuartzNode(tx, ty))
+							node = NewQuartzNode(tx, ty)
 						case kindAbyssalOre:
-							nodes = append(nodes, NewAbyssalOreNode(tx, ty))
+							node = NewAbyssalOreNode(tx, ty)
 						}
+						// Scale node hits (health) with depth: base + depth / scale
+						node.SetHitsToMine(GenConfig.BaseHitsToMine + (ty / GenConfig.HitsDepthScale))
+						nodes = append(nodes, node)
 					}
 				}
 			}
@@ -495,3 +687,4 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 
 	return nodes
 }
+

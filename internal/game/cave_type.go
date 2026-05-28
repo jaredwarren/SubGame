@@ -315,5 +315,5 @@ func (c *WreckageCorridorCave) GenerateEntities(seed int64) []CaveEntity {
 
 func (c *WreckageCorridorCave) GenerateResources(seed int64) []resource.Resource {
 	// Scrap nodes are generated inside wreckage caves instead of mineral nodes
-	return resource.GenerateResourceNodes(c.Grid, seed)
+	return resource.GenerateWreckageResources(c.Grid, seed)
 }

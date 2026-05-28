@@ -185,15 +185,21 @@ func (w *World) GetCave(tx, ty int) [][]bool {
 		return cave
 	}
 
-	isTrench := w.OverworldMap[tx][ty] == TileTrench
-
 	const (
 		caveW  = 60
 		caveH  = 120
 		splitY = 60
 	)
 
-	if !isTrench {
+	tileType := w.OverworldMap[tx][ty]
+	if tileType == TileWreckage {
+		r := rand.New(rand.NewSource(w.Seed + int64(tx*73) + int64(ty*31)))
+		cave := GenerateWreckageCave(caveW, caveH, r)
+		w.Caves[key] = cave
+		return cave
+	}
+
+	if tileType != TileTrench {
 		dist := w.DistanceToLand(tx, ty)
 		floorY := 6 + int(dist*2.2)
 		if floorY < 6 {
@@ -278,3 +284,132 @@ func (w *World) GetCave(tx, ty int) [][]bool {
 	w.Caves[key] = cave
 	return cave
 }
+
+// GenerateWreckageCave generates a grid-aligned ship hull structure with central vertical elevator shaft, corridors, and rooms.
+func GenerateWreckageCave(w, h int, r *rand.Rand) [][]bool {
+	grid := make([][]bool, w)
+	for x := 0; x < w; x++ {
+		grid[x] = make([]bool, h)
+		for y := 0; y < h; y++ {
+			grid[x][y] = true
+		}
+	}
+
+	// 1. Central elevator shaft
+	shaftX1 := w/2 - 3 // 27
+	shaftX2 := w/2 + 2 // 32
+	for y := 0; y < h-4; y++ {
+		for x := shaftX1; x <= shaftX2; x++ {
+			grid[x][y] = false
+		}
+	}
+
+	// 2. Horizontal corridors (decks)
+	deckYs := []int{24, 52, 80, 108}
+	deckHeight := 4
+
+	for _, dy := range deckYs {
+		for y := dy; y < dy+deckHeight; y++ {
+			for x := 4; x < w-4; x++ {
+				grid[x][y] = false
+			}
+		}
+	}
+
+	carveRoom := func(x1, y1, x2, y2 int) {
+		for x := x1; x <= x2; x++ {
+			for y := y1; y <= y2; y++ {
+				grid[x][y] = false
+			}
+		}
+	}
+
+	carveDoor := func(doorX, y1, y2 int) {
+		for y := y1; y <= y2; y++ {
+			grid[doorX][y] = false
+			grid[doorX+1][y] = false
+		}
+	}
+
+	// 3. Generate rooms branching off corridors
+	bays := []struct {
+		yMin int
+		yMax int
+	}{
+		{4, deckYs[0] - 1},
+		{deckYs[0] + deckHeight, deckYs[1] - 1},
+		{deckYs[1] + deckHeight, deckYs[2] - 1},
+		{deckYs[2] + deckHeight, deckYs[3] - 1},
+	}
+
+	for _, bay := range bays {
+		bayH := bay.yMax - bay.yMin + 1
+		if bayH < 6 {
+			continue
+		}
+
+		leftXMin := 4
+		leftXMax := shaftX1 - 2
+		rightXMin := shaftX2 + 2
+		rightXMax := w - 5
+
+		generateRoomsInBay := func(xMin, xMax int, yMin, yMax int, doorToY int) {
+			width := xMax - xMin + 1
+			if width < 8 {
+				return
+			}
+
+			numRooms := 2
+			if width >= 18 && r.Float64() < 0.6 {
+				numRooms = 3
+			}
+
+			roomWidth := width / numRooms
+			for i := 0; i < numRooms; i++ {
+				rx1 := xMin + i*roomWidth + 1
+				rx2 := rx1 + roomWidth - 3
+				if i == numRooms-1 {
+					rx2 = xMax - 1
+				}
+
+				ry1 := yMin + 1
+				ry2 := yMax - 1
+
+				if rx2 > rx1 && ry2 > ry1 {
+					carveRoom(rx1, ry1, rx2, ry2)
+
+					doorX := (rx1 + rx2) / 2
+					if doorToY > ry2 {
+						carveDoor(doorX, ry2+1, doorToY)
+					} else {
+						carveDoor(doorX, doorToY, ry1-1)
+					}
+				}
+			}
+		}
+
+		if bayH >= 18 {
+			midY := (bay.yMin + bay.yMax) / 2
+			// Upper half
+			generateRoomsInBay(leftXMin, leftXMax, bay.yMin, midY-1, bay.yMin-1)
+			generateRoomsInBay(rightXMin, rightXMax, bay.yMin, midY-1, bay.yMin-1)
+			// Lower half
+			generateRoomsInBay(leftXMin, leftXMax, midY+1, bay.yMax, bay.yMax+1)
+			generateRoomsInBay(rightXMin, rightXMax, midY+1, bay.yMax, bay.yMax+1)
+		} else {
+			doorToY := bay.yMax + 1
+			generateRoomsInBay(leftXMin, leftXMax, bay.yMin, bay.yMax, doorToY)
+			generateRoomsInBay(rightXMin, rightXMax, bay.yMin, bay.yMax, doorToY)
+		}
+	}
+
+	// 4. Ensure entrance at top center is open for diving player
+	for y := 0; y < 5; y++ {
+		for x := w/2 - 3; x <= w/2+3; x++ {
+			grid[x][y] = false
+		}
+	}
+
+	return grid
+}
+
