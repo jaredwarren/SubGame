@@ -13,6 +13,7 @@ const (
 	TileWater TileType = iota
 	TileLand
 	TileTrench
+	TileWreckage
 )
 
 // World orchestrates procedural generation of overworld and caves.
@@ -84,6 +85,30 @@ func (w *World) generateOverworld() {
 		if isOcean {
 			w.OverworldMap[tx][ty] = TileTrench
 			trenchCount++
+		}
+		attempts++
+	}
+
+	// Scatter wreckage locations
+	wreckageCount := 0
+	attempts = 0
+	for wreckageCount < 3 && attempts < 2000 {
+		tx := r.Intn(w.Width-10) + 5
+		ty := r.Intn(w.Height-10) + 5
+
+		isOcean := true
+		for dx := -2; dx <= 2; dx++ {
+			for dy := -2; dy <= 2; dy++ {
+				if w.OverworldMap[tx+dx][ty+dy] != TileWater {
+					isOcean = false
+					break
+				}
+			}
+		}
+
+		if isOcean {
+			w.OverworldMap[tx][ty] = TileWreckage
+			wreckageCount++
 		}
 		attempts++
 	}

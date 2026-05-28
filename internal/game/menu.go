@@ -19,8 +19,9 @@ type Ingredient struct {
 
 // Recipe defines ingredients needed to craft a target item.
 type Recipe struct {
-	NewResult   func() item.Item
-	Ingredients []Ingredient
+	NewResult      func() item.Item
+	ResultQuantity int
+	Ingredients    []Ingredient
 }
 
 // Global list of craftable item upgrades
@@ -135,6 +136,34 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 10},
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 5},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 5},
+		},
+	},
+	{
+		NewResult: func() item.Item { return &item.CookedFish{} },
+		ResultQuantity: 1,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.RawFish{} }, Quantity: 1},
+		},
+	},
+	{
+		NewResult: func() item.Item { return &item.CookedCrab{} },
+		ResultQuantity: 1,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.RawCrab{} }, Quantity: 1},
+		},
+	},
+	{
+		NewResult: func() item.Item { return &item.Titanium{} },
+		ResultQuantity: 2,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.ScrapMetal{} }, Quantity: 1},
+		},
+	},
+	{
+		NewResult: func() item.Item { return &item.Copper{} },
+		ResultQuantity: 1,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.ElectronicWaste{} }, Quantity: 1},
 		},
 	},
 }
@@ -301,7 +330,11 @@ func (m *BaseMenuScene) Update(g *Game) error {
 									g.TransitionTo(g.gameWonState)
 									return nil
 								}
-								if p.Inventory.AddItem(newItem, 1) {
+								resQty := rcp.ResultQuantity
+								if resQty <= 0 {
+									resQty = 1
+								}
+								if p.Inventory.AddItem(newItem, resQty) {
 									// Consume ingredients
 									for _, ing := range rcp.Ingredients {
 										p.Inventory.Remove(ing.NewItem(), ing.Quantity)
@@ -576,6 +609,10 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 
 				// Draw output name
 				resultName := rcp.NewResult().GetName()
+				resQty := rcp.ResultQuantity
+				if resQty > 1 {
+					resultName = fmt.Sprintf("%s x%d", resultName, resQty)
+				}
 				ebitenutil.DebugPrintAt(clippedScreen, resultName, int(startX)+15, int(ry)+6)
 
 				// Draw ingredients checklist

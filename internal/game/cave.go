@@ -53,6 +53,7 @@ var (
 
 // CaveScene manages the side-view cave swimming controls, collision, and rendering.
 type CaveScene struct {
+	ActiveCave Cave
 	CaveGrid  [][]bool
 	Nodes     []resource.Resource
 	Entities  []CaveEntity
@@ -567,27 +568,20 @@ func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
 	camY := g.camera.Pos.Y
 
 	// Cave ambient backdrop — fill first so sky can paint over it
-	if c.IsShallow {
-		// Draw a depth gradient: bright near the surface, darker at the floor.
-		// The maximum darkness at the floor is time-of-day dependent.
-		mult := GetOverworldLightMultiplier(g.TimeOfDay)
-
+	maxDepth := 6000.0
+	if c.CaveGrid != nil && len(c.CaveGrid[0]) > 0 {
+		maxDepth = float64(len(c.CaveGrid[0]) * TileSize)
+	}
+	mult := GetOverworldLightMultiplier(g.TimeOfDay)
+	if c.ActiveCave != nil {
+		c.ActiveCave.DrawBackground(screen, camY, maxDepth, mult)
+	} else if c.IsShallow {
+		// Fallback (should not happen if ActiveCave is initialized)
 		// Surface base color
-		baseR := float64(10) + float64(30)*mult  // 10 (night) → 40 (day)
-		baseG := float64(40) + float64(80)*mult  // 40 (night) → 120 (day)
-		baseB := float64(100) + float64(80)*mult // 100 (night) → 180 (day)
-
-		// Max fraction of brightness to remove at the floor:
-		// full day → 0.45 (still reasonably lit), full night → 0.90 (near total dark)
+		baseR := float64(10) + float64(30)*mult
+		baseG := float64(40) + float64(80)*mult
+		baseB := float64(100) + float64(80)*mult
 		maxDarken := 0.45 + (1.0-mult)*0.45
-
-		// Cave floor depth in world pixels
-		maxDepth := float64(30 * TileSize) // fallback
-		if len(c.CaveGrid) > 0 {
-			maxDepth = float64(len(c.CaveGrid[0]) * TileSize)
-		}
-
-		// Draw horizontal strips, each slightly darker than the one above
 		const stripH = float32(6)
 		for sy := float32(0); sy < float32(ScreenHeight); sy += stripH {
 			worldY := camY + float64(sy)
@@ -614,7 +608,9 @@ func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
 	// Render sky color above the water surface (camY < 0 means camera is above Y=0)
 	if camY < 0 {
 		var skyColor color.RGBA
-		if c.IsShallow {
+		if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == CaveVoid {
+			skyColor = color.RGBA{2, 3, 6, 255}
+		} else if c.IsShallow {
 			skyColor = getSkyColor(g.TimeOfDay)
 		} else {
 			skyColor = color.RGBA{14, 52, 115, 255} // Darker deep water for deep caves
@@ -625,8 +621,12 @@ func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
 	// Draw a distinct line at the water surface boundary (Y = 0) if visible
 	surfaceY := float32(-camY)
 	if surfaceY >= 0 && surfaceY < float32(ScreenHeight) {
-		lineColor := color.RGBA{220, 240, 255, 255} // foam white
-		if !c.IsShallow {
+		var lineColor color.RGBA
+		if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == CaveVoid {
+			lineColor = color.RGBA{2, 3, 6, 255}
+		} else if c.IsShallow {
+			lineColor = color.RGBA{220, 240, 255, 255} // foam white
+		} else {
 			lineColor = color.RGBA{30, 80, 160, 255} // dark water surface for deep cave
 		}
 		vector.StrokeLine(screen, 0, surfaceY, ScreenWidth, surfaceY, 3.0, lineColor, false)
@@ -635,7 +635,7 @@ func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
 	// Draw background particles (plankton/marine snow) behind the rock tiles
 	c.drawBackgroundParticles(g, screen)
 
-	if c.CaveGrid != nil {
+	if c.CaveGrid != nil && c.ActiveCave != nil {
 		gridW := len(c.CaveGrid)
 		gridH := len(c.CaveGrid[0])
 
@@ -659,44 +659,7 @@ func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
 			endTileY = gridH
 		}
 
-		for tx := startTileX; tx < endTileX; tx++ {
-			for ty := startTileY; ty < endTileY; ty++ {
-				if c.CaveGrid[tx][ty] {
-					sx := float32(tx*TileSize - int(camX))
-					sy := float32(ty*TileSize - int(camY))
-
-					var rockColor, strokeColor color.RGBA
-					if c.IsShallow {
-						// Sandy reef rock
-						rockColor = color.RGBA{180, 155, 100, 255}
-						strokeColor = color.RGBA{210, 185, 120, 255}
-					} else if ty < 40 {
-						// Biome 1: Mid-Depth (Cyan/Teal) - Luminous Pneumatophore Grotto
-						bandRatio := float64(ty) / 40.0
-						r := uint8(math.Max(8, 22-14*bandRatio))
-						g := uint8(math.Max(24, 64-40*bandRatio))
-						b := uint8(math.Max(32, 78-46*bandRatio))
-						rockColor = color.RGBA{r, g, b, 255}
-						strokeColor = color.RGBA{r + 20, g + 40, b + 48, 255}
-					} else if ty < 80 {
-						// Biome 2: Deep (Dark Grey/Orange) - Silicate Smoker Trenches
-						bandRatio := float64(ty-40) / 40.0
-						r := uint8(math.Max(25, 45-20*bandRatio))
-						g := uint8(math.Max(20, 32-12*bandRatio))
-						b := uint8(math.Max(18, 26-8*bandRatio))
-						rockColor = color.RGBA{r, g, b, 255}
-						strokeColor = color.RGBA{uint8(math.Max(80, 150-70*bandRatio)), 65, 40, 255}
-					} else {
-						// Biome 3: Abyssal (Vantablack/White) - Benthic Brine-Falls
-						rockColor = color.RGBA{5, 5, 8, 255}
-						strokeColor = color.RGBA{210, 210, 220, 255}
-					}
-
-					vector.FillRect(screen, sx, sy, TileSize, TileSize, rockColor, false)
-					vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, strokeColor, false)
-				}
-			}
-		}
+		c.ActiveCave.DrawTiles(screen, camX, camY, startTileX, startTileY, endTileX, endTileY)
 	}
 
 	// --- Phase 5: Render Resource Nodes ---
@@ -893,7 +856,11 @@ func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
 		c.uniforms["SonarBright"] = sonarBright
 		c.uniforms["SonarFadeLimit"] = sonarFadeLimit
 		c.uniforms["EntranceLight"] = c.entranceLight
-		c.uniforms["EntranceActive"] = float32(1.0)
+		entranceActive := float32(1.0)
+		if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == CaveVoid {
+			entranceActive = 0.0
+		}
+		c.uniforms["EntranceActive"] = entranceActive
 
 		screen.DrawRectShader(ScreenWidth, ScreenHeight, LightShader, &c.shaderOpts)
 	}

@@ -4,6 +4,10 @@ This document details the checklist of items required to elevate **SubGame** fro
 
 It focuses purely on **gameplay, aesthetics, UI/UX, audio, and gameplay mechanics**, leaving out distribution and delivery.
 
+
+
+
+
 ---
 
 ## 1. Visual Polish & Aesthetics

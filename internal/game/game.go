@@ -167,26 +167,54 @@ func (g *Game) TransitionTo(next Scene) {
 
 // EnterCave handles the transition from Overworld to Cave at trench coordinate tx, ty.
 func (g *Game) EnterCave(tx, ty int) {
+	g.ActiveVehicle = nil // Ensure player is on foot in cave to prevent carrying over overworld vehicles
 	g.lastOverworldX = g.player.Pos.X
 	g.lastOverworldY = g.player.Pos.Y
 	g.activeTrenchX = tx
 	g.activeTrenchY = ty
-	g.activeTrenchKey = fmt.Sprintf("%d_%d", tx, ty)
 
-	g.caveState.CaveGrid = g.world.GetCave(tx, ty)
-	g.caveState.IsShallow = g.world.OverworldMap[tx][ty] != world.TileTrench
+	var activeCave Cave
+	outOfBounds := tx < 0 || tx >= g.world.Width || ty < 0 || ty >= g.world.Height
+
+	if outOfBounds {
+		g.activeTrenchKey = "void_dive"
+		activeCave = NewVoidCave()
+		g.caveState.CaveGrid = nil
+		g.caveState.IsShallow = false
+	} else {
+		g.activeTrenchKey = fmt.Sprintf("%d_%d", tx, ty)
+		grid := g.world.GetCave(tx, ty)
+		g.caveState.CaveGrid = grid
+
+		tile := g.world.OverworldMap[tx][ty]
+		if tile == world.TileTrench {
+			activeCave = NewOrganicTrenchCave(grid)
+			g.caveState.IsShallow = false
+		} else if tile == world.TileWreckage {
+			activeCave = NewWreckageCorridorCave(grid)
+			g.caveState.IsShallow = false
+		} else {
+			activeCave = NewShallowSeabedCave(grid)
+			g.caveState.IsShallow = true
+		}
+	}
+	g.caveState.ActiveCave = activeCave
 
 	if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
-		g.caveNodes[g.activeTrenchKey] = resource.GenerateResourceNodes(g.caveState.CaveGrid, int64(tx*97+ty*41))
+		g.caveNodes[g.activeTrenchKey] = activeCave.GenerateResources(int64(tx*97 + ty*41))
 	}
 	g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
 
 	if _, exists := g.caveEntities[g.activeTrenchKey]; !exists {
-		g.caveEntities[g.activeTrenchKey] = GenerateCaveEntities(g.caveState.CaveGrid, int64(tx*97+ty*41), g.caveState.IsShallow)
+		g.caveEntities[g.activeTrenchKey] = activeCave.GenerateEntities(int64(tx*97 + ty*41))
 	}
 	g.caveState.Entities = g.caveEntities[g.activeTrenchKey]
 
-	g.player.Pos.X = float64(len(g.caveState.CaveGrid)/2*TileSize) + (TileSize-g.player.Width)/2
+	if outOfBounds {
+		g.player.Pos.X = float64(30 * TileSize)
+	} else {
+		g.player.Pos.X = float64(len(g.caveState.CaveGrid)/2*TileSize) + (TileSize-g.player.Width)/2
+	}
 	g.player.Pos.Y = TileSize * 2
 	g.player.Vel = gvec.Vec2{}
 
@@ -317,6 +345,18 @@ func (g *Game) Update() error {
 		g.caveState.CaveGrid = g.world.GetCave(50, 50)
 		g.player.Pos.X = float64(len(g.caveState.CaveGrid) / 2 * TileSize)
 		g.player.Pos.Y = TileSize * 2
+
+		var activeCave Cave
+		grid := g.caveState.CaveGrid
+		tile := g.world.OverworldMap[50][50]
+		if tile == world.TileTrench {
+			activeCave = NewOrganicTrenchCave(grid)
+		} else if tile == world.TileWreckage {
+			activeCave = NewWreckageCorridorCave(grid)
+		} else {
+			activeCave = NewShallowSeabedCave(grid)
+		}
+		g.caveState.ActiveCave = activeCave
 
 		if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
 			g.caveNodes[g.activeTrenchKey] = resource.GenerateResourceNodes(g.caveState.CaveGrid, 50*97+50*41)

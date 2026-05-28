@@ -296,5 +296,113 @@ func (t *ThermalGenerator) DrawIcon(screen *ebiten.Image, cx, cy, size float32) 
 	vector.FillCircle(screen, cx, cy, size/4.0, color.RGBA{255, 120, 0, 255}, false)
 }
 
+type ScrapMetal struct{}
+
+func (s *ScrapMetal) GetName() string       { return "Scrap Metal" }
+func (s *ScrapMetal) GetMaxStack() int      { return 10 }
+func (s *ScrapMetal) GetColor() color.Color { return color.RGBA{140, 110, 95, 255} }
+func (s *ScrapMetal) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Draw an angled metallic sheet
+	var path vector.Path
+	path.MoveTo(cx-size/3.0, cy-size/3.0)
+	path.LineTo(cx+size/3.0, cy-size/4.0)
+	path.LineTo(cx+size/4.0, cy+size/3.0)
+	path.LineTo(cx-size/3.0, cy+size/4.0)
+	path.Close()
+	var opts vector.DrawPathOptions
+	opts.ColorScale.ScaleWithColor(s.GetColor())
+	vector.FillPath(screen, &path, nil, &opts)
+	vector.StrokeLine(screen, cx-size/3.0, cy, cx+size/3.0, cy-size/10.0, 1.5, color.RGBA{180, 150, 130, 255}, false)
+}
+
+type ElectronicWaste struct{}
+
+func (e *ElectronicWaste) GetName() string       { return "Electronic Waste" }
+func (e *ElectronicWaste) GetMaxStack() int      { return 10 }
+func (e *ElectronicWaste) GetColor() color.Color { return color.RGBA{70, 130, 90, 255} }
+func (e *ElectronicWaste) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Draw a green circuit board chip
+	vector.FillRect(screen, cx-size/2.2, cy-size/3.0, size/1.1, size/1.5, e.GetColor(), false)
+	vector.StrokeRect(screen, cx-size/2.2, cy-size/3.0, size/1.1, size/1.5, 1.0, color.RGBA{120, 200, 140, 255}, false)
+	// Draw microchip core
+	vector.FillRect(screen, cx-size/6.0, cy-size/6.0, size/3.0, size/3.0, color.RGBA{40, 40, 40, 255}, false)
+	// Tiny copper pin details
+	vector.FillRect(screen, cx-size/3.0, cy-size/2.5, size/15.0, size/10.0, color.RGBA{220, 150, 50, 255}, false)
+	vector.FillRect(screen, cx, cy-size/2.5, size/15.0, size/10.0, color.RGBA{220, 150, 50, 255}, false)
+	vector.FillRect(screen, cx+size/4.0, cy-size/2.5, size/15.0, size/10.0, color.RGBA{220, 150, 50, 255}, false)
+}
+
+type RawFish struct{}
+
+func (f *RawFish) GetName() string       { return "Raw Fish" }
+func (f *RawFish) GetMaxStack() int      { return 5 }
+func (f *RawFish) GetColor() color.Color { return color.RGBA{70, 140, 180, 255} }
+func (f *RawFish) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Draw fish body (oval and tail)
+	vector.FillCircle(screen, cx, cy, size/3.5, f.GetColor(), false)
+	// Tail
+	var path vector.Path
+	path.MoveTo(cx-size/3.5, cy)
+	path.LineTo(cx-size/1.8, cy-size/4.0)
+	path.LineTo(cx-size/1.8, cy+size/4.0)
+	path.Close()
+	var opts vector.DrawPathOptions
+	opts.ColorScale.ScaleWithColor(f.GetColor())
+	vector.FillPath(screen, &path, nil, &opts)
+	// Eye
+	vector.FillCircle(screen, cx+size/6.0, cy-size/10.0, 2.0, color.White, false)
+}
+
+type CookedFish struct{}
+
+func (f *CookedFish) GetName() string       { return "Cooked Fish" }
+func (f *CookedFish) GetMaxStack() int      { return 5 }
+func (f *CookedFish) GetColor() color.Color { return color.RGBA{170, 110, 60, 255} }
+func (f *CookedFish) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Golden brown cooked fish
+	vector.FillCircle(screen, cx, cy, size/3.5, f.GetColor(), false)
+	var path vector.Path
+	path.MoveTo(cx-size/3.5, cy)
+	path.LineTo(cx-size/1.8, cy-size/4.0)
+	path.LineTo(cx-size/1.8, cy+size/4.0)
+	path.Close()
+	var opts vector.DrawPathOptions
+	opts.ColorScale.ScaleWithColor(f.GetColor())
+	vector.FillPath(screen, &path, nil, &opts)
+	// Grill lines
+	vector.StrokeLine(screen, cx, cy-size/6.0, cx-size/6.0, cy+size/6.0, 1.5, color.RGBA{100, 60, 30, 255}, false)
+	vector.StrokeLine(screen, cx+size/8.0, cy-size/6.0, cx-size/12.0, cy+size/6.0, 1.5, color.RGBA{100, 60, 30, 255}, false)
+}
+
+type RawCrab struct{}
+
+func (c *RawCrab) GetName() string       { return "Raw Crab" }
+func (c *RawCrab) GetMaxStack() int      { return 5 }
+func (c *RawCrab) GetColor() color.Color { return color.RGBA{180, 50, 50, 255} }
+func (c *RawCrab) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Crab body circle
+	vector.FillCircle(screen, cx, cy, size/4.0, c.GetColor(), false)
+	// Claws
+	vector.FillRect(screen, cx-size/2.5, cy-size/4.0, size/5.0, size/5.0, c.GetColor(), false)
+	vector.FillRect(screen, cx+size/2.5-size/5.0, cy-size/4.0, size/5.0, size/5.0, c.GetColor(), false)
+	// Little eyes
+	vector.FillCircle(screen, cx-size/10.0, cy-size/4.0, 1.5, color.White, false)
+	vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.White, false)
+}
+
+type CookedCrab struct{}
+
+func (c *CookedCrab) GetName() string       { return "Cooked Crab" }
+func (c *CookedCrab) GetMaxStack() int      { return 5 }
+func (c *CookedCrab) GetColor() color.Color { return color.RGBA{240, 90, 50, 255} }
+func (c *CookedCrab) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Orange-red cooked crab
+	vector.FillCircle(screen, cx, cy, size/4.0, c.GetColor(), false)
+	vector.FillRect(screen, cx-size/2.5, cy-size/4.0, size/5.0, size/5.0, c.GetColor(), false)
+	vector.FillRect(screen, cx+size/2.5-size/5.0, cy-size/4.0, size/5.0, size/5.0, c.GetColor(), false)
+	vector.FillCircle(screen, cx-size/10.0, cy-size/4.0, 1.5, color.RGBA{255, 230, 200, 255}, false)
+	vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.RGBA{255, 230, 200, 255}, false)
+}
+
 
 

@@ -85,13 +85,19 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		}
 
 		timeText := fmt.Sprintf("Time: %02d:%02d %s (%s)", displayHour, minute, period, dayPhase)
-		posText := fmt.Sprintf("Pos: X:%.0f Y:%.0f", g.player.Pos.X, g.player.Pos.Y)
-		zoneText := "Zone: Surface Ocean"
-
+		
 		tx := int(g.player.Pos.X+g.player.Width/2) / TileSize
 		ty := int(g.player.Pos.Y+g.player.Height/2) / TileSize
-		var depthText string
-		if tx >= 0 && tx < g.world.Width && ty >= 0 && ty < g.world.Height {
+		outOfBounds := tx < 0 || tx >= g.world.Width || ty < 0 || ty >= g.world.Height
+
+		var posText, zoneText, depthText string
+		if outOfBounds {
+			posText = "Pos: X:??? Y:???"
+			zoneText = "Zone: Ecological Void"
+			depthText = "Est. Dive Depth: ???"
+		} else {
+			posText = fmt.Sprintf("Pos: X:%.0f Y:%.0f", g.player.Pos.X, g.player.Pos.Y)
+			zoneText = "Zone: Surface Ocean"
 			if g.world.OverworldMap[tx][ty] == world.TileTrench {
 				depthText = "Est. Dive Depth: Trench (120m)"
 			} else {
@@ -105,8 +111,6 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 				}
 				depthText = fmt.Sprintf("Est. Dive Depth: %dm", floorY)
 			}
-		} else {
-			depthText = "Est. Dive Depth: N/A"
 		}
 
 		ebitenutil.DebugPrintAt(screen, timeText, int(telX)+15, int(telY)+28)
@@ -118,11 +122,18 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 
 		// Depth in meters (1 tile = 1 meter)
 		depth := (g.player.Pos.Y + g.player.Height/2.0) / TileSize
+
+		var depthText, pressText, trenchText string
 		pressure := 1.0 + depth*0.1
 
-		depthText := fmt.Sprintf("Depth: %.1fm", depth)
-		pressText := fmt.Sprintf("Pressure: %.2f atm", pressure)
-		trenchText := fmt.Sprintf("Trench Origin: (%d, %d)", g.activeTrenchX, g.activeTrenchY)
+		depthText = fmt.Sprintf("Depth: %.1fm", depth)
+		pressText = fmt.Sprintf("Pressure: %.2f atm", pressure)
+
+		if g.caveState.ActiveCave != nil && g.caveState.ActiveCave.GetCaveType() == CaveVoid {
+			trenchText = "Trench Origin: ???"
+		} else {
+			trenchText = fmt.Sprintf("Trench Origin: (%d, %d)", g.activeTrenchX, g.activeTrenchY)
+		}
 
 		ebitenutil.DebugPrintAt(screen, depthText, int(telX)+15, int(telY)+28)
 		ebitenutil.DebugPrintAt(screen, pressText, int(telX)+15, int(telY)+48)
