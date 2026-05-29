@@ -102,7 +102,7 @@ func TestVoidCaveFirstFrameCoords(t *testing.T) {
 
 	// Mock pressing KeyE
 	mockInput := NewMockInput()
-	mockInput.PressedKeys[ebiten.KeyE] = true
+	mockInput.JustPressedKeys[ebiten.KeyE] = true
 	g.Input = mockInput
 
 	t.Logf("Before Update: state = %v, player.Pos = %+v, camera.Pos = %+v", g.currentState, g.player.Pos, g.camera.Pos)

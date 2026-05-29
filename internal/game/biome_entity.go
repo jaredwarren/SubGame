@@ -22,6 +22,7 @@ const (
 	EntElectroWeaver
 	EntPassiveFish
 	EntPassiveCrab
+	EntKelp
 )
 
 // CaveEntity represents any plant, predator, or interactive entity inside caves.
@@ -112,6 +113,20 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 							Active:     true,
 						},
 						FacingRight: r.Float64() < 0.5,
+					})
+				}
+
+				// Spawn Kelp on floors (open tile above solid tile)
+				if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.28 {
+					height := 32.0 + r.Float64()*48.0
+					entities = append(entities, &Kelp{
+						BaseEntity: BaseEntity{
+							Type:       EntKelp,
+							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-16)/2.0, Y: float64(ty*TileSize) + float64(TileSize) - height},
+							Dimensions: gvec.Vec2{X: 16, Y: height},
+							Active:     true,
+						},
+						SwayPhase: r.Float64() * math.Pi * 2,
 					})
 				}
 
@@ -1126,6 +1141,61 @@ func (c *PassiveCrab) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float
 	vector.FillCircle(screen, ccx-2, ccy-7, 1.0, color.White, false)
 	vector.StrokeLine(screen, ccx+2, ccy-4, ccx+2, ccy-7, 0.8, legColor, false)
 	vector.FillCircle(screen, ccx+2, ccy-7, 1.0, color.White, false)
+}
+
+// ---------------------------------------------------------
+// 9. KELP (Decorative Swaying Plant)
+// ---------------------------------------------------------
+
+type Kelp struct {
+	BaseEntity
+	SwayPhase float64
+}
+
+func (k *Kelp) Update(g *Game, cave *CaveScene) {
+	k.SwayPhase += 0.03
+}
+
+func (k *Kelp) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+	sx := float32(k.Pos.X - camera.Pos.X)
+	sy := float32(k.Pos.Y - camera.Pos.Y)
+	sw := float32(k.Dimensions.X)
+	sh := float32(k.Dimensions.Y)
+	cx := sx + sw/2.0
+	bottomY := sy + sh
+
+	numSegments := int(sh / 8.0)
+	if numSegments < 3 {
+		numSegments = 3
+	}
+	segmentHeight := sh / float32(numSegments)
+
+	lastX := cx
+	lastY := bottomY
+
+	for i := 0; i < numSegments; i++ {
+		factor := float64(i+1) / float64(numSegments)
+		swayOffset := float32(math.Sin(k.SwayPhase+float64(i)*0.4)) * 8.0 * float32(factor)
+
+		nextX := cx + swayOffset
+		nextY := bottomY - float32(i+1)*segmentHeight
+
+		// Draw stalk segment
+		vector.StrokeLine(screen, lastX, lastY, nextX, nextY, 2.5-float32(factor)*1.0, color.RGBA{34, 139, 34, 255}, false)
+
+		// Draw leaves on the sides of the segment junction
+		leafColor := color.RGBA{46, 150, 60, 220}
+		leafSize := (5.0 - float32(factor)*2.0)
+		if leafSize < 2.0 {
+			leafSize = 2.0
+		}
+
+		vector.FillCircle(screen, nextX-4.0, nextY, leafSize, leafColor, false)
+		vector.FillCircle(screen, nextX+4.0, nextY, leafSize, leafColor, false)
+
+		lastX = nextX
+		lastY = nextY
+	}
 }
 
 // ---------------------------------------------------------

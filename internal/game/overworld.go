@@ -95,7 +95,7 @@ func (o *OverworldScene) Update(g *Game) error {
 	tx := int(p.Pos.X+p.Width/2) / TileSize
 	ty := int(p.Pos.Y+p.Height/2) / TileSize
 	if tx < 0 || tx >= o.World.Width || ty < 0 || ty >= o.World.Height {
-		if g.Input.IsKeyPressed(ebiten.KeyE) {
+		if g.Input.IsKeyJustPressed(ebiten.KeyE) {
 			g.EnterCave(tx, ty)
 			return nil
 		}
@@ -103,7 +103,7 @@ func (o *OverworldScene) Update(g *Game) error {
 		tile := o.World.OverworldMap[tx][ty]
 		if tile == world.TileTrench || tile == world.TileWater || tile == world.TileWreckage {
 			// Dive only if not near base station (so E can be used to open terminal)
-			if g.Input.IsKeyPressed(ebiten.KeyE) && g.baseStation.DistanceToPlayer(p) >= 100.0 {
+			if g.Input.IsKeyJustPressed(ebiten.KeyE) && g.baseStation.DistanceToPlayer(p) >= 100.0 {
 				g.EnterCave(tx, ty)
 				return nil
 			}

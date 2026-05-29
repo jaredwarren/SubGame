@@ -120,60 +120,7 @@ func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 }
 
 func (c *ShallowSeabedCave) GenerateEntities(seed int64) []CaveEntity {
-	r := rand.New(rand.NewSource(seed))
-	var entities []CaveEntity
-
-	gridW := len(c.Grid)
-	gridH := len(c.Grid[0])
-
-	for tx := 1; tx < gridW-1; tx++ {
-		for ty := 2; ty < gridH-2; ty++ {
-			if c.Grid[tx][ty] {
-				continue
-			}
-			// Spawn Shatter-bulb on floor/wall tiles
-			hasAdjacentWall := c.Grid[tx-1][ty] || c.Grid[tx+1][ty] || c.Grid[tx][ty-1] || c.Grid[tx][ty+1]
-			if hasAdjacentWall && r.Float64() < 0.08 {
-				entities = append(entities, &ShatterBulb{
-					BaseEntity: BaseEntity{
-						Type:       EntShatterBulb,
-						Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
-						Dimensions: gvec.Vec2{X: 24, Y: 24},
-						Active:     true,
-					},
-				})
-			}
-
-			// Spawn PassiveFish in open water
-			isOpenWater := !c.Grid[tx-1][ty] && !c.Grid[tx+1][ty] && !c.Grid[tx][ty-1] && !c.Grid[tx][ty+1]
-			if isOpenWater && r.Float64() < 0.012 {
-				entities = append(entities, &PassiveFish{
-					BaseEntity: BaseEntity{
-						Type:       EntPassiveFish,
-						Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-20)/2.0, Y: float64(ty*TileSize) + float64(TileSize-12)/2.0},
-						Dimensions: gvec.Vec2{X: 20, Y: 12},
-						Active:     true,
-					},
-					FacingRight: r.Float64() < 0.5,
-					SwimPhase:   r.Float64() * math.Pi * 2,
-				})
-			}
-
-			// Spawn PassiveCrab on floors
-			if ty < gridH-2 && c.Grid[tx][ty+1] && r.Float64() < 0.015 {
-				entities = append(entities, &PassiveCrab{
-					BaseEntity: BaseEntity{
-						Type:       EntPassiveCrab,
-						Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-16)/2.0, Y: float64(ty*TileSize) + float64(TileSize-10)},
-						Dimensions: gvec.Vec2{X: 16, Y: 10},
-						Active:     true,
-					},
-					FacingRight: r.Float64() < 0.5,
-				})
-			}
-		}
-	}
-	return entities
+	return GenerateCaveEntities(c.Grid, seed, true)
 }
 
 

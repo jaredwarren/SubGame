@@ -49,6 +49,7 @@ func (e *EbitenInput) Update() {
 		ebiten.KeyShift, ebiten.KeySpace, ebiten.KeyT, ebiten.KeyTab,
 		ebiten.KeyO, ebiten.KeyC, ebiten.KeyM, ebiten.KeyG, ebiten.KeyF, ebiten.KeyE,
 		ebiten.KeyQ, ebiten.KeyEnter, ebiten.Key1, ebiten.Key2, ebiten.Key3, ebiten.Key4, ebiten.Key5,
+		ebiten.KeyY, ebiten.KeyU, ebiten.KeyP,
 	}
 
 	for _, k := range keys {

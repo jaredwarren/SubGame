@@ -791,7 +791,7 @@ func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
 	}
 
 	// --- Phase 4: Dynamic Lighting Shader Mask ---
-	if LightShader != nil && !c.IsShallow {
+	if LightShader != nil && !c.IsShallow && !g.DebugDisableLightShader {
 		var sonarSourceX, sonarSourceY float32
 		var sonarRadius float32
 		if g.Sonar.Timer > 0 {
@@ -922,7 +922,7 @@ func (c *CaveScene) Draw(g *Game, finalScreen *ebiten.Image) {
 	}
 
 	// Apply water shimmer & heat distortion displacement shader
-	if WaterDisplacementShader != nil {
+	if WaterDisplacementShader != nil && !g.DebugDisableWaterShader {
 		op := &ebiten.DrawRectShaderOptions{}
 		op.Images[0] = c.offscreen
 		op.Uniforms = map[string]any{

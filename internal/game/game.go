@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"math/rand"
+	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -85,6 +86,10 @@ type Game struct {
 	shakeDuration  int
 	shakeIntensity float64
 	Ticks          float64
+
+	// Debug toggles
+	DebugDisableLightShader bool
+	DebugDisableWaterShader bool
 }
 
 // NewGame creates and returns a new Game instance.
@@ -336,6 +341,26 @@ func (g *Game) Update() error {
 		g.FlashlightOn = !g.FlashlightOn
 	}
 
+	// Toggle debug shader overrides (Y and U)
+	if g.Input.IsKeyJustPressed(ebiten.KeyY) {
+		g.DebugDisableLightShader = !g.DebugDisableLightShader
+		if g.DebugDisableLightShader {
+			g.MineWarning = "Disabled lighting shader mask"
+		} else {
+			g.MineWarning = "Enabled lighting shader mask"
+		}
+		g.MineWarningTimer = 120
+	}
+	if g.Input.IsKeyJustPressed(ebiten.KeyU) {
+		g.DebugDisableWaterShader = !g.DebugDisableWaterShader
+		if g.DebugDisableWaterShader {
+			g.MineWarning = "Disabled water displacement shader"
+		} else {
+			g.MineWarning = "Enabled water displacement shader"
+		}
+		g.MineWarningTimer = 120
+	}
+
 	// Toggle inventory overlay
 	if g.Input.IsKeyJustPressed(ebiten.KeyTab) && (g.currentState == StateOverworld || g.currentState == StateCave) {
 		g.showInventory = !g.showInventory
@@ -426,6 +451,42 @@ func (g *Game) Update() error {
 			g.player.CurrentHealth = g.player.MaxHealth
 			g.player.CurrentOxygen = g.player.MaxOxygen
 			g.player.CurrentStamina = g.player.MaxStamina
+		} else if g.Input.IsKeyJustPressed(ebiten.KeyP) {
+			println("--- SUBGAME DEBUG DIAGNOSTICS ---")
+			println("Current State:", g.currentState)
+			if g.currentScene != nil {
+				println("Current Scene Type:", reflect.TypeOf(g.currentScene).String())
+			} else {
+				println("Current Scene is nil")
+			}
+			println("Player Position: X:", g.player.Pos.X, "Y:", g.player.Pos.Y)
+			println("Camera Position: X:", g.camera.Pos.X, "Y:", g.camera.Pos.Y)
+			println("Active Trench Key:", g.activeTrenchKey)
+			if g.caveState != nil {
+				if g.caveState.CaveGrid != nil {
+					println("CaveGrid Dimensions:", len(g.caveState.CaveGrid), "x", len(g.caveState.CaveGrid[0]))
+				} else {
+					println("CaveGrid is nil")
+				}
+				if g.caveState.ActiveCave != nil {
+					println("ActiveCave Type:", reflect.TypeOf(g.caveState.ActiveCave).String())
+				} else {
+					println("ActiveCave is nil")
+				}
+				println("Cave IsShallow:", g.caveState.IsShallow)
+			} else {
+				println("CaveState is nil")
+			}
+			if g.ActiveVehicle != nil {
+				println("Active Vehicle:", g.ActiveVehicle.GetName())
+			} else {
+				println("Active Vehicle: nil (on foot)")
+			}
+			println("Shaders: LightShader:", LightShader != nil, "WaterShader:", WaterDisplacementShader != nil)
+			println("Debug Flags: DisableLight:", g.DebugDisableLightShader, "DisableWater:", g.DebugDisableWaterShader)
+			println("---------------------------------")
+			g.MineWarning = "Logged diagnostics to console!"
+			g.MineWarningTimer = 120
 		}
 	}
 

@@ -44,16 +44,29 @@ func TestPassiveCreatures_Generation(t *testing.T) {
 		},
 	}
 
+	kelp := &Kelp{
+		BaseEntity: BaseEntity{
+			Type:       EntKelp,
+			Pos:        gvec.Vec2{X: 100, Y: 180},
+			Dimensions: gvec.Vec2{X: 16, Y: 48},
+			Active:     true,
+		},
+	}
+
 	if fish.GetType() != EntPassiveFish {
 		t.Errorf("expected fish type to be EntPassiveFish, got %v", fish.GetType())
 	}
 	if crab.GetType() != EntPassiveCrab {
 		t.Errorf("expected crab type to be EntPassiveCrab, got %v", crab.GetType())
 	}
+	if kelp.GetType() != EntKelp {
+		t.Errorf("expected kelp type to be EntKelp, got %v", kelp.GetType())
+	}
 
-	// Verify they satisfy PassiveCreature interface
-	var _ PassiveCreature = fish
-	var _ PassiveCreature = crab
+	// Verify they satisfy CaveEntity interface
+	var _ CaveEntity = fish
+	var _ CaveEntity = crab
+	var _ CaveEntity = kelp
 }
 
 func TestPassiveCreatures_Harvesting(t *testing.T) {
