@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -114,7 +115,7 @@ func (o *OverworldScene) Update(g *Game) error {
 }
 
 // checkCollisions resolves AABB collision with land tiles in X and Y directions.
-func (o *OverworldScene) checkCollisions(p *Player) {
+func (o *OverworldScene) checkCollisions(p *player.Player) {
 	// X Axis collision
 	newX := p.Pos.X + p.Vel.X
 	if o.isSolid(newX, p.Pos.Y, p.Width, p.Height) {
@@ -280,8 +281,8 @@ func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
 		pTileY := int(g.player.Pos.Y+g.player.Height/2) / TileSize
 		if pTileX < 0 || pTileX >= o.World.Width || pTileY < 0 || pTileY >= o.World.Height {
 			promptText := "Press [E] to Dive into Void"
-			promptX := float32(pCenterX(g.player)) - 95
-			promptY := float32(pCenterY(g.player)) - 40
+			promptX := float32(g.player.CenterX()) - 95
+			promptY := float32(g.player.CenterY()) - 40
 			vector.FillRect(screen, promptX, promptY, 190, 25, color.RGBA{0, 0, 0, 180}, false)
 			ebitenutil.DebugPrintAt(screen, promptText, int(promptX)+10, int(promptY)+4)
 		} else {
@@ -291,16 +292,16 @@ func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
 				if tile == world.TileWreckage {
 					promptText = "Press [E] to Salvage Wreckage"
 				}
-				promptX := float32(pCenterX(g.player)) - 95
-				promptY := float32(pCenterY(g.player)) - 40
+				promptX := float32(g.player.CenterX()) - 95
+				promptY := float32(g.player.CenterY()) - 40
 				vector.FillRect(screen, promptX, promptY, 190, 25, color.RGBA{0, 0, 0, 180}, false)
 				ebitenutil.DebugPrintAt(screen, promptText, int(promptX)+10, int(promptY)+4)
 			}
 		}
 
 		// Draw the player swimming as a small diver circle centered on screen
-		pX := float32(pCenterX(g.player))
-		pY := float32(pCenterY(g.player))
+		pX := float32(g.player.CenterX())
+		pY := float32(g.player.CenterY())
 
 		// Player body circle
 		vector.FillCircle(screen, pX, pY, 8.0, color.RGBA{220, 95, 45, 255}, false)

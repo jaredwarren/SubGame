@@ -6,7 +6,9 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
@@ -50,7 +52,7 @@ func (b *BaseStation) UpdatePower(timeOfDay float64) {
 }
 
 // Draw renders the base station in the overworld viewport.
-func (b *BaseStation) Draw(screen *ebiten.Image, camera *Camera) {
+func (b *BaseStation) Draw(screen *ebiten.Image, camera *camera.Camera) {
 	sx := float32(b.Pos.X - camera.Pos.X)
 	sy := float32(b.Pos.Y - camera.Pos.Y)
 
@@ -68,7 +70,7 @@ func (b *BaseStation) Draw(screen *ebiten.Image, camera *Camera) {
 }
 
 // DistanceToPlayer returns the distance from base center to player center.
-func (b *BaseStation) DistanceToPlayer(p *Player) float64 {
+func (b *BaseStation) DistanceToPlayer(p *player.Player) float64 {
 	bx := b.Pos.X + b.Size.X/2.0
 	by := b.Pos.Y + b.Size.Y/2.0
 	px := p.Pos.X + p.Width/2.0
@@ -79,15 +81,15 @@ func (b *BaseStation) DistanceToPlayer(p *Player) float64 {
 // RecalculateProperties updates dynamic stats and active modules from installed upgrades.
 func (b *BaseStation) RecalculateProperties() {
 	b.SolarRechargeRate = 0.01 // baseline trickle
-	storageSlots := 24          // baseline vault size
+	storageSlots := 24         // baseline vault size
 
 	// Reset active modules map (Fabricator and Medical Bay are default built-ins)
 	b.ActiveModules = map[item.BaseModule]bool{
-		item.ModuleFabricator: true,
-		item.ModuleMedical:    true,
-		item.ModuleSolar:      false,
-		item.ModuleSolarMKII:  false,
-		item.ModuleStorage:    false,
+		item.ModuleFabricator:  true,
+		item.ModuleMedical:     true,
+		item.ModuleSolar:       false,
+		item.ModuleSolarMKII:   false,
+		item.ModuleStorage:     false,
 		item.ModuleStorageMKII: false,
 	}
 

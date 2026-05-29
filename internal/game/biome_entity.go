@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -28,7 +29,7 @@ const (
 // CaveEntity represents any plant, predator, or interactive entity inside caves.
 type CaveEntity interface {
 	Update(g *Game, cave *CaveScene)
-	Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64)
+	Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64)
 	IsActive() bool
 	SetActive(active bool)
 	GetPos() gvec.Vec2
@@ -42,7 +43,6 @@ type PassiveCreature interface {
 	GetHarvestedItem() item.Item
 	CanCatch(playerPos gvec.Vec2) bool
 }
-
 
 // BaseEntity implements common fields and getters/setters for all entities.
 type BaseEntity struct {
@@ -132,7 +132,6 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 
 				continue
 			}
-
 
 			// Biome 1: Mid-Depth (0 <= ty < 40) - Grotto
 			if ty >= 4 && ty < 40 {
@@ -297,7 +296,7 @@ func (s *ShatterBulb) Pop(g *Game, cave *CaveScene) {
 	}
 }
 
-func (s *ShatterBulb) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (s *ShatterBulb) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(s.Pos.X - camera.Pos.X)
 	sy := float32(s.Pos.Y - camera.Pos.Y)
 	sw := float32(s.Dimensions.X)
@@ -309,7 +308,7 @@ func (s *ShatterBulb) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float
 	vector.StrokeLine(screen, cx, cy, cx, cy+16, 2.0, color.RGBA{45, 95, 75, 255}, false)
 	// Draw glowing outer aura with pulsing effect
 	phase := s.Pos.X + s.Pos.Y
-	pulse := float32(math.Cos(timeOfDay*0.02 + phase)) * 2.5
+	pulse := float32(math.Cos(timeOfDay*0.02+phase)) * 2.5
 	radius := float32(11.0) + pulse
 	if radius < 5.0 {
 		radius = 5.0
@@ -410,7 +409,7 @@ func (ent *FalseBulbSnare) Update(g *Game, cave *CaveScene) {
 	}
 }
 
-func (ent *FalseBulbSnare) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (ent *FalseBulbSnare) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(ent.Pos.X - camera.Pos.X)
 	sy := float32(ent.Pos.Y - camera.Pos.Y)
 	sw := float32(ent.Dimensions.X)
@@ -431,7 +430,7 @@ func (ent *FalseBulbSnare) Draw(screen *ebiten.Image, camera *Camera, timeOfDay 
 	} else {
 		// Mimics Shatter-bulb pulsing outer aura
 		phase := ent.Pos.X + ent.Pos.Y
-		pulse := float32(math.Cos(timeOfDay*0.02 + phase)) * 2.5
+		pulse := float32(math.Cos(timeOfDay*0.02+phase)) * 2.5
 		radius := float32(11.0) + pulse
 		if radius < 5.0 {
 			radius = 5.0
@@ -496,7 +495,7 @@ var (
 	entityPath = &vector.Path{}
 )
 
-func (ent *BrimstoneSiphon) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (ent *BrimstoneSiphon) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(ent.Pos.X - camera.Pos.X)
 	sy := float32(ent.Pos.Y - camera.Pos.Y)
 	sw := float32(ent.Dimensions.X)
@@ -675,7 +674,7 @@ func (ent *ThermoclineRammer) Update(g *Game, cave *CaveScene) {
 	}
 }
 
-func (ent *ThermoclineRammer) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (ent *ThermoclineRammer) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(ent.Pos.X - camera.Pos.X)
 	sy := float32(ent.Pos.Y - camera.Pos.Y)
 	sw := float32(ent.Dimensions.X)
@@ -743,7 +742,7 @@ func (ent *NerveMat) Update(g *Game, cave *CaveScene) {
 	}
 }
 
-func (ent *NerveMat) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (ent *NerveMat) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(ent.Pos.X - camera.Pos.X)
 	sy := float32(ent.Pos.Y - camera.Pos.Y)
 	sw := float32(ent.Dimensions.X)
@@ -831,7 +830,7 @@ func (ent *ElectroWeaver) Update(g *Game, cave *CaveScene) {
 	}
 }
 
-func (ent *ElectroWeaver) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (ent *ElectroWeaver) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(ent.Pos.X - camera.Pos.X)
 	sy := float32(ent.Pos.Y - camera.Pos.Y)
 	sw := float32(ent.Dimensions.X)
@@ -940,7 +939,7 @@ func (f *PassiveFish) Update(g *Game, cave *CaveScene) {
 	}
 }
 
-func (f *PassiveFish) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (f *PassiveFish) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(f.Pos.X - camera.Pos.X)
 	sy := float32(f.Pos.Y - camera.Pos.Y)
 	sw := float32(f.Dimensions.X)
@@ -1091,7 +1090,7 @@ func (c *PassiveCrab) Update(g *Game, cave *CaveScene) {
 	}
 }
 
-func (c *PassiveCrab) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (c *PassiveCrab) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(c.Pos.X - camera.Pos.X)
 	sy := float32(c.Pos.Y - camera.Pos.Y)
 	sw := float32(c.Dimensions.X)
@@ -1156,7 +1155,7 @@ func (k *Kelp) Update(g *Game, cave *CaveScene) {
 	k.SwayPhase += 0.03
 }
 
-func (k *Kelp) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
+func (k *Kelp) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
 	sx := float32(k.Pos.X - camera.Pos.X)
 	sy := float32(k.Pos.Y - camera.Pos.Y)
 	sw := float32(k.Dimensions.X)
@@ -1205,4 +1204,3 @@ func (k *Kelp) Draw(screen *ebiten.Image, camera *Camera, timeOfDay float64) {
 func rectsOverlap(x1, y1, w1, h1, x2, y2, w2, h2 float64) bool {
 	return x1 < x2+w2 && x1+w1 > x2 && y1 < y2+h2 && y1+h1 > y2
 }
-

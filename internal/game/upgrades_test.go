@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -41,7 +42,7 @@ func TestInventory_Resize(t *testing.T) {
 }
 
 func TestBaseStation_UpgradesManagement(t *testing.T) {
-	b := NewBaseStation(0, 0)
+	b := base.NewBaseStation(0, 0)
 
 	// Built-in modules should be active by default
 	if !b.HasModule(item.ModuleFabricator) {
@@ -96,7 +97,7 @@ func TestBaseStation_UpgradesManagement(t *testing.T) {
 }
 
 func TestBaseStation_StorageUpgrades(t *testing.T) {
-	b := NewBaseStation(0, 0)
+	b := base.NewBaseStation(0, 0)
 
 	// Initially 24 slots
 	if len(b.Storage.Slots) != 24 {
@@ -217,14 +218,14 @@ func (m mockRuntime) IsActiveVehicle(v vehicle.Vehicle) bool {
 	return false
 }
 
-func (mockRuntime) TimeOfDay() float64                     { return 0.0 }
-func (mockRuntime) Input() vehicle.InputSource             { return mockInput{} }
-func (mockRuntime) PlayerScreenCenter() gvec.Vec2          { return gvec.Vec2{} }
-func (mockRuntime) PlayerSlowed() bool                     { return false }
-func (mockRuntime) IsOverworldSolidAt(tx, ty int) bool     { return false }
-func (mockRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
-func (mockRuntime) CanUseSonar() bool                      { return true }
-func (mockRuntime) Emit(cmd vehicle.GameCommand)           {}
+func (mockRuntime) TimeOfDay() float64                 { return 0.0 }
+func (mockRuntime) Input() vehicle.InputSource         { return mockInput{} }
+func (mockRuntime) PlayerScreenCenter() gvec.Vec2      { return gvec.Vec2{} }
+func (mockRuntime) PlayerSlowed() bool                 { return false }
+func (mockRuntime) IsOverworldSolidAt(tx, ty int) bool { return false }
+func (mockRuntime) IsCaveSolidAt(tx, ty int) bool      { return false }
+func (mockRuntime) CanUseSonar() bool                  { return true }
+func (mockRuntime) Emit(cmd vehicle.GameCommand)       {}
 
 func TestRechargingMechanics(t *testing.T) {
 	// 1. Test Power Cell / RechargeBattery method
@@ -257,9 +258,9 @@ type mockInput struct {
 	vehicle.InputSource
 }
 
-func (mockInput) Cursor() gvec.Vec2                    { return gvec.Vec2{} }
-func (mockInput) IsKeyPressed(k ebiten.Key) bool       { return false }
-func (mockInput) IsKeyJustPressed(k ebiten.Key) bool   { return false }
+func (mockInput) Cursor() gvec.Vec2                  { return gvec.Vec2{} }
+func (mockInput) IsKeyPressed(k ebiten.Key) bool     { return false }
+func (mockInput) IsKeyJustPressed(k ebiten.Key) bool { return false }
 
 type mockActiveRuntime struct {
 	vehicle.Runtime
@@ -345,6 +346,3 @@ func TestHeavyMech_WaterlinePhysics(t *testing.T) {
 		t.Errorf("expected surface bobbing force to apply to Mech, got 0.0")
 	}
 }
-
-
-

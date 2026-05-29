@@ -10,24 +10,16 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/base"
+	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/game/sonar"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
-
-// SonarState tracks the currently active sonar ping in the cave.
-// All fields are zero-value when inactive (Timer == 0 means no active ping).
-type SonarState struct {
-	Timer       int
-	MaxDuration int
-	Radius      float64
-	RadiusStep  float64
-	SourceX     float64
-	SourceY     float64
-	Bright      bool
-}
 
 // Game implements the ebiten.Game interface and coordinates scenes.
 type Game struct {
@@ -41,10 +33,10 @@ type Game struct {
 	baseMenu              *BaseMenuScene
 	gameOverState         *GameOverScene
 	gameWonState          *GameWonScene
-	player                *Player
+	player                *player.Player
 	hud                   *HUD
 	world                 *world.World
-	camera                *Camera
+	camera                *camera.Camera
 	Input                 InputSource
 
 	// Surface return position
@@ -60,14 +52,14 @@ type Game struct {
 	showInventory bool
 
 	// Phase 6: Base station and menu
-	baseStation *BaseStation
+	baseStation *base.BaseStation
 
 	// Phase 7: Vehicle state tracking
 	ActiveVehicle     vehicle.Vehicle
 	OverworldVehicles []vehicle.Vehicle
 	CaveVehicles      map[string][]vehicle.Vehicle // trenchKey -> list of vehicles spawned in that cave
 	TimeOfDay         float64                      // 0 to 14400 ticks (4 min day/night cycle)
-	Sonar             SonarState
+	Sonar             *sonar.Sonar
 	MineWarning       string
 	MineWarningTimer  int
 
@@ -114,12 +106,12 @@ func NewGame() *Game {
 		}
 	}
 
-	p := NewPlayer(spawnX, spawnY)
-	cam := NewCamera(spawnX, spawnY)
+	p := player.NewPlayer(spawnX, spawnY, ScreenWidth, ScreenHeight)
+	cam := camera.NewCamera(spawnX, spawnY, ScreenWidth, ScreenHeight)
 	cam.CenterOn(spawnX, spawnY, p.Width, p.Height)
 
 	// Spawn Base Station (Life Pod 5) slightly offset from the starting coordinates
-	baseStation := NewBaseStation(spawnX+96.0, spawnY-64.0)
+	baseStation := base.NewBaseStation(spawnX+96.0, spawnY-64.0)
 
 	// Phase 7: Create starting surface skiff and place player inside it
 	skiff := vehicle.NewSkiff(spawnX, spawnY)
@@ -139,7 +131,7 @@ func NewGame() *Game {
 		OverworldVehicles: overworldVehicles,
 		CaveVehicles:      make(map[string][]vehicle.Vehicle),
 		TimeOfDay:         0.0,
-		Sonar:             SonarState{RadiusStep: 6.5},
+		Sonar:             sonar.NewSonar(),
 		caveEntities:      make(map[string][]CaveEntity),
 		FlashlightOn:      true,
 	}
@@ -322,10 +314,7 @@ func (g *Game) Update() error {
 	}
 
 	// Expand Sonar Ping wavefront inside caves
-	if g.Sonar.Timer > 0 {
-		g.Sonar.Timer--
-		g.Sonar.Radius += g.Sonar.RadiusStep
-	}
+	g.Sonar.Update()
 
 	// Update popped Shatter-bulb sound wave circle
 	if g.SoundWaveTimer > 0 {
@@ -877,13 +866,7 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 	for _, cmd := range rt.cmds {
 		switch c := cmd.(type) {
 		case vehicle.ActivateSonarCmd:
-			g.Sonar.Timer = c.Pulse.DurationTicks
-			g.Sonar.MaxDuration = c.Pulse.DurationTicks
-			g.Sonar.Radius = 0
-			g.Sonar.RadiusStep = c.Pulse.RadiusStep
-			g.Sonar.SourceX = c.Source.X
-			g.Sonar.SourceY = c.Source.Y
-			g.Sonar.Bright = c.Bright
+			g.Sonar.Activate(c)
 		case vehicle.RemoveCaveNodeCmd:
 			for idx, node := range g.caveState.Nodes {
 				nodeTx, nodeTy := node.GetTilePos()
@@ -965,48 +948,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 		}
 
-		// Sonar ring overlay
-		if g.Sonar.Timer > 0 {
-			maxDur := float32(g.Sonar.MaxDuration)
-			if maxDur <= 0 {
-				maxDur = 180.0
-			}
-			alpha := float32(g.Sonar.Timer) / maxDur
-			scx := float32(g.Sonar.SourceX - g.camera.Pos.X)
-			scy := float32(g.Sonar.SourceY - g.camera.Pos.Y)
-			r := float32(g.Sonar.Radius)
-
-			glowColor := color.RGBA{30, 200, 240, uint8(255 * alpha * 0.5)}
-			ringColor := color.RGBA{120, 240, 255, uint8(255 * alpha)}
-			coreColor := color.RGBA{255, 255, 255, uint8(255 * alpha)}
-
-			if g.Sonar.Bright {
-				// Upgraded: double ring ripple effect, thick bright cyan glow
-				glowColor = color.RGBA{0, 245, 255, uint8(255 * alpha * 0.8)}
-				ringColor = color.RGBA{100, 235, 255, uint8(255 * alpha)}
-
-				// Wide soft glow bloom
-				vector.StrokeCircle(screen, scx, scy, r, 12.0, glowColor, false)
-				// Outer thick main ring
-				vector.StrokeCircle(screen, scx, scy, r, 3.0, ringColor, false)
-				// Hot-white core line
-				vector.StrokeCircle(screen, scx, scy, r, 1.5, coreColor, false)
-
-				// Inner ripple trailing slightly behind
-				if r > 15.0 {
-					innerAlpha := alpha * 0.7
-					innerRingColor := color.RGBA{0, 200, 255, uint8(255 * innerAlpha)}
-					vector.StrokeCircle(screen, scx, scy, r-12.0, 1.5, innerRingColor, false)
-				}
-			} else {
-				// Tight soft glow bloom
-				vector.StrokeCircle(screen, scx, scy, r, 5.0, glowColor, false)
-				// Bright thin main ring
-				vector.StrokeCircle(screen, scx, scy, r, 2.0, ringColor, false)
-				// Hot-white core line
-				vector.StrokeCircle(screen, scx, scy, r, 1.0, coreColor, false)
-			}
-		}
+		g.Sonar.Draw(screen, g.camera)
 	}
 
 	// 3. Draw HUD (which includes status bars, telemetry, warnings, and inventory)

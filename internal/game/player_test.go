@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -91,7 +92,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := NewPlayer(0, 0)
+			p := player.NewPlayer(0, 0, ScreenWidth, ScreenHeight)
 			p.CurrentOxygen = tt.initialO2
 			p.CurrentHealth = tt.initialHp
 			p.CurrentStamina = tt.initialSt
@@ -469,7 +470,7 @@ func TestBaseMenu_FabricatorScrollAndCraft(t *testing.T) {
 }
 
 func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
-	p := NewPlayer(0, 0)
+	p := player.NewPlayer(0, 0, ScreenWidth, ScreenHeight)
 
 	// Initially, player stats should be default
 	if item.HasItem[*item.Fins](p.Upgrades, 1) {
@@ -655,6 +656,3 @@ func TestTitleScene_Transitions(t *testing.T) {
 		t.Errorf("expected state to transition to StateOverworld on button click, got %s", g.currentState)
 	}
 }
-
-
-

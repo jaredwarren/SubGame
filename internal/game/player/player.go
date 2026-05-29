@@ -1,4 +1,4 @@
-package game
+package player
 
 import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
@@ -45,10 +45,12 @@ type Player struct {
 	LastHealth      float64
 	IsDamaged       bool
 	DamageAnimTimer int
+	ScreenWidth     float64
+	ScreenHeight    float64
 }
 
 // NewPlayer initializes a player with default stats and empty inventory.
-func NewPlayer(x, y float64) *Player {
+func NewPlayer(x, y float64, screenWidth, screenHeight int) *Player {
 	p := &Player{
 		Pos:              gvec.Vec2{X: x, Y: y},
 		Width:            20,
@@ -70,6 +72,8 @@ func NewPlayer(x, y float64) *Player {
 		LastHealth:       100.0,
 		Speed:            DefaultSpeed,
 		Buoyancy:         -0.04,
+		ScreenWidth:      float64(screenWidth),
+		ScreenHeight:     float64(screenHeight),
 	}
 	p.RecalculateUpgrades()
 	return p
@@ -138,14 +142,14 @@ func (p *Player) ClampStats() {
 	}
 }
 
-// pCenterX returns the screen X position where the player is drawn (centered).
-func pCenterX(p *Player) float64 {
-	return ScreenWidth / 2
+// CenterX returns the screen X position where the player is drawn (centered).
+func (p *Player) CenterX() float64 {
+	return p.ScreenWidth / 2
 }
 
-// pCenterY returns the screen Y position where the player is drawn (centered).
-func pCenterY(p *Player) float64 {
-	return ScreenHeight / 2
+// CenterY returns the screen Y position where the player is drawn (centered).
+func (p *Player) CenterY() float64 {
+	return p.ScreenHeight / 2
 }
 
 // EquipUpgrade attempts to slot an item into the player's upgrades slots.

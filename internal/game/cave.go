@@ -11,6 +11,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -488,7 +489,7 @@ func (c *CaveScene) Update(g *Game) error {
 }
 
 // checkCollisions resolves AABB collision with cave walls in X and Y directions.
-func (c *CaveScene) checkCollisions(p *Player) {
+func (c *CaveScene) checkCollisions(p *player.Player) {
 	// X Axis collision
 	newX := p.Pos.X + p.Vel.X
 	if c.isSolid(newX, p.Pos.Y, p.Width, p.Height) {
