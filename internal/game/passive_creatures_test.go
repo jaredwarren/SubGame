@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -22,66 +23,66 @@ func TestPassiveCreatures_Generation(t *testing.T) {
 	}
 
 	// Generate cave entities for shallow cave (isShallow = true)
-	entities := GenerateCaveEntities(grid, 42, true)
+	entities := entity.GenerateCaveEntities(grid, 42, true)
 	_ = entities // avoid unused variable check
 
 	// Verify that we can at least compile and run it, and let's check if the filter logic works.
-	fish := &PassiveFish{
-		BaseEntity: BaseEntity{
-			Type:       EntPassiveFish,
+	fish := &entity.PassiveFish{
+		BaseEntity: entity.BaseEntity{
+			Type:       entity.EntPassiveFish,
 			Pos:        gvec.Vec2{X: 100, Y: 100},
 			Dimensions: gvec.Vec2{X: 20, Y: 12},
 			Active:     true,
 		},
 	}
 
-	crab := &PassiveCrab{
-		BaseEntity: BaseEntity{
-			Type:       EntPassiveCrab,
+	crab := &entity.PassiveCrab{
+		BaseEntity: entity.BaseEntity{
+			Type:       entity.EntPassiveCrab,
 			Pos:        gvec.Vec2{X: 100, Y: 150},
 			Dimensions: gvec.Vec2{X: 16, Y: 10},
 			Active:     true,
 		},
 	}
 
-	kelp := &Kelp{
-		BaseEntity: BaseEntity{
-			Type:       EntKelp,
+	kelp := &entity.Kelp{
+		BaseEntity: entity.BaseEntity{
+			Type:       entity.EntKelp,
 			Pos:        gvec.Vec2{X: 100, Y: 180},
 			Dimensions: gvec.Vec2{X: 16, Y: 48},
 			Active:     true,
 		},
 	}
 
-	if fish.GetType() != EntPassiveFish {
+	if fish.GetType() != entity.EntPassiveFish {
 		t.Errorf("expected fish type to be EntPassiveFish, got %v", fish.GetType())
 	}
-	if crab.GetType() != EntPassiveCrab {
+	if crab.GetType() != entity.EntPassiveCrab {
 		t.Errorf("expected crab type to be EntPassiveCrab, got %v", crab.GetType())
 	}
-	if kelp.GetType() != EntKelp {
+	if kelp.GetType() != entity.EntKelp {
 		t.Errorf("expected kelp type to be EntKelp, got %v", kelp.GetType())
 	}
 
 	// Verify they satisfy CaveEntity interface
-	var _ CaveEntity = fish
-	var _ CaveEntity = crab
-	var _ CaveEntity = kelp
+	var _ entity.CaveEntity = fish
+	var _ entity.CaveEntity = crab
+	var _ entity.CaveEntity = kelp
 }
 
 func TestPassiveCreatures_Harvesting(t *testing.T) {
-	fish := &PassiveFish{
-		BaseEntity: BaseEntity{
-			Type:       EntPassiveFish,
+	fish := &entity.PassiveFish{
+		BaseEntity: entity.BaseEntity{
+			Type:       entity.EntPassiveFish,
 			Pos:        gvec.Vec2{X: 100, Y: 100},
 			Dimensions: gvec.Vec2{X: 20, Y: 12},
 			Active:     true,
 		},
 	}
 
-	crab := &PassiveCrab{
-		BaseEntity: BaseEntity{
-			Type:       EntPassiveCrab,
+	crab := &entity.PassiveCrab{
+		BaseEntity: entity.BaseEntity{
+			Type:       entity.EntPassiveCrab,
 			Pos:        gvec.Vec2{X: 100, Y: 100},
 			Dimensions: gvec.Vec2{X: 16, Y: 10},
 			Active:     true,

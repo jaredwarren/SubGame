@@ -6,6 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 )
 
 // GameWonScene represents the screen shown when the player successfully wins.
@@ -36,8 +37,8 @@ func (s *GameWonScene) Draw(g *Game, screen *ebiten.Image) {
 	// Renders a central modal/panel for the win screen
 	panelW := float32(500)
 	panelH := float32(300)
-	panelX := float32(ScreenWidth-int(panelW)) / 2.0
-	panelY := float32(ScreenHeight-int(panelH)) / 2.0
+	panelX := float32(config.ScreenWidth-int(panelW)) / 2.0
+	panelY := float32(config.ScreenHeight-int(panelH)) / 2.0
 
 	// Draw decorative golden frame and background
 	vector.FillRect(screen, panelX, panelY, panelW, panelH, color.RGBA{14, 38, 28, 240}, false)
@@ -70,10 +71,10 @@ func (s *GameWonScene) Draw(g *Game, screen *ebiten.Image) {
 		if offsetX < 20 {
 			offsetX = 20
 		}
-		
+
 		// Draw text with a drop shadow for legibility
 		ebitenutil.DebugPrintAt(screen, line, int(panelX)+offsetX+1, textStartY+i*18+1)
-		
+
 		// Main text
 		ebitenutil.DebugPrintAt(screen, line, int(panelX)+offsetX, textStartY+i*18)
 	}

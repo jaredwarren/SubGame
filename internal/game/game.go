@@ -1,18 +1,20 @@
 package game
 
 import (
-	"fmt"
 	"image/color"
 	"math"
 	"math/rand"
-	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
+	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
@@ -64,7 +66,7 @@ type Game struct {
 	MineWarningTimer  int
 
 	// Phase 8: Biomes & Predator AI
-	caveEntities        map[string][]CaveEntity
+	caveEntities        map[string][]entity.CaveEntity
 	FlashlightOn        bool
 	WeaverTrackingTimer float64
 	SoundWaveTimer      int
@@ -74,7 +76,7 @@ type Game struct {
 	playerSlowed        bool
 
 	// Phase 9: Particles, screen shake
-	Particles      []Particle
+	Particles      []*particle.Particle
 	shakeDuration  int
 	shakeIntensity float64
 	Ticks          float64
@@ -89,14 +91,14 @@ func NewGame() *Game {
 	w := world.NewWorld(12345)
 
 	// Search for a starting water tile around the center map coordinates
-	spawnX := 50.0 * TileSize
-	spawnY := 50.0 * TileSize
+	spawnX := 50.0 * config.TileSize
+	spawnY := 50.0 * config.TileSize
 	found := false
 	for x := 45; x < 55; x++ {
 		for y := 45; y < 55; y++ {
 			if w.OverworldMap[x][y] == world.TileWater {
-				spawnX = float64(x*TileSize) + (TileSize-20.0)/2.0
-				spawnY = float64(y*TileSize) + (TileSize-20.0)/2.0
+				spawnX = float64(x*config.TileSize) + (config.TileSize-20.0)/2.0
+				spawnY = float64(y*config.TileSize) + (config.TileSize-20.0)/2.0
 				found = true
 				break
 			}
@@ -106,8 +108,8 @@ func NewGame() *Game {
 		}
 	}
 
-	p := player.NewPlayer(spawnX, spawnY, ScreenWidth, ScreenHeight)
-	cam := camera.NewCamera(spawnX, spawnY, ScreenWidth, ScreenHeight)
+	p := player.NewPlayer(spawnX, spawnY)
+	cam := camera.NewCamera(spawnX, spawnY)
 	cam.CenterOn(spawnX, spawnY, p.Width, p.Height)
 
 	// Spawn Base Station (Life Pod 5) slightly offset from the starting coordinates
@@ -132,7 +134,7 @@ func NewGame() *Game {
 		CaveVehicles:      make(map[string][]vehicle.Vehicle),
 		TimeOfDay:         0.0,
 		Sonar:             sonar.NewSonar(),
-		caveEntities:      make(map[string][]CaveEntity),
+		caveEntities:      make(map[string][]entity.CaveEntity),
 		FlashlightOn:      true,
 	}
 
@@ -160,86 +162,6 @@ func (g *Game) TransitionTo(next Scene) {
 		next.OnEnter(g)
 	}
 	g.transitionedThisFrame = true
-}
-
-// EnterCave handles the transition from Overworld to Cave at trench coordinate tx, ty.
-func (g *Game) EnterCave(tx, ty int) {
-	g.ActiveVehicle = nil // Ensure player is on foot in cave to prevent carrying over overworld vehicles
-	g.lastOverworldX = g.player.Pos.X
-	g.lastOverworldY = g.player.Pos.Y
-	g.activeTrenchX = tx
-	g.activeTrenchY = ty
-
-	var activeCave Cave
-	outOfBounds := tx < 0 || tx >= g.world.Width || ty < 0 || ty >= g.world.Height
-
-	if outOfBounds {
-		g.activeTrenchKey = "void_dive"
-		activeCave = NewVoidCave()
-		g.caveState.CaveGrid = nil
-		g.caveState.IsShallow = false
-	} else {
-		g.activeTrenchKey = fmt.Sprintf("%d_%d", tx, ty)
-		grid := g.world.GetCave(tx, ty)
-		g.caveState.CaveGrid = grid
-
-		tile := g.world.OverworldMap[tx][ty]
-		if tile == world.TileTrench {
-			activeCave = NewOrganicTrenchCave(grid)
-			g.caveState.IsShallow = false
-		} else if tile == world.TileWreckage {
-			activeCave = NewWreckageCorridorCave(grid)
-			g.caveState.IsShallow = false
-		} else {
-			activeCave = NewShallowSeabedCave(grid)
-			g.caveState.IsShallow = true
-		}
-	}
-	g.caveState.ActiveCave = activeCave
-
-	if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
-		g.caveNodes[g.activeTrenchKey] = activeCave.GenerateResources(int64(tx*97 + ty*41))
-	}
-	g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
-
-	if _, exists := g.caveEntities[g.activeTrenchKey]; !exists {
-		g.caveEntities[g.activeTrenchKey] = activeCave.GenerateEntities(int64(tx*97 + ty*41))
-	}
-	g.caveState.Entities = g.caveEntities[g.activeTrenchKey]
-
-	if outOfBounds {
-		g.player.Pos.X = float64(30 * TileSize)
-	} else {
-		g.player.Pos.X = float64(len(g.caveState.CaveGrid)/2*TileSize) + (TileSize-g.player.Width)/2
-	}
-	g.player.Pos.Y = TileSize * 2
-	g.player.Vel = gvec.Vec2{}
-
-	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
-	g.TransitionTo(g.caveState)
-}
-
-// ExitCave handles the transition from Cave to Overworld.
-func (g *Game) ExitCave() {
-	targetX := g.lastOverworldX
-	targetY := g.lastOverworldY - TileSize*0.6
-
-	// Fallback to the original entry position (guaranteed to be water/non-solid)
-	// if the shifted target position would place the player inside solid land.
-	if g.overworldState != nil && g.overworldState.isSolid(targetX, targetY, g.player.Width, g.player.Height) {
-		targetX = g.lastOverworldX
-		targetY = g.lastOverworldY
-	}
-
-	g.player.Pos.X = targetX
-	g.player.Pos.Y = targetY
-	g.player.Vel = gvec.Vec2{X: 0, Y: -1.5}
-
-	g.caveNodes[g.activeTrenchKey] = g.caveState.Nodes
-	g.caveEntities[g.activeTrenchKey] = g.caveState.Entities
-
-	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
-	g.TransitionTo(g.overworldState)
 }
 
 // Respawn resets the game completely on death.
@@ -323,7 +245,7 @@ func (g *Game) Update() error {
 	}
 
 	// Update active particles (bubbles, mining debris)
-	g.UpdateParticles()
+	g.Particles = particle.UpdateParticles(g.Particles)
 
 	// Toggle flashlight keybind (T)
 	if g.Input.IsKeyJustPressed(ebiten.KeyT) {
@@ -357,28 +279,28 @@ func (g *Game) Update() error {
 
 	// Debug overrides to switch states manually (forces ejecting vehicle to prevent coordinate glitches)
 	if g.Input.IsKeyJustPressed(ebiten.KeyO) {
-		g.ActiveVehicle = nil
-		g.showInventory = false
-		g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
-		g.TransitionTo(g.overworldState)
+		// g.ActiveVehicle = nil
+		// g.showInventory = false
+		// g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+		// g.TransitionTo(g.overworldState)
 	} else if g.Input.IsKeyJustPressed(ebiten.KeyC) {
 		g.ActiveVehicle = nil
 		g.activeTrenchX = 50
 		g.activeTrenchY = 50
 		g.activeTrenchKey = "50_50"
 		g.caveState.CaveGrid = g.world.GetCave(50, 50)
-		g.player.Pos.X = float64(len(g.caveState.CaveGrid) / 2 * TileSize)
-		g.player.Pos.Y = TileSize * 2
+		g.player.Pos.X = float64(len(g.caveState.CaveGrid) / 2 * config.TileSize)
+		g.player.Pos.Y = config.TileSize * 2
 
-		var activeCave Cave
+		var activeCave cave.Cave
 		grid := g.caveState.CaveGrid
 		tile := g.world.OverworldMap[50][50]
 		if tile == world.TileTrench {
-			activeCave = NewOrganicTrenchCave(grid)
+			activeCave = cave.NewOrganicTrenchCave(grid)
 		} else if tile == world.TileWreckage {
-			activeCave = NewWreckageCorridorCave(grid)
+			activeCave = cave.NewWreckageCorridorCave(grid)
 		} else {
-			activeCave = NewShallowSeabedCave(grid)
+			activeCave = cave.NewShallowSeabedCave(grid)
 		}
 		g.caveState.ActiveCave = activeCave
 
@@ -391,7 +313,7 @@ func (g *Game) Update() error {
 		g.caveState.IsShallow = isShallow
 
 		if _, exists := g.caveEntities[g.activeTrenchKey]; !exists {
-			g.caveEntities[g.activeTrenchKey] = GenerateCaveEntities(g.caveState.CaveGrid, 50*97+50*41, isShallow)
+			g.caveEntities[g.activeTrenchKey] = entity.GenerateCaveEntities(g.caveState.CaveGrid, 50*97+50*41, isShallow)
 		}
 		g.caveState.Entities = g.caveEntities[g.activeTrenchKey]
 
@@ -440,42 +362,6 @@ func (g *Game) Update() error {
 			g.player.CurrentHealth = g.player.MaxHealth
 			g.player.CurrentOxygen = g.player.MaxOxygen
 			g.player.CurrentStamina = g.player.MaxStamina
-		} else if g.Input.IsKeyJustPressed(ebiten.KeyP) {
-			println("--- SUBGAME DEBUG DIAGNOSTICS ---")
-			println("Current State:", g.currentState)
-			if g.currentScene != nil {
-				println("Current Scene Type:", reflect.TypeOf(g.currentScene).String())
-			} else {
-				println("Current Scene is nil")
-			}
-			println("Player Position: X:", g.player.Pos.X, "Y:", g.player.Pos.Y)
-			println("Camera Position: X:", g.camera.Pos.X, "Y:", g.camera.Pos.Y)
-			println("Active Trench Key:", g.activeTrenchKey)
-			if g.caveState != nil {
-				if g.caveState.CaveGrid != nil {
-					println("CaveGrid Dimensions:", len(g.caveState.CaveGrid), "x", len(g.caveState.CaveGrid[0]))
-				} else {
-					println("CaveGrid is nil")
-				}
-				if g.caveState.ActiveCave != nil {
-					println("ActiveCave Type:", reflect.TypeOf(g.caveState.ActiveCave).String())
-				} else {
-					println("ActiveCave is nil")
-				}
-				println("Cave IsShallow:", g.caveState.IsShallow)
-			} else {
-				println("CaveState is nil")
-			}
-			if g.ActiveVehicle != nil {
-				println("Active Vehicle:", g.ActiveVehicle.GetName())
-			} else {
-				println("Active Vehicle: nil (on foot)")
-			}
-			println("Shaders: LightShader:", LightShader != nil, "WaterShader:", WaterDisplacementShader != nil)
-			println("Debug Flags: DisableLight:", g.DebugDisableLightShader, "DisableWater:", g.DebugDisableWaterShader)
-			println("---------------------------------")
-			g.MineWarning = "Logged diagnostics to console!"
-			g.MineWarningTimer = 120
 		}
 	}
 
@@ -492,8 +378,8 @@ func (g *Game) Update() error {
 			if g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 				cursor := g.Input.Cursor()
 				mx, my := int(cursor.X), int(cursor.Y)
-				panelX := float64(ScreenWidth-960) / 2.0
-				panelY := float64(ScreenHeight-360) / 2.0
+				panelX := float64(config.ScreenWidth-960) / 2.0
+				panelY := float64(config.ScreenHeight-360) / 2.0
 
 				pStartX := panelX + 30
 				pStartY := panelY + 60
@@ -612,8 +498,8 @@ func (g *Game) Update() error {
 			if g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 				cursor := g.Input.Cursor()
 				mx, my := int(cursor.X), int(cursor.Y)
-				panelX := float64(ScreenWidth-600) / 2.0
-				panelY := float64(ScreenHeight-420) / 2.0
+				panelX := float64(config.ScreenWidth-600) / 2.0
+				panelY := float64(config.ScreenHeight-420) / 2.0
 				cols := 8
 				slotSz := 56.0
 				gap := 10.0
@@ -703,7 +589,7 @@ func (g *Game) Update() error {
 		limit := g.ActiveVehicle.GetDepthLimit()
 		vPos := g.ActiveVehicle.GetPos()
 		vDims := g.ActiveVehicle.GetDimensions()
-		depth := (vPos.Y + vDims.Y/2.0) / TileSize
+		depth := (vPos.Y + vDims.Y/2.0) / config.TileSize
 
 		if limit > 0.0 && depth > limit {
 			g.ActiveVehicle.TakeDamage(0.08) // Apply crush damage over time
@@ -876,9 +762,10 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 				}
 			}
 		case vehicle.SpawnBubbleCmd:
-			g.SpawnBubble(c.Pos.X, c.Pos.Y)
+			g.Particles = append(g.Particles, particle.NewBubbleParticle(c.Pos.X, c.Pos.Y))
 		case vehicle.SpawnDebrisCmd:
-			g.SpawnDebris(c.Pos.X, c.Pos.Y, c.Color)
+			p := particle.NewDebrisParticles(c.Pos.X, c.Pos.Y, c.Color)
+			g.Particles = append(g.Particles, p...)
 		case vehicle.TriggerShakeCmd:
 			g.TriggerScreenShake(c.Duration, c.Intensity)
 		}
@@ -894,7 +781,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Draw active particles if in overworld or cave
 	if g.currentState == StateOverworld || g.currentState == StateCave {
-		g.DrawParticles(screen)
+		particle.DrawParticles(screen, g.Particles, g.camera.Pos.X, g.camera.Pos.Y)
 	}
 
 	// 2. Render general scene independent overlays (overworld vehicles, Life Pod in overworld)
@@ -958,8 +845,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Draw Warning messages if active
 	if g.MineWarningTimer > 0 {
-		wx := float32(ScreenWidth)/2.0 - 160
-		wy := float32(ScreenHeight) / 4.0
+		wx := float32(config.ScreenWidth)/2.0 - 160
+		wy := float32(config.ScreenHeight) / 4.0
 		vector.FillRect(screen, wx, wy, 320, 30, color.RGBA{24, 6, 8, 220}, false)
 		vector.StrokeRect(screen, wx, wy, 320, 30, 1.2, color.RGBA{235, 45, 45, 255}, false)
 		ebitenutil.DebugPrintAt(screen, g.MineWarning, int(wx)+12, int(wy)+7)
@@ -968,5 +855,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 // Layout determines the virtual game screen resolution.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return ScreenWidth, ScreenHeight
+	return config.ScreenWidth, config.ScreenHeight
+}
+
+func (g *Game) SpawnPlankton(x, y float64) {
+	g.Particles = append(g.Particles, particle.NewPlanktonParticle(x, y))
+}
+
+func (g *Game) SpawnDebris(x, y float64, clr color.RGBA) {
+	g.Particles = append(g.Particles, particle.NewDebrisParticles(x, y, clr)...)
 }

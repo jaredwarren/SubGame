@@ -1,4 +1,4 @@
-package game
+package cave
 
 import (
 	"image/color"
@@ -7,6 +7,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -26,7 +28,7 @@ type Cave interface {
 	GetGrid() [][]bool
 	DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64)
 	DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int)
-	GenerateEntities(seed int64) []CaveEntity
+	GenerateEntities(seed int64) []entity.CaveEntity
 	GenerateResources(seed int64) []resource.Resource
 }
 
@@ -52,7 +54,7 @@ func (c *VoidCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTile
 	// No tiles in the void
 }
 
-func (c *VoidCave) GenerateEntities(seed int64) []CaveEntity {
+func (c *VoidCave) GenerateEntities(seed int64) []entity.CaveEntity {
 	return nil
 }
 
@@ -84,7 +86,7 @@ func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camY float64, m
 	maxDarken := 0.45 + (1.0-lightMult)*0.45
 
 	const stripH = float32(6)
-	for sy := float32(0); sy < float32(ScreenHeight); sy += stripH {
+	for sy := float32(0); sy < float32(config.ScreenHeight); sy += stripH {
 		worldY := camY + float64(sy)
 		depthFrac := 0.0
 		if worldY > 0 {
@@ -100,7 +102,7 @@ func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camY float64, m
 			B: uint8(baseB * darkFactor),
 			A: 255,
 		}
-		vector.FillRect(screen, 0, sy, float32(ScreenWidth), stripH, sc, false)
+		vector.FillRect(screen, 0, sy, float32(config.ScreenWidth), stripH, sc, false)
 	}
 }
 
@@ -108,21 +110,20 @@ func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
 			if c.Grid[tx][ty] {
-				sx := float32(tx*TileSize - int(camX))
-				sy := float32(ty*TileSize - int(camY))
+				sx := float32(tx*config.TileSize - int(camX))
+				sy := float32(ty*config.TileSize - int(camY))
 				rockColor := color.RGBA{180, 155, 100, 255}
 				strokeColor := color.RGBA{210, 185, 120, 255}
-				vector.FillRect(screen, sx, sy, TileSize, TileSize, rockColor, false)
-				vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, strokeColor, false)
+				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
+				vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
 			}
 		}
 	}
 }
 
-func (c *ShallowSeabedCave) GenerateEntities(seed int64) []CaveEntity {
-	return GenerateCaveEntities(c.Grid, seed, true)
+func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
+	return entity.GenerateCaveEntities(c.Grid, seed, true)
 }
-
 
 func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
 	// Standard depth generation delegate (depth tier 0)
@@ -153,8 +154,8 @@ func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
 			if c.Grid[tx][ty] {
-				sx := float32(tx*TileSize - int(camX))
-				sy := float32(ty*TileSize - int(camY))
+				sx := float32(tx*config.TileSize - int(camX))
+				sy := float32(ty*config.TileSize - int(camY))
 
 				var rockColor, strokeColor color.RGBA
 				if ty < 40 {
@@ -179,16 +180,16 @@ func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 					strokeColor = color.RGBA{210, 210, 220, 255}
 				}
 
-				vector.FillRect(screen, sx, sy, TileSize, TileSize, rockColor, false)
-				vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, strokeColor, false)
+				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
+				vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
 			}
 		}
 	}
 }
 
-func (c *OrganicTrenchCave) GenerateEntities(seed int64) []CaveEntity {
+func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
 	// Re-uses original GenerateCaveEntities but forces organic trench spawning (isShallow = false)
-	return GenerateCaveEntities(c.Grid, seed, false)
+	return entity.GenerateCaveEntities(c.Grid, seed, false)
 }
 
 func (c *OrganicTrenchCave) GenerateResources(seed int64) []resource.Resource {
@@ -217,12 +218,12 @@ func (c *WreckageCorridorCave) DrawBackground(screen *ebiten.Image, camY float64
 	// Optional: render faint background steel pillars or grid lines for industrial feel
 	const lineGap = 40.0
 	offsetX := float32(math.Mod(camY*0.1, lineGap))
-	for x := float32(0); x < float32(ScreenWidth); x += lineGap {
-		vector.StrokeLine(screen, x, 0, x, float32(ScreenHeight), 0.8, color.RGBA{20, 24, 30, 255}, false)
+	for x := float32(0); x < float32(config.ScreenWidth); x += lineGap {
+		vector.StrokeLine(screen, x, 0, x, float32(config.ScreenHeight), 0.8, color.RGBA{20, 24, 30, 255}, false)
 	}
-	for y := float32(0); y < float32(ScreenHeight); y += lineGap {
+	for y := float32(0); y < float32(config.ScreenHeight); y += lineGap {
 		sy := y - offsetX
-		vector.StrokeLine(screen, 0, sy, float32(ScreenWidth), sy, 0.8, color.RGBA{20, 24, 30, 255}, false)
+		vector.StrokeLine(screen, 0, sy, float32(config.ScreenWidth), sy, 0.8, color.RGBA{20, 24, 30, 255}, false)
 	}
 }
 
@@ -230,39 +231,47 @@ func (c *WreckageCorridorCave) DrawTiles(screen *ebiten.Image, camX, camY float6
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
 			if c.Grid[tx][ty] {
-				sx := float32(tx*TileSize - int(camX))
-				sy := float32(ty*TileSize - int(camY))
+				sx := float32(tx*config.TileSize - int(camX))
+				sy := float32(ty*config.TileSize - int(camY))
 
 				// Steel gray bulkhead panels
 				rockColor := color.RGBA{52, 58, 68, 255}
 				strokeColor := color.RGBA{85, 80, 75, 255}
 
-				vector.FillRect(screen, sx, sy, TileSize, TileSize, rockColor, false)
-				vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 1.2, strokeColor, false)
+				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
+				vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 1.2, strokeColor, false)
 
 				// Draw diagonal yellow-and-black hazard warning lines along bulkheads that border corridors
 				hasBorder := false
-				if tx > 0 && !c.Grid[tx-1][ty] { hasBorder = true }
-				if tx < len(c.Grid)-1 && !c.Grid[tx+1][ty] { hasBorder = true }
-				if ty > 0 && !c.Grid[tx][ty-1] { hasBorder = true }
-				if ty < len(c.Grid[0])-1 && !c.Grid[tx][ty+1] { hasBorder = true }
+				if tx > 0 && !c.Grid[tx-1][ty] {
+					hasBorder = true
+				}
+				if tx < len(c.Grid)-1 && !c.Grid[tx+1][ty] {
+					hasBorder = true
+				}
+				if ty > 0 && !c.Grid[tx][ty-1] {
+					hasBorder = true
+				}
+				if ty < len(c.Grid[0])-1 && !c.Grid[tx][ty+1] {
+					hasBorder = true
+				}
 
 				if hasBorder {
 					stripeColor := color.RGBA{215, 175, 30, 160} // Rusted safety yellow
 					// Draw diagonal warning lines across the bulkhead
 					vector.StrokeLine(screen, sx, sy+8, sx+8, sy, 2.0, stripeColor, false)
 					vector.StrokeLine(screen, sx, sy+24, sx+24, sy, 2.0, stripeColor, false)
-					vector.StrokeLine(screen, sx+16, sy+TileSize, sx+TileSize, sy+16, 2.0, stripeColor, false)
-					vector.StrokeLine(screen, sx+32, sy+TileSize, sx+TileSize, sy+32, 2.0, stripeColor, false)
+					vector.StrokeLine(screen, sx+16, sy+config.TileSize, sx+config.TileSize, sy+16, 2.0, stripeColor, false)
+					vector.StrokeLine(screen, sx+32, sy+config.TileSize, sx+config.TileSize, sy+32, 2.0, stripeColor, false)
 				}
 			}
 		}
 	}
 }
 
-func (c *WreckageCorridorCave) GenerateEntities(seed int64) []CaveEntity {
+func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity {
 	r := rand.New(rand.NewSource(seed))
-	var entities []CaveEntity
+	var entities []entity.CaveEntity
 
 	gridW := len(c.Grid)
 	gridH := len(c.Grid[0])
@@ -275,10 +284,10 @@ func (c *WreckageCorridorCave) GenerateEntities(seed int64) []CaveEntity {
 			// Wreckage caves only spawn static Shatter-bulb plants (emergency lighting bulbs) on walls
 			hasAdjacentWall := c.Grid[tx-1][ty] || c.Grid[tx+1][ty] || c.Grid[tx][ty-1] || c.Grid[tx][ty+1]
 			if hasAdjacentWall && r.Float64() < 0.05 {
-				entities = append(entities, &ShatterBulb{
-					BaseEntity: BaseEntity{
-						Type:       EntShatterBulb,
-						Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
+				entities = append(entities, &entity.ShatterBulb{
+					BaseEntity: entity.BaseEntity{
+						Type:       entity.EntShatterBulb,
+						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
 						Dimensions: gvec.Vec2{X: 24, Y: 24},
 						Active:     true,
 					},

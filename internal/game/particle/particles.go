@@ -1,4 +1,4 @@
-package game
+package particle
 
 import (
 	"image/color"
@@ -29,12 +29,11 @@ type Particle struct {
 	Wobble float64
 }
 
-// SpawnBubble spawns a floating bubble particle at the specified position.
-func (g *Game) SpawnBubble(x, y float64) {
+func NewBubbleParticle(x, y float64) *Particle {
 	vx := (rand.Float64() - 0.5) * 0.4
 	vy := -rand.Float64()*0.8 - 0.4 // floating upwards
 
-	g.Particles = append(g.Particles, Particle{
+	return &Particle{
 		Pos:    gvec.Vec2{X: x, Y: y},
 		Vel:    gvec.Vec2{X: vx, Y: vy},
 		Color:  color.RGBA{200, 230, 255, 160},
@@ -43,18 +42,18 @@ func (g *Game) SpawnBubble(x, y float64) {
 		Life:   1.0,
 		Decay:  rand.Float64()*0.01 + 0.008,
 		Wobble: rand.Float64() * 10.0,
-	})
+	}
 }
 
-// SpawnDebris spawns a shower of colored mineral debris particles.
-func (g *Game) SpawnDebris(x, y float64, c color.RGBA) {
+func NewDebrisParticles(x, y float64, c color.RGBA) []*Particle {
+	particles := make([]*Particle, 6)
 	for i := 0; i < 6; i++ {
 		angle := rand.Float64() * 2.0 * math.Pi
 		speed := rand.Float64()*1.6 + 0.6
 		vx := math.Cos(angle) * speed
 		vy := math.Sin(angle)*speed - 0.4
 
-		g.Particles = append(g.Particles, Particle{
+		particles[i] = &Particle{
 			Pos:   gvec.Vec2{X: x, Y: y},
 			Vel:   gvec.Vec2{X: vx, Y: vy},
 			Color: c,
@@ -62,16 +61,16 @@ func (g *Game) SpawnDebris(x, y float64, c color.RGBA) {
 			Size:  float32(rand.Float64()*3.0 + 1.5),
 			Life:  1.0,
 			Decay: rand.Float64()*0.025 + 0.015,
-		})
+		}
 	}
+	return particles
 }
 
-// SpawnPlankton spawns a slow-drifting plankton / marine snow particle.
-func (g *Game) SpawnPlankton(x, y float64) {
+func NewPlanktonParticle(x, y float64) *Particle {
 	vx := (rand.Float64() - 0.5) * 0.15
 	vy := rand.Float64()*0.2 + 0.1 // floating downwards slowly
 
-	g.Particles = append(g.Particles, Particle{
+	return &Particle{
 		Pos:    gvec.Vec2{X: x, Y: y},
 		Vel:    gvec.Vec2{X: vx, Y: vy},
 		Color:  color.RGBA{220, 240, 255, 120}, // soft translucent white/cyan
@@ -80,13 +79,13 @@ func (g *Game) SpawnPlankton(x, y float64) {
 		Life:   1.0,
 		Decay:  rand.Float64()*0.003 + 0.002, // long-lived
 		Wobble: rand.Float64() * 100.0,
-	})
+	}
 }
 
 // UpdateParticles updates all active particles and decays/reaps them.
-func (g *Game) UpdateParticles() {
-	var active []Particle
-	for _, p := range g.Particles {
+func UpdateParticles(particles []*Particle) []*Particle {
+	var active []*Particle
+	for _, p := range particles {
 		p.Life -= p.Decay
 		if p.Life <= 0 {
 			continue
@@ -108,15 +107,12 @@ func (g *Game) UpdateParticles() {
 		}
 		active = append(active, p)
 	}
-	g.Particles = active
+	return active
 }
 
 // DrawParticles renders the active particles.
-func (g *Game) DrawParticles(screen *ebiten.Image) {
-	camX := g.camera.Pos.X
-	camY := g.camera.Pos.Y
-
-	for _, p := range g.Particles {
+func DrawParticles(screen *ebiten.Image, particles []*Particle, camX, camY float64) {
+	for _, p := range particles {
 		if p.Type == ParticlePlankton {
 			// Skip plankton, drawn in the cave background layer
 			continue

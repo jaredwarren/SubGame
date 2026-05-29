@@ -8,13 +8,14 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 )
 
 // TitleScene manages the title screen.
 type TitleScene struct {
-	backgroundImage   *ebiten.Image
-	backgroundLoadErr error
-	titleText         string
+	backgroundImage        *ebiten.Image
+	backgroundLoadErr      error
+	titleText              string
 	btnX, btnY, btnW, btnH float64
 }
 
@@ -25,7 +26,7 @@ func NewTitleScene() *TitleScene {
 		btnW:      240,
 		btnH:      60,
 	}
-	s.btnX = (float64(ScreenWidth) - s.btnW) / 2.0
+	s.btnX = (float64(config.ScreenWidth) - s.btnW) / 2.0
 	s.btnY = 460.0
 
 	// Try loading the background image from potential paths
@@ -85,36 +86,36 @@ func (s *TitleScene) Draw(g *Game, screen *ebiten.Image) {
 		// Scale background image to fit ScreenWidth x ScreenHeight
 		bounds := s.backgroundImage.Bounds()
 		op := &ebiten.DrawImageOptions{}
-		scaleX := float64(ScreenWidth) / float64(bounds.Dx())
-		scaleY := float64(ScreenHeight) / float64(bounds.Dy())
+		scaleX := float64(config.ScreenWidth) / float64(bounds.Dx())
+		scaleY := float64(config.ScreenHeight) / float64(bounds.Dy())
 		op.GeoM.Scale(scaleX, scaleY)
 		screen.DrawImage(s.backgroundImage, op)
 	} else {
 		// Fallback deep sea background gradient
-		for y := 0; y < ScreenHeight; y++ {
+		for y := 0; y < config.ScreenHeight; y++ {
 			// Navy to dark cyan gradient
-			ratio := float64(y) / float64(ScreenHeight)
+			ratio := float64(y) / float64(config.ScreenHeight)
 			r := uint8(5 - 5*ratio)
 			gr := uint8(20 - 15*ratio)
 			b := uint8(45 - 25*ratio)
-			vector.StrokeLine(screen, 0, float32(y), float32(ScreenWidth), float32(y), 1.0, color.RGBA{R: r, G: gr, B: b, A: 255}, false)
+			vector.StrokeLine(screen, 0, float32(y), float32(config.ScreenWidth), float32(y), 1.0, color.RGBA{R: r, G: gr, B: b, A: 255}, false)
 		}
 	}
 
 	// Draw dark blue/black semi-transparent overlay to ensure text contrast
-	vector.FillRect(screen, 0, 0, ScreenWidth, ScreenHeight, color.RGBA{R: 0, G: 4, B: 12, A: 160}, false)
+	vector.FillRect(screen, 0, 0, config.ScreenWidth, config.ScreenHeight, color.RGBA{R: 0, G: 4, B: 12, A: 160}, false)
 
 	// 2. Draw Game Title
 	// Scale the text using a temporary image to make it look large and pixelated
 	titleImg := ebiten.NewImage(200, 20)
 	ebitenutil.DebugPrintAt(titleImg, s.titleText, 40, 2)
-	
+
 	op := &ebiten.DrawImageOptions{}
 	// Scale title up by 5x
 	scale := 5.0
 	titleW := 200.0 * scale
 	titleH := 20.0 * scale
-	tx := (float64(ScreenWidth) - titleW) / 2.0
+	tx := (float64(config.ScreenWidth) - titleW) / 2.0
 	ty := 150.0
 	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(tx, ty)
@@ -122,7 +123,7 @@ func (s *TitleScene) Draw(g *Game, screen *ebiten.Image) {
 
 	// Subtitle
 	subText := "D E E P   O C E A N   S U R V I V A L   A D V E N T U R E"
-	subX := (ScreenWidth - len(subText)*6) / 2
+	subX := (config.ScreenWidth - len(subText)*6) / 2
 	ebitenutil.DebugPrintAt(screen, subText, subX, int(ty+titleH+20))
 
 	// 3. Draw "Dive" Button
@@ -151,20 +152,20 @@ func (s *TitleScene) Draw(g *Game, screen *ebiten.Image) {
 	// Draw slightly larger than debug print using a 2x scale
 	btnTextImg := ebiten.NewImage(80, 16)
 	ebitenutil.DebugPrintAt(btnTextImg, btnText, 20, 0)
-	
+
 	btnTextOp := &ebiten.DrawImageOptions{}
 	btnTextScale := 2.0
 	btnTextW := 80.0 * btnTextScale
 	btnTextH := 16.0 * btnTextScale
 	btnTextX := s.btnX + (s.btnW-btnTextW)/2.0
 	btnTextY := s.btnY + (s.btnH-btnTextH)/2.0
-	
+
 	btnTextOp.GeoM.Scale(btnTextScale, btnTextScale)
 	btnTextOp.GeoM.Translate(btnTextX, btnTextY)
 	screen.DrawImage(btnTextImg, btnTextOp)
 
 	// Draw instructions at the bottom
 	instText := "Press ENTER or Click DIVE to begin your descent"
-	instX := (ScreenWidth - len(instText)*6) / 2
+	instX := (config.ScreenWidth - len(instText)*6) / 2
 	ebitenutil.DebugPrintAt(screen, instText, instX, int(s.btnY+s.btnH+40))
 }

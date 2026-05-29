@@ -1,4 +1,4 @@
-package game
+package shader
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"

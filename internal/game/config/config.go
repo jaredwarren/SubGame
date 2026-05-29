@@ -1,4 +1,4 @@
-package game
+package config
 
 // Configuration constants for the game
 const (

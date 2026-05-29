@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
@@ -92,7 +93,7 @@ func TestPlayer_UpdateStats(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := player.NewPlayer(0, 0, ScreenWidth, ScreenHeight)
+			p := player.NewPlayer(0, 0)
 			p.CurrentOxygen = tt.initialO2
 			p.CurrentHealth = tt.initialHp
 			p.CurrentStamina = tt.initialSt
@@ -342,8 +343,8 @@ func TestBaseMenu_InstallUpgrade(t *testing.T) {
 		panelW = 800
 		panelH = 500
 	)
-	panelX := float64(ScreenWidth-panelW) / 2.0
-	panelY := float64(ScreenHeight-panelH) / 2.0
+	panelX := float64(config.ScreenWidth-panelW) / 2.0
+	panelY := float64(config.ScreenHeight-panelH) / 2.0
 
 	mockInput.CursorPos = gvec.Vec2{X: panelX + 65, Y: panelY + 160}
 	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
@@ -422,8 +423,8 @@ func TestBaseMenu_FabricatorScrollAndCraft(t *testing.T) {
 		panelW = 800
 		panelH = 500
 	)
-	panelX := float64(ScreenWidth-panelW) / 2.0
-	panelY := float64(ScreenHeight-panelH) / 2.0
+	panelX := float64(config.ScreenWidth-panelW) / 2.0
+	panelY := float64(config.ScreenHeight-panelH) / 2.0
 	startX := panelX + 30
 
 	btnX := startX + 560
@@ -470,7 +471,7 @@ func TestBaseMenu_FabricatorScrollAndCraft(t *testing.T) {
 }
 
 func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
-	p := player.NewPlayer(0, 0, ScreenWidth, ScreenHeight)
+	p := player.NewPlayer(0, 0)
 
 	// Initially, player stats should be default
 	if item.HasItem[*item.Fins](p.Upgrades, 1) {

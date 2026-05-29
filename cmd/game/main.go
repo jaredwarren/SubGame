@@ -5,12 +5,13 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 )
 
 func main() {
 	// Configure Ebitengine window options
-	ebiten.SetWindowSize(game.ScreenWidth, game.ScreenHeight)
-	ebiten.SetWindowTitle(game.Title)
+	ebiten.SetWindowSize(config.ScreenWidth, config.ScreenHeight)
+	ebiten.SetWindowTitle(config.Title)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	// Create and start the game loop

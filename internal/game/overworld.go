@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -93,8 +94,8 @@ func (o *OverworldScene) Update(g *Game) error {
 	p.UpdateStats(false, isSprinting && isMoving && moving)
 
 	// Check if player is overlapping a Trench or Water tile to trigger dive transition
-	tx := int(p.Pos.X+p.Width/2) / TileSize
-	ty := int(p.Pos.Y+p.Height/2) / TileSize
+	tx := int(p.Pos.X+p.Width/2) / config.TileSize
+	ty := int(p.Pos.Y+p.Height/2) / config.TileSize
 	if tx < 0 || tx >= o.World.Width || ty < 0 || ty >= o.World.Height {
 		if g.Input.IsKeyJustPressed(ebiten.KeyE) {
 			g.EnterCave(tx, ty)
@@ -135,10 +136,10 @@ func (o *OverworldScene) checkCollisions(p *player.Player) {
 
 // isSolid checks if the proposed bounding box overlaps with solid land.
 func (o *OverworldScene) isSolid(x, y, w, h float64) bool {
-	x1 := int(math.Floor(x)) / TileSize
-	x2 := int(math.Floor(x+w)) / TileSize
-	y1 := int(math.Floor(y)) / TileSize
-	y2 := int(math.Floor(y+h)) / TileSize
+	x1 := int(math.Floor(x)) / config.TileSize
+	x2 := int(math.Floor(x+w)) / config.TileSize
+	y1 := int(math.Floor(y)) / config.TileSize
+	y2 := int(math.Floor(y+h)) / config.TileSize
 
 	for tx := x1; tx <= x2; tx++ {
 		for ty := y1; ty <= y2; ty++ {
@@ -163,15 +164,15 @@ func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
 	camY := camera.Pos.Y
 
 	// Render tiles that fall within screen viewport bounds
-	startTileX := int(camX) / TileSize
-	endTileX := (int(camX)+ScreenWidth)/TileSize + 1
-	startTileY := int(camY) / TileSize
-	endTileY := (int(camY)+ScreenHeight)/TileSize + 1
+	startTileX := int(camX) / config.TileSize
+	endTileX := (int(camX)+config.ScreenWidth)/config.TileSize + 1
+	startTileY := int(camY) / config.TileSize
+	endTileY := (int(camY)+config.ScreenHeight)/config.TileSize + 1
 
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
-			sx := float32(tx*TileSize - int(camX))
-			sy := float32(ty*TileSize - int(camY))
+			sx := float32(tx*config.TileSize - int(camX))
+			sy := float32(ty*config.TileSize - int(camY))
 
 			// Clamp coordinates to find the nearest in-bounds tile for base color
 			clampedTx := tx
@@ -270,15 +271,15 @@ func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
 			tileClr = applyLight(tileClr, mult)
 			strokeClr = applyLight(strokeClr, mult)
 
-			vector.FillRect(screen, sx, sy, TileSize, TileSize, tileClr, false)
-			vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, strokeClr, false)
+			vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, tileClr, false)
+			vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeClr, false)
 		}
 	}
 
 	// If player is sitting on a Trench, display dive prompt overlay (only if not piloting a vehicle)
 	if !isPiloting {
-		pTileX := int(g.player.Pos.X+g.player.Width/2) / TileSize
-		pTileY := int(g.player.Pos.Y+g.player.Height/2) / TileSize
+		pTileX := int(g.player.Pos.X+g.player.Width/2) / config.TileSize
+		pTileY := int(g.player.Pos.Y+g.player.Height/2) / config.TileSize
 		if pTileX < 0 || pTileX >= o.World.Width || pTileY < 0 || pTileY >= o.World.Height {
 			promptText := "Press [E] to Dive into Void"
 			promptX := float32(g.player.CenterX()) - 95

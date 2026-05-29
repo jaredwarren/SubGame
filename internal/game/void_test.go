@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -37,11 +39,11 @@ func TestVoidCaveCreation(t *testing.T) {
 	g.ActiveVehicle = nil // Diver on foot
 
 	// Sail/swim out of bounds
-	g.player.Pos = gvec.Vec2{X: -10 * TileSize, Y: -10 * TileSize}
+	g.player.Pos = gvec.Vec2{X: -10 * config.TileSize, Y: -10 * config.TileSize}
 
 	// Dive by calling EnterCave directly with out-of-bounds coordinates
-	tx := int(g.player.Pos.X) / TileSize
-	ty := int(g.player.Pos.Y) / TileSize
+	tx := int(g.player.Pos.X) / config.TileSize
+	ty := int(g.player.Pos.Y) / config.TileSize
 	g.EnterCave(tx, ty)
 
 	// Verify that we are in the cave state
@@ -53,7 +55,7 @@ func TestVoidCaveCreation(t *testing.T) {
 	if g.caveState.ActiveCave == nil {
 		t.Fatal("expected ActiveCave to be set")
 	}
-	if g.caveState.ActiveCave.GetCaveType() != CaveVoid {
+	if g.caveState.ActiveCave.GetCaveType() != cave.CaveVoid {
 		t.Errorf("expected ActiveCave type to be CaveVoid, got %v", g.caveState.ActiveCave.GetCaveType())
 	}
 
@@ -63,7 +65,7 @@ func TestVoidCaveCreation(t *testing.T) {
 	}
 
 	// Verify player starting position
-	expectedStartX := float64(30 * TileSize)
+	expectedStartX := float64(30 * config.TileSize)
 	if g.player.Pos.X != expectedStartX {
 		t.Errorf("expected player starting X in Void Cave to be %f, got %f", expectedStartX, g.player.Pos.X)
 	}
@@ -95,7 +97,7 @@ func TestVoidCaveFirstFrameCoords(t *testing.T) {
 	g.ActiveVehicle = nil // Player on foot swimming on overworld
 
 	// Set player position out of bounds (tx = -10, ty = -10)
-	g.player.Pos = gvec.Vec2{X: -10 * TileSize, Y: -10 * TileSize}
+	g.player.Pos = gvec.Vec2{X: -10 * config.TileSize, Y: -10 * config.TileSize}
 
 	// Set camera position to track player in overworld
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
@@ -122,7 +124,7 @@ func TestVoidCaveFirstFrameCoords(t *testing.T) {
 	t.Logf("Draw 1 uniforms: LightSource = %+v, PersonalRadius = %v", g.caveState.uniforms["LightSource"], g.caveState.uniforms["PersonalRadius"])
 
 	// Check if player position is correct (1920, 128)
-	if g.player.Pos.X != float64(30 * TileSize) || g.player.Pos.Y != TileSize * 2 {
+	if g.player.Pos.X != float64(30 * config.TileSize) || g.player.Pos.Y != config.TileSize * 2 {
 		t.Errorf("expected player pos to be (1920, 128), got %+v", g.player.Pos)
 	}
 
@@ -212,7 +214,7 @@ func TestWreckageCaveGeneration(t *testing.T) {
 	}
 
 	// Assert active cave type is wreckage
-	if g.caveState.ActiveCave.GetCaveType() != CaveWreckage {
+	if g.caveState.ActiveCave.GetCaveType() != cave.CaveWreckage {
 		t.Errorf("expected active cave to be CaveWreckage, got %v", g.caveState.ActiveCave.GetCaveType())
 	}
 
@@ -252,8 +254,8 @@ func TestCaveExitLandSpawningFix(t *testing.T) {
 
 	// Place the player at (10, 10) in pixel coordinates, but close to the top of the tile
 	// so that shifting up by TileSize*0.6 would normally push them into (10, 9).
-	playerStartX := float64(tx*TileSize + 10)
-	playerStartY := float64(ty*TileSize + 5)
+	playerStartX := float64(tx*config.TileSize + 10)
+	playerStartY := float64(ty*config.TileSize + 5)
 	g.player.Pos = gvec.Vec2{X: playerStartX, Y: playerStartY}
 
 	// Enter the cave. This sets lastOverworldX/Y.
@@ -287,7 +289,7 @@ func TestCaveExitLandSpawningFix(t *testing.T) {
 	g.EnterCave(tx, ty)
 	g.ExitCave()
 
-	expectedY := playerStartY - TileSize*0.6
+	expectedY := playerStartY - config.TileSize*0.6
 	if g.player.Pos.Y != expectedY {
 		t.Errorf("expected player Y to be shifted to %f, got %f", expectedY, g.player.Pos.Y)
 	}

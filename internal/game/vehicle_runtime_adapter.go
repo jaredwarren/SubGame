@@ -2,6 +2,7 @@ package game
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	gv "github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
@@ -50,7 +51,7 @@ func (a *vehicleRuntimeAdapter) Input() gv.InputSource {
 }
 
 func (a *vehicleRuntimeAdapter) PlayerScreenCenter() gvec.Vec2 {
-	return gvec.Vec2{X: ScreenWidth / 2.0, Y: ScreenHeight / 2.0}
+	return gvec.Vec2{X: config.ScreenWidth / 2.0, Y: config.ScreenHeight / 2.0}
 }
 
 func (a *vehicleRuntimeAdapter) PlayerSlowed() bool {

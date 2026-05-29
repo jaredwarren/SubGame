@@ -8,6 +8,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -85,9 +87,9 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		}
 
 		timeText := fmt.Sprintf("Time: %02d:%02d %s (%s)", displayHour, minute, period, dayPhase)
-		
-		tx := int(g.player.Pos.X+g.player.Width/2) / TileSize
-		ty := int(g.player.Pos.Y+g.player.Height/2) / TileSize
+
+		tx := int(g.player.Pos.X+g.player.Width/2) / config.TileSize
+		ty := int(g.player.Pos.Y+g.player.Height/2) / config.TileSize
 		outOfBounds := tx < 0 || tx >= g.world.Width || ty < 0 || ty >= g.world.Height
 
 		var posText, zoneText, depthText string
@@ -121,7 +123,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		ebitenutil.DebugPrintAt(screen, "DIVE TELEMETRY", int(telX)+26, int(telY)+8)
 
 		// Depth in meters (1 tile = 1 meter)
-		depth := (g.player.Pos.Y + g.player.Height/2.0) / TileSize
+		depth := (g.player.Pos.Y + g.player.Height/2.0) / config.TileSize
 
 		var depthText, pressText, trenchText string
 		pressure := 1.0 + depth*0.1
@@ -129,7 +131,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 		depthText = fmt.Sprintf("Depth: %.1fm", depth)
 		pressText = fmt.Sprintf("Pressure: %.2f atm", pressure)
 
-		if g.caveState.ActiveCave != nil && g.caveState.ActiveCave.GetCaveType() == CaveVoid {
+		if g.caveState.ActiveCave != nil && g.caveState.ActiveCave.GetCaveType() == cave.CaveVoid {
 			trenchText = "Trench Origin: ???"
 		} else {
 			trenchText = fmt.Sprintf("Trench Origin: (%d, %d)", g.activeTrenchX, g.activeTrenchY)
@@ -157,7 +159,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 
 	// Panel dimensions and placement
 	hudX := float32(20) + jx
-	hudY := float32(ScreenHeight-140) + jy
+	hudY := float32(config.ScreenHeight-140) + jy
 	const (
 		w    = 280
 		hBar = 18
@@ -193,8 +195,8 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 			vHudW = 240
 			vHudH = 90
 		)
-		vHudX := float32(ScreenWidth-vHudW-20) + jx
-		vHudY := float32(ScreenHeight-vHudH-20) + jy
+		vHudX := float32(config.ScreenWidth-vHudW-20) + jx
+		vHudY := float32(config.ScreenHeight-vHudH-20) + jy
 
 		vector.FillRect(screen, vHudX, vHudY, vHudW, vHudH, color.RGBA{18, 24, 38, 200}, false)
 		vector.StrokeRect(screen, vHudX, vHudY, vHudW, vHudH, 1.5, color.RGBA{70, 90, 120, 255}, false)
@@ -212,9 +214,9 @@ func (h *HUD) Draw(screen *ebiten.Image, g *Game) {
 
 	// Display warning banner at top center if tracked by Weaver
 	if g.currentState == StateCave && g.WeaverTrackingTimer > 0 {
-		vector.FillRect(screen, float32(ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, color.RGBA{24, 12, 10, 220}, false)
-		vector.StrokeRect(screen, float32(ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, 1.2, color.RGBA{230, 75, 45, 255}, false)
-		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[WARNING: ELECTRICAL STATIC DETECTED (%.0f%%)]", (g.WeaverTrackingTimer/300.0)*100.0), ScreenWidth/2-160+int(jx), 20+int(jy))
+		vector.FillRect(screen, float32(config.ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, color.RGBA{24, 12, 10, 220}, false)
+		vector.StrokeRect(screen, float32(config.ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, 1.2, color.RGBA{230, 75, 45, 255}, false)
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[WARNING: ELECTRICAL STATIC DETECTED (%.0f%%)]", (g.WeaverTrackingTimer/300.0)*100.0), config.ScreenWidth/2-160+int(jx), 20+int(jy))
 	}
 
 	// Render inventory overlay
@@ -259,8 +261,8 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *item.Inventory) 
 		gap    = 10
 	)
 
-	panelX := float32(ScreenWidth-panelW) / 2.0
-	panelY := float32(ScreenHeight-panelH) / 2.0
+	panelX := float32(config.ScreenWidth-panelW) / 2.0
+	panelY := float32(config.ScreenHeight-panelH) / 2.0
 
 	// Draw panel background panel (translucent glass/steel design)
 	panelBg := color.RGBA{14, 20, 32, 238}
@@ -325,7 +327,7 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g *Game, inv *item.Inventory) 
 	gearY := startY + float32(rows*(slotSz+gap)) + 5.0
 	ebitenutil.DebugPrintAt(screen, "EQUIPPED GEAR (CLICK ITEM TO EQUIP / UNEQUIP)", int(panelX)+20, int(gearY))
 
-	gearStartX := panelX + (panelW - (4.0 * float32(slotSz) + 3.0 * float32(gap))) / 2.0
+	gearStartX := panelX + (panelW-(4.0*float32(slotSz)+3.0*float32(gap)))/2.0
 	gearSlotsY := gearY + 22.0
 
 	for c := 0; c < 4; c++ {
@@ -381,8 +383,8 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g *Game, pInv *item.Inv
 		gap    = 8
 	)
 
-	panelX := float32(ScreenWidth-panelW) / 2.0
-	panelY := float32(ScreenHeight-panelH) / 2.0
+	panelX := float32(config.ScreenWidth-panelW) / 2.0
+	panelY := float32(config.ScreenHeight-panelH) / 2.0
 
 	// Draw panel background
 	panelBg := color.RGBA{14, 20, 32, 238}

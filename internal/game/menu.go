@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
@@ -139,28 +140,28 @@ var CraftingRecipes = []Recipe{
 		},
 	},
 	{
-		NewResult: func() item.Item { return &item.CookedFish{} },
+		NewResult:      func() item.Item { return &item.CookedFish{} },
 		ResultQuantity: 1,
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.RawFish{} }, Quantity: 1},
 		},
 	},
 	{
-		NewResult: func() item.Item { return &item.CookedCrab{} },
+		NewResult:      func() item.Item { return &item.CookedCrab{} },
 		ResultQuantity: 1,
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.RawCrab{} }, Quantity: 1},
 		},
 	},
 	{
-		NewResult: func() item.Item { return &item.Titanium{} },
+		NewResult:      func() item.Item { return &item.Titanium{} },
 		ResultQuantity: 2,
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.ScrapMetal{} }, Quantity: 1},
 		},
 	},
 	{
-		NewResult: func() item.Item { return &item.Copper{} },
+		NewResult:      func() item.Item { return &item.Copper{} },
 		ResultQuantity: 1,
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.ElectronicWaste{} }, Quantity: 1},
@@ -209,8 +210,8 @@ func (m *BaseMenuScene) Update(g *Game) error {
 		panelW = 800
 		panelH = 500
 	)
-	panelX := float64(ScreenWidth-panelW) / 2.0
-	panelY := float64(ScreenHeight-panelH) / 2.0
+	panelX := float64(config.ScreenWidth-panelW) / 2.0
+	panelY := float64(config.ScreenHeight-panelH) / 2.0
 
 	// 1. Check tab button clicks
 	if leftClicked {
@@ -443,8 +444,8 @@ func (m *BaseMenuScene) Draw(g *Game, screen *ebiten.Image) {
 		panelW = 800
 		panelH = 500
 	)
-	panelX := float32(ScreenWidth-panelW) / 2.0
-	panelY := float32(ScreenHeight-panelH) / 2.0
+	panelX := float32(config.ScreenWidth-panelW) / 2.0
+	panelY := float32(config.ScreenHeight-panelH) / 2.0
 
 	// Draw main window panel (transparent dark slate)
 	panelBg := color.RGBA{12, 16, 26, 242}

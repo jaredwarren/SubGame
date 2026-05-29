@@ -1,4 +1,4 @@
-package game
+package entity
 
 import (
 	"image/color"
@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -28,7 +29,7 @@ const (
 
 // CaveEntity represents any plant, predator, or interactive entity inside caves.
 type CaveEntity interface {
-	Update(g *Game, cave *CaveScene)
+	Update(gr Runtime, CaveGrid [][]bool)
 	Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64)
 	IsActive() bool
 	SetActive(active bool)
@@ -81,7 +82,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &ShatterBulb{
 						BaseEntity: BaseEntity{
 							Type:       EntShatterBulb,
-							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
 							Dimensions: gvec.Vec2{X: 24, Y: 24},
 							Active:     true,
 						},
@@ -94,7 +95,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &PassiveFish{
 						BaseEntity: BaseEntity{
 							Type:       EntPassiveFish,
-							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-20)/2.0, Y: float64(ty*TileSize) + float64(TileSize-12)/2.0},
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-20)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-12)/2.0},
 							Dimensions: gvec.Vec2{X: 20, Y: 12},
 							Active:     true,
 						},
@@ -108,7 +109,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &PassiveCrab{
 						BaseEntity: BaseEntity{
 							Type:       EntPassiveCrab,
-							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-16)/2.0, Y: float64(ty*TileSize) + float64(TileSize-10)},
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-10)},
 							Dimensions: gvec.Vec2{X: 16, Y: 10},
 							Active:     true,
 						},
@@ -122,7 +123,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &Kelp{
 						BaseEntity: BaseEntity{
 							Type:       EntKelp,
-							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-16)/2.0, Y: float64(ty*TileSize) + float64(TileSize) - height},
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize) - height},
 							Dimensions: gvec.Vec2{X: 16, Y: height},
 							Active:     true,
 						},
@@ -141,7 +142,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &ShatterBulb{
 						BaseEntity: BaseEntity{
 							Type:       EntShatterBulb,
-							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
 							Dimensions: gvec.Vec2{X: 24, Y: 24},
 							Active:     true,
 						},
@@ -152,7 +153,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &FalseBulbSnare{
 						BaseEntity: BaseEntity{
 							Type:       EntFalseBulbSnare,
-							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-24)/2.0, Y: float64(ty*TileSize) + 4}, // Hang near ceiling
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + 4}, // Hang near ceiling
 							Dimensions: gvec.Vec2{X: 24, Y: 32},
 							Active:     true,
 						},
@@ -180,7 +181,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 						entities = append(entities, &BrimstoneSiphon{
 							BaseEntity: BaseEntity{
 								Type:       EntBrimstoneSiphon,
-								Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-32)/2.0, Y: float64(ty*TileSize) + float64(TileSize-32)/2.0},
+								Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-32)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-32)/2.0},
 								Dimensions: gvec.Vec2{X: 32, Y: 32},
 								Active:     true,
 							},
@@ -196,7 +197,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &ThermoclineRammer{
 						BaseEntity: BaseEntity{
 							Type:       EntThermoclineRammer,
-							Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-36)/2.0, Y: float64(ty*TileSize) + float64(TileSize-24)/2.0},
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-36)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
 							Dimensions: gvec.Vec2{X: 36, Y: 24},
 							Active:     true,
 						},
@@ -212,8 +213,8 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					entities = append(entities, &NerveMat{
 						BaseEntity: BaseEntity{
 							Type:       EntNerveMat,
-							Pos:        gvec.Vec2{X: float64(tx * TileSize), Y: float64(ty*TileSize) + float64(TileSize-12)},
-							Dimensions: gvec.Vec2{X: float64(TileSize), Y: 12},
+							Pos:        gvec.Vec2{X: float64(tx * config.TileSize), Y: float64(ty*config.TileSize) + float64(config.TileSize-12)},
+							Dimensions: gvec.Vec2{X: float64(config.TileSize), Y: 12},
 							Active:     true,
 						},
 					})
@@ -225,7 +226,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 					// Max one Weaver per local coordinates sector to avoid overcrowding
 					hasWeaverNearby := false
 					for _, ent := range entities {
-						if ent.GetType() == EntElectroWeaver && math.Abs(ent.GetPos().X-float64(tx*TileSize)) < 500 {
+						if ent.GetType() == EntElectroWeaver && math.Abs(ent.GetPos().X-float64(tx*config.TileSize)) < 500 {
 							hasWeaverNearby = true
 							break
 						}
@@ -234,7 +235,7 @@ func GenerateCaveEntities(grid [][]bool, seed int64, isShallow bool) []CaveEntit
 						entities = append(entities, &ElectroWeaver{
 							BaseEntity: BaseEntity{
 								Type:       EntElectroWeaver,
-								Pos:        gvec.Vec2{X: float64(tx*TileSize) + float64(TileSize-40)/2.0, Y: float64(ty*TileSize) + float64(TileSize-20)/2.0},
+								Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-40)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-20)/2.0},
 								Dimensions: gvec.Vec2{X: 40, Y: 20},
 								Active:     true,
 							},
@@ -256,44 +257,38 @@ type ShatterBulb struct {
 	BaseEntity
 }
 
-func (s *ShatterBulb) Update(g *Game, cave *CaveScene) {
+func (s *ShatterBulb) Update(gr Runtime, CaveGrid [][]bool) {
 	// Static plant. If player/vehicle collides, trigger pop
-	vWidth, vHeight := g.player.Width, g.player.Height
-	targetX, targetY := g.player.Pos.X, g.player.Pos.Y
-	if g.ActiveVehicle != nil {
-		vPos := g.ActiveVehicle.GetPos()
+	vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
+	targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
+	if gr.HasActiveVehicle() {
+		vPos := gr.ActiveVehiclePos()
 		targetX, targetY = vPos.X, vPos.Y
-		vDims := g.ActiveVehicle.GetDimensions()
+		vDims := gr.ActiveVehicleDims()
 		vWidth, vHeight = vDims.X, vDims.Y
 	}
 
 	if rectsOverlap(s.Pos.X, s.Pos.Y, s.Dimensions.X, s.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
-		s.Pop(g, cave)
+		s.Pop(gr)
 	}
 }
 
-func (s *ShatterBulb) Pop(g *Game, cave *CaveScene) {
+func (s *ShatterBulb) Pop(gr Runtime) {
 	if !s.Active {
 		return
 	}
 	s.Active = false
 
 	// Restore 20 Oxygen to player
-	g.player.CurrentOxygen = math.Min(g.player.MaxOxygen, g.player.CurrentOxygen+20)
+	gr.Emit(RestoreOxygenCmd{Amount: 20})
 
 	// Create sound pop coordinates
-	g.SoundWaveTimer = 60
-	g.SoundWaveRadius = 0.0
-	g.SoundWaveX = s.Pos.X + s.Dimensions.X/2.0
-	g.SoundWaveY = s.Pos.Y + s.Dimensions.Y/2.0
-
-	// Remove from cave state active entity list
-	for i, e := range cave.Entities {
-		if e == s {
-			cave.Entities = append(cave.Entities[:i], cave.Entities[i+1:]...)
-			break
-		}
-	}
+	gr.Emit(TriggerSoundWaveCmd{
+		Pos: gvec.Vec2{
+			X: s.Pos.X + s.Dimensions.X/2.0,
+			Y: s.Pos.Y + s.Dimensions.Y/2.0,
+		},
+	})
 }
 
 func (s *ShatterBulb) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
@@ -328,9 +323,9 @@ type FalseBulbSnare struct {
 	State int
 }
 
-func (ent *FalseBulbSnare) Update(g *Game, cave *CaveScene) {
-	px := g.player.Pos.X + g.player.Width/2.0
-	py := g.player.Pos.Y + g.player.Height/2.0
+func (ent *FalseBulbSnare) Update(gr Runtime, CaveGrid [][]bool) {
+	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
+	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
@@ -342,10 +337,10 @@ func (ent *FalseBulbSnare) Update(g *Game, cave *CaveScene) {
 
 	// Check if flashlight illuminates this trap
 	isLit := false
-	if g.FlashlightOn {
-		facingAngle := g.player.Facing
-		if g.ActiveVehicle != nil {
-			facingAngle = g.ActiveVehicle.GetFacing()
+	if gr.FlashlightOn() {
+		facingAngle := gr.PlayerFacing()
+		if gr.HasActiveVehicle() {
+			facingAngle = gr.ActiveVehicleFacing()
 		}
 		dx := ex - px
 		dy := ey - py
@@ -365,7 +360,7 @@ func (ent *FalseBulbSnare) Update(g *Game, cave *CaveScene) {
 	}
 
 	// Sound pop alerts this trap globally within 280px
-	soundAlerted := g.SoundWaveTimer > 0 && math.Hypot(g.SoundWaveX-ex, g.SoundWaveY-ey) < 280.0
+	soundAlerted := gr.SoundWaveTimer() > 0 && math.Hypot(gr.SoundWaveX()-ex, gr.SoundWaveY()-ey) < 280.0
 	if soundAlerted {
 		ent.State = 1 // Wake up / Aggro
 	}
@@ -391,20 +386,19 @@ func (ent *FalseBulbSnare) Update(g *Game, cave *CaveScene) {
 	}
 
 	// Check damage collision
-	vWidth, vHeight := g.player.Width, g.player.Height
-	targetX, targetY := g.player.Pos.X, g.player.Pos.Y
-	if g.ActiveVehicle != nil {
-		vPos := g.ActiveVehicle.GetPos()
+	vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
+	targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
+	if gr.HasActiveVehicle() {
+		vPos := gr.ActiveVehiclePos()
 		targetX, targetY = vPos.X, vPos.Y
-		vDims := g.ActiveVehicle.GetDimensions()
+		vDims := gr.ActiveVehicleDims()
 		vWidth, vHeight = vDims.X, vDims.Y
 	}
 
 	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
 		// Attack player!
-		g.player.CurrentHealth -= 20.0
-		g.MineWarning = "ATTACKED BY FALSE-BULB SNARE!"
-		g.MineWarningTimer = 120
+		gr.Emit(DamagePlayerCmd{Amount: 20.0})
+		gr.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120})
 		ent.Active = false // consume snare
 	}
 }
@@ -451,7 +445,7 @@ type BrimstoneSiphon struct {
 	Direction string // "up", "down", "left", "right"
 }
 
-func (ent *BrimstoneSiphon) Update(g *Game, cave *CaveScene) {
+func (ent *BrimstoneSiphon) Update(gr Runtime, CaveGrid [][]bool) {
 	// Cycles timers
 	ent.Timer = (ent.Timer + 1) % 120
 	if ent.Timer >= 60 {
@@ -472,20 +466,20 @@ func (ent *BrimstoneSiphon) Update(g *Game, cave *CaveScene) {
 		}
 
 		// Check overlap with player/vehicle
-		vWidth, vHeight := g.player.Width, g.player.Height
-		targetX, targetY := g.player.Pos.X, g.player.Pos.Y
-		if g.ActiveVehicle != nil {
-			vPos := g.ActiveVehicle.GetPos()
+		vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
+		targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
+		if gr.HasActiveVehicle() {
+			vPos := gr.ActiveVehiclePos()
 			targetX, targetY = vPos.X, vPos.Y
-			vDims := g.ActiveVehicle.GetDimensions()
+			vDims := gr.ActiveVehicleDims()
 			vWidth, vHeight = vDims.X, vDims.Y
 		}
 
 		if rectsOverlap(jx, jy, jw, jh, targetX, targetY, vWidth, vHeight) {
-			if g.ActiveVehicle != nil {
-				g.ActiveVehicle.TakeDamage(0.4)
+			if gr.HasActiveVehicle() {
+				gr.Emit(DamageActiveVehicleCmd{Amount: 0.4})
 			} else {
-				g.player.CurrentHealth -= 0.6
+				gr.Emit(DamagePlayerCmd{Amount: 0.6})
 			}
 		}
 	}
@@ -561,9 +555,9 @@ type ThermoclineRammer struct {
 	StunTimer int
 }
 
-func (ent *ThermoclineRammer) Update(g *Game, cave *CaveScene) {
-	px := g.player.Pos.X + g.player.Width/2.0
-	py := g.player.Pos.Y + g.player.Height/2.0
+func (ent *ThermoclineRammer) Update(gr Runtime, CaveGrid [][]bool) {
+	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
+	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
@@ -580,18 +574,16 @@ func (ent *ThermoclineRammer) Update(g *Game, cave *CaveScene) {
 	isAggroTrigger := false
 	if dist < 250.0 {
 		// Player sprinting
-		if g.ActiveVehicle == nil && g.Input.IsKeyPressed(ebiten.KeyShift) && (math.Abs(g.player.Vel.X) > 1.2 || math.Abs(g.player.Vel.Y) > 1.2) {
+		if !gr.HasActiveVehicle() && gr.IsPlayerSprinting() && (math.Abs(gr.PlayerVel().X) > 1.2 || math.Abs(gr.PlayerVel().Y) > 1.2) {
 			isAggroTrigger = true
 		}
 		// Mech thrusters or vehicle moving fast
-		if g.ActiveVehicle != nil {
-			if g.Input.IsKeyPressed(ebiten.KeyW) || g.Input.IsKeyPressed(ebiten.KeyA) || g.Input.IsKeyPressed(ebiten.KeyS) || g.Input.IsKeyPressed(ebiten.KeyD) || g.Input.IsKeyPressed(ebiten.KeySpace) {
-				isAggroTrigger = true
-			}
+		if gr.HasActiveVehicle() && gr.ActiveVehicleMoving() {
+			isAggroTrigger = true
 		}
 	}
 	// Also triggered by sound pops
-	if g.SoundWaveTimer > 0 && math.Hypot(g.SoundWaveX-ex, g.SoundWaveY-ey) < 250.0 {
+	if gr.SoundWaveTimer() > 0 && math.Hypot(gr.SoundWaveX()-ex, gr.SoundWaveY()-ey) < 250.0 {
 		isAggroTrigger = true
 	}
 
@@ -628,7 +620,7 @@ func (ent *ThermoclineRammer) Update(g *Game, cave *CaveScene) {
 			}
 			ent.Vel.X = math.Cos(ent.Facing) * 0.8
 			ent.Vel.Y = math.Sin(ent.Facing) * 0.4
-			if !cave.isSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+			if !isSolid(CaveGrid, ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
 				ent.Pos = ent.Pos.Add(ent.Vel)
 			} else {
 				ent.Facing += math.Pi // turn around on wall bump
@@ -640,7 +632,7 @@ func (ent *ThermoclineRammer) Update(g *Game, cave *CaveScene) {
 		nextY := ent.Pos.Y + ent.Vel.Y
 
 		// Check wall collision
-		if cave.isSolid(nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
+		if isSolid(CaveGrid, nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
 			ent.State = 2 // Stunned!
 			ent.StunTimer = 180
 			ent.Vel = gvec.Vec2{}
@@ -650,24 +642,23 @@ func (ent *ThermoclineRammer) Update(g *Game, cave *CaveScene) {
 		}
 
 		// Check player/vehicle damage overlap
-		vWidth, vHeight := g.player.Width, g.player.Height
-		targetX, targetY := g.player.Pos.X, g.player.Pos.Y
-		if g.ActiveVehicle != nil {
-			vPos := g.ActiveVehicle.GetPos()
+		vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
+		targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
+		if gr.HasActiveVehicle() {
+			vPos := gr.ActiveVehiclePos()
 			targetX, targetY = vPos.X, vPos.Y
-			vDims := g.ActiveVehicle.GetDimensions()
+			vDims := gr.ActiveVehicleDims()
 			vWidth, vHeight = vDims.X, vDims.Y
 		}
 
 		if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
-			if g.ActiveVehicle != nil {
-				g.ActiveVehicle.TakeDamage(30.0)
-				g.MineWarning = "VEHICLE RAMMED BY THERMOCLINE RAMMER!"
+			if gr.HasActiveVehicle() {
+				gr.Emit(DamageActiveVehicleCmd{Amount: 30.0})
+				gr.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120})
 			} else {
-				g.player.CurrentHealth -= 25.0
-				g.MineWarning = "RAMMED BY THERMOCLINE RAMMER!"
+				gr.Emit(DamagePlayerCmd{Amount: 25.0})
+				gr.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120})
 			}
-			g.MineWarningTimer = 120
 			ent.State = 0 // return to patrol
 			ent.Vel = gvec.Vec2{}
 		}
@@ -727,18 +718,18 @@ type NerveMat struct {
 	BaseEntity
 }
 
-func (ent *NerveMat) Update(g *Game, cave *CaveScene) {
-	vWidth, vHeight := g.player.Width, g.player.Height
-	targetX, targetY := g.player.Pos.X, g.player.Pos.Y
-	if g.ActiveVehicle != nil {
-		vPos := g.ActiveVehicle.GetPos()
+func (ent *NerveMat) Update(gr Runtime, CaveGrid [][]bool) {
+	vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
+	targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
+	if gr.HasActiveVehicle() {
+		vPos := gr.ActiveVehiclePos()
 		targetX, targetY = vPos.X, vPos.Y
-		vDims := g.ActiveVehicle.GetDimensions()
+		vDims := gr.ActiveVehicleDims()
 		vWidth, vHeight = vDims.X, vDims.Y
 	}
 
 	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
-		g.playerSlowed = true
+		gr.Emit(SetPlayerSlowedCmd{Slowed: true})
 	}
 }
 
@@ -767,34 +758,33 @@ type ElectroWeaver struct {
 	Facing float64
 }
 
-func (ent *ElectroWeaver) Update(g *Game, cave *CaveScene) {
-	px := g.player.Pos.X + g.player.Width/2.0
-	py := g.player.Pos.Y + g.player.Height/2.0
+func (ent *ElectroWeaver) Update(gr Runtime, CaveGrid [][]bool) {
+	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
+	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
 
-	inAbyssal := (py / TileSize) >= 80
+	inAbyssal := (py / config.TileSize) >= 80
 	if !inAbyssal {
 		ent.Timer = 0
 		return
 	}
 
-	isElectricity := g.FlashlightOn || g.Sonar.Timer > 0 || g.ActiveVehicle != nil
+	isElectricity := gr.FlashlightOn() || gr.SonarActive() || gr.HasActiveVehicle()
 	if isElectricity && dist < 500.0 {
 		ent.Timer++
 		// Feed tracking value to game screen static/jitter
-		g.WeaverTrackingTimer = math.Max(g.WeaverTrackingTimer, float64(ent.Timer))
+		gr.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
 
 		// Strike check (5 seconds at 60 FPS)
 		if ent.Timer >= 300 {
-			g.player.CurrentHealth -= 45.0
-			g.MineWarning = "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!"
-			g.MineWarningTimer = 180
+			gr.Emit(DamagePlayerCmd{Amount: 45.0})
+			gr.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: 180})
 
 			// Teleport Weaver near player to simulate lunging strike
-			ent.Pos.X = g.player.Pos.X + float64(rand.Intn(120)-60)
-			ent.Pos.Y = g.player.Pos.Y + float64(rand.Intn(120)-60)
+			ent.Pos.X = gr.PlayerPos().X + float64(rand.Intn(120)-60)
+			ent.Pos.Y = gr.PlayerPos().Y + float64(rand.Intn(120)-60)
 			ent.Timer = 0
 		}
 	} else {
@@ -816,16 +806,16 @@ func (ent *ElectroWeaver) Update(g *Game, cave *CaveScene) {
 			ent.Vel.X = (dx / dDist) * 1.5
 			ent.Vel.Y = (dy / dDist) * 1.5
 		} else {
-			ent.Vel.X = math.Cos(float64(g.TimeOfDay)/30.0) * 1.2
-			ent.Vel.Y = math.Sin(float64(g.TimeOfDay)/30.0) * 1.2
+			ent.Vel.X = math.Cos(gr.TimeOfDay()/30.0) * 1.2
+			ent.Vel.Y = math.Sin(gr.TimeOfDay()/30.0) * 1.2
 		}
 	} else {
-		ent.Vel.X = math.Cos(float64(g.TimeOfDay)/40.0) * 0.8
-		ent.Vel.Y = math.Sin(float64(g.TimeOfDay)/40.0) * 0.8
+		ent.Vel.X = math.Cos(gr.TimeOfDay()/40.0) * 0.8
+		ent.Vel.Y = math.Sin(gr.TimeOfDay()/40.0) * 0.8
 	}
 
 	// Soft collisions for slithering
-	if !cave.isSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+	if !isSolid(CaveGrid, ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
 		ent.Pos = ent.Pos.Add(ent.Vel)
 	}
 }
@@ -892,9 +882,9 @@ func (f *PassiveFish) CanCatch(playerPos gvec.Vec2) bool {
 	return dist <= 80.0
 }
 
-func (f *PassiveFish) Update(g *Game, cave *CaveScene) {
-	px := g.player.Pos.X + g.player.Width/2
-	py := g.player.Pos.Y + g.player.Height/2
+func (f *PassiveFish) Update(gr Runtime, CaveGrid [][]bool) {
+	px := gr.PlayerPos().X + gr.PlayerDims().X/2
+	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2
 	fx := f.Pos.X + f.Dimensions.X/2
 	fy := f.Pos.Y + f.Dimensions.Y/2
 	dist := math.Hypot(px-fx, py-fy)
@@ -929,7 +919,7 @@ func (f *PassiveFish) Update(g *Game, cave *CaveScene) {
 	nextX := f.Pos.X + f.Vel.X
 	nextY := f.Pos.Y + f.Vel.Y
 
-	if !cave.isSolid(nextX, nextY, f.Dimensions.X, f.Dimensions.Y) {
+	if !isSolid(CaveGrid, nextX, nextY, f.Dimensions.X, f.Dimensions.Y) {
 		f.Pos.X = nextX
 		f.Pos.Y = nextY
 	} else {
@@ -1008,17 +998,17 @@ func (c *PassiveCrab) CanCatch(playerPos gvec.Vec2) bool {
 	return dist <= 64.0
 }
 
-func (c *PassiveCrab) Update(g *Game, cave *CaveScene) {
-	px := g.player.Pos.X + g.player.Width/2
-	py := g.player.Pos.Y + g.player.Height/2
+func (c *PassiveCrab) Update(gr Runtime, CaveGrid [][]bool) {
+	px := gr.PlayerPos().X + gr.PlayerDims().X/2
+	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2
 	cx := c.Pos.X + c.Dimensions.X/2
 	cy := c.Pos.Y + c.Dimensions.Y/2
 	dist := math.Hypot(px-cx, py-cy)
 
 	// Check if flashlight is pointing at the crab
 	isLit := false
-	if g.FlashlightOn && dist < 300 {
-		facingAngle := g.player.Facing
+	if gr.FlashlightOn() && dist < 300 {
+		facingAngle := gr.PlayerFacing()
 		dx := cx - px
 		dy := cy - py
 		angleToEnt := math.Atan2(dy, dx)
@@ -1074,7 +1064,7 @@ func (c *PassiveCrab) Update(g *Game, cave *CaveScene) {
 
 	// Horizontal movement
 	nextX := c.Pos.X + c.Vel.X
-	if !cave.isSolid(nextX, c.Pos.Y, c.Dimensions.X, c.Dimensions.Y) {
+	if !isSolid(CaveGrid, nextX, c.Pos.Y, c.Dimensions.X, c.Dimensions.Y) {
 		c.Pos.X = nextX
 	} else {
 		c.FacingRight = !c.FacingRight
@@ -1083,7 +1073,7 @@ func (c *PassiveCrab) Update(g *Game, cave *CaveScene) {
 
 	// Vertical movement (gravity)
 	nextY := c.Pos.Y + c.Vel.Y
-	if !cave.isSolid(c.Pos.X, nextY, c.Dimensions.X, c.Dimensions.Y) {
+	if !isSolid(CaveGrid, c.Pos.X, nextY, c.Dimensions.X, c.Dimensions.Y) {
 		c.Pos.Y = nextY
 	} else {
 		c.Vel.Y = 0
@@ -1151,7 +1141,7 @@ type Kelp struct {
 	SwayPhase float64
 }
 
-func (k *Kelp) Update(g *Game, cave *CaveScene) {
+func (k *Kelp) Update(gr Runtime, CaveGrid [][]bool) {
 	k.SwayPhase += 0.03
 }
 
@@ -1203,4 +1193,35 @@ func (k *Kelp) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float
 
 func rectsOverlap(x1, y1, w1, h1, x2, y2, w2, h2 float64) bool {
 	return x1 < x2+w2 && x1+w1 > x2 && y1 < y2+h2 && y1+h1 > y2
+}
+
+func isSolid(grid [][]bool, x, y, w, h float64) bool {
+	if grid == nil {
+		return false
+	}
+	gridW := len(grid)
+	gridH := len(grid[0])
+
+	x1 := int(math.Floor(x)) / config.TileSize
+	x2 := int(math.Floor(x+w)) / config.TileSize
+	y1 := int(math.Floor(y)) / config.TileSize
+	y2 := int(math.Floor(y+h)) / config.TileSize
+
+	for tx := x1; tx <= x2; tx++ {
+		for ty := y1; ty <= y2; ty++ {
+			if tx < 0 || tx >= gridW {
+				return true
+			}
+			if ty < 0 {
+				continue
+			}
+			if ty >= gridH {
+				return true
+			}
+			if grid[tx][ty] {
+				return true
+			}
+		}
+	}
+	return false
 }
