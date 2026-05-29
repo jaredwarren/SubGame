@@ -472,7 +472,7 @@ func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
 	p := NewPlayer(0, 0)
 
 	// Initially, player stats should be default
-	if p.HasFins {
+	if item.HasItem[*item.Fins](p.Upgrades, 1) {
 		t.Error("expected player to not have fins initially")
 	}
 	if p.MaxOxygen != 100.0 {
@@ -499,8 +499,8 @@ func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
 	p.Inventory.Remove(fins, 1)
 
 	// HasFins should be true now
-	if !p.HasFins {
-		t.Error("expected HasFins to be true after equipping")
+	if !item.HasItem[*item.Fins](p.Upgrades, 1) {
+		t.Error("expected Fins to be equipped after equipping")
 	}
 
 	// Equip O2 Tank
@@ -527,8 +527,8 @@ func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
 	p.Inventory.AddItem(fins, 1)
 	p.RecalculateUpgrades()
 
-	if p.HasFins {
-		t.Error("expected HasFins to be false after unequipping")
+	if item.HasItem[*item.Fins](p.Upgrades, 1) {
+		t.Error("expected Fins to be not equipped after unequipping")
 	}
 	if !item.HasItem[*item.Fins](p.Inventory, 1) {
 		t.Error("expected Fins to be back in main inventory")
@@ -551,7 +551,7 @@ func TestPlayer_InventoryClickEquip(t *testing.T) {
 	g.player.RecalculateUpgrades() // sync stats
 
 	// Verify player does not have fins equipped initially
-	if g.player.HasFins {
+	if item.HasItem[*item.Fins](g.player.Upgrades, 1) {
 		t.Fatal("expected player to not have fins equipped initially")
 	}
 
@@ -573,7 +573,7 @@ func TestPlayer_InventoryClickEquip(t *testing.T) {
 	if g.player.Inventory.Slots[0].Item != nil {
 		t.Errorf("expected main inventory slot 0 to be empty after equipping")
 	}
-	if !g.player.HasFins {
+	if !item.HasItem[*item.Fins](g.player.Upgrades, 1) {
 		t.Errorf("expected player to have fins equipped after click")
 	}
 	if !item.HasItem[*item.Fins](g.player.Upgrades, 1) {
@@ -593,7 +593,7 @@ func TestPlayer_InventoryClickEquip(t *testing.T) {
 	}
 
 	// Verify Fins are unequipped (removed from upgrades and added back to main inventory)
-	if g.player.HasFins {
+	if item.HasItem[*item.Fins](g.player.Upgrades, 1) {
 		t.Errorf("expected player to not have fins equipped after unequipping")
 	}
 	if !item.HasItem[*item.Fins](g.player.Inventory, 1) {

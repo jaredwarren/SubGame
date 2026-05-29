@@ -35,7 +35,6 @@ type Player struct {
 	Upgrades  *item.Inventory // 4 upgrade/equipment slots
 
 	// Upgrade Cache (Option A)
-	//HasFins bool
 	Speed    map[string]item.Speed
 	Buoyancy float64
 
@@ -69,22 +68,24 @@ func NewPlayer(x, y float64) *Player {
 		Inventory:        item.NewInventory(24),
 		Upgrades:         item.NewInventory(4),
 		LastHealth:       100.0,
-		Speed: map[string]item.Speed{
-			"overworld": {
-				Drag:         0.88,
-				Acceleration: 0.08,
-				TopSpeed:     1.6,
-			},
-			"cave": {
-				Drag:         0.92,
-				Acceleration: 0.15,
-				TopSpeed:     3.5,
-			},
-		},
-		Buoyancy: -0.04,
+		Speed:            DefaultSpeed,
+		Buoyancy:         -0.04,
 	}
 	p.RecalculateUpgrades()
 	return p
+}
+
+var DefaultSpeed = map[string]item.Speed{
+	"overworld": {
+		Drag:         0.88,
+		Acceleration: 0.08,
+		TopSpeed:     1.6,
+	},
+	"cave": {
+		Drag:         0.92,
+		Acceleration: 0.15,
+		TopSpeed:     3.5,
+	},
 }
 
 // UpdateStats handles core stat loops (depleting/regenerating O2, stamina, etc.)
@@ -166,6 +167,9 @@ func (p *Player) EquipUpgrade(it any) bool {
 
 // RecalculateUpgrades scans the upgrades and updates cached upgrade flags and capacity stats.
 func (p *Player) RecalculateUpgrades() {
+	p.MaxOxygen = 100.0
+	p.Speed = DefaultSpeed
+
 	for _, v := range p.Upgrades.Slots {
 		if _, ok := v.Item.(item.O2UpgradeItem); ok {
 			p.MaxOxygen += v.Item.(item.O2UpgradeItem).GetMaxO2Capacity()
@@ -176,17 +180,6 @@ func (p *Player) RecalculateUpgrades() {
 		}
 	}
 
-	// // TODO; get upgrade speeds from item
-	// p.HasFins = item.HasItem[*item.Fins](p.Upgrades, 1)
-
-	// // TODO: lop through items and apply upgrade as  defined by item
-	// if item.HasItem[*item.O2TankUHC](p.Upgrades, 1) {
-	// 	p.MaxOxygen = 240.0
-	// } else if item.HasItem[*item.O2TankHC](p.Upgrades, 1) {
-	// 	p.MaxOxygen = 160.0
-	// } else {
-	// 	p.MaxOxygen = 100.0
-	// }
 }
 
 // UpdateAnimation increments frame counts and ticks for player visual animations.

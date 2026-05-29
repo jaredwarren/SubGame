@@ -88,7 +88,8 @@ func (o *O2TankHC) GetColor() color.Color { return color.RGBA{98, 198, 148, 255}
 func (o *O2TankHC) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy, size/2.0, o.GetColor(), false)
 }
-func (o *O2TankHC) IsPlayerUpgrade() bool { return true }
+func (o *O2TankHC) IsPlayerUpgrade() bool     { return true }
+func (o *O2TankHC) GetMaxO2Capacity() float64 { return 60.0 }
 
 type O2TankUHC struct{}
 
@@ -98,7 +99,8 @@ func (o *O2TankUHC) GetColor() color.Color { return color.RGBA{98, 198, 148, 255
 func (o *O2TankUHC) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy, size/2.0, o.GetColor(), false)
 }
-func (o *O2TankUHC) IsPlayerUpgrade() bool { return true }
+func (o *O2TankUHC) IsPlayerUpgrade() bool     { return true }
+func (o *O2TankUHC) GetMaxO2Capacity() float64 { return 140.0 }
 
 type SpeedUpgradeItem interface {
 	PlayerUpgradeItem
@@ -394,7 +396,7 @@ func (f *RawFish) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	// Eye
 	vector.FillCircle(screen, cx+size/6.0, cy-size/10.0, 2.0, color.White, false)
 }
-func (f *RawFish) GetHealthRestore() float64  { return 10.0 }
+func (f *RawFish) GetHealthRestore() float64  { return 0.0 }
 func (f *RawFish) GetStaminaRestore() float64 { return 5.0 }
 
 type CookedFish struct{}
@@ -435,7 +437,7 @@ func (c *RawCrab) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx-size/10.0, cy-size/4.0, 1.5, color.White, false)
 	vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.White, false)
 }
-func (c *RawCrab) GetHealthRestore() float64  { return 8.0 }
+func (c *RawCrab) GetHealthRestore() float64  { return 0.0 }
 func (c *RawCrab) GetStaminaRestore() float64 { return 8.0 }
 
 type CookedCrab struct{}
