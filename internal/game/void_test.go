@@ -8,6 +8,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -294,4 +295,38 @@ func TestCaveExitLandSpawningFix(t *testing.T) {
 		t.Errorf("expected player Y to be shifted to %f, got %f", expectedY, g.player.Pos.Y)
 	}
 }
+
+func TestCaveVehicleBeacon(t *testing.T) {
+	g := NewGame()
+	g.TransitionTo(g.overworldState)
+
+	tx, ty := 10, 10
+	g.world.OverworldMap[tx][ty] = world.TileWater
+
+	// Place player and enter cave
+	g.player.Pos = gvec.Vec2{X: float64(tx * config.TileSize), Y: float64(ty * config.TileSize)}
+	g.EnterCave(tx, ty)
+
+	// Spawn a vehicle in this cave
+	sub := vehicle.NewScoutSub(100, 100)
+	g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
+
+	// Exit the cave
+	g.ExitCave()
+
+	// Assert warning message contains coordinates and that warning is active
+	if g.MineWarningTimer <= 0 {
+		t.Error("expected MineWarningTimer to be set upon exiting cave with vehicles")
+	}
+	expectedWarning := "VEHICLE BEACON ACTIVE AT (10, 10)"
+	if g.MineWarning != expectedWarning {
+		t.Errorf("expected MineWarning to be %q, got %q", expectedWarning, g.MineWarning)
+	}
+
+	// Verify that the drawing of the beacon is triggered when drawing the overworld scene
+	// Mock drawing to an image to ensure no panics
+	screen := ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
+	g.overworldState.Draw(g, screen)
+}
+
 

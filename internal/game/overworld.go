@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 
@@ -273,6 +274,36 @@ func (o *OverworldScene) Draw(g *Game, screen *ebiten.Image) {
 
 			vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, tileClr, false)
 			vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeClr, false)
+
+			// Draw vehicle beacon marker if vehicles are left in this cave
+			hasVehicle := false
+			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
+				key := fmt.Sprintf("%d_%d", tx, ty)
+				if vehicles, exists := g.CaveVehicles[key]; exists && len(vehicles) > 0 {
+					hasVehicle = true
+				}
+			} else if g.activeTrenchKey == "void_dive" && tx == g.activeTrenchX && ty == g.activeTrenchY {
+				if vehicles, exists := g.CaveVehicles["void_dive"]; exists && len(vehicles) > 0 {
+					hasVehicle = true
+				}
+			}
+
+			if hasVehicle {
+				cx := sx + float32(config.TileSize)/2.0
+				cy := sy + float32(config.TileSize)/2.0
+
+				// Pulsing outer ring (cyber cyan)
+				pulse := float32(math.Sin(g.Ticks*0.08)) * 3.5
+				radius := float32(12.0) + pulse
+				vector.StrokeCircle(screen, cx, cy, radius, 1.5, color.RGBA{0, 220, 255, 140}, false)
+
+				// Inner circle
+				vector.FillCircle(screen, cx, cy, 5.0, color.RGBA{0, 120, 180, 220}, false)
+				vector.StrokeCircle(screen, cx, cy, 5.0, 1.0, color.RGBA{0, 240, 255, 255}, false)
+
+				// Hot core
+				vector.FillCircle(screen, cx, cy, 1.5, color.RGBA{255, 255, 255, 255}, false)
+			}
 		}
 	}
 

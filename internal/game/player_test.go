@@ -657,3 +657,22 @@ func TestTitleScene_Transitions(t *testing.T) {
 		t.Errorf("expected state to transition to StateOverworld on button click, got %s", g.currentState)
 	}
 }
+
+func TestPlayer_EquipUpgrade_VehicleKits(t *testing.T) {
+	p := player.NewPlayer(0, 0)
+	subKit := &item.ScoutSubKit{}
+	mechKit := &item.HeavyMechKit{}
+
+	// Attempting to equip vehicle kits as upgrades should return false
+	if p.EquipUpgrade(subKit) {
+		t.Error("expected equipping ScoutSubKit as player upgrade to return false")
+	}
+	if p.EquipUpgrade(mechKit) {
+		t.Error("expected equipping HeavyMechKit as player upgrade to return false")
+	}
+
+	// Verify upgrades inventory is empty
+	if item.HasItem[*item.ScoutSubKit](p.Upgrades, 1) || item.HasItem[*item.HeavyMechKit](p.Upgrades, 1) {
+		t.Error("expected upgrades inventory to be empty of vehicle kits")
+	}
+}
