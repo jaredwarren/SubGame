@@ -1,0 +1,583 @@
+package game
+
+import (
+	"math"
+	"math/rand"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
+	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/particle"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
+	"github.com/jaredwarren/SubGame/internal/gvec"
+	"github.com/jaredwarren/SubGame/internal/world"
+)
+
+// Update advances all game logic by one tick.
+func (g *Game) Update() error {
+	g.Input.Update()
+	g.transitionedThisFrame = false
+	g.justExited = false
+	g.playerSlowed = false
+
+	if g.nextScene != nil {
+		g.TransitionTo(g.nextScene)
+		g.nextScene = nil
+	}
+
+	g.advanceTimers()
+	g.updateEffects()
+	g.handleInput()
+	g.baseStation.UpdatePower(g.TimeOfDay)
+
+	// Inventory screen consumes all clicks; skip normal game logic while open.
+	if g.showInventory {
+		g.handleInventoryClicks()
+		return nil
+	}
+
+	g.checkVehicleDepth()
+
+	vrt := &vehicleRuntimeAdapter{g: g}
+	g.updateActiveVehicle(vrt)
+	g.checkVehicleEntry()
+
+	if !g.transitionedThisFrame {
+		if err := g.currentScene.Update(g); err != nil {
+			return err
+		}
+	}
+
+	g.updateIdleVehicles(vrt)
+	g.drainVehicleCommands(vrt)
+	g.updateCamera()
+
+	if g.ActiveVehicle == nil {
+		g.player.UpdateStats(g.currentState == StateCave, g.Input.IsKeyPressed(ebiten.KeyShift))
+	}
+	g.player.UpdateAnimation()
+
+	if g.player.CurrentHealth <= 0 {
+		g.TransitionTo(g.gameOverState)
+	}
+	return nil
+}
+
+// advanceTimers increments all per-frame counters and timers.
+func (g *Game) advanceTimers() {
+	g.Ticks += 1.0
+	g.TimeOfDay += 1.0
+	if g.TimeOfDay >= 14400 {
+		g.TimeOfDay = 0.0
+	}
+	if g.MineWarningTimer > 0 {
+		g.MineWarningTimer--
+	}
+}
+
+// updateEffects ticks the sonar, sound wave, and particle systems.
+func (g *Game) updateEffects() {
+	g.Sonar.Update()
+	if g.SoundWaveTimer > 0 {
+		g.SoundWaveTimer--
+		g.SoundWaveRadius += 4.5
+	}
+	g.Particles = particle.UpdateParticles(g.Particles)
+}
+
+// handleInput processes all keyboard input that applies regardless of open panels.
+func (g *Game) handleInput() {
+	if g.Input.IsKeyJustPressed(ebiten.KeyT) {
+		g.FlashlightOn = !g.FlashlightOn
+	}
+	if g.Input.IsKeyJustPressed(ebiten.KeyTab) && (g.currentState == StateOverworld || g.currentState == StateCave) {
+		g.showInventory = !g.showInventory
+	}
+	if g.currentState == StateOverworld && g.baseStation.DistanceToPlayer(g.player) < 100.0 && g.Input.IsKeyJustPressed(ebiten.KeyE) {
+		g.TransitionTo(g.baseMenu)
+	}
+	g.handleDebugInput()
+}
+
+// handleDebugInput processes development shortcuts that would be stripped from a release build.
+func (g *Game) handleDebugInput() {
+	// Shader toggles
+	if g.Input.IsKeyJustPressed(ebiten.KeyY) {
+		g.DebugDisableLightShader = !g.DebugDisableLightShader
+		if g.DebugDisableLightShader {
+			g.MineWarning = "Disabled lighting shader mask"
+		} else {
+			g.MineWarning = "Enabled lighting shader mask"
+		}
+		g.MineWarningTimer = 120
+	}
+	if g.Input.IsKeyJustPressed(ebiten.KeyU) {
+		g.DebugDisableWaterShader = !g.DebugDisableWaterShader
+		if g.DebugDisableWaterShader {
+			g.MineWarning = "Disabled water displacement shader"
+		} else {
+			g.MineWarning = "Enabled water displacement shader"
+		}
+		g.MineWarningTimer = 120
+	}
+
+	// Jump into cave at (50,50) for quick testing
+	if g.Input.IsKeyJustPressed(ebiten.KeyC) {
+		g.debugJumpToCave(50, 50)
+	}
+	if g.Input.IsKeyJustPressed(ebiten.KeyG) {
+		g.TransitionTo(g.gameOverState)
+	}
+
+	// Spawn vehicles / fill inventory
+	if g.currentState != StateOverworld && g.currentState != StateCave {
+		return
+	}
+	switch {
+	case g.Input.IsKeyJustPressed(ebiten.Key1):
+		g.debugSpawnVehicle(vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y))
+	case g.Input.IsKeyJustPressed(ebiten.Key2):
+		g.debugSpawnVehicle(vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y))
+	case g.Input.IsKeyJustPressed(ebiten.Key3):
+		g.debugSpawnVehicle(vehicle.NewSkiff(g.player.Pos.X, g.player.Pos.Y))
+	case g.Input.IsKeyJustPressed(ebiten.Key4):
+		g.player.Inventory.AddItem(&item.Titanium{}, 10)
+		g.player.Inventory.AddItem(&item.Copper{}, 10)
+		g.player.Inventory.AddItem(&item.Quartz{}, 10)
+		g.player.Inventory.AddItem(&item.AbyssalOre{}, 10)
+		g.player.RecalculateUpgrades()
+	case g.Input.IsKeyJustPressed(ebiten.Key5):
+		g.player.CurrentHealth = g.player.MaxHealth
+		g.player.CurrentOxygen = g.player.MaxOxygen
+		g.player.CurrentStamina = g.player.MaxStamina
+	}
+}
+
+func (g *Game) debugJumpToCave(tx, ty int) {
+	g.ActiveVehicle = nil
+	g.activeTrenchX = tx
+	g.activeTrenchY = ty
+	g.activeTrenchKey = "50_50"
+	g.caveState.CaveGrid = g.world.GetCave(tx, ty)
+	g.player.Pos.X = float64(len(g.caveState.CaveGrid) / 2 * config.TileSize)
+	g.player.Pos.Y = float64(config.TileSize * 2)
+
+	grid := g.caveState.CaveGrid
+	tile := g.world.OverworldMap[tx][ty]
+	var activeCave cave.Cave
+	switch tile {
+	case world.TileTrench:
+		activeCave = cave.NewOrganicTrenchCave(grid)
+	case world.TileWreckage:
+		activeCave = cave.NewWreckageCorridorCave(grid)
+	default:
+		activeCave = cave.NewShallowSeabedCave(grid)
+	}
+	g.caveState.ActiveCave = activeCave
+	isShallow := tile != world.TileTrench
+	g.caveState.IsShallow = isShallow
+
+	seed := int64(tx*97 + ty*41)
+	if _, ok := g.caveNodes[g.activeTrenchKey]; !ok {
+		g.caveNodes[g.activeTrenchKey] = activeCave.GenerateResources(seed)
+	}
+	g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
+
+	if _, ok := g.caveEntities[g.activeTrenchKey]; !ok {
+		g.caveEntities[g.activeTrenchKey] = entity.GenerateCaveEntities(grid, seed, isShallow)
+	}
+	g.caveState.Entities = g.caveEntities[g.activeTrenchKey]
+
+	g.showInventory = false
+	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+	g.TransitionTo(g.caveState)
+}
+
+func (g *Game) debugSpawnVehicle(v vehicle.Vehicle) {
+	if g.currentState == StateOverworld {
+		g.OverworldVehicles = append(g.OverworldVehicles, v)
+	} else {
+		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], v)
+	}
+	g.ActiveVehicle = v
+}
+
+// handleInventoryClicks routes left-click events to the correct inventory panel handler.
+func (g *Game) handleInventoryClicks() {
+	if !g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		return
+	}
+	if g.ActiveVehicle != nil {
+		g.handleVehicleInventoryClicks()
+	} else {
+		g.handlePlayerInventoryClicks()
+	}
+}
+
+// handleVehicleInventoryClicks handles the combined diver+vehicle cargo panel.
+func (g *Game) handleVehicleInventoryClicks() {
+	cursor := g.Input.Cursor()
+	mx, my := int(cursor.X), int(cursor.Y)
+	panelX := float64(config.ScreenWidth-960) / 2.0
+	panelY := float64(config.ScreenHeight-360) / 2.0
+	const slotSz, gap = 48.0, 8.0
+
+	// Transfer from player inventory to vehicle
+	pStartX := panelX + 30
+	pStartY := panelY + 60
+	for r := 0; r < 3; r++ {
+		for c := 0; c < 8; c++ {
+			idx := r*8 + c
+			sx := int(pStartX) + c*int(slotSz+gap)
+			sy := int(pStartY) + r*int(slotSz+gap)
+			if !inSlot(mx, my, sx, sy, int(slotSz)) || idx >= len(g.player.Inventory.Slots) {
+				continue
+			}
+			slot := &g.player.Inventory.Slots[idx]
+			if slot.Item == nil {
+				continue
+			}
+			g.transferToVehicle(slot.Item)
+		}
+	}
+
+	// Transfer from vehicle cargo to player
+	vInv := g.ActiveVehicle.GetCargo()
+	vCols, vRows := cargoLayout(len(vInv.Slots))
+	vStartX := panelX + 510
+	vStartY := panelY + 60
+	for r := 0; r < vRows; r++ {
+		for c := 0; c < vCols; c++ {
+			idx := r*vCols + c
+			sx := int(vStartX) + c*int(slotSz+gap)
+			sy := int(vStartY) + r*int(slotSz+gap)
+			if !inSlot(mx, my, sx, sy, int(slotSz)) || idx >= len(vInv.Slots) {
+				continue
+			}
+			slot := &vInv.Slots[idx]
+			if slot.Item != nil && g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				vInv.Remove(slot.Item, 1)
+				g.player.RecalculateUpgrades()
+			}
+		}
+	}
+
+	// Transfer from vehicle upgrades to player
+	if vUpg := g.ActiveVehicle.GetUpgrades(); vUpg != nil {
+		upgSlotsY := panelY + 240 // 220 + 20
+		for c := 0; c < len(vUpg.Slots); c++ {
+			sx := int(vStartX) + c*int(slotSz+gap)
+			sy := int(upgSlotsY)
+			if !inSlot(mx, my, sx, sy, int(slotSz)) {
+				continue
+			}
+			slot := &vUpg.Slots[c]
+			if slot.Item != nil && g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				vUpg.Remove(slot.Item, 1)
+				g.player.RecalculateUpgrades()
+			}
+		}
+	}
+}
+
+// transferToVehicle tries to move an item from the player's hand to the active vehicle,
+// preferring power-cell recharging → upgrade slot → cargo in that order.
+func (g *Game) transferToVehicle(it item.Item) {
+	v := g.ActiveVehicle
+
+	if _, isPowerCell := it.(*item.PowerCell); isPowerCell {
+		if v.GetBattery() < v.GetMaxBattery() {
+			v.RechargeBattery(100.0)
+			g.player.Inventory.Remove(it, 1)
+			g.player.RecalculateUpgrades()
+			return
+		}
+	}
+
+	if vUpg := v.GetUpgrades(); vUpg != nil {
+		if _, ok := it.(item.VehicleUpgradeItem); ok {
+			if vUpg.AddItem(item.Clone(it), 1) {
+				g.player.Inventory.Remove(it, 1)
+				g.player.RecalculateUpgrades()
+				return
+			}
+		}
+	}
+
+	if v.GetCargo().AddItem(item.Clone(it), 1) {
+		g.player.Inventory.Remove(it, 1)
+		g.player.RecalculateUpgrades()
+	}
+}
+
+// handlePlayerInventoryClicks handles clicks on the solo player inventory / gear panel.
+func (g *Game) handlePlayerInventoryClicks() {
+	cursor := g.Input.Cursor()
+	mx, my := int(cursor.X), int(cursor.Y)
+	panelX := float64(config.ScreenWidth-600) / 2.0
+	panelY := float64(config.ScreenHeight-420) / 2.0
+	const cols, slotSz, gap = 8, 56.0, 10.0
+	startX := panelX + (600.0-float64(cols*(56+10)-10))/2.0
+	startY := panelY + 60.0
+
+	// Main inventory grid
+	for r := 0; r < 3; r++ {
+		for c := 0; c < cols; c++ {
+			idx := r*cols + c
+			sx := int(startX) + c*int(slotSz+gap)
+			sy := int(startY) + r*int(slotSz+gap)
+			if !inSlot(mx, my, sx, sy, int(slotSz)) || idx >= len(g.player.Inventory.Slots) {
+				continue
+			}
+			slot := &g.player.Inventory.Slots[idx]
+			if slot.Item == nil {
+				continue
+			}
+			g.activatePlayerItem(slot.Item)
+		}
+	}
+
+	// Equipped gear slots (uninstall on click)
+	gearStartX := panelX + (600.0-(4.0*slotSz+3.0*gap))/2.0
+	gearSlotsY := startY + 3.0*(slotSz+gap) + 5.0 + 22.0
+	for c := 0; c < 4; c++ {
+		sx := int(gearStartX) + c*int(slotSz+gap)
+		sy := int(gearSlotsY)
+		if !inSlot(mx, my, sx, sy, int(slotSz)) || g.player.Upgrades == nil || c >= len(g.player.Upgrades.Slots) {
+			continue
+		}
+		slot := &g.player.Upgrades.Slots[c]
+		if slot.Item != nil && g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
+			g.player.Upgrades.Remove(slot.Item, 1)
+			g.player.RecalculateUpgrades()
+		}
+	}
+}
+
+// activatePlayerItem applies the appropriate action for clicking an item in the player inventory.
+func (g *Game) activatePlayerItem(it item.Item) {
+	if g.player.EquipUpgrade(it) {
+		g.player.Inventory.Remove(it, 1)
+		g.player.RecalculateUpgrades()
+		return
+	}
+	if consumable, ok := it.(item.Consumable); ok {
+		g.player.CurrentHealth = min(g.player.CurrentHealth+consumable.GetHealthRestore(), g.player.MaxHealth)
+		g.player.CurrentStamina = min(g.player.CurrentStamina+consumable.GetStaminaRestore(), g.player.MaxStamina)
+		g.player.Inventory.Remove(it, 1)
+		g.MineWarning = "Ate " + consumable.GetName() + "!"
+		g.MineWarningTimer = 90
+		return
+	}
+	if g.currentState != StateCave {
+		return
+	}
+	switch it.(type) {
+	case *item.ScoutSubKit:
+		sub := vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
+		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
+		g.player.Inventory.Remove(it, 1)
+		g.player.RecalculateUpgrades()
+		g.showInventory = false
+	case *item.HeavyMechKit:
+		mech := vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
+		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
+		g.player.Inventory.Remove(it, 1)
+		g.player.RecalculateUpgrades()
+		g.showInventory = false
+	}
+}
+
+// checkVehicleDepth applies crush damage when a cave vehicle exceeds its depth limit,
+// and destroys the vehicle if its hull reaches zero.
+func (g *Game) checkVehicleDepth() {
+	if g.currentState != StateCave || g.ActiveVehicle == nil {
+		return
+	}
+	limit := g.ActiveVehicle.GetDepthLimit()
+	if limit <= 0 {
+		return
+	}
+	vPos := g.ActiveVehicle.GetPos()
+	vDims := g.ActiveVehicle.GetDimensions()
+	depth := (vPos.Y + vDims.Y/2.0) / config.TileSize
+
+	if depth > limit {
+		g.ActiveVehicle.TakeDamage(0.08)
+		g.MineWarning = "WARNING: EXCEEDING MAXIMUM HULL DEPTH LIMIT!"
+		g.MineWarningTimer = 2
+	}
+	if g.ActiveVehicle.GetHealth() > 0 {
+		return
+	}
+	// Hull failure
+	g.player.CurrentHealth -= 40.0
+	g.MineWarning = "VEHICLE CRUSHED BY DEEP-SEA PRESSURE!"
+	g.MineWarningTimer = 180
+	list := g.CaveVehicles[g.activeTrenchKey]
+	for i, v := range list {
+		if v == g.ActiveVehicle {
+			g.CaveVehicles[g.activeTrenchKey] = append(list[:i], list[i+1:]...)
+			break
+		}
+	}
+	g.ActiveVehicle = nil
+}
+
+// updateActiveVehicle ticks the player-piloted vehicle, syncs player position inside it,
+// and handles the exit-vehicle keybind.
+func (g *Game) updateActiveVehicle(vrt *vehicleRuntimeAdapter) {
+	if g.ActiveVehicle == nil {
+		return
+	}
+	g.ActiveVehicle.Update(vrt)
+
+	vPos := g.ActiveVehicle.GetPos()
+	vDims := g.ActiveVehicle.GetDimensions()
+	g.player.Pos.X = vPos.X + (vDims.X-g.player.Width)/2.0
+	g.player.Pos.Y = vPos.Y + (vDims.Y-g.player.Height)/2.0
+	g.player.Vel = gvec.Vec2{}
+
+	if g.ActiveVehicle.GetOxygen() > 0 {
+		g.player.CurrentOxygen = g.player.MaxOxygen
+	}
+
+	if g.Input.IsKeyJustPressed(ebiten.KeyF) {
+		g.exitVehicle(vPos, vDims)
+	}
+}
+
+// exitVehicle ejects the player from the active vehicle, finding a safe position.
+func (g *Game) exitVehicle(vPos, vDims gvec.Vec2) {
+	safeX, safeY := vPos.X, vPos.Y
+	if g.currentState == StateCave {
+		switch {
+		case !g.caveState.IsSolid(vPos.X-32, vPos.Y, g.player.Width, g.player.Height):
+			safeX = vPos.X - 32
+		case !g.caveState.IsSolid(vPos.X+vDims.X+12, vPos.Y, g.player.Width, g.player.Height):
+			safeX = vPos.X + vDims.X + 12
+		case !g.caveState.IsSolid(vPos.X, vPos.Y-32, g.player.Width, g.player.Height):
+			safeY = vPos.Y - 32
+		}
+		g.player.Pos.X = safeX
+		g.player.Pos.Y = safeY
+	} else {
+		g.player.Pos.X = vPos.X - 24
+	}
+	g.ActiveVehicle = nil
+	g.justExited = true
+}
+
+// checkVehicleEntry lets the player board a nearby vehicle with [F].
+func (g *Game) checkVehicleEntry() {
+	if g.ActiveVehicle != nil || g.justExited {
+		return
+	}
+	if !g.Input.IsKeyJustPressed(ebiten.KeyF) {
+		return
+	}
+	var candidates []vehicle.Vehicle
+	if g.currentState == StateOverworld {
+		candidates = g.OverworldVehicles
+	} else if g.currentState == StateCave {
+		candidates = g.CaveVehicles[g.activeTrenchKey]
+	}
+	for _, v := range candidates {
+		vPos := v.GetPos()
+		vDims := v.GetDimensions()
+		dist := math.Hypot(vPos.X+vDims.X/2.0-g.player.Pos.X-g.player.Width/2.0,
+			vPos.Y+vDims.Y/2.0-g.player.Pos.Y-g.player.Height/2.0)
+		if dist < 60.0 {
+			g.ActiveVehicle = v
+			return
+		}
+	}
+}
+
+// updateIdleVehicles ticks all vehicles that the player is not currently piloting.
+func (g *Game) updateIdleVehicles(vrt *vehicleRuntimeAdapter) {
+	var idle []vehicle.Vehicle
+	if g.currentState == StateOverworld {
+		idle = g.OverworldVehicles
+	} else if g.currentState == StateCave {
+		idle = g.CaveVehicles[g.activeTrenchKey]
+	}
+	for _, v := range idle {
+		if v != g.ActiveVehicle {
+			v.Update(vrt)
+		}
+	}
+}
+
+// drainVehicleCommands applies all fire-and-forget mutations queued by vehicles this tick.
+func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
+	for _, cmd := range rt.cmds {
+		switch c := cmd.(type) {
+		case vehicle.ActivateSonarCmd:
+			g.Sonar.Activate(c)
+		case vehicle.RemoveCaveNodeCmd:
+			nodes := g.caveState.Nodes
+			for i, node := range nodes {
+				tx, ty := node.GetTilePos()
+				if tx == c.TX && ty == c.TY {
+					g.caveState.Nodes = append(nodes[:i], nodes[i+1:]...)
+					break
+				}
+			}
+		case vehicle.SpawnBubbleCmd:
+			g.Particles = append(g.Particles, particle.NewBubbleParticle(c.Pos.X, c.Pos.Y))
+		case vehicle.SpawnDebrisCmd:
+			g.Particles = append(g.Particles, particle.NewDebrisParticles(c.Pos.X, c.Pos.Y, c.Color)...)
+		case vehicle.TriggerShakeCmd:
+			g.TriggerScreenShake(c.Duration, c.Intensity)
+		}
+	}
+	rt.cmds = rt.cmds[:0]
+}
+
+// updateCamera smoothly tracks the player and applies screen shake effects.
+func (g *Game) updateCamera() {
+	if g.currentState != StateOverworld && g.currentState != StateCave {
+		return
+	}
+	g.camera.Track(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height, 0.08)
+
+	if g.currentState == StateCave && g.WeaverTrackingTimer > 0 {
+		shakeMag := (g.WeaverTrackingTimer / 300.0) * 8.0
+		g.camera.Pos.X += rand.Float64()*shakeMag - shakeMag/2.0
+		g.camera.Pos.Y += rand.Float64()*shakeMag - shakeMag/2.0
+	}
+	if g.shakeDuration > 0 {
+		g.camera.Pos.X += rand.Float64()*g.shakeIntensity - g.shakeIntensity/2.0
+		g.camera.Pos.Y += rand.Float64()*g.shakeIntensity - g.shakeIntensity/2.0
+		g.shakeDuration--
+	}
+}
+
+// --- small helpers ---
+
+// inSlot reports whether (mx, my) falls inside the square slot at (sx, sy) with side sz.
+func inSlot(mx, my, sx, sy, sz int) bool {
+	return mx >= sx && mx < sx+sz && my >= sy && my < sy+sz
+}
+
+// cargoLayout returns the column/row count for a vehicle cargo grid of the given slot count.
+func cargoLayout(numSlots int) (cols, rows int) {
+	switch numSlots {
+	case 24:
+		return 8, 3
+	case 12:
+		return 6, 2
+	default:
+		return 4, 2
+	}
+}
+
+func min(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}

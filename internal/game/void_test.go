@@ -20,13 +20,13 @@ func TestOverworldVoidBoundaries(t *testing.T) {
 	g.player.Pos = gvec.Vec2{X: -100, Y: -100} // Place player out of bounds (top-left)
 
 	// Verify that the position is solid check returns false (i.e. we can sail past boundary)
-	if g.overworldState.isSolid(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height) {
+	if g.overworldState.IsSolid(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height) {
 		t.Error("expected out of bounds coordinates to NOT be solid")
 	}
 
 	// Update movement: player has velocity
 	g.player.Vel = gvec.Vec2{X: -1.0, Y: -1.0}
-	g.overworldState.checkCollisions(g.player)
+	g.overworldState.CheckCollisions(g.player)
 
 	// Since it's not solid, player position should have moved
 	if g.player.Pos.X >= -100.0 {
@@ -72,10 +72,10 @@ func TestVoidCaveCreation(t *testing.T) {
 	}
 
 	// Verify that collision check is solid returns false everywhere (allowing infinite movement)
-	if g.caveState.isSolid(100, 100, g.player.Width, g.player.Height) {
+	if g.caveState.IsSolid(100, 100, g.player.Width, g.player.Height) {
 		t.Error("expected isSolid to return false everywhere in Void Cave")
 	}
-	if g.caveState.isSolid(-5000, 50000, g.player.Width, g.player.Height) {
+	if g.caveState.IsSolid(-5000, 50000, g.player.Width, g.player.Height) {
 		t.Error("expected isSolid to return false even deep in Void Cave")
 	}
 
@@ -122,7 +122,7 @@ func TestVoidCaveFirstFrameCoords(t *testing.T) {
 	screen := ebiten.NewImage(1280, 720)
 	g.Draw(screen)
 
-	t.Logf("Draw 1 uniforms: LightSource = %+v, PersonalRadius = %v", g.caveState.uniforms["LightSource"], g.caveState.uniforms["PersonalRadius"])
+	t.Logf("Draw 1 uniforms: LightSource = %+v, PersonalRadius = %v", g.caveState.Uniforms["LightSource"], g.caveState.Uniforms["PersonalRadius"])
 
 	// Check if player position is correct (1920, 128)
 	if g.player.Pos.X != float64(30 * config.TileSize) || g.player.Pos.Y != config.TileSize * 2 {
@@ -137,7 +137,7 @@ func TestVoidCaveFirstFrameCoords(t *testing.T) {
 	}
 
 	// Check if LightSource in shader uniforms is centered [640, 360]
-	ls := g.caveState.uniforms["LightSource"].([]float32)
+	ls := g.caveState.Uniforms["LightSource"].([]float32)
 	if ls[0] != 640.0 || ls[1] != 360.0 {
 		t.Errorf("expected LightSource to be [640, 360], got %+v", ls)
 	}
@@ -150,7 +150,7 @@ func TestVoidCaveFirstFrameCoords(t *testing.T) {
 			t.Fatal(err)
 		}
 		g.Draw(screen)
-		ls = g.caveState.uniforms["LightSource"].([]float32)
+		ls = g.caveState.Uniforms["LightSource"].([]float32)
 		t.Logf("Frame %d: player.Pos = %+v, camera.Pos = %+v, LightSource = %+v", frame, g.player.Pos, g.camera.Pos, ls)
 	}
 }
@@ -280,7 +280,7 @@ func TestCaveExitLandSpawningFix(t *testing.T) {
 	}
 
 	// Verify that the player is indeed not stuck (the position is not solid)
-	if g.overworldState.isSolid(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height) {
+	if g.overworldState.IsSolid(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height) {
 		t.Errorf("player spawned in a solid/stuck state at %+v", g.player.Pos)
 	}
 

@@ -1,33 +1,16 @@
 package game
 
-// State represents the current game scene/view.
-type State int
+import "github.com/jaredwarren/SubGame/internal/game/scene"
 
+// State is an alias for scene.State.
+type State = scene.State
+
+// Re-export state constants so existing game-package code and tests continue to compile.
 const (
-	StateTitle State = iota
-	StateOverworld
-	StateCave
-	StateBaseMenu
-	StateGameOver
-	StateGameWon
+	StateTitle     State = scene.StateTitle
+	StateOverworld State = scene.StateOverworld
+	StateCave      State = scene.StateCave
+	StateBaseMenu  State = scene.StateBaseMenu
+	StateGameOver  State = scene.StateGameOver
+	StateGameWon   State = scene.StateGameWon
 )
-
-// String returns the string representation of the State.
-func (s State) String() string {
-	switch s {
-	case StateTitle:
-		return "Title"
-	case StateOverworld:
-		return "Overworld"
-	case StateCave:
-		return "Cave"
-	case StateBaseMenu:
-		return "Base Menu"
-	case StateGameOver:
-		return "Game Over"
-	case StateGameWon:
-		return "Game Won"
-	default:
-		return "Unknown"
-	}
-}

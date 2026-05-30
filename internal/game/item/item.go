@@ -299,7 +299,7 @@ func (e *EscapeRocket) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillPath(screen, &flamePath, nil, &flameOpts)
 }
 
-type VheicleUpgradeItem interface {
+type VehicleUpgradeItem interface {
 	Item
 	IsVehicleUpgrade() bool
 }

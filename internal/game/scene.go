@@ -1,18 +1,44 @@
 package game
 
-import "github.com/hajimehoshi/ebiten/v2"
+import (
+	"github.com/jaredwarren/SubGame/internal/game/scene"
+	"github.com/jaredwarren/SubGame/internal/world"
+)
 
-// Scene represents a distinct game state or view (e.g. Overworld, Cave, Menu, Game Over).
-type Scene interface {
-	// Update advances the scene logical state by one tick.
-	Update(g *Game) error
+// Type aliases so existing game-package code (game.go, tests, adapters) compiles
+// without modification while the canonical definitions live in the scene package.
 
-	// Draw renders the scene graphics to the screen. It must not modify game state.
-	Draw(g *Game, screen *ebiten.Image)
+type Scene = scene.Scene
+type GameContext = scene.GameContext
 
-	// OnEnter is called once when the scene becomes active.
-	OnEnter(g *Game)
+type TitleScene = scene.TitleScene
+type OverworldScene = scene.OverworldScene
+type CaveScene = scene.CaveScene
+type BaseMenuScene = scene.BaseMenuScene
+type GameOverScene = scene.GameOverScene
+type GameWonScene = scene.GameWonScene
+type HUD = scene.HUD
 
-	// OnExit is called once when the scene is replaced or deactivated.
-	OnExit(g *Game)
+// Crafting types re-exported for tests in package game.
+type Recipe = scene.Recipe
+type Ingredient = scene.Ingredient
+
+// CraftingRecipes provides package-game access to the canonical list.
+var CraftingRecipes = scene.CraftingRecipes
+
+// Constructor wrappers so NewGame() and tests call unchanged function names.
+func NewTitleScene() *TitleScene      { return scene.NewTitleScene() }
+func NewCaveScene() *CaveScene        { return scene.NewCaveScene() }
+func NewBaseMenuScene() *BaseMenuScene { return scene.NewBaseMenuScene() }
+func NewGameOverScene() *GameOverScene { return scene.NewGameOverScene() }
+func NewGameWonScene() *GameWonScene   { return scene.NewGameWonScene() }
+func NewHUD() *HUD                    { return scene.NewHUD() }
+
+func NewOverworldScene(w *world.World) *OverworldScene {
+	return scene.NewOverworldScene(w)
+}
+
+// GetOverworldLightMultiplier re-exported for any remaining references.
+func GetOverworldLightMultiplier(timeOfDay float64) float64 {
+	return scene.GetOverworldLightMultiplier(timeOfDay)
 }

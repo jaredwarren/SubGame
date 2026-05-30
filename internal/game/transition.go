@@ -73,7 +73,7 @@ func (g *Game) ExitCave() {
 
 	// Fallback to the original entry position (guaranteed to be water/non-solid)
 	// if the shifted target position would place the player inside solid land.
-	if g.overworldState != nil && g.overworldState.isSolid(targetX, targetY, g.player.Width, g.player.Height) {
+	if g.overworldState != nil && g.overworldState.IsSolid(targetX, targetY, g.player.Width, g.player.Height) {
 		targetX = g.lastOverworldX
 		targetY = g.lastOverworldY
 	}
