@@ -42,7 +42,7 @@ func NewBaseStation(x, y float64) *BaseStation {
 // UpdatePower simulates base solar recharging and module draining.
 func (b *BaseStation) UpdatePower(timeOfDay float64) {
 	rate := 0.01 // baseline trickle
-	if timeOfDay < 7200 {
+	if timeOfDay < 10800 {
 		rate = b.SolarRechargeRate
 	}
 	b.Power += rate

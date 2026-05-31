@@ -145,6 +145,8 @@ func (g *Game) handleDebugInput() {
 		g.player.CurrentHealth = g.player.MaxHealth
 		g.player.CurrentOxygen = g.player.MaxOxygen
 		g.player.CurrentStamina = g.player.MaxStamina
+	case g.Input.IsKeyJustPressed(ebiten.KeyC):
+		g.EnterCave(50, 50)
 	}
 }
 

@@ -765,12 +765,12 @@ func getSkyColor(timeOfDay float64) color.RGBA {
 		return lerpF(nightSky, dawnSky, timeOfDay/1200.0)
 	case timeOfDay < 2400:
 		return lerpF(dawnSky, daySky, (timeOfDay-1200.0)/1200.0)
-	case timeOfDay < 6000:
-		return lerpF(daySky, daySky, 0)
-	case timeOfDay < 7200:
-		return lerpF(daySky, duskSky, (timeOfDay-6000.0)/1200.0)
 	case timeOfDay < 8400:
-		return lerpF(duskSky, nightSky, (timeOfDay-7200.0)/1200.0)
+		return lerpF(daySky, daySky, 0)
+	case timeOfDay < 9600:
+		return lerpF(daySky, duskSky, (timeOfDay-8400.0)/1200.0)
+	case timeOfDay < 10800:
+		return lerpF(duskSky, nightSky, (timeOfDay-9600.0)/1200.0)
 	default:
 		return lerpF(nightSky, nightSky, 0)
 	}

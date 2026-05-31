@@ -73,7 +73,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 		if hour == 0 {
 			displayHour = 12
 		}
-		isDay := g.GetTimeOfDay() < 7200
+		isDay := g.GetTimeOfDay() < 10800
 		dayPhase := "Day"
 		if !isDay {
 			dayPhase = "Night"

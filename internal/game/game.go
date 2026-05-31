@@ -79,6 +79,7 @@ type Game struct {
 	Particles      []*particle.Particle
 	shakeDuration  int
 	shakeIntensity float64
+	deathReason    string
 
 	// Debug
 	DebugDisableLightShader bool
@@ -163,11 +164,25 @@ func (g *Game) Respawn() {
 	g.player.CurrentStamina = g.player.MaxStamina
 	g.player.Inventory.Clear()
 	g.ActiveVehicle = nil
+	g.deathReason = ""
 	g.shakeDuration = 0
 	g.shakeIntensity = 0
 	g.showInventory = false
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	g.TransitionTo(g.overworldState)
+}
+
+// DestroyOverworldVehicle removes a vehicle from the overworld list and resets active vehicle.
+func (g *Game) DestroyOverworldVehicle(v vehicle.Vehicle) {
+	for i, ov := range g.OverworldVehicles {
+		if ov == v {
+			g.OverworldVehicles = append(g.OverworldVehicles[:i], g.OverworldVehicles[i+1:]...)
+			break
+		}
+	}
+	if g.ActiveVehicle == v {
+		g.ActiveVehicle = nil
+	}
 }
 
 // TriggerScreenShake registers a screen shake — higher intensity/longer duration wins.

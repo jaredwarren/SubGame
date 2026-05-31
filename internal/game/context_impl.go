@@ -128,6 +128,11 @@ func (g *Game) SetMineWarning(msg string, duration int) {
 
 // TriggerScreenShake is defined in game.go.
 
+// --- Death state ---
+
+func (g *Game) GetDeathReason() string                 { return g.deathReason }
+func (g *Game) SetDeathReason(reason string)          { g.deathReason = reason }
+
 // --- Debug ---
 
 func (g *Game) IsDebugLightShaderDisabled() bool { return g.DebugDisableLightShader }

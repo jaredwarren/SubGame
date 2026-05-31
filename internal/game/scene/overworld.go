@@ -10,12 +10,14 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 // OverworldScene manages the top-down surface sailing view.
 type OverworldScene struct {
-	World *world.World
+	World     *world.World
+	whirlpool *Whirlpool
 }
 
 // NewOverworldScene creates a new OverworldScene.
@@ -25,18 +27,87 @@ func NewOverworldScene(w *world.World) *OverworldScene {
 
 func (o *OverworldScene) OnEnter(g GameContext) {
 	g.SetCurrentState(StateOverworld)
+	if o.whirlpool == nil {
+		o.whirlpool = NewWhirlpool(g.GetWorld().Seed)
+		o.whirlpool.Relocate(o.World, g.GetBaseStation().Pos)
+	}
 }
 
 func (o *OverworldScene) OnExit(g GameContext) {}
 
 // Update handles input, movement physics, and checks state transition triggers.
 func (o *OverworldScene) Update(g GameContext) error {
-	if g.GetActiveVehicle() != nil {
+	if o.whirlpool == nil {
+		o.whirlpool = NewWhirlpool(g.GetWorld().Seed)
+		o.whirlpool.Relocate(o.World, g.GetBaseStation().Pos)
+	}
+
+	o.whirlpool.Update(o.World, g.GetBaseStation().Pos)
+
+	// If piloting a vehicle, apply forces to the vehicle and handle death.
+	if v := g.GetActiveVehicle(); v != nil {
+		vPos := v.GetPos()
+		vDims := v.GetDimensions()
+		vCenter := gvec.Vec2{
+			X: vPos.X + vDims.X/2.0,
+			Y: vPos.Y + vDims.Y/2.0,
+		}
+
+		// Check death center distance (within 15 pixels of whirlpool eye)
+		wpDx := o.whirlpool.Pos.X - vCenter.X
+		wpDy := o.whirlpool.Pos.Y - vCenter.Y
+		wpDist := math.Hypot(wpDx, wpDy)
+
+		if wpDist < 15.0 {
+			g.SetDeathReason("Your vehicle was dragged into the abyss by a violent whirlpool!")
+			g.DestroyOverworldVehicle(v)
+			g.GetPlayer().CurrentHealth = 0
+			return nil
+		}
+
+		// Apply pulling force
+		force := o.whirlpool.PullForce(vCenter)
+		if force.X != 0 || force.Y != 0 {
+			newPos := gvec.Vec2{
+				X: vPos.X + force.X,
+				Y: vPos.Y + force.Y,
+			}
+			// Collision checks before updating position
+			if !o.IsSolid(newPos.X, newPos.Y, vDims.X, vDims.Y) {
+				v.SetPos(newPos)
+				// Immediately sync player position to center of vehicle to avoid lag
+				p := g.GetPlayer()
+				p.Pos.X = newPos.X + (vDims.X-p.Width)/2.0
+				p.Pos.Y = newPos.Y + (vDims.Y-p.Height)/2.0
+			}
+		}
 		return nil
 	}
 
 	p := g.GetPlayer()
 	inp := g.GetInput()
+
+	// Calculate and apply whirlpool force to player velocity
+	pCenter := gvec.Vec2{
+		X: p.Pos.X + p.Width/2.0,
+		Y: p.Pos.Y + p.Height/2.0,
+	}
+
+	// Check death center distance (within 15 pixels of whirlpool eye)
+	wpDx := o.whirlpool.Pos.X - pCenter.X
+	wpDy := o.whirlpool.Pos.Y - pCenter.Y
+	wpDist := math.Hypot(wpDx, wpDy)
+
+	if wpDist < 15.0 {
+		g.SetDeathReason("You were sucked into the center of a swirling vortex!")
+		g.GetPlayer().CurrentHealth = 0
+		return nil
+	}
+
+	// Apply pulling force to player velocity
+	force := o.whirlpool.PullForce(pCenter)
+	p.Vel.X += force.X
+	p.Vel.Y += force.Y
 
 	speedProp := p.Speed["overworld"]
 	accel := speedProp.Acceleration
@@ -284,6 +355,10 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 		}
 	}
 
+	if o.whirlpool != nil {
+		o.whirlpool.Draw(screen, camX, camY)
+	}
+
 	if !isPiloting {
 		pTileX := int(p.Pos.X+p.Width/2) / config.TileSize
 		pTileY := int(p.Pos.Y+p.Height/2) / config.TileSize
@@ -321,11 +396,11 @@ func GetOverworldLightMultiplier(timeOfDay float64) float64 {
 	if timeOfDay >= 0 && timeOfDay < 1200 {
 		return 0.2 + (timeOfDay/1200.0)*0.8
 	}
-	if timeOfDay >= 1200 && timeOfDay < 6000 {
+	if timeOfDay >= 1200 && timeOfDay < 9600 {
 		return 1.0
 	}
-	if timeOfDay >= 6000 && timeOfDay < 7200 {
-		return 1.0 - ((timeOfDay-6000.0)/1200.0)*0.8
+	if timeOfDay >= 9600 && timeOfDay < 10800 {
+		return 1.0 - ((timeOfDay-9600.0)/1200.0)*0.8
 	}
 	return 0.2
 }

@@ -66,7 +66,7 @@ func (s *Skiff) RechargeBattery(amount float64) {
 }
 
 func (s *Skiff) Update(runtime Runtime) {
-	isDaytime := runtime.TimeOfDay() < 7200
+	isDaytime := runtime.TimeOfDay() < 10800
 	if isDaytime {
 		s.Battery += 0.05
 		if s.Battery > s.MaxBattery {
@@ -88,13 +88,13 @@ func (s *Skiff) Update(runtime Runtime) {
 		s.Facing += turnSpeed
 	}
 
-	var accel = 0.15
-	var maxSpeed = 5.0
+	var accel = 0.20
+	var maxSpeed = 6.0
 
 	hasPower := s.Battery > 0
 	if !hasPower {
-		accel = 0.03
-		maxSpeed = 1.2
+		accel = 0.04
+		maxSpeed = 1.5
 	}
 
 	moving := false

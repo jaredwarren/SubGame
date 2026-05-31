@@ -30,5 +30,9 @@ func (s *GameOverScene) Update(g GameContext) error {
 
 func (s *GameOverScene) Draw(g GameContext, screen *ebiten.Image) {
 	screen.Fill(color.RGBA{R: 50, G: 10, B: 10, A: 255})
-	ebitenutil.DebugPrint(screen, "GAME OVER\n\nYour hull cracked or you ran out of oxygen.\n\nPress ENTER to respawn.")
+	msg := "Your hull cracked or you ran out of oxygen."
+	if reason := g.GetDeathReason(); reason != "" {
+		msg = reason
+	}
+	ebitenutil.DebugPrint(screen, "GAME OVER\n\n"+msg+"\n\nPress ENTER to respawn.")
 }

@@ -92,6 +92,13 @@ type GameContext interface {
 	// Screen effects
 	TriggerScreenShake(duration int, intensity float64)
 
+	// Death state
+	GetDeathReason() string
+	SetDeathReason(reason string)
+
+	// Overworld interactions
+	DestroyOverworldVehicle(v vehicle.Vehicle)
+
 	// Debug toggles
 	IsDebugLightShaderDisabled() bool
 	IsDebugWaterShaderDisabled() bool
