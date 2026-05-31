@@ -106,7 +106,7 @@ func loadSpritesLazy() {
 		log.Printf("Warning: Failed to open assets/textures/ore_sheet.png: %v", err)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	img, _, err := image.Decode(file)
 	if err != nil {
@@ -634,7 +634,7 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 			if grid[tx][ty] {
 				if isAdjacentToEmpty(tx, ty) {
 					spawnRoll := r.Float64()
-					var kind nodeKind = kindTitanium
+					kind := kindTitanium
 					var spawnChance = GenConfig.FallbackSpawnChance
 
 					// Find the matching tier based on depth ty

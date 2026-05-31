@@ -122,7 +122,70 @@ func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 }
 
 func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
-	return entity.GenerateCaveEntities(c.Grid, seed, true)
+	grid := c.Grid
+	r := rand.New(rand.NewSource(seed))
+	var entities []entity.CaveEntity
+
+	gridW := len(grid)
+	gridH := len(grid[0])
+
+	for tx := 1; tx < gridW-1; tx++ {
+		for ty := 2; ty < gridH-2; ty++ {
+			if grid[tx][ty] {
+				continue
+			}
+
+			hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
+			if hasAdjacentWall && r.Float64() < 0.08 {
+				entities = append(entities, &entity.ShatterBulb{
+					BaseEntity: entity.BaseEntity{
+						Type:       entity.EntShatterBulb,
+						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
+						Dimensions: gvec.Vec2{X: 24, Y: 24},
+						Active:     true,
+					},
+				})
+			}
+			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
+			if isOpenWater && r.Float64() < 0.012 {
+				entities = append(entities, &entity.PassiveFish{
+					BaseEntity: entity.BaseEntity{
+						Type:       entity.EntPassiveFish,
+						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-20)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-12)/2.0},
+						Dimensions: gvec.Vec2{X: 20, Y: 12},
+						Active:     true,
+					},
+					FacingRight: r.Float64() < 0.5,
+					SwimPhase:   r.Float64() * math.Pi * 2,
+				})
+			}
+			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.015 {
+				entities = append(entities, &entity.PassiveCrab{
+					BaseEntity: entity.BaseEntity{
+						Type:       entity.EntPassiveCrab,
+						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-10)},
+						Dimensions: gvec.Vec2{X: 16, Y: 10},
+						Active:     true,
+					},
+					FacingRight: r.Float64() < 0.5,
+				})
+			}
+			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.28 {
+				height := 32.0 + r.Float64()*48.0
+				entities = append(entities, &entity.Kelp{
+					BaseEntity: entity.BaseEntity{
+						Type:       entity.EntKelp,
+						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize) - height},
+						Dimensions: gvec.Vec2{X: 16, Y: height},
+						Active:     true,
+					},
+					SwayPhase: r.Float64() * math.Pi * 2,
+				})
+			}
+		}
+	}
+
+	return entities
 }
 
 func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
@@ -188,8 +251,122 @@ func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 }
 
 func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
-	// Re-uses original GenerateCaveEntities but forces organic trench spawning (isShallow = false)
-	return entity.GenerateCaveEntities(c.Grid, seed, false)
+	grid := c.Grid
+	r := rand.New(rand.NewSource(seed))
+	var entities []entity.CaveEntity
+
+	gridW := len(grid)
+	gridH := len(grid[0])
+
+	for tx := 1; tx < gridW-1; tx++ {
+		for ty := 2; ty < gridH-2; ty++ {
+			if grid[tx][ty] {
+				continue
+			}
+
+			// Biome 1: Mid-Depth (ty 4–40) - Grotto
+			if ty >= 4 && ty < 40 {
+				hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
+				if hasAdjacentWall && r.Float64() < 0.08 {
+					entities = append(entities, &entity.ShatterBulb{
+						BaseEntity: entity.BaseEntity{
+							Type:       entity.EntShatterBulb,
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
+							Dimensions: gvec.Vec2{X: 24, Y: 24},
+							Active:     true,
+						},
+					})
+				}
+				if grid[tx][ty-1] && r.Float64() < 0.04 {
+					entities = append(entities, &entity.FalseBulbSnare{
+						BaseEntity: entity.BaseEntity{
+							Type:       entity.EntFalseBulbSnare,
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + 4},
+							Dimensions: gvec.Vec2{X: 24, Y: 32},
+							Active:     true,
+						},
+						State: 0,
+					})
+				}
+			}
+
+			// Biome 2: Deep (ty 40–80) - Smoker Trenches
+			if ty >= 40 && ty < 80 {
+				if r.Float64() < 0.05 {
+					var dir string
+					if grid[tx][ty+1] {
+						dir = "up"
+					} else if grid[tx][ty-1] {
+						dir = "down"
+					} else if grid[tx-1][ty] {
+						dir = "right"
+					} else if grid[tx+1][ty] {
+						dir = "left"
+					}
+					if dir != "" {
+						entities = append(entities, &entity.BrimstoneSiphon{
+							BaseEntity: entity.BaseEntity{
+								Type:       entity.EntBrimstoneSiphon,
+								Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-32)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-32)/2.0},
+								Dimensions: gvec.Vec2{X: 32, Y: 32},
+								Active:     true,
+							},
+							Direction: dir,
+							Timer:     r.Intn(120),
+						})
+					}
+				}
+				isOpenSpace := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
+				if isOpenSpace && r.Float64() < 0.015 {
+					entities = append(entities, &entity.ThermoclineRammer{
+						BaseEntity: entity.BaseEntity{
+							Type:       entity.EntThermoclineRammer,
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-36)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
+							Dimensions: gvec.Vec2{X: 36, Y: 24},
+							Active:     true,
+						},
+						Facing: r.Float64() * math.Pi * 2,
+					})
+				}
+			}
+
+			// Biome 3: Abyssal (ty 80+) - Brine Falls
+			if ty >= 80 && ty < gridH-1 {
+				if grid[tx][ty+1] && r.Float64() < 0.10 {
+					entities = append(entities, &entity.NerveMat{
+						BaseEntity: entity.BaseEntity{
+							Type:       entity.EntNerveMat,
+							Pos:        gvec.Vec2{X: float64(tx * config.TileSize), Y: float64(ty*config.TileSize) + float64(config.TileSize-12)},
+							Dimensions: gvec.Vec2{X: float64(config.TileSize), Y: 12},
+							Active:     true,
+						},
+					})
+				}
+				isOpenSpace := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
+				if isOpenSpace && r.Float64() < 0.012 {
+					hasWeaverNearby := false
+					for _, ent := range entities {
+						if ent.GetType() == entity.EntElectroWeaver && math.Abs(ent.GetPos().X-float64(tx*config.TileSize)) < 500 {
+							hasWeaverNearby = true
+							break
+						}
+					}
+					if !hasWeaverNearby {
+						entities = append(entities, &entity.ElectroWeaver{
+							BaseEntity: entity.BaseEntity{
+								Type:       entity.EntElectroWeaver,
+								Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-40)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-20)/2.0},
+								Dimensions: gvec.Vec2{X: 40, Y: 20},
+								Active:     true,
+							},
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return entities
 }
 
 func (c *OrganicTrenchCave) GenerateResources(seed int64) []resource.Resource {

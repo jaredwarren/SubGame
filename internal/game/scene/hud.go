@@ -376,11 +376,13 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 
 	numSlots := len(vInv.Slots)
 	var vCols, vRows int
-	if numSlots == 24 {
+	// TODO: numslots should be configurable and not hard-coded to 24, 12, etc.
+	switch numSlots {
+	case 24:
 		vCols, vRows = 8, 3
-	} else if numSlots == 12 {
+	case 12:
 		vCols, vRows = 6, 2
-	} else {
+	default:
 		vCols, vRows = 4, 2
 	}
 

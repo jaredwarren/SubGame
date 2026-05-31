@@ -290,7 +290,8 @@ func (ent *ThermoclineRammer) Update(gr Runtime, CaveGrid [][]bool) {
 		isAggroTrigger = true
 	}
 
-	if ent.State == 0 {
+	switch ent.State {
+	case 0: // patrol
 		if isAggroTrigger {
 			ent.State = 1
 			dx := px - ex
@@ -323,7 +324,7 @@ func (ent *ThermoclineRammer) Update(gr Runtime, CaveGrid [][]bool) {
 				ent.Facing += math.Pi
 			}
 		}
-	} else if ent.State == 1 {
+	case 1: // charging
 		nextX := ent.Pos.X + ent.Vel.X
 		nextY := ent.Pos.Y + ent.Vel.Y
 		if isSolid(CaveGrid, nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {

@@ -22,10 +22,6 @@ func TestPassiveCreatures_Generation(t *testing.T) {
 		}
 	}
 
-	// Generate cave entities for shallow cave (isShallow = true)
-	entities := entity.GenerateCaveEntities(grid, 42, true)
-	_ = entities // avoid unused variable check
-
 	// Verify that we can at least compile and run it, and let's check if the filter logic works.
 	fish := &entity.PassiveFish{
 		BaseEntity: entity.BaseEntity{

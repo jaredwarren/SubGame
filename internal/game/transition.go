@@ -30,14 +30,14 @@ func (g *Game) EnterCave(tx, ty int) {
 		grid := g.world.GetCave(tx, ty)
 		g.caveState.CaveGrid = grid
 
-		tile := g.world.OverworldMap[tx][ty]
-		if tile == world.TileTrench {
+		switch g.world.OverworldMap[tx][ty] {
+		case world.TileTrench:
 			activeCave = cave.NewOrganicTrenchCave(grid)
 			g.caveState.IsShallow = false
-		} else if tile == world.TileWreckage {
+		case world.TileWreckage:
 			activeCave = cave.NewWreckageCorridorCave(grid)
 			g.caveState.IsShallow = false
-		} else {
+		default:
 			activeCave = cave.NewShallowSeabedCave(grid)
 			g.caveState.IsShallow = true
 		}

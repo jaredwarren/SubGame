@@ -5,14 +5,11 @@ import (
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
-	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
-	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 // Update advances all game logic by one tick.
@@ -123,10 +120,6 @@ func (g *Game) handleDebugInput() {
 		g.MineWarningTimer = 120
 	}
 
-	// Jump into cave at (50,50) for quick testing
-	if g.Input.IsKeyJustPressed(ebiten.KeyC) {
-		g.debugJumpToCave(50, 50)
-	}
 	if g.Input.IsKeyJustPressed(ebiten.KeyG) {
 		g.TransitionTo(g.gameOverState)
 	}
@@ -153,46 +146,6 @@ func (g *Game) handleDebugInput() {
 		g.player.CurrentOxygen = g.player.MaxOxygen
 		g.player.CurrentStamina = g.player.MaxStamina
 	}
-}
-
-func (g *Game) debugJumpToCave(tx, ty int) {
-	g.ActiveVehicle = nil
-	g.activeTrenchX = tx
-	g.activeTrenchY = ty
-	g.activeTrenchKey = "50_50"
-	g.caveState.CaveGrid = g.world.GetCave(tx, ty)
-	g.player.Pos.X = float64(len(g.caveState.CaveGrid) / 2 * config.TileSize)
-	g.player.Pos.Y = float64(config.TileSize * 2)
-
-	grid := g.caveState.CaveGrid
-	tile := g.world.OverworldMap[tx][ty]
-	var activeCave cave.Cave
-	switch tile {
-	case world.TileTrench:
-		activeCave = cave.NewOrganicTrenchCave(grid)
-	case world.TileWreckage:
-		activeCave = cave.NewWreckageCorridorCave(grid)
-	default:
-		activeCave = cave.NewShallowSeabedCave(grid)
-	}
-	g.caveState.ActiveCave = activeCave
-	isShallow := tile != world.TileTrench
-	g.caveState.IsShallow = isShallow
-
-	seed := int64(tx*97 + ty*41)
-	if _, ok := g.caveNodes[g.activeTrenchKey]; !ok {
-		g.caveNodes[g.activeTrenchKey] = activeCave.GenerateResources(seed)
-	}
-	g.caveState.Nodes = g.caveNodes[g.activeTrenchKey]
-
-	if _, ok := g.caveEntities[g.activeTrenchKey]; !ok {
-		g.caveEntities[g.activeTrenchKey] = entity.GenerateCaveEntities(grid, seed, isShallow)
-	}
-	g.caveState.Entities = g.caveEntities[g.activeTrenchKey]
-
-	g.showInventory = false
-	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
-	g.TransitionTo(g.caveState)
 }
 
 func (g *Game) debugSpawnVehicle(v vehicle.Vehicle) {
@@ -479,9 +432,10 @@ func (g *Game) checkVehicleEntry() {
 		return
 	}
 	var candidates []vehicle.Vehicle
-	if g.currentState == StateOverworld {
+	switch g.currentState {
+	case StateOverworld:
 		candidates = g.OverworldVehicles
-	} else if g.currentState == StateCave {
+	case StateCave:
 		candidates = g.CaveVehicles[g.activeTrenchKey]
 	}
 	for _, v := range candidates {
@@ -499,9 +453,10 @@ func (g *Game) checkVehicleEntry() {
 // updateIdleVehicles ticks all vehicles that the player is not currently piloting.
 func (g *Game) updateIdleVehicles(vrt *vehicleRuntimeAdapter) {
 	var idle []vehicle.Vehicle
-	if g.currentState == StateOverworld {
+	switch g.currentState {
+	case StateOverworld:
 		idle = g.OverworldVehicles
-	} else if g.currentState == StateCave {
+	case StateCave:
 		idle = g.CaveVehicles[g.activeTrenchKey]
 	}
 	for _, v := range idle {

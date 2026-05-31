@@ -103,7 +103,7 @@ func (c *CaveScene) loadDiverSheet() {
 		log.Printf("Warning: Failed to open assets/textures/diver_sheet.png: %v", err)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	img, _, err := image.Decode(file)
 	if err != nil {
@@ -321,7 +321,6 @@ func (c *CaveScene) Update(g GameContext) error {
 					if node.GetHitsToMine() <= 0 {
 						p.Inventory.AddItem(node, 1)
 						c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)
-						i--
 					}
 					break
 				}
