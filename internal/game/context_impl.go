@@ -4,6 +4,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
@@ -23,6 +24,43 @@ func (g *Game) TransitionToOverworld() { g.TransitionTo(g.overworldState) }
 func (g *Game) TransitionToGameWon()   { g.TransitionTo(g.gameWonState) }
 
 // EnterCave and ExitCave are defined in transition.go.
+
+func (g *Game) HorizontalTransition(newTx, newTy int, newTrenchKey string, newCave cave.Cave, newGrid [][]bool, newNodes []resource.Resource, newEntities []entity.CaveEntity) {
+	oldKey := g.activeTrenchKey
+
+	// Save old cave state
+	g.caveNodes[oldKey] = g.caveState.Nodes
+	g.caveEntities[oldKey] = g.caveState.Entities
+
+	// Set new trench coordinates and key
+	g.activeTrenchX = newTx
+	g.activeTrenchY = newTy
+	g.activeTrenchKey = newTrenchKey
+
+	// Apply new cave scene state
+	g.caveState.ActiveCave = newCave
+	g.caveState.CaveGrid = newGrid
+	g.caveState.Nodes = newNodes
+	g.caveState.Entities = newEntities
+
+	// Update the player's last overworld emergence coordinates to match new location
+	playerWidth := g.player.Width
+	playerHeight := g.player.Height
+	g.lastOverworldX = float64(newTx*config.TileSize) + (config.TileSize-playerWidth)/2
+	g.lastOverworldY = float64(newTy*config.TileSize) + (config.TileSize-playerHeight)/2
+
+	// Update vehicle mapping
+	if g.ActiveVehicle != nil {
+		oldList := g.CaveVehicles[oldKey]
+		for i, v := range oldList {
+			if v == g.ActiveVehicle {
+				g.CaveVehicles[oldKey] = append(oldList[:i], oldList[i+1:]...)
+				break
+			}
+		}
+		g.CaveVehicles[newTrenchKey] = append(g.CaveVehicles[newTrenchKey], g.ActiveVehicle)
+	}
+}
 
 // --- Input ---
 
@@ -57,6 +95,9 @@ func (g *Game) GetActiveTrenchCoords() (x, y int) {
 func (g *Game) GetActiveCave() cave.Cave { return g.caveState.ActiveCave }
 func (g *Game) GetCaveNodes(key string) []resource.Resource {
 	return g.caveNodes[key]
+}
+func (g *Game) SetCaveNodes(key string, nodes []resource.Resource) {
+	g.caveNodes[key] = nodes
 }
 func (g *Game) GetCaveEntities(key string) []entity.CaveEntity {
 	return g.caveEntities[key]

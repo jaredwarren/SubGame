@@ -209,6 +209,9 @@ func (w *World) GetCave(tx, ty int) [][]bool {
 			floorY = 60
 		}
 
+		hasLeftWater := tx-1 >= 0 && w.OverworldMap[tx-1][ty] == TileWater
+		hasRightWater := tx+1 < w.Width && w.OverworldMap[tx+1][ty] == TileWater
+
 		// Create a local random generator seeded by coordinates to make every seabed layout unique
 		r := rand.New(rand.NewSource(w.Seed + int64(tx*73) + int64(ty*31)))
 		freq1 := 0.15 + r.Float64()*0.2
@@ -223,8 +226,27 @@ func (w *World) GetCave(tx, ty int) [][]bool {
 			if colFloorY < 6 {
 				colFloorY = 6
 			}
+
+			// Apply slope to the left edge if the neighbor is not water
+			if !hasLeftWater && x < 15 {
+				t := float64(x) / 15.0
+				t = math.Sin(t * math.Pi / 2.0)
+				blendY := 4.0 + (float64(colFloorY)-4.0)*t
+				colFloorY = int(blendY)
+			}
+
+			// Apply slope to the right edge if the neighbor is not water
+			if !hasRightWater && x >= caveW-15 {
+				t := float64(caveW-1-x) / 15.0
+				t = math.Sin(t * math.Pi / 2.0)
+				blendY := 4.0 + (float64(colFloorY)-4.0)*t
+				colFloorY = int(blendY)
+			}
+
 			for y := 0; y < caveH; y++ {
-				if x == 0 || x == caveW-1 || y >= colFloorY {
+				isLeftBorderSolid := !hasLeftWater && x == 0
+				isRightBorderSolid := !hasRightWater && x == caveW-1
+				if isLeftBorderSolid || isRightBorderSolid || y >= colFloorY {
 					cave[x][y] = true
 				} else {
 					cave[x][y] = false

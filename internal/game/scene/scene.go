@@ -34,6 +34,7 @@ type GameContext interface {
 	Respawn()
 	EnterCave(tx, ty int)
 	ExitCave()
+	HorizontalTransition(newTx, newTy int, newTrenchKey string, newCave cave.Cave, newGrid [][]bool, newNodes []resource.Resource, newEntities []entity.CaveEntity)
 
 	// Input
 	GetInput() InputSource
@@ -58,6 +59,7 @@ type GameContext interface {
 	// Cave state
 	GetActiveCave() cave.Cave
 	GetCaveNodes(key string) []resource.Resource
+	SetCaveNodes(key string, nodes []resource.Resource)
 	GetCaveEntities(key string) []entity.CaveEntity
 	SetCaveEntities(key string, entities []entity.CaveEntity)
 

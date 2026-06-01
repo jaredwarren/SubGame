@@ -72,10 +72,10 @@ func TestVoidCaveCreation(t *testing.T) {
 	}
 
 	// Verify that collision check is solid returns false everywhere (allowing infinite movement)
-	if g.caveState.IsSolid(100, 100, g.player.Width, g.player.Height) {
+	if g.caveState.IsSolid(g, 100, 100, g.player.Width, g.player.Height) {
 		t.Error("expected isSolid to return false everywhere in Void Cave")
 	}
-	if g.caveState.IsSolid(-5000, 50000, g.player.Width, g.player.Height) {
+	if g.caveState.IsSolid(g, -5000, 50000, g.player.Width, g.player.Height) {
 		t.Error("expected isSolid to return false even deep in Void Cave")
 	}
 

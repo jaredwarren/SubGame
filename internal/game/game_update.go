@@ -409,11 +409,11 @@ func (g *Game) exitVehicle(vPos, vDims gvec.Vec2) {
 	safeX, safeY := vPos.X, vPos.Y
 	if g.currentState == StateCave {
 		switch {
-		case !g.caveState.IsSolid(vPos.X-32, vPos.Y, g.player.Width, g.player.Height):
+		case !g.caveState.IsSolid(g, vPos.X-32, vPos.Y, g.player.Width, g.player.Height):
 			safeX = vPos.X - 32
-		case !g.caveState.IsSolid(vPos.X+vDims.X+12, vPos.Y, g.player.Width, g.player.Height):
+		case !g.caveState.IsSolid(g, vPos.X+vDims.X+12, vPos.Y, g.player.Width, g.player.Height):
 			safeX = vPos.X + vDims.X + 12
-		case !g.caveState.IsSolid(vPos.X, vPos.Y-32, g.player.Width, g.player.Height):
+		case !g.caveState.IsSolid(g, vPos.X, vPos.Y-32, g.player.Width, g.player.Height):
 			safeY = vPos.Y - 32
 		}
 		g.player.Pos.X = safeX
@@ -500,6 +500,17 @@ func (g *Game) updateCamera() {
 		return
 	}
 	g.camera.Track(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height, 0.08)
+
+	if g.currentState == StateCave && g.caveState.CaveGrid != nil {
+		caveW := len(g.caveState.CaveGrid)
+		maxCamX := float64(caveW*config.TileSize - config.ScreenWidth)
+		if g.camera.Pos.X < 0 {
+			g.camera.Pos.X = 0
+		}
+		if g.camera.Pos.X > maxCamX {
+			g.camera.Pos.X = maxCamX
+		}
+	}
 
 	if g.currentState == StateCave && g.WeaverTrackingTimer > 0 {
 		shakeMag := (g.WeaverTrackingTimer / 300.0) * 8.0

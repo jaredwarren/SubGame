@@ -71,6 +71,18 @@ func (a *vehicleRuntimeAdapter) IsCaveSolidAt(tx, ty int) bool {
 		return false
 	}
 	if tx < 0 || tx >= len(grid) {
+		if a.g.caveState.IsShallow {
+			currentTx, currentTy := a.g.activeTrenchX, a.g.activeTrenchY
+			var neighborTx int
+			if tx < 0 {
+				neighborTx = currentTx - 1
+			} else {
+				neighborTx = currentTx + 1
+			}
+			if neighborTx >= 0 && neighborTx < a.g.world.Width && a.g.world.OverworldMap[neighborTx][currentTy] == world.TileWater {
+				return false
+			}
+		}
 		return true
 	}
 	if ty < 0 {

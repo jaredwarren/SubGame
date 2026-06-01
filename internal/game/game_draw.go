@@ -57,6 +57,11 @@ func (g *Game) drawOverworldLayer(screen *ebiten.Image) {
 
 // drawCaveLayer renders cave vehicles, the sonar ring, and interaction prompts.
 func (g *Game) drawCaveLayer(screen *ebiten.Image) {
+	if g.caveState.IsScrollActive() {
+		g.Sonar.Draw(screen, g.camera)
+		return
+	}
+
 	camX, camY := g.camera.Pos.X, g.camera.Pos.Y
 	caveVehicles := g.CaveVehicles[g.activeTrenchKey]
 

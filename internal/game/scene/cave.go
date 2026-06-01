@@ -1,6 +1,7 @@
 package scene
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	_ "image/png"
@@ -12,6 +13,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
+	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
@@ -20,6 +22,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/shader"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
+	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 // DiverDrawWidth defines the targeted width of the diver sprite on screen.
@@ -65,6 +68,31 @@ type CaveScene struct {
 	diverSwimFrames  []*ebiten.Image
 	diverMineFrames  []*ebiten.Image
 	diverDamageFrame *ebiten.Image
+
+	// Scroll transition fields
+	scrollActive     bool
+	scrollTimer      int
+	scrollDir        int // -1 for left, 1 for right
+	oldCave          cave.Cave
+	newCave          cave.Cave
+	oldCaveGrid      [][]bool
+	newCaveGrid      [][]bool
+	oldNodes         []resource.Resource
+	newNodes         []resource.Resource
+	oldEntities      []entity.CaveEntity
+	newEntities      []entity.CaveEntity
+	oldTrenchX       int
+	oldTrenchY       int
+	newTrenchX       int
+	newTrenchY       int
+	oldTrenchKey     string
+	newTrenchKey     string
+	oldCamX          float64
+	oldCamY          float64
+	newCamX          float64
+	newCamY          float64
+	offscreenOld     *ebiten.Image
+	offscreenNew     *ebiten.Image
 }
 
 // NewCaveScene creates a new CaveScene instance.
@@ -164,6 +192,62 @@ func (c *CaveScene) OnExit(g GameContext) {}
 
 // Update handles player input, side-scroller swimming physics, and checks exit transitions.
 func (c *CaveScene) Update(g GameContext) error {
+	if c.scrollActive {
+		c.scrollTimer++
+		if c.scrollTimer >= 45 {
+			c.scrollActive = false
+			g.HorizontalTransition(c.newTrenchX, c.newTrenchY, c.newTrenchKey, c.newCave, c.newCaveGrid, c.newNodes, c.newEntities)
+
+			p := g.GetPlayer()
+			caveW := len(c.CaveGrid)
+
+			var width float64 = p.Width
+			if v := g.GetActiveVehicle(); v != nil {
+				width = v.GetDimensions().X
+			}
+
+			var targetX float64
+			if c.scrollDir == 1 {
+				targetX = 20.0
+			} else {
+				targetX = float64(caveW*config.TileSize) - width - 20.0
+			}
+
+			// Find a safe Y coordinate (not solid) by sliding upwards
+			safeY := p.Pos.Y
+			var checkW, checkH float64 = p.Width, p.Height
+			if v := g.GetActiveVehicle(); v != nil {
+				vDims := v.GetDimensions()
+				checkW, checkH = vDims.X, vDims.Y
+				safeY = v.GetPos().Y
+			}
+
+			for safeY > 0 {
+				if !c.IsSolid(g, targetX, safeY, checkW, checkH) {
+					break
+				}
+				safeY -= float64(config.TileSize)
+			}
+			if safeY < 0 {
+				safeY = 0
+			}
+
+			p.Vel = gvec.Vec2{}
+			if v := g.GetActiveVehicle(); v != nil {
+				v.SetPos(gvec.Vec2{X: targetX, Y: safeY})
+				p.Pos.X = targetX + (checkW-p.Width)/2.0
+				p.Pos.Y = safeY + (checkH-p.Height)/2.0
+			} else {
+				p.Pos.X = targetX
+				p.Pos.Y = safeY
+			}
+
+			cam := g.GetCamera()
+			cam.CenterOn(p.Pos.X, p.Pos.Y, p.Width, p.Height)
+		}
+		return nil
+	}
+
 	g.SetWeaverTrackingTimer(0.0)
 
 	cam := g.GetCamera()
@@ -232,39 +316,93 @@ func (c *CaveScene) Update(g GameContext) error {
 				}
 			}
 		}
-		return nil
-	}
+	} else {
+		p := g.GetPlayer()
 
-	p := g.GetPlayer()
+		if p.Pos.Y < -8 {
+			g.ExitCave()
+			return nil
+		}
 
-	if p.Pos.Y < -8 {
-		g.ExitCave()
-		return nil
-	}
+		if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			p.IsMining = true
+			p.MiningAnimTimer = 24
 
-	if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		p.IsMining = true
-		p.MiningAnimTimer = 24
+			cursor := inp.Cursor()
+			camX := p.Pos.X - config.ScreenWidth/2 + p.Width/2
+			camY := p.Pos.Y - config.ScreenHeight/2 + p.Height/2
+			worldX := camX + cursor.X
+			worldY := camY + cursor.Y
 
-		cursor := inp.Cursor()
-		camX := p.Pos.X - config.ScreenWidth/2 + p.Width/2
-		camY := p.Pos.Y - config.ScreenHeight/2 + p.Height/2
-		worldX := camX + cursor.X
-		worldY := camY + cursor.Y
+			mtx := int(worldX) / config.TileSize
+			mty := int(worldY) / config.TileSize
 
-		mtx := int(worldX) / config.TileSize
-		mty := int(worldY) / config.TileSize
+			for _, ent := range c.Entities {
+				if ent.GetType() == entity.EntShatterBulb && ent.IsActive() {
+					pos := ent.GetPos()
+					dims := ent.GetDimensions()
+					if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
+						px := p.Pos.X + p.Width/2
+						py := p.Pos.Y + p.Height/2
+						if math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2)) <= 96.0 {
+							if bulb, ok := ent.(*entity.ShatterBulb); ok {
+								bulb.Pop(entityRuntime)
+							}
+							break
+						}
+					}
+				}
+			}
 
-		for _, ent := range c.Entities {
-			if ent.GetType() == entity.EntShatterBulb && ent.IsActive() {
-				pos := ent.GetPos()
-				dims := ent.GetDimensions()
-				if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
+			for i, ent := range c.Entities {
+				if !ent.IsActive() {
+					continue
+				}
+				if creature, ok := ent.(entity.PassiveCreature); ok {
+					pos := ent.GetPos()
+					dims := ent.GetDimensions()
+					if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
+						playerCenter := gvec.Vec2{X: p.Pos.X + p.Width/2, Y: p.Pos.Y + p.Height/2}
+						if creature.CanCatch(playerCenter) {
+							harvestedItem := creature.GetHarvestedItem()
+							if p.Inventory.AddItem(harvestedItem, 1) {
+								ent.SetActive(false)
+								c.Entities = append(c.Entities[:i], c.Entities[i+1:]...)
+								g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90)
+							} else {
+								g.SetMineWarning("Inventory full!", 90)
+							}
+							break
+						}
+					}
+				}
+			}
+
+			for i := 0; i < len(c.Nodes); i++ {
+				node := c.Nodes[i]
+				nodeTx, nodeTy := node.GetTilePos()
+				if nodeTx == mtx && nodeTy == mty && node.GetHitsToMine() > 0 {
 					px := p.Pos.X + p.Width/2
 					py := p.Pos.Y + p.Height/2
-					if math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2)) <= 96.0 {
-						if bulb, ok := ent.(*entity.ShatterBulb); ok {
-							bulb.Pop(entityRuntime)
+					nx := float64(nodeTx*config.TileSize + config.TileSize/2)
+					ny := float64(nodeTy*config.TileSize + config.TileSize/2)
+
+					if math.Hypot(px-nx, py-ny) <= 96.0 {
+						if node.RequiresMech() {
+							g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120)
+							continue
+						}
+						node.SetHitsToMine(node.GetHitsToMine() - 1)
+
+						nodeColor := color.RGBA{150, 150, 150, 255}
+						if cRgba, ok := node.GetColor().(color.RGBA); ok {
+							nodeColor = cRgba
+						}
+						g.SpawnDebris(nx, ny, nodeColor)
+
+						if node.GetHitsToMine() <= 0 {
+							p.Inventory.AddItem(node, 1)
+							c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)
 						}
 						break
 					}
@@ -272,130 +410,160 @@ func (c *CaveScene) Update(g GameContext) error {
 			}
 		}
 
-		for i, ent := range c.Entities {
-			if !ent.IsActive() {
-				continue
-			}
-			if creature, ok := ent.(entity.PassiveCreature); ok {
-				pos := ent.GetPos()
-				dims := ent.GetDimensions()
-				if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
-					playerCenter := gvec.Vec2{X: p.Pos.X + p.Width/2, Y: p.Pos.Y + p.Height/2}
-					if creature.CanCatch(playerCenter) {
-						harvestedItem := creature.GetHarvestedItem()
-						if p.Inventory.AddItem(harvestedItem, 1) {
-							ent.SetActive(false)
-							c.Entities = append(c.Entities[:i], c.Entities[i+1:]...)
-							g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90)
-						} else {
-							g.SetMineWarning("Inventory full!", 90)
-						}
-						break
-					}
-				}
-			}
+		cursor := inp.Cursor()
+		pScreenX := p.Pos.X + p.Width/2.0 - cam.Pos.X
+		pScreenY := p.Pos.Y + p.Height/2.0 - cam.Pos.Y
+		p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+
+		speedProps := p.Speed["cave"]
+		swimForce := speedProps.Acceleration
+		maxSpeed := speedProps.TopSpeed
+		buoyancy := p.Buoyancy
+		drag := speedProps.Drag
+
+		isSprinting := inp.IsKeyPressed(ebiten.KeyShift)
+		if isSprinting && p.CurrentStamina > 0 {
+			swimForce *= 1.5
+			maxSpeed *= 1.6
+		}
+		if g.IsPlayerSlowed() {
+			swimForce *= 0.5
+			maxSpeed *= 0.5
 		}
 
-		for i := 0; i < len(c.Nodes); i++ {
-			node := c.Nodes[i]
-			nodeTx, nodeTy := node.GetTilePos()
-			if nodeTx == mtx && nodeTy == mty && node.GetHitsToMine() > 0 {
-				px := p.Pos.X + p.Width/2
-				py := p.Pos.Y + p.Height/2
-				nx := float64(nodeTx*config.TileSize + config.TileSize/2)
-				ny := float64(nodeTy*config.TileSize + config.TileSize/2)
+		swimming := false
+		if inp.IsKeyPressed(ebiten.KeyW) || inp.IsKeyPressed(ebiten.KeyArrowUp) {
+			p.Vel.Y -= swimForce
+			swimming = true
+		}
+		if inp.IsKeyPressed(ebiten.KeyS) || inp.IsKeyPressed(ebiten.KeyArrowDown) {
+			p.Vel.Y += swimForce
+			swimming = true
+		}
+		if inp.IsKeyPressed(ebiten.KeyA) || inp.IsKeyPressed(ebiten.KeyArrowLeft) {
+			p.Vel.X -= swimForce
+			swimming = true
+		}
+		if inp.IsKeyPressed(ebiten.KeyD) || inp.IsKeyPressed(ebiten.KeyArrowRight) {
+			p.Vel.X += swimForce
+			swimming = true
+		}
 
-				if math.Hypot(px-nx, py-ny) <= 96.0 {
-					if node.RequiresMech() {
-						g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120)
-						continue
-					}
-					node.SetHitsToMine(node.GetHitsToMine() - 1)
+		p.Vel.Y += buoyancy
+		p.Vel = p.Vel.Scale(drag)
 
-					nodeColor := color.RGBA{150, 150, 150, 255}
-					if cRgba, ok := node.GetColor().(color.RGBA); ok {
-						nodeColor = cRgba
-					}
-					g.SpawnDebris(nx, ny, nodeColor)
+		speed := p.Vel.Length()
+		if speed > maxSpeed {
+			p.Vel = p.Vel.Scale(maxSpeed / speed)
+		}
 
-					if node.GetHitsToMine() <= 0 {
-						p.Inventory.AddItem(node, 1)
-						c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)
-					}
-					break
+		if swimming && speed > 2.0 && rand.Float64() < 0.12 {
+			g.SpawnBubble(p.Pos.X+p.Width/2.0, p.Pos.Y+p.Height/2.0)
+		}
+
+		c.checkCollisions(g, p)
+
+		isMoving := speed > 0.1
+		p.UpdateStats(true, isSprinting && isMoving && swimming)
+	}
+
+	// Check boundary horizontal transitions
+	if c.IsShallow {
+		p := g.GetPlayer()
+		wld := g.GetWorld()
+		tx, ty := g.GetActiveTrenchCoords()
+		caveW := len(c.CaveGrid)
+
+		playerX := p.Pos.X
+		playerW := p.Width
+		if v := g.GetActiveVehicle(); v != nil {
+			playerX = v.GetPos().X
+			playerW = v.GetDimensions().X
+		}
+
+		if playerX <= 0 {
+			newTx := tx - 1
+			if newTx >= 0 && wld.OverworldMap[newTx][ty] == world.TileWater {
+				// Trigger transition left
+				c.scrollActive = true
+				c.scrollTimer = 0
+				c.scrollDir = -1
+
+				c.oldCave = c.ActiveCave
+				c.oldCaveGrid = c.CaveGrid
+				c.oldNodes = c.Nodes
+				c.oldEntities = c.Entities
+				c.oldTrenchX, c.oldTrenchY = tx, ty
+				c.oldTrenchKey = g.GetActiveTrenchKey()
+				c.oldCamX = g.GetCamera().Pos.X
+				c.oldCamY = g.GetCamera().Pos.Y
+
+				c.newTrenchX, c.newTrenchY = newTx, ty
+				c.newTrenchKey = fmt.Sprintf("%d_%d", newTx, ty)
+				c.newCaveGrid = wld.GetCave(newTx, ty)
+				c.newCave = cave.NewShallowSeabedCave(c.newCaveGrid)
+				c.newNodes = g.GetCaveNodes(c.newTrenchKey)
+				if c.newNodes == nil {
+					c.newNodes = c.newCave.GenerateResources(int64(newTx*97 + ty*41))
+					g.SetCaveNodes(c.newTrenchKey, c.newNodes)
 				}
+				c.newEntities = g.GetCaveEntities(c.newTrenchKey)
+				if c.newEntities == nil {
+					c.newEntities = c.newCave.GenerateEntities(int64(newTx*97 + ty*41))
+					g.SetCaveEntities(c.newTrenchKey, c.newEntities)
+				}
+				c.newCamX = float64(caveW*config.TileSize - config.ScreenWidth)
+				c.newCamY = c.oldCamY
+			}
+		} else if playerX+playerW >= float64(caveW*config.TileSize) {
+			newTx := tx + 1
+			if newTx < wld.Width && wld.OverworldMap[newTx][ty] == world.TileWater {
+				// Trigger transition right
+				c.scrollActive = true
+				c.scrollTimer = 0
+				c.scrollDir = 1
+
+				c.oldCave = c.ActiveCave
+				c.oldCaveGrid = c.CaveGrid
+				c.oldNodes = c.Nodes
+				c.oldEntities = c.Entities
+				c.oldTrenchX, c.oldTrenchY = tx, ty
+				c.oldTrenchKey = g.GetActiveTrenchKey()
+				c.oldCamX = g.GetCamera().Pos.X
+				c.oldCamY = g.GetCamera().Pos.Y
+
+				c.newTrenchX, c.newTrenchY = newTx, ty
+				c.newTrenchKey = fmt.Sprintf("%d_%d", newTx, ty)
+				c.newCaveGrid = wld.GetCave(newTx, ty)
+				c.newCave = cave.NewShallowSeabedCave(c.newCaveGrid)
+				c.newNodes = g.GetCaveNodes(c.newTrenchKey)
+				if c.newNodes == nil {
+					c.newNodes = c.newCave.GenerateResources(int64(newTx*97 + ty*41))
+					g.SetCaveNodes(c.newTrenchKey, c.newNodes)
+				}
+				c.newEntities = g.GetCaveEntities(c.newTrenchKey)
+				if c.newEntities == nil {
+					c.newEntities = c.newCave.GenerateEntities(int64(newTx*97 + ty*41))
+					g.SetCaveEntities(c.newTrenchKey, c.newEntities)
+				}
+				c.newCamX = 0
+				c.newCamY = c.oldCamY
 			}
 		}
 	}
-
-	cursor := inp.Cursor()
-	pScreenX := p.Pos.X + p.Width/2.0 - cam.Pos.X
-	pScreenY := p.Pos.Y + p.Height/2.0 - cam.Pos.Y
-	p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
-
-	speedProps := p.Speed["cave"]
-	swimForce := speedProps.Acceleration
-	maxSpeed := speedProps.TopSpeed
-	buoyancy := p.Buoyancy
-	drag := speedProps.Drag
-
-	isSprinting := inp.IsKeyPressed(ebiten.KeyShift)
-	if isSprinting && p.CurrentStamina > 0 {
-		swimForce *= 1.5
-		maxSpeed *= 1.6
-	}
-	if g.IsPlayerSlowed() {
-		swimForce *= 0.5
-		maxSpeed *= 0.5
-	}
-
-	swimming := false
-	if inp.IsKeyPressed(ebiten.KeyW) || inp.IsKeyPressed(ebiten.KeyArrowUp) {
-		p.Vel.Y -= swimForce
-		swimming = true
-	}
-	if inp.IsKeyPressed(ebiten.KeyS) || inp.IsKeyPressed(ebiten.KeyArrowDown) {
-		p.Vel.Y += swimForce
-		swimming = true
-	}
-	if inp.IsKeyPressed(ebiten.KeyA) || inp.IsKeyPressed(ebiten.KeyArrowLeft) {
-		p.Vel.X -= swimForce
-		swimming = true
-	}
-	if inp.IsKeyPressed(ebiten.KeyD) || inp.IsKeyPressed(ebiten.KeyArrowRight) {
-		p.Vel.X += swimForce
-		swimming = true
-	}
-
-	p.Vel.Y += buoyancy
-	p.Vel = p.Vel.Scale(drag)
-
-	speed := p.Vel.Length()
-	if speed > maxSpeed {
-		p.Vel = p.Vel.Scale(maxSpeed / speed)
-	}
-
-	if swimming && speed > 2.0 && rand.Float64() < 0.12 {
-		g.SpawnBubble(p.Pos.X+p.Width/2.0, p.Pos.Y+p.Height/2.0)
-	}
-
-	c.checkCollisions(p)
-
-	isMoving := speed > 0.1
-	p.UpdateStats(true, isSprinting && isMoving && swimming)
 
 	return nil
 }
 
-func (c *CaveScene) checkCollisions(p *player.Player) {
+func (c *CaveScene) checkCollisions(g GameContext, p *player.Player) {
 	newX := p.Pos.X + p.Vel.X
-	if c.IsSolid(newX, p.Pos.Y, p.Width, p.Height) {
+	if c.IsSolid(g, newX, p.Pos.Y, p.Width, p.Height) {
 		p.Vel.X = 0
 	} else {
 		p.Pos.X = newX
 	}
 	newY := p.Pos.Y + p.Vel.Y
-	if c.IsSolid(p.Pos.X, newY, p.Width, p.Height) {
+	if c.IsSolid(g, p.Pos.X, newY, p.Width, p.Height) {
 		p.Vel.Y = 0
 	} else {
 		p.Pos.Y = newY
@@ -403,7 +571,7 @@ func (c *CaveScene) checkCollisions(p *player.Player) {
 }
 
 // IsSolid checks if the proposed bounding box overlaps with solid cave tiles.
-func (c *CaveScene) IsSolid(x, y, w, h float64) bool {
+func (c *CaveScene) IsSolid(g GameContext, x, y, w, h float64) bool {
 	if c.CaveGrid == nil {
 		return false
 	}
@@ -418,6 +586,19 @@ func (c *CaveScene) IsSolid(x, y, w, h float64) bool {
 	for tx := x1; tx <= x2; tx++ {
 		for ty := y1; ty <= y2; ty++ {
 			if tx < 0 || tx >= gridW {
+				if c.IsShallow {
+					worldObj := g.GetWorld()
+					currentTx, currentTy := g.GetActiveTrenchCoords()
+					var neighborTx int
+					if tx < 0 {
+						neighborTx = currentTx - 1
+					} else {
+						neighborTx = currentTx + 1
+					}
+					if neighborTx >= 0 && neighborTx < worldObj.Width && worldObj.OverworldMap[neighborTx][currentTy] == world.TileWater {
+						continue
+					}
+				}
 				return true
 			}
 			if ty < 0 {
@@ -440,19 +621,258 @@ func (c *CaveScene) Draw(g GameContext, finalScreen *ebiten.Image) {
 		c.offscreen = ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
 	}
 	c.offscreen.Clear()
-	screen := c.offscreen
 
 	cam := g.GetCamera()
-	camX := cam.Pos.X
-	camY := cam.Pos.Y
 
+	if c.scrollActive {
+		if c.offscreenOld == nil {
+			c.offscreenOld = ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
+		}
+		if c.offscreenNew == nil {
+			c.offscreenNew = ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
+		}
+		c.offscreenOld.Clear()
+		c.offscreenNew.Clear()
+
+		// 1. Draw old scene
+		c.drawScene(g, c.offscreenOld, c.oldCave, c.oldCaveGrid, c.oldNodes, c.oldEntities, c.oldTrenchKey, c.oldCamX, c.oldCamY, true)
+
+		// 2. Draw new scene
+		c.drawScene(g, c.offscreenNew, c.newCave, c.newCaveGrid, c.newNodes, c.newEntities, c.newTrenchKey, c.newCamX, c.newCamY, true)
+
+		// 3. Slide them on c.offscreen
+		t := float64(c.scrollTimer) / 45.0
+		t = math.Sin(t * math.Pi / 2.0)
+
+		opOld := &ebiten.DrawImageOptions{}
+		opNew := &ebiten.DrawImageOptions{}
+
+		if c.scrollDir == 1 { // Scrolling right
+			opOld.GeoM.Translate(-t*float64(config.ScreenWidth), 0)
+			opNew.GeoM.Translate((1.0-t)*float64(config.ScreenWidth), 0)
+		} else { // Scrolling left
+			opOld.GeoM.Translate(t*float64(config.ScreenWidth), 0)
+			opNew.GeoM.Translate((t-1.0)*float64(config.ScreenWidth), 0)
+		}
+
+		c.offscreen.DrawImage(c.offscreenOld, opOld)
+		c.offscreen.DrawImage(c.offscreenNew, opNew)
+
+		// 4. Draw the player or active vehicle at the interpolated position
+		p := g.GetPlayer()
+		isPiloting := g.GetActiveVehicle() != nil
+
+		var width float64 = p.Width
+		if isPiloting {
+			width = g.GetActiveVehicle().GetDimensions().X
+		}
+
+		var screenStartX float64
+		var screenEndX float64
+		if c.scrollDir == 1 { // Scrolling right
+			screenStartX = float64(config.ScreenWidth) - width
+			screenEndX = 20.0
+		} else { // Scrolling left
+			screenStartX = 20.0
+			screenEndX = float64(config.ScreenWidth) - width - 20.0
+		}
+
+		interpolatedX := (1.0-t)*screenStartX + t*screenEndX
+
+		if isPiloting {
+			v := g.GetActiveVehicle()
+			oldPos := v.GetPos()
+			v.SetPos(gvec.Vec2{X: interpolatedX, Y: oldPos.Y})
+			v.Draw(c.offscreen, 0, cam.Pos.Y)
+			v.SetPos(oldPos)
+		} else {
+			pX := float32(interpolatedX + p.Width/2.0)
+			pY := float32(p.Pos.Y + p.Height/2.0 - cam.Pos.Y)
+			facingAngle := p.Facing
+
+			var activeFrame *ebiten.Image
+			if c.diverSheet != nil {
+				if p.IsDamaged {
+					activeFrame = c.diverDamageFrame
+				} else if p.IsMining {
+					elapsed := 24 - p.MiningAnimTimer
+					frameIdx := elapsed / 6
+					if frameIdx < 0 {
+						frameIdx = 0
+					}
+					if frameIdx > 3 {
+						frameIdx = 3
+					}
+					if frameIdx < len(c.diverMineFrames) {
+						activeFrame = c.diverMineFrames[frameIdx]
+					}
+				} else if math.Hypot(p.Vel.X, p.Vel.Y) > 0.2 {
+					frameIdx := (p.AnimTick / 5) % 8
+					if frameIdx < len(c.diverSwimFrames) {
+						activeFrame = c.diverSwimFrames[frameIdx]
+					}
+				} else {
+					frameIdx := (p.AnimTick / 10) % 4
+					if frameIdx < len(c.diverIdleFrames) {
+						activeFrame = c.diverIdleFrames[frameIdx]
+					}
+				}
+			}
+
+			if activeFrame != nil {
+				op := &ebiten.DrawImageOptions{}
+				baseFrameW := float64(activeFrame.Bounds().Dx())
+				baseFrameH := float64(activeFrame.Bounds().Dy())
+				if len(c.diverIdleFrames) > 0 {
+					baseFrameW = float64(c.diverIdleFrames[0].Bounds().Dx())
+					baseFrameH = float64(c.diverIdleFrames[0].Bounds().Dy())
+				}
+				op.GeoM.Translate(-baseFrameW/2.0, -baseFrameH/2.0)
+				if math.Cos(facingAngle) < 0 {
+					op.GeoM.Scale(-1, 1)
+				}
+				scale := DiverDrawWidth / baseFrameW
+				op.GeoM.Scale(scale, scale)
+				op.GeoM.Translate(float64(pX), float64(pY))
+				c.offscreen.DrawImage(activeFrame, op)
+			} else {
+				tankAngle := facingAngle + math.Pi
+				tx := pX + float32(math.Cos(tankAngle))*8
+				ty := pY + float32(math.Sin(tankAngle))*8
+				vector.FillCircle(c.offscreen, tx, ty, 6, color.RGBA{240, 220, 50, 255}, false)
+				vector.FillCircle(c.offscreen, pX, pY, 9, color.RGBA{220, 95, 45, 255}, false)
+				vx := pX + float32(math.Cos(facingAngle))*6
+				vy := pY + float32(math.Sin(facingAngle))*6
+				vector.FillCircle(c.offscreen, vx, vy, 5, color.RGBA{80, 200, 255, 200}, false)
+			}
+		}
+
+	} else {
+		c.drawScene(g, c.offscreen, c.ActiveCave, c.CaveGrid, c.Nodes, c.Entities, g.GetActiveTrenchKey(), cam.Pos.X, cam.Pos.Y, false)
+
+		sonar := g.GetSonar()
+		if shader.LightShader != nil && !c.IsShallow && !g.IsDebugLightShaderDisabled() {
+			p := g.GetPlayer()
+			isPiloting := g.GetActiveVehicle() != nil
+			facingAngle := p.Facing
+			if isPiloting {
+				facingAngle = g.GetActiveVehicle().GetFacing()
+			}
+			pX := float32(p.Pos.X + p.Width/2.0 - cam.Pos.X)
+			pY := float32(p.Pos.Y + p.Height/2.0 - cam.Pos.Y)
+
+			var sonarSourceX, sonarSourceY, sonarRadius float32
+			if sonar.Timer > 0 {
+				sonarSourceX = float32(sonar.SourceX - cam.Pos.X)
+				sonarSourceY = float32(sonar.SourceY - cam.Pos.Y)
+				sonarRadius = float32(sonar.Radius)
+			}
+
+			var fDirX, fDirY float32
+			weaverTimer := g.GetWeaverTrackingTimer()
+			if g.IsFlashlightOn() {
+				fDirX = float32(math.Cos(facingAngle))
+				fDirY = float32(math.Sin(facingAngle))
+				if weaverTimer > 0 && rand.Float64() < (weaverTimer/300.0)*0.20 {
+					fDirX, fDirY = 0, 0
+				}
+			}
+
+			entranceX := float32(float64(len(c.CaveGrid)/2*config.TileSize) + config.TileSize/2.0 - cam.Pos.X)
+			entranceY := float32(0.0 - cam.Pos.Y)
+
+			c.lightSource[0], c.lightSource[1] = pX, pY
+			c.flashlightDir[0], c.flashlightDir[1] = fDirX, fDirY
+			c.sonarSource[0], c.sonarSource[1] = sonarSourceX, sonarSourceY
+			c.entranceLight[0], c.entranceLight[1] = entranceX, entranceY
+
+			c.Uniforms["LightSource"] = c.lightSource
+			c.Uniforms["FlashlightDir"] = c.flashlightDir
+
+			maxDepthF := 6000.0
+			if len(c.CaveGrid) > 0 && len(c.CaveGrid[0]) > 0 {
+				maxDepthF = float64(len(c.CaveGrid[0]) * config.TileSize)
+			}
+			depth := p.Pos.Y
+			if depth < 0 {
+				depth = 0
+			}
+			depthFrac := depth / maxDepthF
+			if depthFrac > 1.0 {
+				depthFrac = 1.0
+			}
+			maxRadiusDecay := float32(0.65)
+			maxAngleDecay := float32(0.50)
+			if p.MaxOxygen >= 240.0 {
+				maxRadiusDecay, maxAngleDecay = 0.15, 0.10
+			} else if p.MaxOxygen >= 160.0 {
+				maxRadiusDecay, maxAngleDecay = 0.35, 0.25
+			}
+			radius := float32(360.0) * (1.0 - float32(depthFrac)*maxRadiusDecay)
+			angle := float32(math.Pi/7.5) * (1.0 - float32(depthFrac)*maxAngleDecay)
+
+			c.Uniforms["LightRadius"] = radius
+			c.Uniforms["ConeHalfAngle"] = angle
+			c.Uniforms["PersonalRadius"] = float32(65.0)
+			c.Uniforms["AmbientColor"] = c.getAmbientColor(c.IsShallow, g.GetTimeOfDay())
+			c.Uniforms["SonarSource"] = c.sonarSource
+			c.Uniforms["SonarRadius"] = sonarRadius
+			sonarBright := float32(1.0)
+			sonarFadeLimit := float32(1200.0)
+			if sonar.Bright {
+				sonarBright, sonarFadeLimit = 2.5, 3000.0
+			}
+			c.Uniforms["SonarBright"] = sonarBright
+			c.Uniforms["SonarFadeLimit"] = sonarFadeLimit
+			c.Uniforms["EntranceLight"] = c.entranceLight
+			entranceActive := float32(1.0)
+			if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveVoid {
+				entranceActive = 0.0
+			}
+			c.Uniforms["EntranceActive"] = entranceActive
+
+			c.offscreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.LightShader, &c.shaderOpts)
+		}
+
+		if !c.IsShallow {
+			c.drawBioluminescence(g, c.offscreen, cam.Pos.X, cam.Pos.Y)
+		}
+	}
+
+	if shader.WaterDisplacementShader != nil && !g.IsDebugWaterShaderDisabled() {
+		var ventPositions [16]float32
+		var ventCount float32 = 0
+		for _, ent := range c.Entities {
+			if siphon, ok := ent.(*entity.BrimstoneSiphon); ok && siphon.IsActive() && siphon.Timer >= 60 && ventCount < 8 {
+				idx := int(ventCount) * 2
+				ventPositions[idx] = float32(siphon.Pos.X - cam.Pos.X + siphon.Dimensions.X/2.0)
+				ventPositions[idx+1] = float32(siphon.Pos.Y - cam.Pos.Y + siphon.Dimensions.Y/2.0)
+				ventCount++
+			}
+		}
+
+		op := &ebiten.DrawRectShaderOptions{}
+		op.Images[0] = c.offscreen
+		op.Uniforms = map[string]any{
+			"Time":          float32(g.GetTicks()),
+			"VentPositions": ventPositions,
+			"VentCount":     ventCount,
+			"SurfaceY":      float32(-cam.Pos.Y),
+		}
+		finalScreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.WaterDisplacementShader, op)
+	} else {
+		finalScreen.DrawImage(c.offscreen, nil)
+	}
+}
+
+func (c *CaveScene) drawScene(g GameContext, screen *ebiten.Image, activeCave cave.Cave, caveGrid [][]bool, nodes []resource.Resource, entities []entity.CaveEntity, trenchKey string, camX, camY float64, hidePlayer bool) {
 	maxDepth := 6000.0
-	if c.CaveGrid != nil && len(c.CaveGrid[0]) > 0 {
-		maxDepth = float64(len(c.CaveGrid[0]) * config.TileSize)
+	if caveGrid != nil && len(caveGrid[0]) > 0 {
+		maxDepth = float64(len(caveGrid[0]) * config.TileSize)
 	}
 	mult := GetOverworldLightMultiplier(g.GetTimeOfDay())
-	if c.ActiveCave != nil {
-		c.ActiveCave.DrawBackground(screen, camY, maxDepth, mult)
+	if activeCave != nil {
+		activeCave.DrawBackground(screen, camY, maxDepth, mult)
 	} else if c.IsShallow {
 		baseR := float64(10) + float64(30)*mult
 		baseG := float64(40) + float64(80)*mult
@@ -483,7 +903,7 @@ func (c *CaveScene) Draw(g GameContext, finalScreen *ebiten.Image) {
 
 	if camY < 0 {
 		var skyColor color.RGBA
-		if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveVoid {
+		if activeCave != nil && activeCave.GetCaveType() == cave.CaveVoid {
 			skyColor = color.RGBA{2, 3, 6, 255}
 		} else if c.IsShallow {
 			skyColor = getSkyColor(g.GetTimeOfDay())
@@ -496,7 +916,7 @@ func (c *CaveScene) Draw(g GameContext, finalScreen *ebiten.Image) {
 	surfaceY := float32(-camY)
 	if surfaceY >= 0 && surfaceY < float32(config.ScreenHeight) {
 		var lineColor color.RGBA
-		if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveVoid {
+		if activeCave != nil && activeCave.GetCaveType() == cave.CaveVoid {
 			lineColor = color.RGBA{2, 3, 6, 255}
 		} else if c.IsShallow {
 			lineColor = color.RGBA{220, 240, 255, 255}
@@ -506,33 +926,50 @@ func (c *CaveScene) Draw(g GameContext, finalScreen *ebiten.Image) {
 		vector.StrokeLine(screen, 0, surfaceY, float32(config.ScreenWidth), surfaceY, 3.0, lineColor, false)
 	}
 
-	c.drawBackgroundParticles(g, screen)
+	for _, p := range g.GetParticles() {
+		if p.Type != particle.ParticlePlankton || p.Pos.Y < 0 {
+			continue
+		}
+		sx := float32(p.Pos.X - camX)
+		sy := float32(p.Pos.Y - camY)
+		clr := p.Color
+		opacity := p.Life
+		if p.Life > 0.9 {
+			opacity = (1.0 - p.Life) * 10.0
+		}
+		clr.A = uint8(float64(clr.A) * opacity)
+		vector.FillRect(screen, sx-p.Size/2.0, sy-p.Size/2.0, p.Size, p.Size, clr, false)
+	}
 
-	if c.CaveGrid != nil && c.ActiveCave != nil {
-		gridW := len(c.CaveGrid)
-		gridH := len(c.CaveGrid[0])
+	if caveGrid != nil && activeCave != nil {
+		gridW := len(caveGrid)
+		gridH := len(caveGrid[0])
 		startTileX := max0(int(camX)/config.TileSize, 0)
 		endTileX := min0((int(camX)+config.ScreenWidth)/config.TileSize+1, gridW)
 		startTileY := max0(int(camY)/config.TileSize, 0)
 		endTileY := min0((int(camY)+config.ScreenHeight)/config.TileSize+1, gridH)
-		c.ActiveCave.DrawTiles(screen, camX, camY, startTileX, startTileY, endTileX, endTileY)
+		activeCave.DrawTiles(screen, camX, camY, startTileX, startTileY, endTileX, endTileY)
 	}
 
-	for _, node := range c.Nodes {
+	for _, node := range nodes {
 		node.Draw(screen, camX, camY)
+	}
+
+	for _, v := range g.GetCaveVehicles(trenchKey) {
+		if hidePlayer && v == g.GetActiveVehicle() {
+			continue
+		}
+		v.Draw(screen, camX, camY)
 	}
 
 	p := g.GetPlayer()
 	isPiloting := g.GetActiveVehicle() != nil
 
-	pX := float32(p.Pos.X + p.Width/2.0 - camX)
-	pY := float32(p.Pos.Y + p.Height/2.0 - camY)
-	facingAngle := p.Facing
-	if isPiloting {
-		facingAngle = g.GetActiveVehicle().GetFacing()
-	}
+	if !hidePlayer && !isPiloting {
+		pX := float32(p.Pos.X + p.Width/2.0 - camX)
+		pY := float32(p.Pos.Y + p.Height/2.0 - camY)
+		facingAngle := p.Facing
 
-	if !isPiloting {
 		var activeFrame *ebiten.Image
 		if c.diverSheet != nil {
 			if p.IsDamaged {
@@ -590,119 +1027,11 @@ func (c *CaveScene) Draw(g GameContext, finalScreen *ebiten.Image) {
 		}
 	}
 
-	sonar := g.GetSonar()
-	if shader.LightShader != nil && !c.IsShallow && !g.IsDebugLightShaderDisabled() {
-		var sonarSourceX, sonarSourceY, sonarRadius float32
-		if sonar.Timer > 0 {
-			sonarSourceX = float32(sonar.SourceX - camX)
-			sonarSourceY = float32(sonar.SourceY - camY)
-			sonarRadius = float32(sonar.Radius)
-		}
-
-		var fDirX, fDirY float32
-		weaverTimer := g.GetWeaverTrackingTimer()
-		if g.IsFlashlightOn() {
-			fDirX = float32(math.Cos(facingAngle))
-			fDirY = float32(math.Sin(facingAngle))
-			if weaverTimer > 0 && rand.Float64() < (weaverTimer/300.0)*0.20 {
-				fDirX, fDirY = 0, 0
-			}
-		}
-
-		entranceX := float32(float64(len(c.CaveGrid)/2*config.TileSize) + config.TileSize/2.0 - camX)
-		entranceY := float32(0.0 - camY)
-
-		c.lightSource[0], c.lightSource[1] = pX, pY
-		c.flashlightDir[0], c.flashlightDir[1] = fDirX, fDirY
-		c.sonarSource[0], c.sonarSource[1] = sonarSourceX, sonarSourceY
-		c.entranceLight[0], c.entranceLight[1] = entranceX, entranceY
-
-		c.Uniforms["LightSource"] = c.lightSource
-		c.Uniforms["FlashlightDir"] = c.flashlightDir
-
-		maxDepthF := 6000.0
-		if len(c.CaveGrid) > 0 && len(c.CaveGrid[0]) > 0 {
-			maxDepthF = float64(len(c.CaveGrid[0]) * config.TileSize)
-		}
-		depth := p.Pos.Y
-		if depth < 0 {
-			depth = 0
-		}
-		depthFrac := depth / maxDepthF
-		if depthFrac > 1.0 {
-			depthFrac = 1.0
-		}
-		maxRadiusDecay := float32(0.65)
-		maxAngleDecay := float32(0.50)
-		if p.MaxOxygen >= 240.0 {
-			maxRadiusDecay, maxAngleDecay = 0.15, 0.10
-		} else if p.MaxOxygen >= 160.0 {
-			maxRadiusDecay, maxAngleDecay = 0.35, 0.25
-		}
-		radius := float32(360.0) * (1.0 - float32(depthFrac)*maxRadiusDecay)
-		angle := float32(math.Pi/7.5) * (1.0 - float32(depthFrac)*maxAngleDecay)
-
-		c.Uniforms["LightRadius"] = radius
-		c.Uniforms["ConeHalfAngle"] = angle
-		c.Uniforms["PersonalRadius"] = float32(65.0)
-		c.Uniforms["AmbientColor"] = c.getAmbientColor(c.IsShallow, g.GetTimeOfDay())
-		c.Uniforms["SonarSource"] = c.sonarSource
-		c.Uniforms["SonarRadius"] = sonarRadius
-		sonarBright := float32(1.0)
-		sonarFadeLimit := float32(1200.0)
-		if sonar.Bright {
-			sonarBright, sonarFadeLimit = 2.5, 3000.0
-		}
-		c.Uniforms["SonarBright"] = sonarBright
-		c.Uniforms["SonarFadeLimit"] = sonarFadeLimit
-		c.Uniforms["EntranceLight"] = c.entranceLight
-		entranceActive := float32(1.0)
-		if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveVoid {
-			entranceActive = 0.0
-		}
-		c.Uniforms["EntranceActive"] = entranceActive
-
-		screen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.LightShader, &c.shaderOpts)
-	}
-
-	if !c.IsShallow {
-		c.drawBioluminescence(g, screen, camX, camY)
-	}
-
-	for _, ent := range c.Entities {
-		ent.Draw(screen, cam, g.GetTimeOfDay())
-	}
-
-	swTimer, swX, swY, swRadius := g.GetSoundWaveState()
-	if swTimer > 0 {
-		alpha := float32(swTimer) / 60.0
-		clr := color.RGBA{245, 120, 20, uint8(200 * alpha)}
-		vector.StrokeCircle(screen, float32(swX-camX), float32(swY-camY), float32(swRadius), 2.0, clr, false)
-	}
-
-	var ventPositions [16]float32
-	var ventCount float32 = 0
-	for _, ent := range c.Entities {
-		if siphon, ok := ent.(*entity.BrimstoneSiphon); ok && siphon.IsActive() && siphon.Timer >= 60 && ventCount < 8 {
-			idx := int(ventCount) * 2
-			ventPositions[idx] = float32(siphon.Pos.X - camX + siphon.Dimensions.X/2.0)
-			ventPositions[idx+1] = float32(siphon.Pos.Y - camY + siphon.Dimensions.Y/2.0)
-			ventCount++
-		}
-	}
-
-	if shader.WaterDisplacementShader != nil && !g.IsDebugWaterShaderDisabled() {
-		op := &ebiten.DrawRectShaderOptions{}
-		op.Images[0] = c.offscreen
-		op.Uniforms = map[string]any{
-			"Time":          float32(g.GetTicks()),
-			"VentPositions": ventPositions,
-			"VentCount":     ventCount,
-			"SurfaceY":      float32(-camY),
-		}
-		finalScreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.WaterDisplacementShader, op)
-	} else {
-		finalScreen.DrawImage(c.offscreen, nil)
+	mockCam := &camera.Camera{}
+	mockCam.Pos.X = camX
+	mockCam.Pos.Y = camY
+	for _, ent := range entities {
+		ent.Draw(screen, mockCam, g.GetTimeOfDay())
 	}
 }
 
@@ -820,4 +1149,8 @@ func min0(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (c *CaveScene) IsScrollActive() bool {
+	return c.scrollActive
 }
