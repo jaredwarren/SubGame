@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -327,6 +328,115 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 
 			vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, tileClr, false)
 			vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeClr, false)
+
+			// Draw procedurally generated waves for standard water tiles
+			if o.World.OverworldMap[clampedTx][clampedTy] == world.TileWater {
+				ticks := g.GetTicks()
+
+				for nx := tx - 1; nx <= tx+1; nx++ {
+					for ny := ty - 1; ny <= ty+1; ny++ {
+						if nx < 0 || nx >= o.World.Width || ny < 0 || ny >= o.World.Height {
+							continue
+						}
+						if o.World.OverworldMap[nx][ny] == world.TileWater {
+							// Only generate waves on a subset of water tiles (50% density)
+							tileRng := rand.New(rand.NewSource(int64(nx*997 + ny*1009)))
+							if tileRng.Float64() < 0.5 {
+								rng := rand.New(rand.NewSource(int64(nx*773 + ny*877)))
+
+								// Static base offset inside the tile
+								baseOffsetX := rng.Float64() * float64(config.TileSize)
+								baseOffsetY := rng.Float64() * float64(config.TileSize)
+
+								// Life cycle configuration (140 ticks per cycle)
+								const cycleLength = 140.0
+								phaseOffset := rng.Float64() * cycleLength
+								cycleTime := math.Mod(ticks+phaseOffset, cycleLength)
+								lifeFrac := cycleTime / cycleLength
+
+								// Fade in and out
+								opacity := math.Sin(lifeFrac * math.Pi)
+								if opacity < 0 {
+									opacity = 0
+								}
+
+								// Slow wind drift to the left and slightly down
+								driftX := -lifeFrac * 14.0
+								driftY := lifeFrac * 4.0
+
+								// Wave center in world space
+								wcx := float64(nx*config.TileSize) + baseOffsetX + driftX
+								wcy := float64(ny*config.TileSize) + baseOffsetY + driftY
+
+								// Dynamic bobbing: all points of the wave bob together smoothly
+								wcyBobbed := wcy + math.Sin(ticks*0.06+wcx*0.02)*1.2
+
+								// Variety in wave type, length, and color
+								waveType := rng.Intn(3)
+
+								// Draw function for a wave line segment, clipped precisely to tile bounds using math.Floor
+								drawWaveSegment := func(x1, y1, x2, y2 float64, thickness float32, clr color.RGBA) {
+									t1x := int(math.Floor(x1 / float64(config.TileSize)))
+									t1y := int(math.Floor(y1 / float64(config.TileSize)))
+									t2x := int(math.Floor(x2 / float64(config.TileSize)))
+									t2y := int(math.Floor(y2 / float64(config.TileSize)))
+
+									if t1x == tx && t1y == ty && t2x == tx && t2y == ty {
+										lx1 := float32(x1 - camX)
+										ly1 := float32(y1 - camY)
+										lx2 := float32(x2 - camX)
+										ly2 := float32(y2 - camY)
+										litColor := applyLight(clr, mult)
+										vector.StrokeLine(screen, lx1, ly1, lx2, ly2, thickness, litColor, false)
+									}
+								}
+
+								// Draw function for a parabolic wave curve
+								drawWaveCurve := func(targetWcx, targetWcy, halfLen, maxArcHeight float64, thickness float32, clr color.RGBA) {
+									const segments = 6
+									xStep := (halfLen * 2.0) / segments
+									var lastX, lastY float64
+
+									for i := 0; i <= segments; i++ {
+										frac := float64(i) / float64(segments)
+										wx := targetWcx - halfLen + float64(i)*xStep
+										arc := 4.0 * frac * (1.0 - frac) * maxArcHeight
+										wy := targetWcy - arc
+
+										if i > 0 {
+											drawWaveSegment(lastX, lastY, wx, wy, thickness, clr)
+										}
+										lastX, lastY = wx, wy
+									}
+								}
+
+								switch waveType {
+								case 0: // Small white foam cap
+									halfLen := 3.0 + rng.Float64()*2.0
+									clr := color.RGBA{245, 250, 255, uint8(opacity * 170.0)}
+									drawWaveCurve(wcx, wcyBobbed, halfLen, 1.0, 1.2, clr)
+
+								case 1: // Medium light-blue wave
+									halfLen := 6.0 + rng.Float64()*4.0
+									clr := color.RGBA{135, 215, 255, uint8(opacity * 130.0)}
+									drawWaveCurve(wcx, wcyBobbed, halfLen, 1.5, 1.2, clr)
+
+								case 2: // Double crest (light-blue base with white cap)
+									halfLen := 8.0 + rng.Float64()*5.0
+									clrBlue := color.RGBA{130, 205, 255, uint8(opacity * 120.0)}
+									clrWhite := color.RGBA{245, 250, 255, uint8(opacity * 180.0)}
+
+									// 1. Blue base crest
+									drawWaveCurve(wcx, wcyBobbed, halfLen, 1.8, 1.2, clrBlue)
+
+									// 2. White cap (offset upwards and shorter)
+									drawWaveCurve(wcx, wcyBobbed-2.0, halfLen*0.5, 1.0, 1.0, clrWhite)
+								}
+							}
+						}
+					}
+				}
+			}
 
 			hasVehicle := false
 			trenchKey := g.GetActiveTrenchKey()

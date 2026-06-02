@@ -546,10 +546,9 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 			if b.Upgrades != nil && c < len(b.Upgrades.Slots) {
 				itemStack := b.Upgrades.Slots[c]
 				if itemStack.Item != nil {
-					itemClr := itemStack.Item.GetColor()
 					cx := sx + slotSz/2.0
 					cy := sy + slotSz/2.0
-					vector.FillCircle(screen, cx, cy, 10, itemClr, false)
+					itemStack.Item.DrawIcon(screen, cx, cy, slotSz*0.7)
 				}
 			}
 		}
@@ -773,10 +772,9 @@ func drawInventoryGrid(g GameContext, screen *ebiten.Image, startX, startY float
 
 			itemStack := inv.Slots[idx]
 			if itemStack.Item != nil {
-				itemClr := itemStack.Item.GetColor()
 				cx := sx + slotSz/2.0
 				cy := sy + slotSz/2.0
-				vector.FillCircle(screen, cx, cy, 10, itemClr, false)
+				itemStack.Item.DrawIcon(screen, cx, cy, slotSz*0.7)
 				if itemStack.Quantity > 1 {
 					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", itemStack.Quantity), int(sx)+4, int(sy)+slotSz-15)
 				}

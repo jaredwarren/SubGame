@@ -25,7 +25,7 @@ To replace Ebitengine's basic debug printer with high-quality, scalable interfac
 Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spritesheets or individual PNGs.
 
 ### Overworld (Top-Down Surface)
-- [ ] **Water Tiles Sheet** (`assets/textures/overworld_water.png`)
+- [x] **Water Tiles Sheet** (Procedurally drawn with seamless animated waves in code)
   - **Details:** 64x64px repeating textures for Coastal Water (light teal), Deep Water (dark navy), and Trench transition edges.
   - **AI Image Generation Prompt:**
     > `16-bit retro pixel art texture, tilesheet. Six repeating 64x64px seamless tile textures of ocean water: light turquoise coastal water, medium blue water, deep navy blue water, and matching transition borders. Flat shading, classic retro RPG style, seamless looping texture on all sides. No grids, clear details.`
@@ -144,10 +144,10 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
 
 
 ### Inventory Items & Upgrade Icons
-- [ ] **Inventory Icons Sheet** (`assets/textures/item_icons.png`)
+- [x] **Inventory Icons Sheet** (`assets/textures/item_icons.png`)
   - **Details:** 48x48px grid cells containing icons for all craftable items.
   - **AI Image Generation Prompt:**
-    > `16-bit retro pixel art icon set, 48x48px square tiles. Grid of inventory icons including raw metal chunks, gas tanks, propulsion swim fins, handheld scanners, sub capsules, walker kits, solar panel modules, power cells, and escape rocket nose cones. High legibility, dark dark grey panel backing for each icon, pixel-perfect clean lines.`
+    > `16-bit retro pixel art icon set, 48x48px square tiles on a solid green chroma-key background (#00FF00). Grid of inventory icons, each icon centered on a dark dark grey square panel backing with clean, pixel-perfect edges. The grid contains icons for: 1. Titanium (raw silver-grey metal chunk), 2. Copper (reddish-orange raw metal chunk), 3. Quartz (translucent glowing cyan crystal cluster), 4. Abyssal Ore (glowing radioactive violet-purple crystal shard), 5. Scrap Metal (rusty bent/angled iron plate), 6. Electronic Waste (green microchip circuit board with copper pins), 7. High Capacity O2 Tank (yellowish-green gas cylinder), 8. Ultra High Capacity O2 Tank (advanced oxygen tank with double cylinders), 9. Propulsion Fins (neon-green flippers/fins), 10. Scanner Tool (handheld scanner with small glowing screen), 11. Solar Array Module (solar panel cell block with yellowish grid lines), 12. Solar Array MKII Module (upgraded solar panel module with gold frames), 13. Storage Vault Module (metallic grey cargo box/vault), 14. Storage Vault MKII Module (advanced storage trunk with blue accents), 15. Scout Sub Kit (small blue submarine pod capsule silhouette), 16. Heavy Mech Kit (industrial orange walker mech torso unit), 17. Sonar Amplifier (circular radar dish with glowing cyan waves/concentric rings), 18. Power Cell (yellow cylindrical battery cell with grey tip), 19. Thermal Generator (diamond container with an inner glowing orange flame), 20. Escape Rocket (pointed red/white space rocket with orange thruster flame), 21. Raw Fish (blue ocean fish with tail and small eye), 22. Cooked Fish (golden-brown grilled fish with dark grill marks), 23. Raw Crab (red crab shell body with small claws), 24. Cooked Crab (orange-red cooked crab). Consistent art style, high contrast, clean retro game assets.`
   - **Render Logic:** [internal/game/item/item.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/item/item.go)
 
 

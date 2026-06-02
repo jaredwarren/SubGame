@@ -1,12 +1,146 @@
 package item
 
 import (
+	"image"
 	"image/color"
+	_ "image/png"
+	"log"
+	"os"
 	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
+
+var (
+	iconSprites map[string]*ebiten.Image
+	iconsLoaded bool
+)
+
+func loadIconsLazy() {
+	if iconsLoaded {
+		return
+	}
+	iconsLoaded = true
+	iconSprites = make(map[string]*ebiten.Image)
+
+	paths := []string{
+		"assets/textures/item_icons.png",
+		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/item_icons.png",
+		"../../assets/textures/item_icons.png",
+		"../assets/textures/item_icons.png",
+	}
+
+	var file *os.File
+	var err error
+	for _, p := range paths {
+		file, err = os.Open(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Printf("Warning: Failed to open assets/textures/item_icons.png: %v", err)
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		log.Printf("Warning: Failed to decode assets/textures/item_icons.png: %v", err)
+		return
+	}
+
+	bounds := img.Bounds()
+	rgba := image.NewRGBA(bounds)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			clr := img.At(x, y)
+			r, g, b, a := clr.RGBA()
+			ru := uint8(r >> 8)
+			gu := uint8(g >> 8)
+			bu := uint8(b >> 8)
+			au := uint8(a >> 8)
+
+			if gu > 140 && ru < 100 && bu < 100 {
+				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
+			} else {
+				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
+			}
+		}
+	}
+
+	sheet := ebiten.NewImageFromImage(rgba)
+	if sheet == nil {
+		return
+	}
+
+	cellSize := 316
+	startOffset := 76
+	if bounds.Dx() != 2048 || bounds.Dy() != 2048 {
+		cellSize = bounds.Dx() / 6
+		startOffset = 0
+	}
+
+	itemCoords := map[string][2]int{
+		"Titanium":                   {0, 0},
+		"Copper":                     {1, 0},
+		"Quartz":                     {2, 0},
+		"Abyssal Ore":                {3, 0},
+		"Scrap Metal":                {4, 0},
+		"Electronic Waste":           {5, 0},
+		"High Capacity O2 Tank":      {0, 1},
+		"Ultra High Capacity O2 Tank":{1, 1},
+		"Propulsion Fins":            {2, 1},
+		"Scanner Tool":               {3, 1},
+		"Solar Array Module":         {4, 1},
+		"Solar Array MKII Module":    {5, 1},
+		"Storage Vault Module":       {0, 2},
+		"Storage Vault MKII Module":  {1, 2},
+		"Scout Sub Kit":              {2, 2},
+		"Heavy Mech Kit":             {3, 2},
+		"Sonar Amplifier":            {4, 2},
+		"Power Cell":                 {5, 2},
+		"Thermal Generator":          {0, 4},
+		"Escape Rocket":              {1, 4},
+		"Raw Fish":                   {2, 4},
+		"Cooked Fish":                {3, 4},
+		"Raw Crab":                   {4, 4},
+		"Cooked Crab":                {5, 4},
+	}
+
+	for name, coord := range itemCoords {
+		col, row := coord[0], coord[1]
+		x0 := startOffset + col*cellSize
+		y0 := startOffset + row*cellSize
+		x1 := x0 + cellSize
+		y1 := y0 + cellSize
+
+		if x1 <= bounds.Max.X && y1 <= bounds.Max.Y {
+			sub := sheet.SubImage(image.Rect(x0, y0, x1, y1)).(*ebiten.Image)
+			iconSprites[name] = sub
+		}
+	}
+}
+
+func drawItemIconSprite(screen *ebiten.Image, name string, cx, cy, size float32) bool {
+	loadIconsLazy()
+	sprite, ok := iconSprites[name]
+	if !ok || sprite == nil {
+		return false
+	}
+	op := &ebiten.DrawImageOptions{}
+	spriteW := float64(sprite.Bounds().Dx())
+	spriteH := float64(sprite.Bounds().Dy())
+
+	op.GeoM.Translate(-spriteW/2.0, -spriteH/2.0)
+	op.GeoM.Scale(float64(size)/spriteW, float64(size)/spriteH)
+	op.GeoM.Translate(float64(cx), float64(cy))
+
+	screen.DrawImage(sprite, op)
+	return true
+}
 
 // Item defines the interface that all inventory-compatible items must implement.
 type Item interface {
@@ -42,6 +176,9 @@ func (t *Titanium) GetName() string       { return "Titanium" }
 func (t *Titanium) GetMaxStack() int      { return 10 }
 func (t *Titanium) GetColor() color.Color { return color.RGBA{168, 178, 188, 255} }
 func (t *Titanium) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, t.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, t.GetColor(), false)
 }
 
@@ -51,6 +188,9 @@ func (c *Copper) GetName() string       { return "Copper" }
 func (c *Copper) GetMaxStack() int      { return 10 }
 func (c *Copper) GetColor() color.Color { return color.RGBA{218, 118, 48, 255} }
 func (c *Copper) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, c.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, c.GetColor(), false)
 }
 
@@ -60,6 +200,9 @@ func (q *Quartz) GetName() string       { return "Quartz" }
 func (q *Quartz) GetMaxStack() int      { return 10 }
 func (q *Quartz) GetColor() color.Color { return color.RGBA{48, 218, 245, 255} }
 func (q *Quartz) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, q.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillCircle(screen, cx, cy, size/2.0, q.GetColor(), false)
 	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
 }
@@ -70,6 +213,9 @@ func (a *AbyssalOre) GetName() string       { return "Abyssal Ore" }
 func (a *AbyssalOre) GetMaxStack() int      { return 10 }
 func (a *AbyssalOre) GetColor() color.Color { return color.RGBA{148, 48, 218, 255} }
 func (a *AbyssalOre) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, a.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillCircle(screen, cx, cy, size/2.0, a.GetColor(), false)
 	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
 }
@@ -86,6 +232,9 @@ func (o *O2TankHC) GetName() string       { return "High Capacity O2 Tank" }
 func (o *O2TankHC) GetMaxStack() int      { return 1 }
 func (o *O2TankHC) GetColor() color.Color { return color.RGBA{98, 198, 148, 255} }
 func (o *O2TankHC) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, o.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillCircle(screen, cx, cy, size/2.0, o.GetColor(), false)
 }
 func (o *O2TankHC) IsPlayerUpgrade() bool     { return true }
@@ -97,6 +246,9 @@ func (o *O2TankUHC) GetName() string       { return "Ultra High Capacity O2 Tank
 func (o *O2TankUHC) GetMaxStack() int      { return 1 }
 func (o *O2TankUHC) GetColor() color.Color { return color.RGBA{98, 198, 148, 255} }
 func (o *O2TankUHC) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, o.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillCircle(screen, cx, cy, size/2.0, o.GetColor(), false)
 }
 func (o *O2TankUHC) IsPlayerUpgrade() bool     { return true }
@@ -119,6 +271,9 @@ func (f *Fins) GetName() string       { return "Propulsion Fins" }
 func (f *Fins) GetMaxStack() int      { return 1 }
 func (f *Fins) GetColor() color.Color { return color.RGBA{98, 198, 148, 255} }
 func (f *Fins) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, f.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillCircle(screen, cx, cy, size/2.0, f.GetColor(), false)
 }
 func (f *Fins) IsPlayerUpgrade() bool { return true }
@@ -144,6 +299,9 @@ func (s *Scanner) GetName() string       { return "Scanner Tool" }
 func (s *Scanner) GetMaxStack() int      { return 1 }
 func (s *Scanner) GetColor() color.Color { return color.RGBA{98, 198, 148, 255} }
 func (s *Scanner) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, s.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillCircle(screen, cx, cy, size/2.0, s.GetColor(), false)
 }
 func (s *Scanner) IsPlayerUpgrade() bool { return true }
@@ -155,6 +313,9 @@ func (k *ScoutSubKit) GetName() string       { return "Scout Sub Kit" }
 func (k *ScoutSubKit) GetMaxStack() int      { return 1 }
 func (k *ScoutSubKit) GetColor() color.Color { return color.RGBA{15, 160, 185, 255} }
 func (k *ScoutSubKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, k.GetName(), cx, cy, size) {
+		return
+	}
 	// Small sub capsule silhouette
 	vector.FillRect(screen, cx-size/2.0, cy-size/4.0, size, size/2.0, k.GetColor(), false)
 	vector.FillCircle(screen, cx+size/4.0, cy, size/4.0, color.RGBA{80, 205, 255, 255}, false)
@@ -167,6 +328,9 @@ func (k *HeavyMechKit) GetName() string       { return "Heavy Mech Kit" }
 func (k *HeavyMechKit) GetMaxStack() int      { return 1 }
 func (k *HeavyMechKit) GetColor() color.Color { return color.RGBA{218, 98, 16, 255} }
 func (k *HeavyMechKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, k.GetName(), cx, cy, size) {
+		return
+	}
 	// Tiny mech torso silhouette
 	vector.FillRect(screen, cx-size/3.0, cy-size/3.0, size/1.5, size/1.5, k.GetColor(), false)
 	vector.FillRect(screen, cx-size/2.0, cy+size/6.0, size, size/6.0, color.RGBA{60, 70, 80, 255}, false)
@@ -217,6 +381,9 @@ func (u *UpgradeSolar) GetName() string       { return "Solar Array Module" }
 func (u *UpgradeSolar) GetMaxStack() int      { return 1 }
 func (u *UpgradeSolar) GetColor() color.Color { return color.RGBA{220, 200, 30, 255} }
 func (u *UpgradeSolar) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, u.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, u.GetColor(), false)
 	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.0, color.RGBA{255, 255, 255, 128}, false)
 }
@@ -230,6 +397,9 @@ func (u *UpgradeSolarMKII) GetName() string       { return "Solar Array MKII Mod
 func (u *UpgradeSolarMKII) GetMaxStack() int      { return 1 }
 func (u *UpgradeSolarMKII) GetColor() color.Color { return color.RGBA{240, 220, 50, 255} }
 func (u *UpgradeSolarMKII) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, u.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, u.GetColor(), false)
 	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 2.0, color.RGBA{255, 255, 255, 200}, false)
 }
@@ -243,6 +413,9 @@ func (u *UpgradeStorage) GetName() string       { return "Storage Vault Module" 
 func (u *UpgradeStorage) GetMaxStack() int      { return 1 }
 func (u *UpgradeStorage) GetColor() color.Color { return color.RGBA{130, 150, 180, 255} }
 func (u *UpgradeStorage) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, u.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, u.GetColor(), false)
 	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.0, color.RGBA{255, 255, 255, 128}, false)
 }
@@ -256,6 +429,9 @@ func (u *UpgradeStorageMKII) GetName() string       { return "Storage Vault MKII
 func (u *UpgradeStorageMKII) GetMaxStack() int      { return 1 }
 func (u *UpgradeStorageMKII) GetColor() color.Color { return color.RGBA{150, 180, 220, 255} }
 func (u *UpgradeStorageMKII) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, u.GetName(), cx, cy, size) {
+		return
+	}
 	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, u.GetColor(), false)
 	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 2.0, color.RGBA{255, 255, 255, 200}, false)
 }
@@ -269,6 +445,9 @@ func (e *EscapeRocket) GetName() string       { return "Escape Rocket" }
 func (e *EscapeRocket) GetMaxStack() int      { return 1 }
 func (e *EscapeRocket) GetColor() color.Color { return color.RGBA{255, 100, 50, 255} }
 func (e *EscapeRocket) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, e.GetName(), cx, cy, size) {
+		return
+	}
 	topY := cy - size/2.0
 	bottomY := cy + size/2.0
 	leftX := cx - size/4.0
@@ -310,6 +489,9 @@ func (s *SonarAmplifier) GetName() string       { return "Sonar Amplifier" }
 func (s *SonarAmplifier) GetMaxStack() int      { return 1 }
 func (s *SonarAmplifier) GetColor() color.Color { return color.RGBA{0, 240, 255, 255} }
 func (s *SonarAmplifier) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, s.GetName(), cx, cy, size) {
+		return
+	}
 	// A nice cyan/white concentric rings icon representing sonar amplification
 	vector.StrokeCircle(screen, cx, cy, size/2.0, 2.0, s.GetColor(), false)
 	vector.StrokeCircle(screen, cx, cy, size/3.5, 1.5, color.RGBA{255, 255, 255, 200}, false)
@@ -323,6 +505,9 @@ func (p *PowerCell) GetName() string       { return "Power Cell" }
 func (p *PowerCell) GetMaxStack() int      { return 5 }
 func (p *PowerCell) GetColor() color.Color { return color.RGBA{220, 180, 40, 255} }
 func (p *PowerCell) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, p.GetName(), cx, cy, size) {
+		return
+	}
 	// Draw a yellow cylinder battery cell with a light grey top tip
 	vector.FillRect(screen, cx-size/4.0, cy-size/3.0, size/2.0, size*0.7, p.GetColor(), false)
 	vector.FillRect(screen, cx-size/8.0, cy-size/2.0, size/4.0, size/6.0, color.RGBA{180, 190, 200, 255}, false)
@@ -334,6 +519,9 @@ func (t *ThermalGenerator) GetName() string       { return "Thermal Generator" }
 func (t *ThermalGenerator) GetMaxStack() int      { return 1 }
 func (t *ThermalGenerator) GetColor() color.Color { return color.RGBA{235, 100, 50, 255} }
 func (t *ThermalGenerator) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, t.GetName(), cx, cy, size) {
+		return
+	}
 	// Draw a diamond container with an inner orange flame/core
 	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.5, t.GetColor(), false)
 	vector.FillCircle(screen, cx, cy, size/4.0, color.RGBA{255, 120, 0, 255}, false)
@@ -346,6 +534,9 @@ func (s *ScrapMetal) GetName() string       { return "Scrap Metal" }
 func (s *ScrapMetal) GetMaxStack() int      { return 10 }
 func (s *ScrapMetal) GetColor() color.Color { return color.RGBA{140, 110, 95, 255} }
 func (s *ScrapMetal) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, s.GetName(), cx, cy, size) {
+		return
+	}
 	// Draw an angled metallic sheet
 	var path vector.Path
 	path.MoveTo(cx-size/3.0, cy-size/3.0)
@@ -365,6 +556,9 @@ func (e *ElectronicWaste) GetName() string       { return "Electronic Waste" }
 func (e *ElectronicWaste) GetMaxStack() int      { return 10 }
 func (e *ElectronicWaste) GetColor() color.Color { return color.RGBA{70, 130, 90, 255} }
 func (e *ElectronicWaste) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, e.GetName(), cx, cy, size) {
+		return
+	}
 	// Draw a green circuit board chip
 	vector.FillRect(screen, cx-size/2.2, cy-size/3.0, size/1.1, size/1.5, e.GetColor(), false)
 	vector.StrokeRect(screen, cx-size/2.2, cy-size/3.0, size/1.1, size/1.5, 1.0, color.RGBA{120, 200, 140, 255}, false)
@@ -382,6 +576,9 @@ func (f *RawFish) GetName() string       { return "Raw Fish" }
 func (f *RawFish) GetMaxStack() int      { return 5 }
 func (f *RawFish) GetColor() color.Color { return color.RGBA{70, 140, 180, 255} }
 func (f *RawFish) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, f.GetName(), cx, cy, size) {
+		return
+	}
 	// Draw fish body (oval and tail)
 	vector.FillCircle(screen, cx, cy, size/3.5, f.GetColor(), false)
 	// Tail
@@ -405,6 +602,9 @@ func (f *CookedFish) GetName() string       { return "Cooked Fish" }
 func (f *CookedFish) GetMaxStack() int      { return 5 }
 func (f *CookedFish) GetColor() color.Color { return color.RGBA{170, 110, 60, 255} }
 func (f *CookedFish) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, f.GetName(), cx, cy, size) {
+		return
+	}
 	// Golden brown cooked fish
 	vector.FillCircle(screen, cx, cy, size/3.5, f.GetColor(), false)
 	var path vector.Path
@@ -428,6 +628,9 @@ func (c *RawCrab) GetName() string       { return "Raw Crab" }
 func (c *RawCrab) GetMaxStack() int      { return 5 }
 func (c *RawCrab) GetColor() color.Color { return color.RGBA{180, 50, 50, 255} }
 func (c *RawCrab) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, c.GetName(), cx, cy, size) {
+		return
+	}
 	// Crab body circle
 	vector.FillCircle(screen, cx, cy, size/4.0, c.GetColor(), false)
 	// Claws
@@ -446,6 +649,9 @@ func (c *CookedCrab) GetName() string       { return "Cooked Crab" }
 func (c *CookedCrab) GetMaxStack() int      { return 5 }
 func (c *CookedCrab) GetColor() color.Color { return color.RGBA{240, 90, 50, 255} }
 func (c *CookedCrab) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, c.GetName(), cx, cy, size) {
+		return
+	}
 	// Orange-red cooked crab
 	vector.FillCircle(screen, cx, cy, size/4.0, c.GetColor(), false)
 	vector.FillRect(screen, cx-size/2.5, cy-size/4.0, size/5.0, size/5.0, c.GetColor(), false)
