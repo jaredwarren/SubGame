@@ -620,23 +620,39 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 				}
 				ebitenutil.DebugPrintAt(clippedScreen, resultName, int(startX)+15, int(ry)+6)
 
-				ingText := "Ingredients: "
+				currentX := int(startX) + 15
+				drawColoredDebugText(clippedScreen, "Ingredients:", currentX, int(ry)+28, color.RGBA{180, 190, 200, 255})
+				currentX += len("Ingredients:") * 6
+
 				hasAll := true
 				for j, ing := range rcp.Ingredients {
 					ingredient := ing.NewItem()
 					qtyInInv := p.Inventory.Count(ingredient)
-					checkChar := "X"
+
+					var isEnough bool
 					if qtyInInv >= ing.Quantity {
-						checkChar = "✓"
+						isEnough = true
 					} else {
 						hasAll = false
+						isEnough = false
 					}
-					ingText += fmt.Sprintf("[%s] %s (%d/%d)  ", checkChar, ingredient.GetName(), qtyInInv, ing.Quantity)
-					if j < len(rcp.Ingredients)-1 {
-						ingText += "|  "
+
+					if j > 0 {
+						drawColoredDebugText(clippedScreen, " |", currentX, int(ry)+28, color.RGBA{100, 110, 120, 255})
+						currentX += len(" |") * 6
 					}
+
+					ingStr := fmt.Sprintf(" %s (%d/%d)", ingredient.GetName(), qtyInInv, ing.Quantity)
+					var textColor color.RGBA
+					if isEnough {
+						textColor = color.RGBA{60, 210, 110, 255} // Green
+					} else {
+						textColor = color.RGBA{240, 80, 80, 255}  // Red
+					}
+
+					drawColoredDebugText(clippedScreen, ingStr, currentX, int(ry)+28, textColor)
+					currentX += len(ingStr) * 6
 				}
-				ebitenutil.DebugPrintAt(clippedScreen, ingText, int(startX)+15, int(ry)+28)
 
 				btnBg := color.RGBA{50, 70, 100, 255}
 				btnLabel := "CRAFT ITEM"
@@ -767,4 +783,27 @@ func drawInventoryGrid(g GameContext, screen *ebiten.Image, startX, startY float
 			}
 		}
 	}
+}
+
+var textTempImage *ebiten.Image
+
+func drawColoredDebugText(screen *ebiten.Image, str string, x, y int, clr color.Color) {
+	w := len(str) * 6
+	if w <= 0 {
+		return
+	}
+	if textTempImage == nil || textTempImage.Bounds().Dx() < w {
+		textTempImage = ebiten.NewImage(w+100, 20)
+	}
+
+	subRect := image.Rect(0, 0, w, 16)
+	textTempImage.SubImage(subRect).(*ebiten.Image).Clear()
+
+	ebitenutil.DebugPrintAt(textTempImage, str, 0, 0)
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(x), float64(y))
+	op.ColorScale.ScaleWithColor(clr)
+
+	screen.DrawImage(textTempImage.SubImage(subRect).(*ebiten.Image), op)
 }
