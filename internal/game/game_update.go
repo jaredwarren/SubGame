@@ -483,6 +483,15 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 					break
 				}
 			}
+		case vehicle.UnlockRecipeCmd:
+			for idx := range CraftingRecipes {
+				if CraftingRecipes[idx].NewResult().GetName() == c.RecipeResultName {
+					CraftingRecipes[idx].Unlocked = true
+					g.MineWarning = "Unlocked: " + c.RecipeResultName + "!"
+					g.MineWarningTimer = 120
+					break
+				}
+			}
 		case vehicle.SpawnBubbleCmd:
 			g.Particles = append(g.Particles, particle.NewBubbleParticle(c.Pos.X, c.Pos.Y))
 		case vehicle.SpawnDebrisCmd:

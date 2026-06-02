@@ -171,7 +171,12 @@ func (m *HeavyMech) Update(runtime Runtime) {
 				runtime.Emit(SpawnDebrisCmd{Pos: drillPos, Color: nodeColor})
 
 				if m.TargetDrillNode.GetHitsToMine() <= 0 {
-					m.Cargo.AddItem(m.TargetDrillNode, 1)
+					recipeName := m.TargetDrillNode.GetRecipeResultName()
+					if recipeName != "" {
+						runtime.Emit(UnlockRecipeCmd{RecipeResultName: recipeName})
+					} else {
+						m.Cargo.AddItem(m.TargetDrillNode, 1)
+					}
 					runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
 				}
 			}

@@ -378,11 +378,12 @@ func (c *OrganicTrenchCave) GenerateResources(seed int64) []resource.Resource {
 // -----------------------------------------------------------------------------
 
 type WreckageCorridorCave struct {
-	Grid [][]bool
+	Grid      [][]bool
+	ShipIndex int
 }
 
-func NewWreckageCorridorCave(grid [][]bool) *WreckageCorridorCave {
-	return &WreckageCorridorCave{Grid: grid}
+func NewWreckageCorridorCave(grid [][]bool, shipIndex int) *WreckageCorridorCave {
+	return &WreckageCorridorCave{Grid: grid, ShipIndex: shipIndex}
 }
 
 func (c *WreckageCorridorCave) GetCaveType() CaveType { return CaveWreckage }
@@ -477,5 +478,5 @@ func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity 
 
 func (c *WreckageCorridorCave) GenerateResources(seed int64) []resource.Resource {
 	// Scrap nodes are generated inside wreckage caves instead of mineral nodes
-	return resource.GenerateWreckageResources(c.Grid, seed)
+	return resource.GenerateWreckageResources(c.Grid, seed, c.ShipIndex)
 }

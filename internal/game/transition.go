@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
@@ -35,7 +36,62 @@ func (g *Game) EnterCave(tx, ty int) {
 			activeCave = cave.NewOrganicTrenchCave(grid)
 			g.caveState.IsShallow = false
 		case world.TileWreckage:
-			activeCave = cave.NewWreckageCorridorCave(grid)
+			// Find spawn tile
+			spawnTx, spawnTy := 50, 50
+			for x := 45; x < 55; x++ {
+				for y := 45; y < 55; y++ {
+					if x >= 0 && x < g.world.Width && y >= 0 && y < g.world.Height {
+						if g.world.OverworldMap[x][y] == world.TileWater {
+							spawnTx, spawnTy = x, y
+							break
+						}
+					}
+				}
+			}
+
+			// Gather and sort wreckages
+			type wreckage struct {
+				wtx, wty int
+				metric   float64
+			}
+			var wreckages []wreckage
+			for x := 0; x < g.world.Width; x++ {
+				for y := 0; y < g.world.Height; y++ {
+					if g.world.OverworldMap[x][y] == world.TileWreckage {
+						dx := float64(x - spawnTx)
+						dy := float64(y - spawnTy)
+						dist := math.Hypot(dx, dy)
+						wreckages = append(wreckages, wreckage{
+							wtx:    x,
+							wty:    y,
+							metric: dist + float64(y),
+						})
+					}
+				}
+			}
+
+			// Sort by metric ascending
+			for i := 0; i < len(wreckages); i++ {
+				for j := i + 1; j < len(wreckages); j++ {
+					if wreckages[i].metric > wreckages[j].metric {
+						wreckages[i], wreckages[j] = wreckages[j], wreckages[i]
+					}
+				}
+			}
+
+			// Find our index
+			shipIndex := -1
+			for idx, w := range wreckages {
+				if w.wtx == tx && w.wty == ty {
+					shipIndex = idx
+					break
+				}
+			}
+			if shipIndex == -1 {
+				shipIndex = 0
+			}
+
+			activeCave = cave.NewWreckageCorridorCave(grid, shipIndex)
 			g.caveState.IsShallow = false
 		default:
 			activeCave = cave.NewShallowSeabedCave(grid)

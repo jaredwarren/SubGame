@@ -23,6 +23,7 @@ type Resource interface {
 	SetHitsToMine(hits int)
 	RequiresMech() bool
 	Draw(screen *ebiten.Image, camX, camY float64)
+	GetRecipeResultName() string
 }
 
 // BaseResourceNode holds the shared state for all resource node types.
@@ -41,6 +42,10 @@ func (b *BaseResourceNode) GetHitsToMine() int {
 
 func (b *BaseResourceNode) SetHitsToMine(hits int) {
 	b.HitsToMine = hits
+}
+
+func (b *BaseResourceNode) GetRecipeResultName() string {
+	return ""
 }
 
 // drawNodeBase renders the shared backing block behind all resource nodes.
@@ -546,8 +551,68 @@ var GenConfig = DefaultGenConfig
 // World Generation Functions
 // ---------------------------------------------------------
 
-// GenerateWreckageResources spawns scrap metal and electronic waste nodes on room floors in wreckage caves.
-func GenerateWreckageResources(grid [][]bool, seed int64) []Resource {
+// BlueprintNode represents a blueprint node containing a recipe.
+type BlueprintNode struct {
+	BaseResourceNode
+	RecipeResultName string
+}
+
+func (n *BlueprintNode) GetName() string        { return "Blueprint: " + n.RecipeResultName }
+func (n *BlueprintNode) GetMaxStack() int       { return 1 }
+func (n *BlueprintNode) RequiresMech() bool     { return false }
+func (n *BlueprintNode) GetBaseItem() item.Item { return nil } // immediately unlocks, no item in inventory
+func (n *BlueprintNode) GetColor() color.Color  { return color.RGBA{0, 180, 255, 255} }
+func (n *BlueprintNode) GetRecipeResultName() string { return n.RecipeResultName }
+
+func (n *BlueprintNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	// Simple blueprint icon: blue circle with outline
+	vector.FillCircle(screen, cx, cy, size/2.0, n.GetColor(), false)
+	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
+}
+
+func (n *BlueprintNode) Draw(screen *ebiten.Image, camX, camY float64) {
+	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
+	cx := sx + float32(TileSize)/2.0
+	cy := sy + float32(TileSize)/2.0
+	
+	size := float32(14.0) * (float32(n.HitsToMine) / 3.0)
+	if size < 4.0 {
+		size = 4.0
+	}
+	
+	// Blueprint backing sheet
+	vector.FillRect(screen, cx-size, cy-size, size*2.0, size*2.0, color.RGBA{10, 40, 90, 255}, false)
+	vector.StrokeRect(screen, cx-size, cy-size, size*2.0, size*2.0, 1.5, color.RGBA{0, 160, 255, 255}, false)
+	
+	// Blueprint layout details
+	vector.StrokeLine(screen, cx-size+4, cy-size+4, cx+size-4, cy-size+4, 1.0, color.RGBA{0, 120, 220, 180}, false)
+	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{0, 180, 255, 180}, false)
+	vector.StrokeLine(screen, cx-size/2.0, cy+size/2.0, cx+size/2.0, cy+size/2.0, 1.0, color.RGBA{0, 120, 220, 180}, false)
+
+	drawCracks(screen, sx, sy, n.HitsToMine)
+}
+
+func NewBlueprintNode(tx, ty int, recipeResultName string) *BlueprintNode {
+	return &BlueprintNode{
+		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
+		RecipeResultName: recipeResultName,
+	}
+}
+
+// Helper to shuffle a slice of strings using r rand.Rand
+func shuffleRecipes(slice []string, r *rand.Rand) []string {
+	shuffled := make([]string, len(slice))
+	copy(shuffled, slice)
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := r.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
+	return shuffled
+}
+
+// GenerateWreckageResources spawns scrap metal and electronic waste nodes on room floors in wreckage caves,
+// and also spawns appropriate recipe blueprints depending on the shipIndex (0, 1, or 2).
+func GenerateWreckageResources(grid [][]bool, seed int64, shipIndex int) []Resource {
 	nodes := []Resource{}
 	if grid == nil {
 		return nodes
@@ -557,6 +622,9 @@ func GenerateWreckageResources(grid [][]bool, seed int64) []Resource {
 	r := rand.New(rand.NewSource(seed))
 
 	// Find room floor tiles (open space above a solid tile, not in the central elevator shaft)
+	var upperFloors [][2]int
+	var lowerFloors [][2]int
+
 	for tx := 1; tx < gridW-1; tx++ {
 		// Central elevator shaft is tx 27..32
 		if tx >= 27 && tx <= 32 {
@@ -565,6 +633,12 @@ func GenerateWreckageResources(grid [][]bool, seed int64) []Resource {
 		for ty := 1; ty < gridH-2; ty++ {
 			if !grid[tx][ty] { // open tile
 				if grid[tx][ty+1] { // solid tile below (floor)
+					if ty <= 51 {
+						upperFloors = append(upperFloors, [2]int{tx, ty})
+					} else {
+						lowerFloors = append(lowerFloors, [2]int{tx, ty})
+					}
+
 					if r.Float64() < GenConfig.WreckageSpawnChance {
 						var node Resource
 						totalW := GenConfig.ScrapMetalWeight + GenConfig.ElecWasteWeight
@@ -588,6 +662,93 @@ func GenerateWreckageResources(grid [][]bool, seed int64) []Resource {
 			}
 		}
 	}
+
+	// Spawn Blueprints
+	t1Recipes := []string{
+		"Ultra High Capacity O2 Tank",
+		"Scout Sub Kit",
+		"Solar Array MKII Module",
+		"Storage Vault MKII Module",
+		"Sonar Amplifier",
+		"Thermal Generator",
+	}
+	t2Recipes := []string{
+		"Heavy Mech Kit",
+		"Escape Rocket",
+	}
+
+	var selected []string
+	if shipIndex == 0 {
+		shuffled := shuffleRecipes(t1Recipes, r)
+		numToSpawn := 3 + r.Intn(2) // 3 or 4
+		if numToSpawn > len(shuffled) {
+			numToSpawn = len(shuffled)
+		}
+		selected = shuffled[:numToSpawn]
+	} else if shipIndex == 1 {
+		allRecipes := append([]string{}, t1Recipes...)
+		allRecipes = append(allRecipes, t2Recipes...)
+		shuffled := shuffleRecipes(allRecipes, r)
+		numToSpawn := 4 + r.Intn(2) // 4 or 5
+		if numToSpawn > len(shuffled) {
+			numToSpawn = len(shuffled)
+		}
+		selected = shuffled[:numToSpawn]
+	} else if shipIndex == 2 {
+		selected = append([]string{}, t2Recipes...)
+	}
+
+	// Helper to check if a tile is already occupied by a spawned node
+	isOccupied := func(tx, ty int) bool {
+		for _, n := range nodes {
+			ntx, nty := n.GetTilePos()
+			if ntx == tx && nty == ty {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, recipeName := range selected {
+		// Determine tier
+		isTier2 := false
+		for _, name := range t2Recipes {
+			if name == recipeName {
+				isTier2 = true
+				break
+			}
+		}
+
+		var floorList *[][2]int
+		if isTier2 {
+			floorList = &lowerFloors
+		} else {
+			floorList = &upperFloors
+		}
+
+		if len(*floorList) > 0 {
+			// Find a non-occupied random floor tile
+			shuffledIndices := r.Perm(len(*floorList))
+			var chosenTile [2]int
+			found := false
+			for _, idx := range shuffledIndices {
+				tile := (*floorList)[idx]
+				if !isOccupied(tile[0], tile[1]) {
+					chosenTile = tile
+					found = true
+					// Remove the chosen tile from the list to avoid duplicate blueprint placement
+					*floorList = append((*floorList)[:idx], (*floorList)[idx+1:]...)
+					break
+				}
+			}
+
+			if found {
+				bpNode := NewBlueprintNode(chosenTile[0], chosenTile[1], recipeName)
+				nodes = append(nodes, bpNode)
+			}
+		}
+	}
+
 	return nodes
 }
 

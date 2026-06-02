@@ -346,3 +346,52 @@ func TestHeavyMech_WaterlinePhysics(t *testing.T) {
 		t.Errorf("expected surface bobbing force to apply to Mech, got 0.0")
 	}
 }
+
+func TestRecipeBlueprintUnlocking(t *testing.T) {
+	// Initially, verify that UHC O2 Tank recipe is locked
+	var uhcRecipe *Recipe
+	for idx := range CraftingRecipes {
+		if CraftingRecipes[idx].NewResult().GetName() == "Ultra High Capacity O2 Tank" {
+			uhcRecipe = &CraftingRecipes[idx]
+			break
+		}
+	}
+	if uhcRecipe == nil {
+		t.Fatal("expected to find Ultra High Capacity O2 Tank recipe")
+	}
+
+	// Force lock it for the test
+	uhcRecipe.Unlocked = false
+
+	// Create a new game session
+	g := NewGame()
+
+	// Verify it's locked in the fabricator list count
+	unlockedCountBefore := 0
+	for _, rcp := range CraftingRecipes {
+		if rcp.Unlocked {
+			unlockedCountBefore++
+		}
+	}
+
+	// Simulate receiving UnlockRecipeCmd from a drilled blueprint
+	vrt := &vehicleRuntimeAdapter{g: g}
+	vrt.Emit(vehicle.UnlockRecipeCmd{RecipeResultName: "Ultra High Capacity O2 Tank"})
+	g.drainVehicleCommands(vrt)
+
+	// Verify it is unlocked
+	if !uhcRecipe.Unlocked {
+		t.Errorf("expected Ultra High Capacity O2 Tank to be unlocked after UnlockRecipeCmd")
+	}
+
+	// Verify that the fabricator unlocked recipe count increased by 1
+	unlockedCountAfter := 0
+	for _, rcp := range CraftingRecipes {
+		if rcp.Unlocked {
+			unlockedCountAfter++
+		}
+	}
+	if unlockedCountAfter != unlockedCountBefore+1 {
+		t.Errorf("expected unlocked count to increase by 1, went from %d to %d", unlockedCountBefore, unlockedCountAfter)
+	}
+}

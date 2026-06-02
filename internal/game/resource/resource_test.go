@@ -72,3 +72,88 @@ func TestGenerateResourceNodesWithConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestBlueprintNodeSpawning(t *testing.T) {
+	// Create a dummy grid representing a wreckage cave layout (60x120)
+	grid := make([][]bool, 60)
+	for x := range grid {
+		grid[x] = make([]bool, 120)
+		for y := range grid[x] {
+			grid[x][y] = true // solid bulkhead
+		}
+	}
+
+	// Carve two rooms: one upper deck, one lower deck
+	// Upper room floor at Y = 22, carved open space at Y = 21
+	for tx := 5; tx <= 15; tx++ {
+		grid[tx][21] = false
+	}
+	// Lower room floor at Y = 78, carved open space at Y = 77
+	for tx := 5; tx <= 15; tx++ {
+		grid[tx][77] = false
+	}
+
+	// Test Ship 0 (Tier 1 blueprints only, upper decks only)
+	nodesShip0 := GenerateWreckageResources(grid, 42, 0)
+	var bpNodesShip0 []*BlueprintNode
+	for _, n := range nodesShip0 {
+		if bp, ok := n.(*BlueprintNode); ok {
+			bpNodesShip0 = append(bpNodesShip0, bp)
+		}
+	}
+
+	if len(bpNodesShip0) == 0 {
+		t.Fatal("expected blueprints to spawn in Ship 0, got 0")
+	}
+
+	t2Recipes := map[string]bool{
+		"Heavy Mech Kit": true,
+		"Escape Rocket":  true,
+	}
+
+	for _, bp := range bpNodesShip0 {
+		// Verify only Tier 1 blueprints spawn
+		if t2Recipes[bp.RecipeResultName] {
+			t.Errorf("Ship 0 spawned Tier 2 recipe: %s", bp.RecipeResultName)
+		}
+		// Verify spawned on upper deck (Y <= 51)
+		_, ty := bp.GetTilePos()
+		if ty > 51 {
+			t.Errorf("Ship 0 blueprint spawned on lower deck: Y = %d", ty)
+		}
+	}
+
+	// Test Ship 2 (Tier 2 blueprints only, lower decks only)
+	nodesShip2 := GenerateWreckageResources(grid, 42, 2)
+	var bpNodesShip2 []*BlueprintNode
+	for _, n := range nodesShip2 {
+		if bp, ok := n.(*BlueprintNode); ok {
+			bpNodesShip2 = append(bpNodesShip2, bp)
+		}
+	}
+
+	if len(bpNodesShip2) == 0 {
+		t.Fatal("expected blueprints to spawn in Ship 2, got 0")
+	}
+
+	for _, bp := range bpNodesShip2 {
+		// Verify only Tier 2 blueprints spawn
+		if !t2Recipes[bp.RecipeResultName] {
+			t.Errorf("Ship 2 spawned Tier 1 recipe: %s", bp.RecipeResultName)
+		}
+		// Verify spawned on lower deck (Y > 51)
+		_, ty := bp.GetTilePos()
+		if ty <= 51 {
+			t.Errorf("Ship 2 blueprint spawned on upper deck: Y = %d", ty)
+		}
+	}
+
+	// Check duplicate prevention in the same ship
+	seen := make(map[string]bool)
+	for _, bp := range bpNodesShip0 {
+		if seen[bp.RecipeResultName] {
+			t.Errorf("Ship 0 spawned duplicate blueprint for: %s", bp.RecipeResultName)
+		}
+		seen[bp.RecipeResultName] = true
+	}
+}

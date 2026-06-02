@@ -401,7 +401,17 @@ func (c *CaveScene) Update(g GameContext) error {
 						g.SpawnDebris(nx, ny, nodeColor)
 
 						if node.GetHitsToMine() <= 0 {
-							p.Inventory.AddItem(node, 1)
+							if bpNode, ok := node.(*resource.BlueprintNode); ok {
+								for idx := range CraftingRecipes {
+									if CraftingRecipes[idx].NewResult().GetName() == bpNode.RecipeResultName {
+										CraftingRecipes[idx].Unlocked = true
+										g.SetMineWarning("Unlocked: "+bpNode.RecipeResultName+"!", 120)
+										break
+									}
+								}
+							} else {
+								p.Inventory.AddItem(node, 1)
+							}
 							c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)
 						}
 						break

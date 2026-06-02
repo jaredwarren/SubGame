@@ -23,6 +23,8 @@ type Recipe struct {
 	NewResult      func() item.Item
 	ResultQuantity int
 	Ingredients    []Ingredient
+	Tier           int
+	Unlocked       bool
 }
 
 // CraftingRecipes is the global list of craftable item upgrades.
@@ -33,6 +35,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 4},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult: func() item.Item { return &item.O2TankUHC{} },
@@ -42,6 +46,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 3},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
 		},
+		Tier:     1,
+		Unlocked: false,
 	},
 	{
 		NewResult: func() item.Item { return &item.Fins{} },
@@ -49,6 +55,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 3},
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 2},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult: func() item.Item { return &item.Scanner{} },
@@ -57,6 +65,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 1},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult: func() item.Item { return &item.ScoutSubKit{} },
@@ -65,6 +75,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 4},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
 		},
+		Tier:     1,
+		Unlocked: false,
 	},
 	{
 		NewResult: func() item.Item { return &item.HeavyMechKit{} },
@@ -73,6 +85,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 6},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 4},
 		},
+		Tier:     2,
+		Unlocked: false,
 	},
 	{
 		NewResult: func() item.Item { return &item.UpgradeSolar{} },
@@ -80,6 +94,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 5},
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 3},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult: func() item.Item { return &item.UpgradeSolarMKII{} },
@@ -89,6 +105,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 4},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
 		},
+		Tier:     1,
+		Unlocked: false,
 	},
 	{
 		NewResult: func() item.Item { return &item.UpgradeStorage{} },
@@ -96,6 +114,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 4},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult: func() item.Item { return &item.UpgradeStorageMKII{} },
@@ -106,6 +126,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 2},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 3},
 		},
+		Tier:     1,
+		Unlocked: false,
 	},
 	{
 		NewResult: func() item.Item { return &item.SonarAmplifier{} },
@@ -114,6 +136,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 4},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 4},
 		},
+		Tier:     1,
+		Unlocked: false,
 	},
 	{
 		NewResult: func() item.Item { return &item.PowerCell{} },
@@ -121,6 +145,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 2},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 1},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult: func() item.Item { return &item.ThermalGenerator{} },
@@ -129,6 +155,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 4},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
 		},
+		Tier:     1,
+		Unlocked: false,
 	},
 	{
 		NewResult: func() item.Item { return &item.EscapeRocket{} },
@@ -138,6 +166,8 @@ var CraftingRecipes = []Recipe{
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 5},
 			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 5},
 		},
+		Tier:     2,
+		Unlocked: false,
 	},
 	{
 		NewResult:      func() item.Item { return &item.CookedFish{} },
@@ -145,6 +175,8 @@ var CraftingRecipes = []Recipe{
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.RawFish{} }, Quantity: 1},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult:      func() item.Item { return &item.CookedCrab{} },
@@ -152,6 +184,8 @@ var CraftingRecipes = []Recipe{
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.RawCrab{} }, Quantity: 1},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult:      func() item.Item { return &item.Titanium{} },
@@ -159,6 +193,8 @@ var CraftingRecipes = []Recipe{
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.ScrapMetal{} }, Quantity: 1},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 	{
 		NewResult:      func() item.Item { return &item.Copper{} },
@@ -166,6 +202,8 @@ var CraftingRecipes = []Recipe{
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.ElectronicWaste{} }, Quantity: 1},
 		},
+		Tier:     0,
+		Unlocked: true,
 	},
 }
 
@@ -270,9 +308,15 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 
 	case 1:
 		_, wy := inp.Wheel()
+		unlockedCount := 0
+		for _, rcp := range CraftingRecipes {
+			if rcp.Unlocked {
+				unlockedCount++
+			}
+		}
 		if wy != 0 {
 			m.ScrollY -= wy * 15
-			maxScroll := float64(len(CraftingRecipes)*58 - 310)
+			maxScroll := float64(unlockedCount*58 - 310)
 			if maxScroll < 0 {
 				maxScroll = 0
 			}
@@ -291,8 +335,12 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 			viewportMaxY := startY + 25 + 310
 
 			if my >= viewportMinY && my < viewportMaxY {
-				for i, rcp := range CraftingRecipes {
-					ry := float64(viewportMinY) + float64(i*rowH) - m.ScrollY
+				visibleIndex := 0
+				for _, rcp := range CraftingRecipes {
+					if !rcp.Unlocked {
+						continue
+					}
+					ry := float64(viewportMinY) + float64(visibleIndex*rowH) - m.ScrollY
 					btnX := startX + 560
 					btnY := int(ry) + 8
 
@@ -331,6 +379,7 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 							}
 						}
 					}
+					visibleIndex++
 				}
 			}
 		}
@@ -555,8 +604,12 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 		subImg := screen.SubImage(rect)
 		if subImg != nil {
 			clippedScreen := subImg.(*ebiten.Image)
-			for i, rcp := range CraftingRecipes {
-				ry := viewportY + float32(i)*rowH - float32(m.ScrollY)
+			visibleIndex := 0
+			for _, rcp := range CraftingRecipes {
+				if !rcp.Unlocked {
+					continue
+				}
+				ry := viewportY + float32(visibleIndex)*rowH - float32(m.ScrollY)
 				vector.FillRect(clippedScreen, float32(startX), ry, 740, 52, color.RGBA{18, 24, 38, 255}, false)
 				vector.StrokeRect(clippedScreen, float32(startX), ry, 740, 52, 0.8, color.RGBA{45, 58, 78, 255}, false)
 
@@ -598,10 +651,18 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 				vector.FillRect(clippedScreen, float32(startX)+560, ry+8, 160, 35, btnBg, false)
 				vector.StrokeRect(clippedScreen, float32(startX)+560, ry+8, 160, 35, 1.0, color.RGBA{80, 100, 130, 255}, false)
 				ebitenutil.DebugPrintAt(clippedScreen, btnLabel, int(startX)+608, int(ry)+18)
+
+				visibleIndex++
 			}
 		}
 
-		totalH := float32(len(CraftingRecipes) * 58)
+		unlockedCount := 0
+		for _, rcp := range CraftingRecipes {
+			if rcp.Unlocked {
+				unlockedCount++
+			}
+		}
+		totalH := float32(unlockedCount * 58)
 		if totalH > viewportH {
 			scrollBarX := startX + 740 + 6
 			vector.FillRect(screen, float32(scrollBarX), viewportY, 6, viewportH, color.RGBA{24, 30, 44, 128}, false)

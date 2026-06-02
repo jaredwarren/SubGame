@@ -28,6 +28,7 @@ type DrillableResource interface {
 	GetHitsToMine() int
 	SetHitsToMine(hits int)
 	GetColor() color.Color
+	GetRecipeResultName() string
 }
 
 // GameCommand is a sealed interface for fire-and-forget mutations vehicles
@@ -45,6 +46,11 @@ type ActivateSonarCmd struct {
 // RemoveCaveNodeCmd removes the resource node at tile position (TX, TY).
 type RemoveCaveNodeCmd struct {
 	TX, TY int
+}
+
+// UnlockRecipeCmd requests the game to unlock a recipe by result item name.
+type UnlockRecipeCmd struct {
+	RecipeResultName string
 }
 
 // SpawnBubbleCmd spawns a bubble particle at Pos.
@@ -66,6 +72,7 @@ type TriggerShakeCmd struct {
 
 func (ActivateSonarCmd) gameCommand()  {}
 func (RemoveCaveNodeCmd) gameCommand() {}
+func (UnlockRecipeCmd) gameCommand()   {}
 func (SpawnBubbleCmd) gameCommand()    {}
 func (SpawnDebrisCmd) gameCommand()    {}
 func (TriggerShakeCmd) gameCommand()   {}
