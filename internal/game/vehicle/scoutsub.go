@@ -1,15 +1,81 @@
 package vehicle
 
 import (
+	"image"
 	"image/color"
+	_ "image/png"
+	"log"
 	"math"
 	"math/rand"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
+
+var (
+	scoutSubSheet       *ebiten.Image
+	scoutSubSheetLoaded bool
+)
+
+func loadScoutSubSheetLazy() {
+	if scoutSubSheetLoaded {
+		return
+	}
+	scoutSubSheetLoaded = true
+
+	paths := []string{
+		"assets/textures/scout_sub.png",
+		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/scout_sub.png",
+		"../../assets/textures/scout_sub.png",
+		"../assets/textures/scout_sub.png",
+		"../../../assets/textures/scout_sub.png",
+	}
+
+	var file *os.File
+	var err error
+	for _, p := range paths {
+		file, err = os.Open(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Printf("Warning: Failed to open assets/textures/scout_sub.png: %v", err)
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		log.Printf("Warning: Failed to decode assets/textures/scout_sub.png: %v", err)
+		return
+	}
+
+	bounds := img.Bounds()
+	rgba := image.NewRGBA(bounds)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			clr := img.At(x, y)
+			r, g, b, a := clr.RGBA()
+			ru := uint8(r >> 8)
+			gu := uint8(g >> 8)
+			bu := uint8(b >> 8)
+			au := uint8(a >> 8)
+
+			if gu > 140 && ru < 100 && bu < 100 {
+				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
+			} else {
+				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
+			}
+		}
+	}
+
+	scoutSubSheet = ebiten.NewImageFromImage(rgba)
+}
 
 // SonarSettings configures sonar behaviour for a vehicle.
 type SonarSettings struct {
@@ -238,6 +304,35 @@ func (sub *ScoutSub) Draw(screen *ebiten.Image, camX, camY float64) {
 
 	isFacingRight := math.Cos(sub.Facing) >= 0
 
+	loadScoutSubSheetLazy()
+
+	if scoutSubSheet != nil {
+		rect := image.Rect(481, 141, 2752, 1472)
+		sprite := scoutSubSheet.SubImage(rect).(*ebiten.Image)
+
+		op := &ebiten.DrawImageOptions{}
+
+		// Center the cropped sprite on the origin (0, 0)
+		op.GeoM.Translate(-1135.5, -665.5)
+
+		// The original illustration faces left. If we face right, flip it.
+		facingSign := 1.0
+		if isFacingRight {
+			facingSign = -1.0
+		}
+
+		// Scale so the cropped sprite has a draw width of 64.0 pixels
+		const frameScale = 64.0 / 2271.0
+		op.GeoM.Scale(facingSign*frameScale, frameScale)
+
+		// Translate to screen coordinates, centered on the sub's collision box center
+		op.GeoM.Translate(float64(sx)+float64(w)/2.0, float64(sy)+float64(h)/2.0)
+
+		screen.DrawImage(sprite, op)
+		return
+	}
+
+	// Fallback to original vector drawing code
 	subBgClr := color.RGBA{15, 160, 185, 255}
 	domeClr := color.RGBA{80, 205, 255, 180}
 	outlineClr := color.RGBA{240, 240, 250, 255}

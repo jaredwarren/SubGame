@@ -1,15 +1,83 @@
 package vehicle
 
 import (
+	"image"
 	"image/color"
+	_ "image/png"
+	"log"
 	"math"
 	"math/rand"
+	"os"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
+
+var (
+	heavyMechSheet       *ebiten.Image
+	heavyMechSheetOnce   sync.Once
+	heavyMechSheetLoaded bool
+)
+
+func loadHeavyMechSheetLazy() {
+	if heavyMechSheetLoaded {
+		return
+	}
+	heavyMechSheetLoaded = true
+
+	paths := []string{
+		"assets/textures/heavy_mech.png",
+		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/heavy_mech.png",
+		"../../assets/textures/heavy_mech.png",
+		"../assets/textures/heavy_mech.png",
+		"../../../assets/textures/heavy_mech.png",
+	}
+
+	var file *os.File
+	var err error
+	for _, p := range paths {
+		file, err = os.Open(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Printf("Warning: Failed to open assets/textures/heavy_mech.png: %v", err)
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		log.Printf("Warning: Failed to decode assets/textures/heavy_mech.png: %v", err)
+		return
+	}
+
+	bounds := img.Bounds()
+	rgba := image.NewRGBA(bounds)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			clr := img.At(x, y)
+			r, g, b, a := clr.RGBA()
+			ru := uint8(r >> 8)
+			gu := uint8(g >> 8)
+			bu := uint8(b >> 8)
+			au := uint8(a >> 8)
+
+			if gu > 140 && ru < 100 && bu < 100 {
+				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
+			} else {
+				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
+			}
+		}
+	}
+
+	heavyMechSheet = ebiten.NewImageFromImage(rgba)
+}
 
 // HeavyMech is a cave-walker with a drill arm, high depth tolerance, and thruster propulsion.
 type HeavyMech struct {
@@ -26,6 +94,7 @@ type HeavyMech struct {
 	DrillTimer      int
 	TargetDrillNode DrillableResource
 	ThrustersActive bool
+	AnimTick        int
 }
 
 // NewHeavyMech creates a HeavyMech at the given world position.
@@ -71,6 +140,7 @@ func (m *HeavyMech) RechargeBattery(amount float64) {
 }
 
 func (m *HeavyMech) Update(runtime Runtime) {
+	m.AnimTick++
 	if !runtime.IsActiveVehicle(m) {
 		m.Vel.Y += 0.12
 		m.Vel.Y *= 0.95
@@ -237,6 +307,57 @@ func (m *HeavyMech) Draw(screen *ebiten.Image, camX, camY float64) {
 
 	isFacingRight := math.Cos(m.Facing) >= 0
 
+	loadHeavyMechSheetLazy()
+
+	if heavyMechSheet != nil {
+		col := 0
+		row := 0
+
+		if m.Battery > 0 && m.ThrustersActive {
+			row = 2
+			col = 0
+		} else if m.IsDrilling {
+			row = 1
+			col = (m.AnimTick / 4) % 4
+		} else if math.Abs(m.Vel.X) > 0.1 {
+			row = 0
+			col = (m.AnimTick / 8) % 4
+		} else {
+			row = 0
+			col = 0
+		}
+
+		rect := image.Rect(col*704, row*512, (col+1)*704, (row+1)*512)
+		activeFrame := heavyMechSheet.SubImage(rect).(*ebiten.Image)
+
+		op := &ebiten.DrawImageOptions{}
+
+		// Center horizontally around 352, and align feet at 492
+		op.GeoM.Translate(-352, -492)
+
+		facingSign := 1.0
+		if !isFacingRight {
+			facingSign = -1.0
+		}
+
+		// Scale so the frame has draw width of 120.0
+		const frameScale = 120.0 / 704.0
+		op.GeoM.Scale(facingSign*frameScale, frameScale)
+
+		// Translate to screen coordinates: horizontal center at sx + w/2, feet aligned at sy + h - 2 (slight overlap)
+		spriteX := float64(sx) + float64(w)/2.0
+		spriteY := float64(sy) + float64(h) - 2.0
+		if m.IsDrilling {
+			spriteX += float64(rand.Intn(3) - 1)
+			spriteY += float64(rand.Intn(3) - 1)
+		}
+		op.GeoM.Translate(spriteX, spriteY)
+
+		screen.DrawImage(activeFrame, op)
+		return
+	}
+
+	// Fallback to original vector drawing code
 	mechBodyColor := color.RGBA{218, 98, 16, 255}
 	visorColor := color.RGBA{80, 200, 255, 230}
 	frameColor := color.RGBA{58, 68, 78, 255}

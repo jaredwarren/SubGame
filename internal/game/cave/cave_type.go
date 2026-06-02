@@ -473,6 +473,65 @@ func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity 
 			}
 		}
 	}
+
+	// Spawn 1-2 (random) ElectroWeavers deep in the wreckage cave (depth ty >= 80)
+	var candidates []gvec.Vec2
+	for tx := 2; tx < gridW-2; tx++ {
+		for ty := 80; ty < gridH-2; ty++ {
+			if c.Grid[tx][ty] {
+				continue
+			}
+			isOpenSpace := !c.Grid[tx-1][ty] && !c.Grid[tx+1][ty] && !c.Grid[tx][ty-1] && !c.Grid[tx][ty+1]
+			if isOpenSpace {
+				candidates = append(candidates, gvec.Vec2{X: float64(tx), Y: float64(ty)})
+			}
+		}
+	}
+
+	if len(candidates) > 0 {
+		numToSpawn := r.Intn(2) + 1 // 1 or 2
+		if numToSpawn > len(candidates) {
+			numToSpawn = len(candidates)
+		}
+
+		idx1 := r.Intn(len(candidates))
+		c1 := candidates[idx1]
+		entities = append(entities, &entity.ElectroWeaver{
+			BaseEntity: entity.BaseEntity{
+				Type:       entity.EntElectroWeaver,
+				Pos:        gvec.Vec2{X: c1.X*float64(config.TileSize) + (float64(config.TileSize)-40)/2.0, Y: c1.Y*float64(config.TileSize) + (float64(config.TileSize)-20)/2.0},
+				Dimensions: gvec.Vec2{X: 40, Y: 20},
+				Active:     true,
+			},
+		})
+
+		if numToSpawn == 2 && len(candidates) > 1 {
+			idx2 := idx1
+			for attempts := 0; attempts < 10; attempts++ {
+				candIdx := r.Intn(len(candidates))
+				if candIdx != idx1 {
+					dist := math.Hypot(candidates[candIdx].X-c1.X, candidates[candIdx].Y-c1.Y)
+					if dist >= 5 {
+						idx2 = candIdx
+						break
+					}
+					idx2 = candIdx
+				}
+			}
+			if idx2 != idx1 {
+				c2 := candidates[idx2]
+				entities = append(entities, &entity.ElectroWeaver{
+					BaseEntity: entity.BaseEntity{
+						Type:       entity.EntElectroWeaver,
+						Pos:        gvec.Vec2{X: c2.X*float64(config.TileSize) + (float64(config.TileSize)-40)/2.0, Y: c2.Y*float64(config.TileSize) + (float64(config.TileSize)-20)/2.0},
+						Dimensions: gvec.Vec2{X: 40, Y: 20},
+						Active:     true,
+					},
+				})
+			}
+		}
+	}
+
 	return entities
 }
 

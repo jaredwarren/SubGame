@@ -90,13 +90,13 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
     > `2D side-scrolling video game asset, sprite sheet, 16-bit retro pixel art style. A deep-sea diver character wearing an industrial orange wetsuit with a yellow oxygen cylinder tank strapped to their back and a large round cyan glass visor helmet. Side-view profile perspective. The sheet must contain a clean grid sequence of animation frames: Row 1 has 4 frames of idle floating bobbing cycle; Row 2 has 8 frames of swimming/kicking cycle; Row 3 has 4 frames of swinging a handheld pickaxe/scanner tool forward; Row 4 has 1 frame of damage recoil. Crisp pixel outlines, flat clean shading, presented on a solid bright green background for easy transparency removal. No shadows on background, no water overlays.`
   - **Render Logic:** [internal/game/cave.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/cave.go)
 
-- [ ] **Scout Sub Sprite** (`assets/textures/scout_sub.png`)
+- [x] **Scout Sub Sprite** (`assets/textures/scout_sub.png`)
   - **Details:** A 48x32px mini-sub sprite with a glass bubble cockpit, a back propeller (2-frame rotation), and a front headlight lens.
   - **AI Image Generation Prompt:**
     > `2D side-view mini-submarine game sprite, 16-bit retro pixel art. A small exploration sub with a circular glass cockpit displaying a cyan glow, a yellow and industrial teal hull, front glass searchlight lens, and back copper propellers. Side profile view, solid green chroma-key background.`
   - **Render Logic:** [internal/game/vehicle/vehicle.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/vehicle.go)
 
-- [ ] **Heavy Mech Spritesheet** (`assets/textures/heavy_mech.png`)
+- [x] **Heavy Mech Spritesheet** (`assets/textures/heavy_mech.png`)
   - **Details:** A walker robot containing:
     - Left/Right walker legs (4-frame walk cycle).
     - Mech torso cockpit with metallic hatch.
@@ -104,7 +104,7 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
     - Left arm Drill (4-frame spinning loop).
     - Thruster flame bursts (spark animation).
   - **AI Image Generation Prompt:**
-    > `2D side-scrolling video game asset, sprite sheet, 16-bit retro pixel art style. An industrial walker mech suit, dark grey and orange iron plating. The sheet must contain a clean grid sequence of animations: Row 1 has 4 frames of leg walking cycle; Row 2 has 4 frames of drill arm rotation loop; Row 3 has 1 frame of thruster ignition sparks. Solid bright green background, clean pixels, no shadows.`
+    > `2D side-scrolling video game asset, sprite sheet, 16-bit retro pixel art style. An industrial walker mech suit, dark grey and orange iron plating. The sheet must contain a clean grid sequence of animations: Row 1 has 4 frames of leg walking cycle; Row 2 has 4 frames of drill arm rotation loop; Row 3 has 1 frame of thruster ignition sparks. Solid bright green background, clean pixels, no shadows. Centered on a flat, solid green chroma-key background.`
   - **Render Logic:** [internal/game/vehicle/vehicle.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/vehicle.go)
 
 
