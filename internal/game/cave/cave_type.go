@@ -116,6 +116,23 @@ func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 				strokeColor := color.RGBA{210, 185, 120, 255}
 				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
 				vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
+
+				// Deterministic pseudo-random seed based on tile coordinates to prevent flickering
+				rng := rand.New(rand.NewSource(int64(tx*73 + ty*37)))
+
+				// Draw darker sand grains
+				for i := 0; i < 6; i++ {
+					px := float32(rng.Intn(config.TileSize - 4)) + 2
+					py := float32(rng.Intn(config.TileSize - 4)) + 2
+					vector.FillRect(screen, sx+px, sy+py, 2, 2, color.RGBA{150, 130, 80, 255}, false)
+				}
+
+				// Draw lighter sand grains
+				for i := 0; i < 6; i++ {
+					px := float32(rng.Intn(config.TileSize - 4)) + 2
+					py := float32(rng.Intn(config.TileSize - 4)) + 2
+					vector.FillRect(screen, sx+px, sy+py, 2, 2, color.RGBA{215, 190, 125, 255}, false)
+				}
 			}
 		}
 	}

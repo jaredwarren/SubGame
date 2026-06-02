@@ -50,7 +50,7 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
 
 
 ### Cave Environment (Side-Scroller Grid)
-- [ ] **Shallow Cave Tiles** (`assets/textures/cave_shallow.png`)
+- [x] **Shallow Cave Tiles** (Procedurally drawn with sand speckles in code)
   - **Details:** Sandy, coral-overgrown rock textures with border tiles for slopes.
   - **AI Image Generation Prompt:**
     > `16-bit retro pixel art tilesheet, side-view platformer style. Organic cave wall tiles of sandy yellow reef rock, overgrown with tiny colorful corals and seaweed. Includes inner fills, corner blocks, and slopes. Repeating tileable texture, clean grid lines.`
