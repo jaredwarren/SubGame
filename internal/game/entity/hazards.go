@@ -345,15 +345,43 @@ func (ent *ThermoclineRammer) Update(gr Runtime, CaveGrid [][]bool) {
 			vWidth, vHeight = vDims.X, vDims.Y
 		}
 		if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
+			dirX, dirY := 0.0, 0.0
+			speed := math.Hypot(ent.Vel.X, ent.Vel.Y)
+			if speed > 0.1 {
+				dirX = ent.Vel.X / speed
+				dirY = ent.Vel.Y / speed
+			} else {
+				dx := (targetX + vWidth/2.0) - ex
+				dy := (targetY + vHeight/2.0) - ey
+				dist := math.Hypot(dx, dy)
+				if dist > 0.1 {
+					dirX = dx / dist
+					dirY = dy / dist
+				} else {
+					dirX = 1.0
+				}
+			}
+
+			kbForce := 6.5
+			forceVec := gvec.Vec2{X: dirX * kbForce, Y: dirY * kbForce}
+
 			if gr.HasActiveVehicle() {
 				gr.Emit(DamageActiveVehicleCmd{Amount: 30.0})
+				gr.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
 				gr.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120})
 			} else {
 				gr.Emit(DamagePlayerCmd{Amount: 25.0})
+				gr.Emit(KnockbackPlayerCmd{Force: forceVec})
 				gr.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120})
 			}
-			ent.State = 0
+
+			// Push rammer back in opposite direction to prevent continuous overlap
+			pushBackDistance := 40.0
+			ent.Pos.X -= dirX * pushBackDistance
+			ent.Pos.Y -= dirY * pushBackDistance
 			ent.Vel = gvec.Vec2{}
+			ent.State = 2
+			ent.StunTimer = 180
 		}
 	}
 }

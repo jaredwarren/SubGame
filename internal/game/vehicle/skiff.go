@@ -10,6 +10,23 @@ import (
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
+type SkiffWakeStyle int
+
+const (
+	WakeStyleVLines    SkiffWakeStyle = 0 // Option B: Continuous V-Wake Lines
+	WakeStyleArcs      SkiffWakeStyle = 1 // Option A: Directional Wave Arcs
+	WakeStyleVSegments SkiffWakeStyle = 2 // Option C: Dynamic V-Line Segments
+)
+
+const activeWakeStyle = WakeStyleVSegments
+
+type skiffWakePoint struct {
+	x, y      float64
+	facing    float64
+	amplitude float64
+	life      float64 // 1.0 -> 0.0
+}
+
 // Skiff is the starting surface boat — solar-powered, surface-only.
 type Skiff struct {
 	Pos        gvec.Vec2
@@ -21,6 +38,9 @@ type Skiff struct {
 	Battery    float64
 	MaxBattery float64
 	Cargo      *item.Inventory
+	wake       []skiffWakePoint
+	spawnTimer int
+	lightMult  float64
 }
 
 // NewSkiff creates a Skiff at the given world position.
@@ -33,6 +53,8 @@ func NewSkiff(x, y float64) *Skiff {
 		Battery:    100.0,
 		MaxBattery: 100.0,
 		Cargo:      item.NewInventory(24),
+		spawnTimer: 0,
+		lightMult:  1.0,
 	}
 }
 
@@ -50,6 +72,9 @@ func (s *Skiff) GetName() string              { return "The Skiff" }
 func (s *Skiff) GetBattery() float64          { return s.Battery }
 func (s *Skiff) GetMaxBattery() float64       { return s.MaxBattery }
 func (s *Skiff) GetFacing() float64           { return s.Facing }
+func (s *Skiff) ApplyForce(force gvec.Vec2) {
+	s.Vel = s.Vel.Add(force)
+}
 
 func (s *Skiff) TakeDamage(amount float64) {
 	s.Health -= amount
@@ -66,6 +91,24 @@ func (s *Skiff) RechargeBattery(amount float64) {
 }
 
 func (s *Skiff) Update(runtime Runtime) {
+	// Update wake points
+	var activeWake []skiffWakePoint
+	decayRate := 0.025
+	if activeWakeStyle == WakeStyleArcs || activeWakeStyle == WakeStyleVSegments {
+		decayRate = 0.015
+	}
+
+	for i := range s.wake {
+		s.wake[i].life -= decayRate
+		if s.wake[i].life > 0 {
+			activeWake = append(activeWake, s.wake[i])
+		}
+	}
+	s.wake = activeWake
+
+	// Update light multiplier
+	s.lightMult = s.getLightMultiplier(runtime.TimeOfDay())
+
 	isDaytime := runtime.TimeOfDay() < 10800
 	if isDaytime {
 		s.Battery += 0.05
@@ -124,6 +167,35 @@ func (s *Skiff) Update(runtime Runtime) {
 	}
 
 	s.checkCollisions(runtime)
+
+	// Spawn new wake point when moving
+	if moving && speed > 0.4 {
+		spawnInterval := 1
+		if activeWakeStyle == WakeStyleArcs || activeWakeStyle == WakeStyleVSegments {
+			spawnInterval = 4
+		}
+		s.spawnTimer++
+		if s.spawnTimer >= spawnInterval {
+			s.spawnTimer = 0
+
+			cosF := math.Cos(s.Facing)
+			sinF := math.Sin(s.Facing)
+			cx := s.Pos.X + s.Dimensions.X/2.0
+			cy := s.Pos.Y + s.Dimensions.Y/2.0
+
+			// Center the spawn point exactly at the bow (front tip) of the skiff
+			frontX := cx + cosF*28.0
+			frontY := cy + sinF*28.0
+
+			s.wake = append(s.wake, skiffWakePoint{
+				x:         frontX,
+				y:         frontY,
+				facing:    s.Facing,
+				amplitude: speed * 25.0, // speed determines intensity
+				life:      1.0,
+			})
+		}
+	}
 }
 
 func (s *Skiff) checkCollisions(runtime Runtime) {
@@ -158,6 +230,130 @@ func (s *Skiff) isSolid(runtime Runtime, pos gvec.Vec2) bool {
 }
 
 func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {
+	if activeWakeStyle == WakeStyleVLines {
+		// Draw continuous V-wake lines (Option B)
+		if len(s.wake) >= 2 {
+			const spreadAngle = 0.42
+			for i := 0; i < len(s.wake)-1; i++ {
+				p1 := s.wake[i]
+				p2 := s.wake[i+1]
+
+				// Calculate left/right coordinates for p1
+				age1 := 1.0 - p1.life
+				dist1 := age1 * 32.0
+
+				lAngle1 := p1.facing + math.Pi - spreadAngle
+				lX1 := p1.x + math.Cos(lAngle1)*dist1 - camX
+				lY1 := p1.y + math.Sin(lAngle1)*dist1 - camY
+
+				rAngle1 := p1.facing + math.Pi + spreadAngle
+				rX1 := p1.x + math.Cos(rAngle1)*dist1 - camX
+				rY1 := p1.y + math.Sin(rAngle1)*dist1 - camY
+
+				// Calculate left/right coordinates for p2
+				age2 := 1.0 - p2.life
+				dist2 := age2 * 32.0
+
+				lAngle2 := p2.facing + math.Pi - spreadAngle
+				lX2 := p2.x + math.Cos(lAngle2)*dist2 - camX
+				lY2 := p2.y + math.Sin(lAngle2)*dist2 - camY
+
+				rAngle2 := p2.facing + math.Pi + spreadAngle
+				rX2 := p2.x + math.Cos(rAngle2)*dist2 - camX
+				rY2 := p2.y + math.Sin(rAngle2)*dist2 - camY
+
+				avgLife := (p1.life + p2.life) * 0.5
+
+				// Outer light blue-cyan halo
+				clrOuter := s.applyLight(color.RGBA{160, 220, 255, uint8(avgLife * 80.0)})
+				vector.StrokeLine(screen, float32(lX1), float32(lY1), float32(lX2), float32(lY2), 2.5, clrOuter, true)
+				vector.StrokeLine(screen, float32(rX1), float32(rY1), float32(rX2), float32(rY2), 2.5, clrOuter, true)
+
+				// Inner white core
+				clrInner := s.applyLight(color.RGBA{255, 255, 255, uint8(avgLife * 160.0)})
+				vector.StrokeLine(screen, float32(lX1), float32(lY1), float32(lX2), float32(lY2), 1.0, clrInner, true)
+				vector.StrokeLine(screen, float32(rX1), float32(rY1), float32(rX2), float32(rY2), 1.0, clrInner, true)
+			}
+		}
+	} else if activeWakeStyle == WakeStyleArcs {
+		// Draw expanding backward-facing wave arcs (Option A)
+		for _, p := range s.wake {
+			alpha := p.life * p.amplitude
+			if alpha > 255 {
+				alpha = 255
+			}
+			if alpha < 0 {
+				alpha = 0
+			}
+
+			// Radius expands based on age
+			radius := 2.0 + (1.0-p.life)*80.0
+
+			// Center angle is reverse of historical facing
+			centerAngle := p.facing + math.Pi
+			const halfSweep = 1.0 // ~114 degrees sweep arc
+
+			// Outer light-blue-cyan halo
+			clrOuter := s.applyLight(color.RGBA{160, 220, 255, uint8(alpha * 0.5)})
+			drawArc(screen, p.x-camX, p.y-camY, radius, centerAngle, halfSweep, 2.5, clrOuter)
+
+			// Inner white core
+			clrInner := s.applyLight(color.RGBA{255, 255, 255, uint8(alpha)})
+			drawArc(screen, p.x-camX, p.y-camY, radius, centerAngle, halfSweep, 1.0, clrInner)
+		}
+	} else if activeWakeStyle == WakeStyleVSegments {
+		// Draw expanding backward-facing V-line segments (Option C: Combination)
+		const spreadAngle = 0.65
+		for _, p := range s.wake {
+			// Opacity decays quadratically for a distinct, smooth fade-out
+			maxAlpha := 100.0 + p.amplitude
+			if maxAlpha > 230.0 {
+				maxAlpha = 230.0
+			}
+			alpha := p.life * p.life * maxAlpha
+
+			age := 1.0 - p.life
+			dist := age * 80.0 // expands further outwards (up to 80 pixels)
+
+			distStart := dist * 0.3
+			distEnd := dist
+
+			// Thickness also decays over time to simulate wave dissipation
+			thickOuter := float32(2.5 * p.life)
+			thickInner := float32(1.0 * p.life)
+			if thickOuter < 0.1 {
+				thickOuter = 0.1
+			}
+			if thickInner < 0.1 {
+				thickInner = 0.1
+			}
+
+			// Left segment
+			leftAngle := p.facing + math.Pi - spreadAngle
+			lXStart := p.x + math.Cos(leftAngle)*distStart - camX
+			lYStart := p.y + math.Sin(leftAngle)*distStart - camY
+			lXEnd := p.x + math.Cos(leftAngle)*distEnd - camX
+			lYEnd := p.y + math.Sin(leftAngle)*distEnd - camY
+
+			// Right segment
+			rightAngle := p.facing + math.Pi + spreadAngle
+			rXStart := p.x + math.Cos(rightAngle)*distStart - camX
+			rYStart := p.y + math.Sin(rightAngle)*distStart - camY
+			rXEnd := p.x + math.Cos(rightAngle)*distEnd - camX
+			rYEnd := p.y + math.Sin(rightAngle)*distEnd - camY
+
+			// Outer light-blue-cyan halo
+			clrOuter := s.applyLight(color.RGBA{160, 220, 255, uint8(alpha * 0.5)})
+			vector.StrokeLine(screen, float32(lXStart), float32(lYStart), float32(lXEnd), float32(lYEnd), thickOuter, clrOuter, true)
+			vector.StrokeLine(screen, float32(rXStart), float32(rYStart), float32(rXEnd), float32(rYEnd), thickOuter, clrOuter, true)
+
+			// Inner white core
+			clrInner := s.applyLight(color.RGBA{255, 255, 255, uint8(alpha)})
+			vector.StrokeLine(screen, float32(lXStart), float32(lYStart), float32(lXEnd), float32(lYEnd), thickInner, clrInner, true)
+			vector.StrokeLine(screen, float32(rXStart), float32(rYStart), float32(rXEnd), float32(rYEnd), thickInner, clrInner, true)
+		}
+	}
+
 	cosF := math.Cos(s.Facing)
 	sinF := math.Sin(s.Facing)
 
@@ -209,4 +405,42 @@ func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {
 	vector.StrokeLine(screen, sp2x, sp2y, sp3x, sp3y, 0.8, color.RGBA{220, 240, 255, 180}, false)
 	vector.StrokeLine(screen, sp3x, sp3y, sp4x, sp4y, 0.8, color.RGBA{220, 240, 255, 180}, false)
 	vector.StrokeLine(screen, sp4x, sp4y, sp1x, sp1y, 0.8, color.RGBA{220, 240, 255, 180}, false)
+}
+
+func (s *Skiff) getLightMultiplier(timeOfDay float64) float64 {
+	if timeOfDay >= 0 && timeOfDay < 1200 {
+		return 0.2 + (timeOfDay/1200.0)*0.8
+	}
+	if timeOfDay >= 1200 && timeOfDay < 9600 {
+		return 1.0
+	}
+	if timeOfDay >= 9600 && timeOfDay < 10800 {
+		return 1.0 - ((timeOfDay-9600.0)/1200.0)*0.8
+	}
+	return 0.2
+}
+
+func (s *Skiff) applyLight(c color.RGBA) color.RGBA {
+	return color.RGBA{
+		R: uint8(float64(c.R) * s.lightMult),
+		G: uint8(float64(c.G) * s.lightMult),
+		B: uint8(float64(c.B) * s.lightMult),
+		A: c.A,
+	}
+}
+
+func drawArc(screen *ebiten.Image, cx, cy, radius float64, centerAngle, halfSweep float64, thickness float32, clr color.Color) {
+	const segments = 8
+	step := (halfSweep * 2.0) / float64(segments)
+	startAngle := centerAngle - halfSweep
+	var lastX, lastY float32
+	for i := 0; i <= segments; i++ {
+		angle := startAngle + float64(i)*step
+		px := float32(cx + math.Cos(angle)*radius)
+		py := float32(cy + math.Sin(angle)*radius)
+		if i > 0 {
+			vector.StrokeLine(screen, lastX, lastY, px, py, thickness, clr, true)
+		}
+		lastX, lastY = px, py
+	}
 }

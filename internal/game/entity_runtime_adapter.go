@@ -110,9 +110,15 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 		switch c := cmd.(type) {
 		case entity.DamagePlayerCmd:
 			g.player.CurrentHealth -= c.Amount
+		case entity.KnockbackPlayerCmd:
+			g.player.Vel = g.player.Vel.Add(c.Force)
 		case entity.DamageActiveVehicleCmd:
 			if g.ActiveVehicle != nil {
 				g.ActiveVehicle.TakeDamage(c.Amount)
+			}
+		case entity.KnockbackActiveVehicleCmd:
+			if g.ActiveVehicle != nil {
+				g.ActiveVehicle.ApplyForce(c.Force)
 			}
 		case entity.RestoreOxygenCmd:
 			g.player.CurrentOxygen = math.Min(g.player.MaxOxygen, g.player.CurrentOxygen+c.Amount)

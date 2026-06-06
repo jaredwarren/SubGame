@@ -387,7 +387,7 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 										lx2 := float32(x2 - camX)
 										ly2 := float32(y2 - camY)
 										litColor := applyLight(clr, mult)
-										vector.StrokeLine(screen, lx1, ly1, lx2, ly2, thickness, litColor, false)
+										vector.StrokeLine(screen, lx1, ly1, lx2, ly2, thickness, litColor, true)
 									}
 								}
 

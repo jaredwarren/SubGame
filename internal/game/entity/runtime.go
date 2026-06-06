@@ -64,6 +64,14 @@ type UpdateWeaverTrackingTimerCmd struct {
 	Value float64
 }
 
+type KnockbackPlayerCmd struct {
+	Force gvec.Vec2
+}
+
+type KnockbackActiveVehicleCmd struct {
+	Force gvec.Vec2
+}
+
 func (DamagePlayerCmd) gameCommand()             {}
 func (DamageActiveVehicleCmd) gameCommand()      {}
 func (RestoreOxygenCmd) gameCommand()            {}
@@ -71,3 +79,5 @@ func (TriggerSoundWaveCmd) gameCommand()         {}
 func (SetPlayerSlowedCmd) gameCommand()          {}
 func (SetMineWarningCmd) gameCommand()           {}
 func (UpdateWeaverTrackingTimerCmd) gameCommand() {}
+func (KnockbackPlayerCmd) gameCommand()          {}
+func (KnockbackActiveVehicleCmd) gameCommand()   {}

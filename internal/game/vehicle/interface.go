@@ -28,6 +28,7 @@ type Vehicle interface {
 	GetMaxBattery() float64
 	RechargeBattery(amount float64)
 	GetFacing() float64
+	ApplyForce(force gvec.Vec2)
 }
 
 // TileSize matches the global tile size used for collision calculations.
