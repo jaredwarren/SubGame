@@ -90,7 +90,7 @@ type GameContext interface {
 	// HUD / UI
 	IsInventoryOpen() bool
 	GetMineWarning() (msg string, timer int)
-	SetMineWarning(msg string, duration int)
+	SetMineWarning(msg string, duration, level int)
 
 	// Screen effects
 	TriggerScreenShake(duration int, intensity float64)

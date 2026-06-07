@@ -143,8 +143,7 @@ func (g *Game) ExitCave() {
 
 	vehicles := g.CaveVehicles[g.activeTrenchKey]
 	if len(vehicles) > 0 {
-		g.MineWarning = fmt.Sprintf("VEHICLE BEACON ACTIVE AT (%d, %d)", g.activeTrenchX, g.activeTrenchY)
-		g.MineWarningTimer = 180
+		g.SetMineWarning(fmt.Sprintf("VEHICLE BEACON ACTIVE AT (%d, %d)", g.activeTrenchX, g.activeTrenchY), 180, 1)
 	}
 
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)

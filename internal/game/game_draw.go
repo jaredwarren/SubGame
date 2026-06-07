@@ -104,10 +104,32 @@ func (g *Game) drawWarningBanner(screen *ebiten.Image) {
 	if g.MineWarningTimer <= 0 {
 		return
 	}
+
+	borderColor := color.RGBA{R: 0, G: 191, B: 255, A: 255}
+	bgColor := color.RGBA{R: 0, G: 16, B: 32, A: 220}
+	glowColor := color.RGBA{R: 0, G: 191, B: 255, A: 60}
+
+	switch g.MineWarningLevel {
+	case 2: // warn/yellow
+		borderColor = color.RGBA{R: 255, G: 215, B: 0, A: 255}
+		bgColor = color.RGBA{R: 32, G: 24, B: 0, A: 220}
+		glowColor = color.RGBA{R: 255, G: 215, B: 0, A: 60}
+	case 3: // alert/red
+		borderColor = color.RGBA{R: 235, G: 45, B: 45, A: 255}
+		bgColor = color.RGBA{R: 24, G: 6, B: 8, A: 220}
+		glowColor = color.RGBA{R: 235, G: 45, B: 45, A: 60}
+	}
+
 	wx := float32(config.ScreenWidth)/2.0 - 160
 	wy := float32(config.ScreenHeight) / 4.0
-	vector.FillRect(screen, wx, wy, 320, 30, color.RGBA{24, 6, 8, 220}, false)
-	vector.StrokeRect(screen, wx, wy, 320, 30, 1.2, color.RGBA{235, 45, 45, 255}, false)
+
+	// Draw dark background
+	vector.FillRect(screen, wx, wy, 320, 30, bgColor, false)
+	// Draw glowing outer border
+	vector.StrokeRect(screen, wx-1.5, wy-1.5, 323, 33, 2.5, glowColor, false)
+	// Draw sharp inner border
+	vector.StrokeRect(screen, wx, wy, 320, 30, 1.2, borderColor, false)
+	// Print text
 	ebitenutil.DebugPrintAt(screen, g.MineWarning, int(wx)+12, int(wy)+7)
 }
 

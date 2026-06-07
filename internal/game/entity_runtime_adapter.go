@@ -132,6 +132,7 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 		case entity.SetMineWarningCmd:
 			g.MineWarning = c.Message
 			g.MineWarningTimer = c.Duration
+			g.MineWarningLevel = c.Level
 		case entity.UpdateWeaverTrackingTimerCmd:
 			g.WeaverTrackingTimer = math.Max(g.WeaverTrackingTimer, c.Value)
 		}

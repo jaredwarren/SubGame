@@ -177,19 +177,68 @@ func (c *FloatingCrate) Draw(screen *ebiten.Image, camX, camY float64, ticks flo
 	vector.FillRect(screen, sx-half+2, sy-half+2, 1.5, 1.5, highlightClr, false)
 }
 
+type VentState int
+
+const (
+	VentDormant VentState = iota
+	VentWarning
+	VentErupting
+)
+
 // ThermalVent represents a volcanic/hydrothermal vent dealing damage & pushing things away.
 type ThermalVent struct {
 	Pos            gvec.Vec2
 	Radius         float64
 	BubbleCooldown int
+	State          VentState
+	StateTimer     int
+	SeedOffset     int64
+	Intensity      float64
 }
 
-// Update ticks the thermal vent bubble particle spawn rate.
+// Update ticks the thermal vent bubble particle spawn rate and geyser state machine.
 func (v *ThermalVent) Update(g GameContext, targetCenter gvec.Vec2, targetDims gvec.Vec2, isPiloting bool) {
-	// Spawn rising bubble particles inside the mouth of the vent
+	// Tick down StateTimer and handle transitions
+	if v.StateTimer <= 0 {
+		r := rand.New(rand.NewSource(int64(g.GetTicks()) + v.SeedOffset))
+		switch v.State {
+		case VentDormant:
+			v.State = VentWarning
+			v.StateTimer = r.Intn(31) + 60 // 60-90 ticks (1 - 1.5 seconds)
+		case VentWarning:
+			v.State = VentErupting
+			v.StateTimer = r.Intn(61) + 120 // 120-180 ticks (2 - 3 seconds)
+			v.Intensity = 1.2               // INSTANT ERUPTION BURST!
+		case VentErupting:
+			v.State = VentDormant
+			v.StateTimer = r.Intn(221) + 180 // 180-400 ticks (3 - 6.6 seconds)
+		}
+	}
+	v.StateTimer--
+
+	// Smoothly transition intensity based on current state
+	switch v.State {
+	case VentDormant:
+		v.Intensity += (0.0 - v.Intensity) * 0.03 // slowly fade to dormant
+	case VentWarning:
+		target := 0.4 + 0.1*math.Sin(float64(g.GetTicks())*0.2)
+		v.Intensity += (target - v.Intensity) * 0.08 // quick pulse warning
+	case VentErupting:
+		v.Intensity += (0.5 - v.Intensity) * 0.01 // slowly fade/decay during eruption
+	}
+
+	// Spawn rising bubble particles based on state
 	v.BubbleCooldown--
 	if v.BubbleCooldown <= 0 {
-		v.BubbleCooldown = rand.Intn(12) + 8
+		switch v.State {
+		case VentDormant:
+			v.BubbleCooldown = rand.Intn(40) + 40 // very low bubbles
+		case VentWarning:
+			v.BubbleCooldown = rand.Intn(15) + 10 // moderate bubbles
+		case VentErupting:
+			v.BubbleCooldown = rand.Intn(4) + 2 // constant bubble eruption!
+		}
+
 		angle := rand.Float64() * 2.0 * math.Pi
 		dist := rand.Float64() * 12.0
 		bx := v.Pos.X + math.Cos(angle)*dist
@@ -197,15 +246,22 @@ func (v *ThermalVent) Update(g GameContext, targetCenter gvec.Vec2, targetDims g
 		g.SpawnBubble(bx, by)
 	}
 
-	// Calculate distance and check influence radius
+	// Calculate distance to player/vehicle
 	dx := targetCenter.X - v.Pos.X
 	dy := targetCenter.Y - v.Pos.Y
 	dist := math.Hypot(dx, dy)
 
-	if dist < v.Radius {
-		// Calculate outward push force (stronger closer to center)
+	// Screen rumble during Warning state
+	if v.State == VentWarning && dist < v.Radius {
+		g.TriggerScreenShake(1, 0.2)
+	}
+
+	// Push forces and damage ONLY apply during Erupting state
+	if v.State == VentErupting && dist < v.Radius {
+		// Calculate outward push force (stronger closer to center, scaled by intensity)
 		ratio := 1.0 - (dist / v.Radius)
-		pushStrength := 1.6 * ratio
+		intensityScale := math.Max(0.0, math.Min(1.0, v.Intensity))
+		pushStrength := 1.8 * ratio * intensityScale
 
 		var pushX, pushY float64
 		if dist > 0.1 {
@@ -220,43 +276,95 @@ func (v *ThermalVent) Update(g GameContext, targetCenter gvec.Vec2, targetDims g
 			activeVeh := g.GetActiveVehicle()
 			// Apply physical force to the vehicle
 			activeVeh.ApplyForce(gvec.Vec2{X: pushX * 0.35, Y: pushY * 0.35})
-			// Deal continuous low structural damage to the vehicle
-			activeVeh.TakeDamage(0.04)
+			// Deal continuous structural damage to the vehicle
+			activeVeh.TakeDamage(0.06 * intensityScale)
 		} else {
 			// Apply force to player velocity
 			p := g.GetPlayer()
 			p.Vel.X += pushX
 			p.Vel.Y += pushY
 			// Deal damage to swimming player
-			p.CurrentHealth -= 0.10
+			p.CurrentHealth -= 0.15 * intensityScale
 		}
 
-		// Trigger visual screen shake if very close
-		if dist < 30.0 {
-			g.TriggerScreenShake(1, 0.4)
+		// Trigger visual screen shake if close, scaled by intensity
+		if dist < 40.0 {
+			g.TriggerScreenShake(1, 1.2*intensityScale)
 		}
 	}
 }
 
-// Draw renders a glowing circular volcanic mouth on the seafloor.
+// Draw renders a glowing circular volcanic mouth on the seafloor with states.
 func (v *ThermalVent) Draw(screen *ebiten.Image, camX, camY float64, ticks float64, mult float64) {
 	sx := float32(v.Pos.X - camX)
 	sy := float32(v.Pos.Y - camY)
 
-	// Pulse outer radius slightly
-	pulse := float32(math.Sin(ticks*0.05)) * 1.8
-	outerRad := float32(22.0) + pulse
+	drawIntensity := v.Intensity
+	if v.State == VentWarning {
+		// Add rapid warning flash to drawIntensity
+		flash := (int(ticks) % 16) < 8
+		if flash {
+			drawIntensity += 0.25
+		}
+	}
 
-	// Draw glowing concentric magma-like rings
-	glowRed := applyLight(color.RGBA{175, 45, 15, 160}, mult)
-	glowOrange := applyLight(color.RGBA{215, 110, 25, 220}, mult)
-	glowYellow := applyLight(color.RGBA{240, 200, 45, 255}, mult)
-	abyssBlack := applyLight(color.RGBA{14, 6, 8, 255}, mult)
+	// Clamp drawIntensity to [0, 1] for color/size interpolations
+	t := math.Max(0.0, math.Min(1.0, drawIntensity))
+
+	// Interpolate pulse speed and amplitude based on state
+	var pulseSpeed, pulseAmp float64
+	switch v.State {
+	case VentDormant:
+		pulseSpeed = 0.02
+		pulseAmp = 0.8
+	case VentWarning:
+		pulseSpeed = 0.12
+		pulseAmp = 1.5
+	case VentErupting:
+		pulseSpeed = 0.25
+		pulseAmp = 3.5
+	}
+	pulse := float32(math.Sin(ticks*pulseSpeed)) * float32(pulseAmp)
+	outerRad := float32(16.0) + float32(8.0*t) + pulse
+
+	// Define colors for dormant (t = 0) vs fully erupted (t = 1)
+	dormantRed := color.RGBA{70, 15, 5, 120}
+	eruptedRed := color.RGBA{220, 55, 10, 220}
+
+	dormantOrange := color.RGBA{90, 25, 5, 150}
+	eruptedOrange := color.RGBA{255, 145, 25, 255}
+
+	dormantYellow := color.RGBA{110, 45, 10, 180}
+	eruptedYellow := color.RGBA{255, 230, 70, 255}
+
+	dormantBlack := color.RGBA{8, 4, 5, 255}
+	eruptedBlack := color.RGBA{18, 8, 10, 255}
+
+	// Interpolate and apply lighting multiplier
+	glowRed := applyLight(lerpColor(dormantRed, eruptedRed, t), mult)
+	glowOrange := applyLight(lerpColor(dormantOrange, eruptedOrange, t), mult)
+	glowYellow := applyLight(lerpColor(dormantYellow, eruptedYellow, t), mult)
+	abyssBlack := applyLight(lerpColor(dormantBlack, eruptedBlack, t), mult)
 
 	vector.FillCircle(screen, sx, sy, outerRad, glowRed, false)
 	vector.FillCircle(screen, sx, sy, outerRad-4.0, glowOrange, false)
 	vector.FillCircle(screen, sx, sy, outerRad-8.0, glowYellow, false)
 	vector.FillCircle(screen, sx, sy, outerRad-12.0, abyssBlack, false)
+}
+
+func lerpColor(c1, c2 color.RGBA, t float64) color.RGBA {
+	if t < 0 {
+		t = 0
+	}
+	if t > 1 {
+		t = 1
+	}
+	return color.RGBA{
+		R: uint8(float64(c1.R) + float64(int(c2.R)-int(c1.R))*t),
+		G: uint8(float64(c1.G) + float64(int(c2.G)-int(c1.G))*t),
+		B: uint8(float64(c1.B) + float64(int(c2.B)-int(c1.B))*t),
+		A: uint8(float64(c1.A) + float64(int(c2.A)-int(c1.A))*t),
+	}
 }
 
 // InitializeExtras populates the overworld with fish, crates, and vents if not already initialized.
@@ -297,24 +405,6 @@ func (o *OverworldScene) InitializeExtras(g GameContext) {
 					}
 				}
 
-			case world.TileTrench:
-				// Spawn a geothermal vent near the trench center
-				offsetX := (r.Float64() - 0.5) * 128.0
-				offsetY := (r.Float64() - 0.5) * 128.0
-				px := float64(tx*config.TileSize) + float64(config.TileSize)/2.0 + offsetX
-				py := float64(ty*config.TileSize) + float64(config.TileSize)/2.0 + offsetY
-
-				gtx := int(px) / config.TileSize
-				gty := int(py) / config.TileSize
-				if gtx >= 0 && gtx < o.World.Width && gty >= 0 && gty < o.World.Height {
-					if o.World.OverworldMap[gtx][gty] != world.TileLand {
-						o.vents = append(o.vents, &ThermalVent{
-							Pos:    gvec.Vec2{X: px, Y: py},
-							Radius: 70.0,
-						})
-					}
-				}
-
 			case world.TileWater:
 				// If this tile is close to land, spawn a school of fish
 				dist := o.World.LandDist[tx][ty]
@@ -339,6 +429,63 @@ func (o *OverworldScene) InitializeExtras(g GameContext) {
 					}
 				}
 			}
+		}
+	}
+
+	// Spawn random vents in open waters far from the base station
+	var candidates []gvec.Vec2
+	basePos := g.GetBaseStation().Pos
+	for tx := 0; tx < o.World.Width; tx++ {
+		for ty := 0; ty < o.World.Height; ty++ {
+			if o.World.OverworldMap[tx][ty] == world.TileWater && o.World.LandDist[tx][ty] >= 3 {
+				tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
+				tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
+				dist := math.Hypot(tileX-basePos.X, tileY-basePos.Y)
+				if dist >= 960.0 {
+					candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
+				}
+			}
+		}
+	}
+
+	if len(candidates) < 6 {
+		// Fallback: check any water tile further than 400px from base station
+		for tx := 0; tx < o.World.Width; tx++ {
+			for ty := 0; ty < o.World.Height; ty++ {
+				if o.World.OverworldMap[tx][ty] == world.TileWater {
+					tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
+					tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
+					dist := math.Hypot(tileX-basePos.X, tileY-basePos.Y)
+					if dist >= 400.0 {
+						candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
+					}
+				}
+			}
+		}
+	}
+
+	if len(candidates) > 0 {
+		// Shuffle candidates using deterministic local PRNG
+		r.Shuffle(len(candidates), func(i, j int) {
+			candidates[i], candidates[j] = candidates[j], candidates[i]
+		})
+
+		numVents := 6
+		if len(candidates) < numVents {
+			numVents = len(candidates)
+		}
+
+		for i := 0; i < numVents; i++ {
+			pos := candidates[i]
+			// Initialize with randomized state timer so they don't all erupt at once
+			o.vents = append(o.vents, &ThermalVent{
+				Pos:            pos,
+				Radius:         70.0,
+				State:          VentDormant,
+				StateTimer:     r.Intn(300) + 120, // stagger initial transitions
+				SeedOffset:     int64(i * 12345),
+				BubbleCooldown: r.Intn(10) + 5,
+			})
 		}
 	}
 }
@@ -430,13 +577,14 @@ func (o *OverworldScene) UpdateExtras(g GameContext) {
 				// FX
 				g.SpawnDebris(c.Pos.X, c.Pos.Y, color.RGBA{139, 90, 43, 255})
 				g.TriggerScreenShake(10, 1.5)
-				g.SetMineWarning("Salvaged: "+loot.GetName()+"!", 120)
+
+				g.SetMineWarning("Salvaged: "+loot.GetName()+"!", 120, 1)
 
 				if !isPiloting {
 					p.RecalculateUpgrades()
 				}
 			} else {
-				g.SetMineWarning("Inventory full! Cannot salvage crate.", 60)
+				g.SetMineWarning("Inventory full! Cannot salvage crate.", 60, 2)
 			}
 		}
 	}

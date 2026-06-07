@@ -135,7 +135,7 @@ func (ent *FalseBulbSnare) Update(gr Runtime, CaveGrid [][]bool) {
 	}
 	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
 		gr.Emit(DamagePlayerCmd{Amount: 20.0})
-		gr.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120})
+		gr.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
 		ent.Active = false
 	}
 }
@@ -368,11 +368,11 @@ func (ent *ThermoclineRammer) Update(gr Runtime, CaveGrid [][]bool) {
 			if gr.HasActiveVehicle() {
 				gr.Emit(DamageActiveVehicleCmd{Amount: 30.0})
 				gr.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120})
+				gr.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
 			} else {
 				gr.Emit(DamagePlayerCmd{Amount: 25.0})
 				gr.Emit(KnockbackPlayerCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120})
+				gr.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
 			}
 
 			// Push rammer back in opposite direction to prevent continuous overlap
@@ -483,7 +483,7 @@ func (ent *ElectroWeaver) Update(gr Runtime, CaveGrid [][]bool) {
 		gr.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
 		if ent.Timer >= 300 {
 			gr.Emit(DamagePlayerCmd{Amount: 45.0})
-			gr.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: 180})
+			gr.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: 180, Level: 3})
 			ent.Pos.X = gr.PlayerPos().X + float64(rand.Intn(120)-60)
 			ent.Pos.Y = gr.PlayerPos().Y + float64(rand.Intn(120)-60)
 			ent.Timer = 0

@@ -63,6 +63,7 @@ func (g *Game) StartGame(seed int64) {
 	g.deathReason = ""
 	g.MineWarning = ""
 	g.MineWarningTimer = 0
+	g.MineWarningLevel = 0
 
 	g.overworldState = NewOverworldScene(w)
 
@@ -122,9 +123,9 @@ func (g *Game) SetCurrentState(s scene.State) { g.currentState = s }
 
 // --- Core objects ---
 
-func (g *Game) GetPlayer() *player.Player        { return g.player }
-func (g *Game) GetCamera() *camera.Camera        { return g.camera }
-func (g *Game) GetWorld() *world.World           { return g.world }
+func (g *Game) GetPlayer() *player.Player         { return g.player }
+func (g *Game) GetCamera() *camera.Camera         { return g.camera }
+func (g *Game) GetWorld() *world.World            { return g.world }
 func (g *Game) GetBaseStation() *base.BaseStation { return g.baseStation }
 
 // --- Vehicle state ---
@@ -197,33 +198,34 @@ func (g *Game) SetSoundWaveState(timer int, x, y, radius float64) {
 	g.SoundWaveRadius = radius
 }
 
-func (g *Game) IsPlayerSlowed() bool          { return g.playerSlowed }
-func (g *Game) IsFlashlightOn() bool          { return g.FlashlightOn }
-func (g *Game) GetWeaverTrackingTimer() float64 { return g.WeaverTrackingTimer }
+func (g *Game) IsPlayerSlowed() bool             { return g.playerSlowed }
+func (g *Game) IsFlashlightOn() bool             { return g.FlashlightOn }
+func (g *Game) GetWeaverTrackingTimer() float64  { return g.WeaverTrackingTimer }
 func (g *Game) SetWeaverTrackingTimer(v float64) { g.WeaverTrackingTimer = v }
 
 // --- HUD / UI ---
 
-func (g *Game) IsInventoryOpen() bool { return g.showInventory }
+func (g *Game) IsInventoryOpen() bool   { return g.showInventory }
 func (g *Game) SetInventoryOpen(v bool) { g.showInventory = v }
 
 func (g *Game) GetMineWarning() (msg string, timer int) {
 	return g.MineWarning, g.MineWarningTimer
 }
 
-func (g *Game) SetMineWarning(msg string, duration int) {
+func (g *Game) SetMineWarning(msg string, duration, level int) {
 	g.MineWarning = msg
 	g.MineWarningTimer = duration
+	g.MineWarningLevel = level
 }
 
 // TriggerScreenShake is defined in game.go.
 
 // --- Death state ---
 
-func (g *Game) GetDeathReason() string                 { return g.deathReason }
-func (g *Game) SetDeathReason(reason string)          { g.deathReason = reason }
+func (g *Game) GetDeathReason() string       { return g.deathReason }
+func (g *Game) SetDeathReason(reason string) { g.deathReason = reason }
 
 // --- Debug ---
 
 func (g *Game) IsDebugLightShaderDisabled() bool { return g.DebugDisableLightShader }
-func (g *Game) IsDebugWaterShaderDisabled() bool  { return g.DebugDisableWaterShader }
+func (g *Game) IsDebugWaterShaderDisabled() bool { return g.DebugDisableWaterShader }

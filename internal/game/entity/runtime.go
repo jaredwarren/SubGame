@@ -58,6 +58,7 @@ type SetPlayerSlowedCmd struct {
 type SetMineWarningCmd struct {
 	Message  string
 	Duration int
+	Level    int
 }
 
 type UpdateWeaverTrackingTimerCmd struct {
@@ -72,12 +73,12 @@ type KnockbackActiveVehicleCmd struct {
 	Force gvec.Vec2
 }
 
-func (DamagePlayerCmd) gameCommand()             {}
-func (DamageActiveVehicleCmd) gameCommand()      {}
-func (RestoreOxygenCmd) gameCommand()            {}
-func (TriggerSoundWaveCmd) gameCommand()         {}
-func (SetPlayerSlowedCmd) gameCommand()          {}
-func (SetMineWarningCmd) gameCommand()           {}
+func (DamagePlayerCmd) gameCommand()              {}
+func (DamageActiveVehicleCmd) gameCommand()       {}
+func (RestoreOxygenCmd) gameCommand()             {}
+func (TriggerSoundWaveCmd) gameCommand()          {}
+func (SetPlayerSlowedCmd) gameCommand()           {}
+func (SetMineWarningCmd) gameCommand()            {}
 func (UpdateWeaverTrackingTimerCmd) gameCommand() {}
-func (KnockbackPlayerCmd) gameCommand()          {}
-func (KnockbackActiveVehicleCmd) gameCommand()   {}
+func (KnockbackPlayerCmd) gameCommand()           {}
+func (KnockbackActiveVehicleCmd) gameCommand()    {}

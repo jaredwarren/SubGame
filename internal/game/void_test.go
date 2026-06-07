@@ -322,6 +322,9 @@ func TestCaveVehicleBeacon(t *testing.T) {
 	if g.MineWarning != expectedWarning {
 		t.Errorf("expected MineWarning to be %q, got %q", expectedWarning, g.MineWarning)
 	}
+	if g.MineWarningLevel != 1 {
+		t.Errorf("expected MineWarningLevel to be 1, got %d", g.MineWarningLevel)
+	}
 
 	// Verify that the drawing of the beacon is triggered when drawing the overworld scene
 	// Mock drawing to an image to ensure no panics

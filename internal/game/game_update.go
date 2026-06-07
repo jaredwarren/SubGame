@@ -104,20 +104,18 @@ func (g *Game) handleDebugInput() {
 	if g.Input.IsKeyJustPressed(ebiten.KeyY) {
 		g.DebugDisableLightShader = !g.DebugDisableLightShader
 		if g.DebugDisableLightShader {
-			g.MineWarning = "Disabled lighting shader mask"
+			g.SetMineWarning("Disabled lighting shader mask", 120, 1)
 		} else {
-			g.MineWarning = "Enabled lighting shader mask"
+			g.SetMineWarning("Enabled lighting shader mask", 120, 1)
 		}
-		g.MineWarningTimer = 120
 	}
 	if g.Input.IsKeyJustPressed(ebiten.KeyU) {
 		g.DebugDisableWaterShader = !g.DebugDisableWaterShader
 		if g.DebugDisableWaterShader {
-			g.MineWarning = "Disabled water displacement shader"
+			g.SetMineWarning("Disabled water displacement shader", 120, 1)
 		} else {
-			g.MineWarning = "Enabled water displacement shader"
+			g.SetMineWarning("Enabled water displacement shader", 120, 1)
 		}
-		g.MineWarningTimer = 120
 	}
 
 	if g.Input.IsKeyJustPressed(ebiten.KeyG) {
@@ -322,8 +320,7 @@ func (g *Game) activatePlayerItem(it item.Item) {
 		g.player.CurrentHealth = min(g.player.CurrentHealth+consumable.GetHealthRestore(), g.player.MaxHealth)
 		g.player.CurrentStamina = min(g.player.CurrentStamina+consumable.GetStaminaRestore(), g.player.MaxStamina)
 		g.player.Inventory.Remove(it, 1)
-		g.MineWarning = "Ate " + consumable.GetName() + "!"
-		g.MineWarningTimer = 90
+		g.SetMineWarning("Ate "+consumable.GetName()+"!", 90, 1)
 		return
 	}
 	if g.currentState != StateCave {
@@ -361,16 +358,14 @@ func (g *Game) checkVehicleDepth() {
 
 	if depth > limit {
 		g.ActiveVehicle.TakeDamage(0.08)
-		g.MineWarning = "WARNING: EXCEEDING MAXIMUM HULL DEPTH LIMIT!"
-		g.MineWarningTimer = 2
+		g.SetMineWarning("WARNING: EXCEEDING MAXIMUM HULL DEPTH LIMIT!", 2, 2)
 	}
 	if g.ActiveVehicle.GetHealth() > 0 {
 		return
 	}
 	// Hull failure
 	g.player.CurrentHealth -= 40.0
-	g.MineWarning = "VEHICLE CRUSHED BY DEEP-SEA PRESSURE!"
-	g.MineWarningTimer = 180
+	g.SetMineWarning("VEHICLE CRUSHED BY DEEP-SEA PRESSURE!", 180, 3)
 	list := g.CaveVehicles[g.activeTrenchKey]
 	for i, v := range list {
 		if v == g.ActiveVehicle {
@@ -487,8 +482,7 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 			for idx := range CraftingRecipes {
 				if CraftingRecipes[idx].NewResult().GetName() == c.RecipeResultName {
 					CraftingRecipes[idx].Unlocked = true
-					g.MineWarning = "Unlocked: " + c.RecipeResultName + "!"
-					g.MineWarningTimer = 120
+					g.SetMineWarning("Unlocked: "+c.RecipeResultName+"!", 120, 1)
 					break
 				}
 			}

@@ -12,8 +12,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
@@ -70,29 +70,29 @@ type CaveScene struct {
 	diverDamageFrame *ebiten.Image
 
 	// Scroll transition fields
-	scrollActive     bool
-	scrollTimer      int
-	scrollDir        int // -1 for left, 1 for right
-	oldCave          cave.Cave
-	newCave          cave.Cave
-	oldCaveGrid      [][]bool
-	newCaveGrid      [][]bool
-	oldNodes         []resource.Resource
-	newNodes         []resource.Resource
-	oldEntities      []entity.CaveEntity
-	newEntities      []entity.CaveEntity
-	oldTrenchX       int
-	oldTrenchY       int
-	newTrenchX       int
-	newTrenchY       int
-	oldTrenchKey     string
-	newTrenchKey     string
-	oldCamX          float64
-	oldCamY          float64
-	newCamX          float64
-	newCamY          float64
-	offscreenOld     *ebiten.Image
-	offscreenNew     *ebiten.Image
+	scrollActive bool
+	scrollTimer  int
+	scrollDir    int // -1 for left, 1 for right
+	oldCave      cave.Cave
+	newCave      cave.Cave
+	oldCaveGrid  [][]bool
+	newCaveGrid  [][]bool
+	oldNodes     []resource.Resource
+	newNodes     []resource.Resource
+	oldEntities  []entity.CaveEntity
+	newEntities  []entity.CaveEntity
+	oldTrenchX   int
+	oldTrenchY   int
+	newTrenchX   int
+	newTrenchY   int
+	oldTrenchKey string
+	newTrenchKey string
+	oldCamX      float64
+	oldCamY      float64
+	newCamX      float64
+	newCamY      float64
+	offscreenOld *ebiten.Image
+	offscreenNew *ebiten.Image
 }
 
 // NewCaveScene creates a new CaveScene instance.
@@ -368,9 +368,9 @@ func (c *CaveScene) Update(g GameContext) error {
 							if p.Inventory.AddItem(harvestedItem, 1) {
 								ent.SetActive(false)
 								c.Entities = append(c.Entities[:i], c.Entities[i+1:]...)
-								g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90)
+								g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90, 1)
 							} else {
-								g.SetMineWarning("Inventory full!", 90)
+								g.SetMineWarning("Inventory full!", 90, 1)
 							}
 							break
 						}
@@ -389,7 +389,7 @@ func (c *CaveScene) Update(g GameContext) error {
 
 					if math.Hypot(px-nx, py-ny) <= 96.0 {
 						if node.RequiresMech() {
-							g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120)
+							g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120, 1)
 							continue
 						}
 						node.SetHitsToMine(node.GetHitsToMine() - 1)
@@ -405,7 +405,7 @@ func (c *CaveScene) Update(g GameContext) error {
 								for idx := range CraftingRecipes {
 									if CraftingRecipes[idx].NewResult().GetName() == bpNode.RecipeResultName {
 										CraftingRecipes[idx].Unlocked = true
-										g.SetMineWarning("Unlocked: "+bpNode.RecipeResultName+"!", 120)
+										g.SetMineWarning("Unlocked: "+bpNode.RecipeResultName+"!", 120, 1)
 										break
 									}
 								}

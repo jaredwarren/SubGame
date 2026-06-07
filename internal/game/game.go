@@ -64,6 +64,7 @@ type Game struct {
 	Sonar            *sonar.Sonar
 	MineWarning      string
 	MineWarningTimer int
+	MineWarningLevel int
 
 	// Biome / AI state
 	caveEntities        map[string][]entity.CaveEntity
