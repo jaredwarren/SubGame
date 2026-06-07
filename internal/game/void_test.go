@@ -26,7 +26,7 @@ func TestOverworldVoidBoundaries(t *testing.T) {
 
 	// Update movement: player has velocity
 	g.player.Vel = gvec.Vec2{X: -1.0, Y: -1.0}
-	g.overworldState.CheckCollisions(g.player)
+	g.overworldState.CheckCollisions(g.player, g.baseStation)
 
 	// Since it's not solid, player position should have moved
 	if g.player.Pos.X >= -100.0 {

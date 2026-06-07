@@ -9,6 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -159,7 +160,7 @@ func (o *OverworldScene) Update(g GameContext) error {
 		p.Vel = p.Vel.Scale(maxSpeed / speed)
 	}
 
-	o.CheckCollisions(p)
+	o.CheckCollisions(p, g.GetBaseStation())
 
 	isMoving := speed > 0.1
 	p.UpdateStats(false, isSprinting && isMoving && moving)
@@ -184,16 +185,32 @@ func (o *OverworldScene) Update(g GameContext) error {
 	return nil
 }
 
-func (o *OverworldScene) CheckCollisions(p *player.Player) {
+func (o *OverworldScene) CheckCollisions(p *player.Player, baseStation *base.BaseStation) {
+	hasBase := baseStation != nil && baseStation.Size.X > 0 && baseStation.Size.Y > 0
+
 	newX := p.Pos.X + p.Vel.X
-	if o.IsSolid(newX, p.Pos.Y, p.Width, p.Height) {
+	collidesX := o.IsSolid(newX, p.Pos.Y, p.Width, p.Height)
+	if !collidesX && hasBase {
+		bPos, bSize := baseStation.Pos, baseStation.Size
+		collidesX = newX < bPos.X+bSize.X && newX+p.Width > bPos.X &&
+			p.Pos.Y < bPos.Y+bSize.Y && p.Pos.Y+p.Height > bPos.Y
+	}
+
+	if collidesX {
 		p.Vel.X = 0
 	} else {
 		p.Pos.X = newX
 	}
 
 	newY := p.Pos.Y + p.Vel.Y
-	if o.IsSolid(p.Pos.X, newY, p.Width, p.Height) {
+	collidesY := o.IsSolid(p.Pos.X, newY, p.Width, p.Height)
+	if !collidesY && hasBase {
+		bPos, bSize := baseStation.Pos, baseStation.Size
+		collidesY = p.Pos.X < bPos.X+bSize.X && p.Pos.X+p.Width > bPos.X &&
+			newY < bPos.Y+bSize.Y && newY+p.Height > bPos.Y
+	}
+
+	if collidesY {
 		p.Vel.Y = 0
 	} else {
 		p.Pos.Y = newY

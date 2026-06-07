@@ -44,7 +44,8 @@ func (g *Game) drawOverworldLayer(screen *ebiten.Image) {
 		v.Draw(screen, camX, camY)
 	}
 
-	g.baseStation.Draw(screen, g.camera)
+	lightMult := GetOverworldLightMultiplier(g.TimeOfDay)
+	g.baseStation.Draw(screen, g.camera, lightMult)
 	if g.baseStation.DistanceToPlayer(g.player) < 100.0 {
 		sx := float32(g.baseStation.Pos.X-camX) + float32(g.baseStation.Size.X)/2.0 - 90
 		sy := float32(g.baseStation.Pos.Y-camY) - 30

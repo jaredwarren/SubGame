@@ -36,17 +36,17 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
   - **AI Image Generation Prompt:**
     > `16-bit retro pixel art tilesheet, game asset. Seamless 64x64px tiles: sandy beach coastlines, vibrant green sea grass land, and sharp volcanic reef stone blocks. Includes matching transitions from grass to sand and sand to water. Orthographic top-down perspective, retro 90s RPG style, tileable repeating texture.`
 
-- [ ] **Base Life Pod Sprite** (`assets/textures/lifepod_surface.png`)
+- [x] **Base Life Pod Sprite** (`assets/textures/lifepod_surface.png`)
   - **Details:** A 128x128px detailed capsule sprite floating in water with a solar array visible on top.
   - **AI Image Generation Prompt:**
     > `2D orthographic game sprite, 16-bit pixel art style. Industrial floating base capsule pod, metallic white and grey plating with high-contrast orange stripes, round blue dome glass hatches on top, solar array panel grids mounted on the hull. Floating on a clean, solid bright green chroma-key background, isolated game asset.`
   - **Render Logic:** [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go) (Base Station rendering)
 
-- [ ] **The Skiff Surface Boat Sprite** (`assets/textures/skiff.png`)
+- [x] **The Skiff Surface Boat Sprite** (`assets/textures/skiff.png`)
   - **Details:** A 56x24px top-down motorboat sprite with an orange trim and solar recharging cells on the back.
   - **AI Image Generation Prompt:**
     > `2D top-down game sprite, 16-bit retro pixel art. A small motorized exploration boat (skiff), sharp bow, flat deck with a blue solar panel on the back, industrial white hull, bright orange safety stripe trim. Centered on a flat, solid green chroma-key background.`
-  - **Render Logic:** [internal/game/vehicle/vehicle.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/vehicle.go)
+  - **Render Logic:** [internal/game/vehicle/skiff.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/skiff.go)
 
 
 ### Cave Environment (Side-Scroller Grid)

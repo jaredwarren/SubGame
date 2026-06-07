@@ -97,3 +97,10 @@ func (a *vehicleRuntimeAdapter) IsCaveSolidAt(tx, ty int) bool {
 func (a *vehicleRuntimeAdapter) CanUseSonar() bool {
 	return a.g.Sonar.Timer <= 0
 }
+
+func (a *vehicleRuntimeAdapter) BaseStationPos() (gvec.Vec2, gvec.Vec2) {
+	if a.g.baseStation == nil {
+		return gvec.Vec2{}, gvec.Vec2{}
+	}
+	return a.g.baseStation.Pos, a.g.baseStation.Size
+}

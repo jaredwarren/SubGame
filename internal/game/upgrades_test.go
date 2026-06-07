@@ -225,6 +225,7 @@ func (mockRuntime) PlayerSlowed() bool                 { return false }
 func (mockRuntime) IsOverworldSolidAt(tx, ty int) bool { return false }
 func (mockRuntime) IsCaveSolidAt(tx, ty int) bool      { return false }
 func (mockRuntime) CanUseSonar() bool                  { return true }
+func (mockRuntime) BaseStationPos() (gvec.Vec2, gvec.Vec2) { return gvec.Vec2{}, gvec.Vec2{} }
 func (mockRuntime) Emit(cmd vehicle.GameCommand)       {}
 
 func TestRechargingMechanics(t *testing.T) {
@@ -274,6 +275,7 @@ func (mockActiveRuntime) PlayerSlowed() bool                     { return false 
 func (mockActiveRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
 func (mockActiveRuntime) IsOverworldSolidAt(tx, ty int) bool     { return false }
 func (mockActiveRuntime) CanUseSonar() bool                      { return true }
+func (mockActiveRuntime) BaseStationPos() (gvec.Vec2, gvec.Vec2) { return gvec.Vec2{}, gvec.Vec2{} }
 func (mockActiveRuntime) Emit(cmd vehicle.GameCommand)           {}
 
 func TestScoutSub_WaterlinePhysics(t *testing.T) {
@@ -320,6 +322,7 @@ func (mockMechRuntime) PlayerSlowed() bool                     { return false }
 func (mockMechRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
 func (mockMechRuntime) IsOverworldSolidAt(tx, ty int) bool     { return false }
 func (mockMechRuntime) CanUseSonar() bool                      { return true }
+func (mockMechRuntime) BaseStationPos() (gvec.Vec2, gvec.Vec2) { return gvec.Vec2{}, gvec.Vec2{} }
 func (mockMechRuntime) Emit(cmd vehicle.GameCommand)           {}
 
 func TestHeavyMech_WaterlinePhysics(t *testing.T) {

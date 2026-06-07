@@ -1,8 +1,12 @@
 package vehicle
 
 import (
+	"image"
 	"image/color"
+	_ "image/png"
+	"log"
 	"math"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -19,6 +23,48 @@ const (
 )
 
 const activeWakeStyle = WakeStyleVSegments
+
+var (
+	skiffSheet       *ebiten.Image
+	skiffSheetLoaded bool
+)
+
+func loadSkiffSheetLazy() {
+	if skiffSheetLoaded {
+		return
+	}
+	skiffSheetLoaded = true
+
+	paths := []string{
+		"assets/textures/skiff.png",
+		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/skiff.png",
+		"../../assets/textures/skiff.png",
+		"../assets/textures/skiff.png",
+		"../../../assets/textures/skiff.png",
+	}
+
+	var file *os.File
+	var err error
+	for _, p := range paths {
+		file, err = os.Open(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Printf("Warning: Failed to open assets/textures/skiff.png: %v", err)
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		log.Printf("Warning: Failed to decode assets/textures/skiff.png: %v", err)
+		return
+	}
+
+	skiffSheet = ebiten.NewImageFromImage(img)
+}
 
 type skiffWakePoint struct {
 	x, y      float64
@@ -199,14 +245,30 @@ func (s *Skiff) Update(runtime Runtime) {
 }
 
 func (s *Skiff) checkCollisions(runtime Runtime) {
+	bPos, bSize := runtime.BaseStationPos()
+	hasBase := bSize.X > 0 && bSize.Y > 0
+
 	newX := s.Pos.X + s.Vel.X
-	if s.isSolid(runtime, gvec.Vec2{X: newX, Y: s.Pos.Y}) {
+	collidesX := s.isSolid(runtime, gvec.Vec2{X: newX, Y: s.Pos.Y})
+	if !collidesX && hasBase {
+		collidesX = newX < bPos.X+bSize.X && newX+s.Dimensions.X > bPos.X &&
+			s.Pos.Y < bPos.Y+bSize.Y && s.Pos.Y+s.Dimensions.Y > bPos.Y
+	}
+
+	if collidesX {
 		s.Vel.X = 0
 	} else {
 		s.Pos.X = newX
 	}
+
 	newY := s.Pos.Y + s.Vel.Y
-	if s.isSolid(runtime, gvec.Vec2{X: s.Pos.X, Y: newY}) {
+	collidesY := s.isSolid(runtime, gvec.Vec2{X: s.Pos.X, Y: newY})
+	if !collidesY && hasBase {
+		collidesY = s.Pos.X < bPos.X+bSize.X && s.Pos.X+s.Dimensions.X > bPos.X &&
+			newY < bPos.Y+bSize.Y && newY+s.Dimensions.Y > bPos.Y
+	}
+
+	if collidesY {
 		s.Vel.Y = 0
 	} else {
 		s.Pos.Y = newY
@@ -354,6 +416,39 @@ func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {
 		}
 	}
 
+	loadSkiffSheetLazy()
+
+	if skiffSheet != nil {
+		rect := image.Rect(348, 82, 676, 948)
+		sprite := skiffSheet.SubImage(rect).(*ebiten.Image)
+
+		op := &ebiten.DrawImageOptions{}
+
+		// Center the cropped sprite on the origin (0, 0)
+		op.GeoM.Translate(-164.0, -433.0)
+
+		// Scale the cropped sprite to fit the target dimensions
+		scaleX := s.Dimensions.Y / 328.0
+		scaleY := s.Dimensions.X / 866.0
+		op.GeoM.Scale(scaleX, scaleY)
+
+		// Rotate so it aligns with s.Facing
+		op.GeoM.Rotate(s.Facing + math.Pi/2.0)
+
+		// Translate to screen coordinates, centered on the boat's collision box center
+		cx := s.Pos.X + s.Dimensions.X/2.0 - camX
+		cy := s.Pos.Y + s.Dimensions.Y/2.0 - camY
+		op.GeoM.Translate(cx, cy)
+
+		// Apply lighting scale
+		mult := float32(s.lightMult)
+		op.ColorScale.Scale(mult, mult, mult, 1.0)
+
+		screen.DrawImage(sprite, op)
+		return
+	}
+
+	// Fallback to original vector drawing code
 	cosF := math.Cos(s.Facing)
 	sinF := math.Sin(s.Facing)
 

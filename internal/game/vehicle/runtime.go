@@ -90,6 +90,7 @@ type Runtime interface {
 	IsOverworldSolidAt(tx, ty int) bool
 	IsCaveSolidAt(tx, ty int) bool
 	CanUseSonar() bool
+	BaseStationPos() (pos gvec.Vec2, size gvec.Vec2)
 
 	// Emit queues a fire-and-forget command to be processed by the game
 	// after all vehicles have finished updating.
