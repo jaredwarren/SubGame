@@ -20,6 +20,7 @@ const (
 type World struct {
 	OverworldMap  [][]TileType
 	LandDist      [][]int              // Precomputed BFS distance from each tile to nearest land
+	WaterDist     [][]int              // Precomputed BFS distance from each tile to nearest water
 	Caves         map[string][][]bool  // Key: "trenchX_trenchY" -> Cave grid
 	Width, Height int
 	Seed          int64
@@ -115,6 +116,7 @@ func (w *World) generateOverworld() {
 
 	// Precompute BFS distance-to-land map for fast per-tile lookups
 	w.buildLandDistMap()
+	w.buildWaterDistMap()
 }
 
 // buildLandDistMap computes BFS distance from every tile to the nearest land tile.
@@ -155,6 +157,45 @@ func (w *World) buildLandDistMap() {
 		}
 	}
 }
+
+// buildWaterDistMap computes BFS distance from every tile to the nearest water tile.
+// Result is stored in w.WaterDist[x][y] (0 for water tiles, increasing inward on land).
+func (w *World) buildWaterDistMap() {
+	w.WaterDist = make([][]int, w.Width)
+	for x := 0; x < w.Width; x++ {
+		w.WaterDist[x] = make([]int, w.Height)
+		for y := 0; y < w.Height; y++ {
+			w.WaterDist[x][y] = -1 // unvisited
+		}
+	}
+
+	type pos struct{ x, y int }
+	queue := make([]pos, 0, w.Width*w.Height/2)
+
+	// Seed BFS with all water-like tiles
+	for x := 0; x < w.Width; x++ {
+		for y := 0; y < w.Height; y++ {
+			if w.OverworldMap[x][y] == TileWater || w.OverworldMap[x][y] == TileTrench || w.OverworldMap[x][y] == TileWreckage {
+				w.WaterDist[x][y] = 0
+				queue = append(queue, pos{x, y})
+			}
+		}
+	}
+
+	dirs := [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		for _, d := range dirs {
+			nx, ny := cur.x+d[0], cur.y+d[1]
+			if nx >= 0 && nx < w.Width && ny >= 0 && ny < w.Height && w.WaterDist[nx][ny] == -1 {
+				w.WaterDist[nx][ny] = w.WaterDist[cur.x][cur.y] + 1
+				queue = append(queue, pos{nx, ny})
+			}
+		}
+	}
+}
+
 
 // DistanceToLand returns the BFS distance (in tiles) from (tx, ty) to the nearest land tile.
 func (w *World) DistanceToLand(tx, ty int) float64 {

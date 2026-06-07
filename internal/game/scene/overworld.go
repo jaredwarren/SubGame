@@ -304,8 +304,32 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 				baseClr = color.RGBA{r, gr, b, 255}
 				baseStrokeClr = color.RGBA{r + 8, gr + 10, b + 15, 255}
 			case world.TileLand:
-				baseClr = color.RGBA{38, 142, 85, 255}
-				baseStrokeClr = color.RGBA{48, 160, 98, 255}
+				dist := o.World.WaterDist[clampedTx][clampedTy]
+				isSand := dist == 1 // exactly adjacent to water
+
+				if isSand {
+					baseClr = color.RGBA{232, 212, 165, 255} // beach sand
+					baseStrokeClr = color.RGBA{215, 195, 145, 255}
+				} else {
+					// Grass gradient from shore edge to inland
+					const maxLandDist = 4
+					lerpT := float64(dist-2) / float64(maxLandDist-2)
+					if lerpT > 1.0 {
+						lerpT = 1.0
+					}
+					if lerpT < 0.0 {
+						lerpT = 0.0
+					}
+					r := uint8(20 + lerpT*18)
+					gr := uint8(100 + lerpT*42)
+					b := uint8(60 + lerpT*25)
+					baseClr = color.RGBA{r, gr, b, 255}
+
+					sr := uint8(25 + lerpT*23)
+					sgr := uint8(115 + lerpT*45)
+					sb := uint8(70 + lerpT*28)
+					baseStrokeClr = color.RGBA{sr, sgr, sb, 255}
+				}
 			case world.TileTrench:
 				baseClr = color.RGBA{6, 18, 42, 255}
 				baseStrokeClr = color.RGBA{10, 26, 58, 255}
@@ -333,6 +357,112 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 
 			vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, tileClr, false)
 			vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeClr, false)
+
+			// Draw procedurally generated trees, plants, and grass texture for land tiles
+			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height && o.World.OverworldMap[tx][ty] == world.TileLand {
+				// Seed generator deterministically based on tile coords
+				rng := rand.New(rand.NewSource(int64(clampedTx*8123 + clampedTy*9137)))
+				dist := o.World.WaterDist[clampedTx][clampedTy]
+				isSand := dist == 1
+
+				if isSand {
+					// 1. Draw sand ripples (subtle darker lines)
+					numRipples := rng.Intn(2) + 1
+					rippleClr := applyLight(color.RGBA{220, 200, 150, 255}, mult)
+					for i := 0; i < numRipples; i++ {
+						rx := float32(rng.Float64()*40.0) + 12.0
+						ry := float32(rng.Float64()*40.0) + 12.0
+						vector.StrokeLine(screen, sx+rx, sy+ry, sx+rx+8, sy+ry+2, 1.0, rippleClr, false)
+					}
+
+					// 2. Draw occasional pebble or starfish (40% chance)
+					if rng.Float64() < 0.40 {
+						px := float32(rng.Float64()*44.0) + 10.0
+						py := float32(rng.Float64()*44.0) + 10.0
+
+						if rng.Float64() < 0.15 {
+							// Rare starfish! (Orange cross/star)
+							starClr := applyLight(color.RGBA{235, 110, 50, 255}, mult)
+							vector.StrokeLine(screen, sx+px-3, sy+py, sx+px+3, sy+py, 1.2, starClr, false)
+							vector.StrokeLine(screen, sx+px, sy+py-3, sx+px, sy+py+3, 1.2, starClr, false)
+						} else {
+							// Grey/white seashell/pebble
+							pebbleClr := applyLight(color.RGBA{235, 230, 220, 255}, mult)
+							vector.FillCircle(screen, sx+px, sy+py, 2.0, pebbleClr, false)
+							vector.StrokeCircle(screen, sx+px, sy+py, 2.0, 0.8, applyLight(color.RGBA{180, 175, 165, 255}, mult), false)
+						}
+					}
+				} else {
+					// 1. Grass tufts/blades for texture
+					numGrass := rng.Intn(3) + 2
+					grassClr := applyLight(color.RGBA{60, 195, 120, 255}, mult)
+					for i := 0; i < numGrass; i++ {
+						gx := float32(rng.Float64()*50.0) + 7.0
+						gy := float32(rng.Float64()*50.0) + 7.0
+						lenG := float32(rng.Float64()*4.0 + 3.0)
+						angleG := (rng.Float64() - 0.5) * 0.4 // slight tilt
+
+						// Draw two blades per tuft
+						gx2 := gx + lenG*float32(math.Sin(float64(angleG)))
+						gy2 := gy - lenG*float32(math.Cos(float64(angleG)))
+						vector.StrokeLine(screen, sx+gx, sy+gy, sx+gx2, sy+gy2, 1.0, grassClr, false)
+
+						gx3 := gx + lenG*0.7*float32(math.Sin(float64(angleG+0.3)))
+						gy3 := gy - lenG*0.7*float32(math.Cos(float64(angleG+0.3)))
+						vector.StrokeLine(screen, sx+gx, sy+gy, sx+gx3, sy+gy3, 1.0, grassClr, false)
+					}
+
+					// 2. Flowering plants (35% chance)
+					if rng.Float64() < 0.35 {
+						px := float32(rng.Float64()*40.0) + 12.0
+						py := float32(rng.Float64()*40.0) + 12.0
+
+						// Stem
+						stemClr := applyLight(color.RGBA{40, 150, 80, 255}, mult)
+						vector.StrokeLine(screen, sx+px, sy+py, sx+px, sy+py-5, 1.0, stemClr, false)
+
+						// Flower petals (red, yellow, or blue)
+						var petalClr color.RGBA
+						switch rng.Intn(3) {
+						case 0:
+							petalClr = color.RGBA{235, 80, 80, 255} // red
+						case 1:
+							petalClr = color.RGBA{240, 205, 45, 255} // yellow
+						default:
+							petalClr = color.RGBA{80, 160, 235, 255} // blue
+						}
+						petalClr = applyLight(petalClr, mult)
+
+						// Small center dot
+						vector.FillCircle(screen, sx+px, sy+py-6, 2.0, petalClr, false)
+					}
+
+					// 3. Leafy Trees (22% chance)
+					if rng.Float64() < 0.22 {
+						tx := float32(rng.Float64()*24.0) + 20.0
+						ty := float32(rng.Float64()*24.0) + 20.0
+
+						shadowClr := color.RGBA{4, 12, 8, 55}
+						trunkClr := applyLight(color.RGBA{100, 65, 35, 255}, mult)
+						canopyClr := applyLight(color.RGBA{24, 115, 62, 255}, mult)
+						canopyStroke := applyLight(color.RGBA{18, 90, 50, 255}, mult)
+
+						// Subtle canopy shadow underneath
+						vector.FillCircle(screen, sx+tx+3, sy+ty+6, 8.5, shadowClr, false)
+
+						// Trunk
+						vector.FillRect(screen, sx+tx-2, sy+ty, 4, 8, trunkClr, false)
+
+						// Main leafy canopy
+						vector.FillCircle(screen, sx+tx, sy+ty-4, 9.0, canopyClr, false)
+						vector.StrokeCircle(screen, sx+tx, sy+ty-4, 9.0, 1.0, canopyStroke, false)
+
+						// Highlight on the top-left of the canopy
+						highlightClr := applyLight(color.RGBA{65, 175, 110, 255}, mult)
+						vector.FillCircle(screen, sx+tx-3, sy+ty-7, 3.5, highlightClr, false)
+					}
+				}
+			}
 
 			// Draw procedurally generated waves for standard water tiles
 			if o.World.OverworldMap[clampedTx][clampedTy] == world.TileWater {
