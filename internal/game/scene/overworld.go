@@ -17,8 +17,12 @@ import (
 
 // OverworldScene manages the top-down surface sailing view.
 type OverworldScene struct {
-	World     *world.World
-	whirlpool *Whirlpool
+	World        *world.World
+	whirlpool    *Whirlpool
+	crates       []*FloatingCrate
+	vents        []*ThermalVent
+	fish         []*CosmeticFish
+	initialized  bool
 }
 
 // NewOverworldScene creates a new OverworldScene.
@@ -44,6 +48,7 @@ func (o *OverworldScene) Update(g GameContext) error {
 	}
 
 	o.whirlpool.Update(o.World, g.GetBaseStation().Pos)
+	o.UpdateExtras(g)
 
 	// If piloting a vehicle, apply forces to the vehicle and handle death.
 	if v := g.GetActiveVehicle(); v != nil {
@@ -464,6 +469,8 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			}
 		}
 	}
+
+	o.DrawExtras(g, screen)
 
 	if o.whirlpool != nil {
 		o.whirlpool.Draw(screen, camX, camY)
