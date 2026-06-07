@@ -2,9 +2,13 @@ package scene
 
 import (
 	"fmt"
+	"image"
 	"image/color"
+	_ "image/png"
+	"log"
 	"math"
 	"math/rand"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -217,6 +221,110 @@ func (o *OverworldScene) CheckCollisions(p *player.Player, baseStation *base.Bas
 	}
 }
 
+var (
+	trenchTexture         *ebiten.Image
+	trenchTextureLoaded bool
+	wreckageTexture       *ebiten.Image
+	wreckageTextureLoaded bool
+)
+
+func removeChromaKey(img image.Image) *ebiten.Image {
+	bounds := img.Bounds()
+	rgba := image.NewRGBA(bounds)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			clr := img.At(x, y)
+			r, g, b, a := clr.RGBA()
+			ru := uint8(r >> 8)
+			gu := uint8(g >> 8)
+			bu := uint8(b >> 8)
+			au := uint8(a >> 8)
+
+			if gu > 140 && ru < 100 && bu < 100 {
+				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
+			} else {
+				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
+			}
+		}
+	}
+	return ebiten.NewImageFromImage(rgba)
+}
+
+func loadTrenchTextureLazy() {
+	if trenchTextureLoaded {
+		return
+	}
+	trenchTextureLoaded = true
+
+	paths := []string{
+		"assets/textures/trench_surface.png",
+		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/trench_surface.png",
+		"../../assets/textures/trench_surface.png",
+		"../assets/textures/trench_surface.png",
+		"../../../assets/textures/trench_surface.png",
+	}
+
+	var file *os.File
+	var err error
+	for _, p := range paths {
+		file, err = os.Open(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Printf("Warning: Failed to open assets/textures/trench_surface.png: %v", err)
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		log.Printf("Warning: Failed to decode assets/textures/trench_surface.png: %v", err)
+		return
+	}
+
+	trenchTexture = removeChromaKey(img)
+}
+
+func loadWreckageTextureLazy() {
+	if wreckageTextureLoaded {
+		return
+	}
+	wreckageTextureLoaded = true
+
+	paths := []string{
+		"assets/textures/wreckage_surface.png",
+		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/wreckage_surface.png",
+		"../../assets/textures/wreckage_surface.png",
+		"../assets/textures/wreckage_surface.png",
+		"../../../assets/textures/wreckage_surface.png",
+	}
+
+	var file *os.File
+	var err error
+	for _, p := range paths {
+		file, err = os.Open(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Printf("Warning: Failed to open assets/textures/wreckage_surface.png: %v", err)
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		log.Printf("Warning: Failed to decode assets/textures/wreckage_surface.png: %v", err)
+		return
+	}
+
+	wreckageTexture = removeChromaKey(img)
+}
+
 // IsSolid checks if the proposed bounding box overlaps with solid land.
 func (o *OverworldScene) IsSolid(x, y, w, h float64) bool {
 	x1 := int(math.Floor(x)) / config.TileSize
@@ -308,7 +416,7 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			var baseStrokeClr color.RGBA
 
 			switch o.World.OverworldMap[clampedTx][clampedTy] {
-			case world.TileWater:
+			case world.TileWater, world.TileTrench, world.TileWreckage:
 				dist := o.World.LandDist[clampedTx][clampedTy]
 				const maxDist = 15
 				lerpT := float64(dist) / float64(maxDist)
@@ -347,12 +455,6 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 					sb := uint8(70 + lerpT*28)
 					baseStrokeClr = color.RGBA{sr, sgr, sb, 255}
 				}
-			case world.TileTrench:
-				baseClr = color.RGBA{6, 18, 42, 255}
-				baseStrokeClr = color.RGBA{10, 26, 58, 255}
-			case world.TileWreckage:
-				baseClr = color.RGBA{45, 52, 60, 255}
-				baseStrokeClr = color.RGBA{110, 80, 50, 255}
 			}
 
 			voidClr := color.RGBA{4, 6, 12, 255}
@@ -372,8 +474,34 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			tileClr = applyLight(tileClr, mult)
 			strokeClr = applyLight(strokeClr, mult)
 
+			var drawTexture *ebiten.Image
+			tileType := o.World.OverworldMap[clampedTx][clampedTy]
+			if tileType == world.TileTrench {
+				loadTrenchTextureLazy()
+				drawTexture = trenchTexture
+			} else if tileType == world.TileWreckage {
+				loadWreckageTextureLazy()
+				drawTexture = wreckageTexture
+			}
+
+			// Always draw the base background tile (e.g. water color) first
 			vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, tileClr, false)
 			vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeClr, false)
+
+			if drawTexture != nil {
+				op := &ebiten.DrawImageOptions{}
+				wImg, hImg := drawTexture.Bounds().Dx(), drawTexture.Bounds().Dy()
+				if wImg > 0 && hImg > 0 {
+					op.GeoM.Scale(float64(config.TileSize)/float64(wImg), float64(config.TileSize)/float64(hImg))
+				}
+				op.GeoM.Translate(float64(sx), float64(sy))
+
+				// Apply fade and time-of-day lighting
+				totalMult := float32((1.0 - t) * mult)
+				op.ColorScale.Scale(totalMult, totalMult, totalMult, 1.0)
+
+				screen.DrawImage(drawTexture, op)
+			}
 
 			// Draw procedurally generated trees, plants, and grass texture for land tiles
 			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height && o.World.OverworldMap[tx][ty] == world.TileLand {
@@ -482,7 +610,8 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			}
 
 			// Draw procedurally generated waves for standard water tiles
-			if o.World.OverworldMap[clampedTx][clampedTy] == world.TileWater {
+			currTile := o.World.OverworldMap[clampedTx][clampedTy]
+			if currTile == world.TileWater || currTile == world.TileTrench || currTile == world.TileWreckage {
 				ticks := g.GetTicks()
 
 				for nx := tx - 1; nx <= tx+1; nx++ {
@@ -490,7 +619,8 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 						if nx < 0 || nx >= o.World.Width || ny < 0 || ny >= o.World.Height {
 							continue
 						}
-						if o.World.OverworldMap[nx][ny] == world.TileWater {
+						neighborTile := o.World.OverworldMap[nx][ny]
+						if neighborTile == world.TileWater || neighborTile == world.TileTrench || neighborTile == world.TileWreckage {
 							// Only generate waves on a subset of water tiles (50% density)
 							tileRng := rand.New(rand.NewSource(int64(nx*997 + ny*1009)))
 							if tileRng.Float64() < 0.5 {
