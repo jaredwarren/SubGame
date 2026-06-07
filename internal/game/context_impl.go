@@ -20,6 +20,55 @@ var _ scene.GameContext = (*Game)(nil)
 
 // --- Scene navigation ---
 
+func (g *Game) StartGame(seed int64) {
+	w := world.NewWorld(seed)
+	g.world = w
+
+	spawnX, spawnY := findWaterSpawn(w)
+
+	g.player = player.NewPlayer(spawnX, spawnY)
+	g.camera = camera.NewCamera(spawnX, spawnY)
+	g.camera.CenterOn(spawnX, spawnY, g.player.Width, g.player.Height)
+
+	g.baseStation = base.NewBaseStation(spawnX+96.0, spawnY-64.0)
+	skiff := vehicle.NewSkiff(spawnX, spawnY)
+
+	g.ActiveVehicle = skiff
+	g.OverworldVehicles = []vehicle.Vehicle{skiff}
+	g.CaveVehicles = make(map[string][]vehicle.Vehicle)
+	g.caveNodes = make(map[string][]resource.Resource)
+	g.caveEntities = make(map[string][]entity.CaveEntity)
+	g.Sonar = sonar.NewSonar()
+
+	// Reset navigation and progression state
+	g.lastOverworldX = 0
+	g.lastOverworldY = 0
+	g.activeTrenchX = 0
+	g.activeTrenchY = 0
+	g.activeTrenchKey = ""
+	g.justExited = false
+	g.showInventory = false
+	g.TimeOfDay = 0
+	g.Ticks = 0
+	g.WeaverTrackingTimer = 0
+	g.SoundWaveTimer = 0
+	g.SoundWaveRadius = 0
+	g.SoundWaveX = 0
+	g.SoundWaveY = 0
+	g.playerSlowed = false
+	g.FlashlightOn = true
+	g.Particles = nil
+	g.shakeDuration = 0
+	g.shakeIntensity = 0
+	g.deathReason = ""
+	g.MineWarning = ""
+	g.MineWarningTimer = 0
+
+	g.overworldState = NewOverworldScene(w)
+
+	g.TransitionToOverworld()
+}
+
 func (g *Game) TransitionToOverworld() { g.TransitionTo(g.overworldState) }
 func (g *Game) TransitionToGameWon()   { g.TransitionTo(g.gameWonState) }
 

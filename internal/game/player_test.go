@@ -676,3 +676,94 @@ func TestPlayer_EquipUpgrade_VehicleKits(t *testing.T) {
 		t.Error("expected upgrades inventory to be empty of vehicle kits")
 	}
 }
+
+func TestTitleScene_SeedInput(t *testing.T) {
+	g := NewGame()
+	g.Input = NewMockInput()
+	mockInput := g.Input.(*MockInput)
+
+	// Verify initially in StateTitle
+	if g.currentState != StateTitle {
+		t.Fatalf("expected initial state to be StateTitle, got %s", g.currentState)
+	}
+
+	// 1. Click on the seed input field to focus it
+	// Seed input box is at X: 520, Y: 535, W: 240, H: 40
+	mockInput.CursorPos = gvec.Vec2{X: 640, Y: 555}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+	
+	// Update to process focus
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+	
+	// Verify focus is not transitioned to overworld yet
+	if g.currentState != StateTitle {
+		t.Fatalf("expected to remain in Title, transitioned to %s", g.currentState)
+	}
+
+	// Reset inputs for next frame
+	mockInput.JustPressedMouse = make(map[ebiten.MouseButton]bool)
+
+	// 2. Mock typing some characters (e.g. "9876") and then press Enter
+	mockInput.InputChars = []rune{'9', '8', '7', '6'}
+	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
+
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should transition to overworld
+	if g.currentState != StateOverworld {
+		t.Fatalf("expected state to transition to StateOverworld, got %s", g.currentState)
+	}
+
+	// The generated world seed should be parsed as 123459876 because "12345" + "9876" = "123459876"
+	expectedSeed := int64(123459876)
+	if g.world.Seed != expectedSeed {
+		t.Errorf("expected world seed to be %d, got %d", expectedSeed, g.world.Seed)
+	}
+}
+
+func TestTitleScene_SeedInputBackspace(t *testing.T) {
+	g := NewGame()
+	g.Input = NewMockInput()
+	mockInput := g.Input.(*MockInput)
+
+	// Click to focus
+	mockInput.CursorPos = gvec.Vec2{X: 640, Y: 555}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Press Backspace twice to delete "4" and "5" from "12345"
+	mockInput.JustPressedMouse = make(map[ebiten.MouseButton]bool)
+	mockInput.JustPressedKeys[ebiten.KeyBackspace] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Backspace again
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Now press Enter to start the game
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Seed should be 123
+	if g.world.Seed != 123 {
+		t.Errorf("expected world seed to be 123, got %d", g.world.Seed)
+	}
+}

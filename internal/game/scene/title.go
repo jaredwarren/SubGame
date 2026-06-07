@@ -4,6 +4,7 @@ import (
 	"image/color"
 	_ "image/jpeg"
 	"log"
+	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -13,10 +14,14 @@ import (
 
 // TitleScene manages the title screen.
 type TitleScene struct {
-	backgroundImage        *ebiten.Image
-	backgroundLoadErr      error
-	titleText              string
-	btnX, btnY, btnW, btnH float64
+	backgroundImage            *ebiten.Image
+	backgroundLoadErr          error
+	titleText                  string
+	btnX, btnY, btnW, btnH     float64
+	seedText                   string
+	seedX, seedY, seedW, seedH float64
+	seedFocused                bool
+	runesBuffer                []rune
 }
 
 // NewTitleScene creates a new TitleScene.
@@ -25,9 +30,15 @@ func NewTitleScene() *TitleScene {
 		titleText: "S U B G A M E",
 		btnW:      240,
 		btnH:      60,
+		seedText:  "12345",
+		seedW:     240,
+		seedH:     40,
 	}
 	s.btnX = (float64(config.ScreenWidth) - s.btnW) / 2.0
 	s.btnY = 460.0
+
+	s.seedX = (float64(config.ScreenWidth) - s.seedW) / 2.0
+	s.seedY = 535.0
 
 	paths := []string{
 		"StartBackground.jpeg",
@@ -62,21 +73,62 @@ func (s *TitleScene) OnExit(g GameContext) {}
 func (s *TitleScene) Update(g GameContext) error {
 	inp := g.GetInput()
 
-	if inp.IsKeyJustPressed(ebiten.KeyEnter) {
-		g.TransitionToOverworld()
-		return nil
+	if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		cursor := inp.Cursor()
+		mx, my := cursor.X, cursor.Y
+		if mx >= s.seedX && mx < s.seedX+s.seedW && my >= s.seedY && my < s.seedY+s.seedH {
+			s.seedFocused = true
+		} else {
+			s.seedFocused = false
+		}
+	}
+
+	if s.seedFocused {
+		s.runesBuffer = inp.AppendInputChars(s.runesBuffer[:0])
+		for _, r := range s.runesBuffer {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+				if len(s.seedText) < 20 {
+					s.seedText += string(r)
+				}
+			}
+		}
+		if inp.IsKeyJustPressed(ebiten.KeyBackspace) {
+			if len(s.seedText) > 0 {
+				s.seedText = s.seedText[:len(s.seedText)-1]
+			}
+		}
 	}
 
 	if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		cursor := inp.Cursor()
 		mx, my := cursor.X, cursor.Y
 		if mx >= s.btnX && mx < s.btnX+s.btnW && my >= s.btnY && my < s.btnY+s.btnH {
-			g.TransitionToOverworld()
+			g.StartGame(parseSeed(s.seedText))
 			return nil
 		}
 	}
 
+	if inp.IsKeyJustPressed(ebiten.KeyEnter) {
+		g.StartGame(parseSeed(s.seedText))
+		return nil
+	}
+
 	return nil
+}
+
+func parseSeed(text string) int64 {
+	if text == "" {
+		return 12345
+	}
+	val, err := strconv.ParseInt(text, 10, 64)
+	if err == nil {
+		return val
+	}
+	var hash int64
+	for _, char := range text {
+		hash = hash*31 + int64(char)
+	}
+	return hash
 }
 
 func (s *TitleScene) Draw(g GameContext, screen *ebiten.Image) {
@@ -148,7 +200,46 @@ func (s *TitleScene) Draw(g GameContext, screen *ebiten.Image) {
 	btnTextOp.GeoM.Translate(btnTextX, btnTextY)
 	screen.DrawImage(btnTextImg, btnTextOp)
 
+	// Bounding box checking for hovering the seed input
+	isSeedHovered := mx >= s.seedX && mx < s.seedX+s.seedW && my >= s.seedY && my < s.seedY+s.seedH
+
+	seedBgColor := color.RGBA{R: 8, G: 18, B: 32, A: 200}
+	seedBorderColor := color.RGBA{R: 45, G: 130, B: 200, A: 150}
+
+	if s.seedFocused {
+		seedBgColor = color.RGBA{R: 12, G: 28, B: 48, A: 220}
+		seedBorderColor = color.RGBA{R: 60, G: 210, B: 240, A: 255}
+		vector.StrokeRect(screen, float32(s.seedX-2), float32(s.seedY-2), float32(s.seedW+4), float32(s.seedH+4), 1.0, color.RGBA{R: 60, G: 210, B: 240, A: 80}, false)
+	} else if isSeedHovered {
+		seedBgColor = color.RGBA{R: 10, G: 22, B: 40, A: 210}
+		seedBorderColor = color.RGBA{R: 60, G: 210, B: 240, A: 180}
+	}
+
+	vector.FillRect(screen, float32(s.seedX), float32(s.seedY), float32(s.seedW), float32(s.seedH), seedBgColor, false)
+	vector.StrokeRect(screen, float32(s.seedX), float32(s.seedY), float32(s.seedW), float32(s.seedH), 1.5, seedBorderColor, false)
+
+	displayText := "Seed: " + s.seedText
+	if s.seedText == "" {
+		displayText = "Seed: (random)"
+	}
+
+	if s.seedFocused && (int(g.GetTicks())/30)%2 == 0 {
+		displayText += "|"
+	}
+
+	seedTextImg := ebiten.NewImage(int(s.seedW), 20)
+	ebitenutil.DebugPrintAt(seedTextImg, displayText, 12, 2)
+
+	seedTextOp := &ebiten.DrawImageOptions{}
+	if s.seedText == "" {
+		seedTextOp.ColorScale.Scale(0.6, 0.7, 0.8, 1.0)
+	} else if !s.seedFocused {
+		seedTextOp.ColorScale.Scale(0.9, 0.9, 0.9, 1.0)
+	}
+	seedTextOp.GeoM.Translate(s.seedX, s.seedY+(s.seedH-20)/2)
+	screen.DrawImage(seedTextImg, seedTextOp)
+
 	instText := "Press ENTER or Click DIVE to begin your descent"
 	instX := (config.ScreenWidth - len(instText)*6) / 2
-	ebitenutil.DebugPrintAt(screen, instText, instX, int(s.btnY+s.btnH+40))
+	ebitenutil.DebugPrintAt(screen, instText, instX, int(s.seedY+s.seedH+25))
 }

@@ -29,6 +29,7 @@ type Scene interface {
 // breaking the circular import that would result from scenes importing the game package.
 type GameContext interface {
 	// Scene navigation
+	StartGame(seed int64)
 	TransitionToOverworld()
 	TransitionToGameWon()
 	Respawn()
