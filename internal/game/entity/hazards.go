@@ -69,9 +69,29 @@ type FalseBulbSnare struct {
 	State int
 }
 
+// SnareContext defines the context interface needed by FalseBulbSnare.
+type SnareContext interface {
+	PlayerPos() gvec.Vec2
+	PlayerDims() gvec.Vec2
+	FlashlightOn() bool
+	PlayerFacing() float64
+	HasActiveVehicle() bool
+	ActiveVehicleFacing() float64
+	ActiveVehiclePos() gvec.Vec2
+	ActiveVehicleDims() gvec.Vec2
+	SoundWaveTimer() int
+	SoundWaveX() float64
+	SoundWaveY() float64
+	Emit(cmd GameCommand)
+}
+
 func (ent *FalseBulbSnare) Update(gr Runtime) {
-	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
-	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
+	ent.update(gr)
+}
+
+func (ent *FalseBulbSnare) update(g SnareContext) {
+	px := g.PlayerPos().X + g.PlayerDims().X/2.0
+	py := g.PlayerPos().Y + g.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
@@ -82,10 +102,10 @@ func (ent *FalseBulbSnare) Update(gr Runtime) {
 	}
 
 	isLit := false
-	if gr.FlashlightOn() {
-		facingAngle := gr.PlayerFacing()
-		if gr.HasActiveVehicle() {
-			facingAngle = gr.ActiveVehicleFacing()
+	if g.FlashlightOn() {
+		facingAngle := g.PlayerFacing()
+		if g.HasActiveVehicle() {
+			facingAngle = g.ActiveVehicleFacing()
 		}
 		dx := ex - px
 		dy := ey - py
@@ -102,7 +122,7 @@ func (ent *FalseBulbSnare) Update(gr Runtime) {
 		}
 	}
 
-	soundAlerted := gr.SoundWaveTimer() > 0 && math.Hypot(gr.SoundWaveX()-ex, gr.SoundWaveY()-ey) < 280.0
+	soundAlerted := g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < 280.0
 	if soundAlerted {
 		ent.State = 1
 	}
@@ -125,17 +145,17 @@ func (ent *FalseBulbSnare) Update(gr Runtime) {
 		}
 	}
 
-	vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
-	targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
-	if gr.HasActiveVehicle() {
-		vPos := gr.ActiveVehiclePos()
+	vWidth, vHeight := g.PlayerDims().X, g.PlayerDims().Y
+	targetX, targetY := g.PlayerPos().X, g.PlayerPos().Y
+	if g.HasActiveVehicle() {
+		vPos := g.ActiveVehiclePos()
 		targetX, targetY = vPos.X, vPos.Y
-		vDims := gr.ActiveVehicleDims()
+		vDims := g.ActiveVehicleDims()
 		vWidth, vHeight = vDims.X, vDims.Y
 	}
 	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
-		gr.Emit(DamagePlayerCmd{Amount: 20.0})
-		gr.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+		g.Emit(DamagePlayerCmd{Amount: 20.0})
+		g.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
 		ent.Active = false
 	}
 }

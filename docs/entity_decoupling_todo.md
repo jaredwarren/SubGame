@@ -49,20 +49,22 @@ Currently, all cave entities implement `entity.CaveEntity` and accept the large 
   ```
 
 ### 4. `FalseBulbSnare`
-- [ ] **Location**: [hazards.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/hazards.go)
-- [ ] **Interface**: Define `SnareContext`:
+- [x] **Location**: [hazards.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/hazards.go)
+- [x] **Interface**: Define `SnareContext`:
   ```go
   type SnareContext interface {
-      PlayerPos() gvec.Vec2
-      PlayerDims() gvec.Vec2
-      FlashlightOn() bool
-      PlayerFacing() float64
-      HasActiveVehicle() bool
-      ActiveVehicleFacing() float64
-      SoundWaveTimer() int
-      SoundWaveX() float64
-      SoundWaveY() float64
-      Emit(cmd GameCommand)
+  	PlayerPos() gvec.Vec2
+  	PlayerDims() gvec.Vec2
+  	FlashlightOn() bool
+  	PlayerFacing() float64
+  	HasActiveVehicle() bool
+  	ActiveVehicleFacing() float64
+  	ActiveVehiclePos() gvec.Vec2
+  	ActiveVehicleDims() gvec.Vec2
+  	SoundWaveTimer() int
+  	SoundWaveX() float64
+  	SoundWaveY() float64
+  	Emit(cmd GameCommand)
   }
   ```
 
