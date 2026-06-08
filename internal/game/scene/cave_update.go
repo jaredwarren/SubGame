@@ -128,7 +128,7 @@ func (c *CaveScene) spawnPlankton(g GameContext) {
 
 func (c *CaveScene) updateEntities(g GameContext, entityRuntime entity.Runtime) {
 	for _, ent := range c.Entities {
-		ent.Update(entityRuntime, c.CaveGrid)
+		ent.Update(entityRuntime)
 	}
 
 	activeCount := 0

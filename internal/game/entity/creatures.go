@@ -19,6 +19,19 @@ type PassiveFish struct {
 	FleeTimer   int
 }
 
+func NewPassiveFish(x, y float64, facingRight bool, swimPhase float64) *PassiveFish {
+	return &PassiveFish{
+		BaseEntity: BaseEntity{
+			Type:       EntPassiveFish,
+			Pos:        gvec.Vec2{X: x, Y: y},
+			Dimensions: gvec.Vec2{X: 20, Y: 12},
+			Active:     true,
+		},
+		FacingRight: facingRight,
+		SwimPhase:   swimPhase,
+	}
+}
+
 func (f *PassiveFish) GetHarvestedItem() item.Item { return &item.RawFish{} }
 
 func (f *PassiveFish) CanCatch(playerPos gvec.Vec2) bool {
@@ -27,7 +40,7 @@ func (f *PassiveFish) CanCatch(playerPos gvec.Vec2) bool {
 	return math.Hypot(playerPos.X-cx, playerPos.Y-cy) <= 80.0
 }
 
-func (f *PassiveFish) Update(gr Runtime, CaveGrid [][]bool) {
+func (f *PassiveFish) Update(gr Runtime) {
 	px := gr.PlayerPos().X + gr.PlayerDims().X/2
 	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2
 	fx := f.Pos.X + f.Dimensions.X/2
@@ -60,7 +73,7 @@ func (f *PassiveFish) Update(gr Runtime, CaveGrid [][]bool) {
 
 	nextX := f.Pos.X + f.Vel.X
 	nextY := f.Pos.Y + f.Vel.Y
-	if !isSolid(CaveGrid, nextX, nextY, f.Dimensions.X, f.Dimensions.Y) {
+	if !gr.IsSolid(nextX, nextY, f.Dimensions.X, f.Dimensions.Y) {
 		f.Pos.X = nextX
 		f.Pos.Y = nextY
 	} else {
@@ -123,7 +136,7 @@ func (c *PassiveCrab) CanCatch(playerPos gvec.Vec2) bool {
 	return math.Hypot(playerPos.X-cx, playerPos.Y-cy) <= 64.0
 }
 
-func (c *PassiveCrab) Update(gr Runtime, CaveGrid [][]bool) {
+func (c *PassiveCrab) Update(gr Runtime) {
 	px := gr.PlayerPos().X + gr.PlayerDims().X/2
 	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2
 	cx := c.Pos.X + c.Dimensions.X/2
@@ -178,7 +191,7 @@ func (c *PassiveCrab) Update(gr Runtime, CaveGrid [][]bool) {
 	}
 
 	nextX := c.Pos.X + c.Vel.X
-	if !isSolid(CaveGrid, nextX, c.Pos.Y, c.Dimensions.X, c.Dimensions.Y) {
+	if !gr.IsSolid(nextX, c.Pos.Y, c.Dimensions.X, c.Dimensions.Y) {
 		c.Pos.X = nextX
 	} else {
 		c.FacingRight = !c.FacingRight
@@ -186,7 +199,7 @@ func (c *PassiveCrab) Update(gr Runtime, CaveGrid [][]bool) {
 	}
 
 	nextY := c.Pos.Y + c.Vel.Y
-	if !isSolid(CaveGrid, c.Pos.X, nextY, c.Dimensions.X, c.Dimensions.Y) {
+	if !gr.IsSolid(c.Pos.X, nextY, c.Dimensions.X, c.Dimensions.Y) {
 		c.Pos.Y = nextY
 	} else {
 		c.Vel.Y = 0
@@ -241,7 +254,7 @@ type Kelp struct {
 	SwayPhase float64
 }
 
-func (k *Kelp) Update(gr Runtime, CaveGrid [][]bool) {
+func (k *Kelp) Update(gr Runtime) {
 	k.SwayPhase += 0.03
 }
 

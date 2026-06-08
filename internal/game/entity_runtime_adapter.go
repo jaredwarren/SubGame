@@ -104,6 +104,13 @@ func (a *entityRuntimeAdapter) TimeOfDay() float64 {
 	return a.g.TimeOfDay
 }
 
+func (a *entityRuntimeAdapter) IsSolid(x, y, w, h float64) bool {
+	if a.g.caveState == nil {
+		return false
+	}
+	return a.g.caveState.IsSolid(a.g, x, y, w, h)
+}
+
 // drainEntityCommands applies all entity mutation commands collected during the tick.
 func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 	for _, cmd := range rt.cmds {

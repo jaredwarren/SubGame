@@ -24,7 +24,7 @@ import (
 // OverworldScene manages the top-down surface sailing view.
 type OverworldScene struct {
 	World       *world.World
-	whirlpool   *Whirlpool
+	whirlpool   *oe.Whirlpool
 	crates      []*oe.FloatingCrate
 	vents       []*oe.ThermalVent
 	fish        []*oe.CosmeticFish
@@ -39,7 +39,7 @@ func NewOverworldScene(w *world.World) *OverworldScene {
 func (o *OverworldScene) OnEnter(g GameContext) {
 	g.SetCurrentState(StateOverworld)
 	if o.whirlpool == nil {
-		o.whirlpool = NewWhirlpool(g.GetWorld().Seed)
+		o.whirlpool = oe.NewWhirlpool(g.GetWorld().Seed)
 		o.whirlpool.Relocate(o.World, g.GetBaseStation().Pos)
 	}
 }
@@ -49,11 +49,11 @@ func (o *OverworldScene) OnExit(g GameContext) {}
 // Update handles input, movement physics, and checks state transition triggers.
 func (o *OverworldScene) Update(g GameContext) error {
 	if o.whirlpool == nil {
-		o.whirlpool = NewWhirlpool(g.GetWorld().Seed)
+		o.whirlpool = oe.NewWhirlpool(g.GetWorld().Seed)
 		o.whirlpool.Relocate(o.World, g.GetBaseStation().Pos)
 	}
 
-	o.whirlpool.Update(o.World, g.GetBaseStation().Pos)
+	o.whirlpool.Update(g)
 	o.UpdateExtras(g)
 
 	// If piloting a vehicle, apply forces to the vehicle and handle death.

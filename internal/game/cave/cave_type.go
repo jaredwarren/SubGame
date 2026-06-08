@@ -165,16 +165,12 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			}
 			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
 			if isOpenWater && r.Float64() < 0.012 {
-				entities = append(entities, &entity.PassiveFish{
-					BaseEntity: entity.BaseEntity{
-						Type:       entity.EntPassiveFish,
-						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-20)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-12)/2.0},
-						Dimensions: gvec.Vec2{X: 20, Y: 12},
-						Active:     true,
-					},
-					FacingRight: r.Float64() < 0.5,
-					SwimPhase:   r.Float64() * math.Pi * 2,
-				})
+				entities = append(entities, entity.NewPassiveFish(
+					float64(tx*config.TileSize)+float64(config.TileSize-20)/2.0,
+					float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
+					r.Float64() < 0.5,
+					r.Float64()*math.Pi*2,
+				))
 			}
 			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.015 {
 				entities = append(entities, &entity.PassiveCrab{

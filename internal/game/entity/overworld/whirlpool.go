@@ -1,4 +1,4 @@
-package scene
+package overworld
 
 import (
 	"image/color"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
@@ -37,6 +38,12 @@ type Whirlpool struct {
 	StateTimer int // in ticks
 	particles  []whirlpoolParticle
 	rng        *rand.Rand
+}
+
+// WhirlpoolContext defines the context interface needed by Whirlpool to update itself.
+type WhirlpoolContext interface {
+	GetWorld() *world.World
+	GetBaseStation() *base.BaseStation
 }
 
 // NewWhirlpool creates an unpositioned whirlpool with an internal RNG.
@@ -124,7 +131,14 @@ func (wp *Whirlpool) respawnParticle(p *whirlpoolParticle) {
 }
 
 // Update ticks the state machine, rotates the vortex, and updates the foam particles.
-func (wp *Whirlpool) Update(w *world.World, baseStationPos gvec.Vec2) {
+func (wp *Whirlpool) Update(g WhirlpoolContext) {
+	w := g.GetWorld()
+	baseStation := g.GetBaseStation()
+	var baseStationPos gvec.Vec2
+	if baseStation != nil {
+		baseStationPos = baseStation.Pos
+	}
+
 	// Spin speed
 	wp.Rotation += 0.04
 	if wp.Rotation > 2*math.Pi {

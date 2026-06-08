@@ -23,14 +23,7 @@ func TestPassiveCreatures_Generation(t *testing.T) {
 	}
 
 	// Verify that we can at least compile and run it, and let's check if the filter logic works.
-	fish := &entity.PassiveFish{
-		BaseEntity: entity.BaseEntity{
-			Type:       entity.EntPassiveFish,
-			Pos:        gvec.Vec2{X: 100, Y: 100},
-			Dimensions: gvec.Vec2{X: 20, Y: 12},
-			Active:     true,
-		},
-	}
+	fish := entity.NewPassiveFish(100, 100, false, 0)
 
 	crab := &entity.PassiveCrab{
 		BaseEntity: entity.BaseEntity{
@@ -67,14 +60,7 @@ func TestPassiveCreatures_Generation(t *testing.T) {
 }
 
 func TestPassiveCreatures_Harvesting(t *testing.T) {
-	fish := &entity.PassiveFish{
-		BaseEntity: entity.BaseEntity{
-			Type:       entity.EntPassiveFish,
-			Pos:        gvec.Vec2{X: 100, Y: 100},
-			Dimensions: gvec.Vec2{X: 20, Y: 12},
-			Active:     true,
-		},
-	}
+	fish := entity.NewPassiveFish(100, 100, false, 0)
 
 	crab := &entity.PassiveCrab{
 		BaseEntity: entity.BaseEntity{

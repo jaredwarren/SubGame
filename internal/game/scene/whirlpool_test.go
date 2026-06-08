@@ -4,14 +4,29 @@ import (
 	"math"
 	"testing"
 
+	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
+type mockWhirlpoolContext struct {
+	w       *world.World
+	basePos gvec.Vec2
+}
+
+func (m *mockWhirlpoolContext) GetWorld() *world.World {
+	return m.w
+}
+
+func (m *mockWhirlpoolContext) GetBaseStation() *base.BaseStation {
+	return &base.BaseStation{Pos: m.basePos}
+}
+
 func TestWhirlpoolBasic(t *testing.T) {
 	w := world.NewWorld(12345)
-	wp := NewWhirlpool(w.Seed)
+	wp := oe.NewWhirlpool(w.Seed)
 
 	basePos := gvec.Vec2{X: 50.0 * config.TileSize, Y: 50.0 * config.TileSize}
 	wp.Relocate(w, basePos)
@@ -23,7 +38,7 @@ func TestWhirlpoolBasic(t *testing.T) {
 	}
 
 	// Verify initially fading in
-	if wp.State != WpFadeIn {
+	if wp.State != oe.WpFadeIn {
 		t.Errorf("expected initial state WpFadeIn, got %v", wp.State)
 	}
 	if wp.Alpha != 0.0 {
@@ -31,13 +46,14 @@ func TestWhirlpoolBasic(t *testing.T) {
 	}
 
 	// Simulate one update tick
-	wp.Update(w, basePos)
+	ctx := &mockWhirlpoolContext{w: w, basePos: basePos}
+	wp.Update(ctx)
 	if wp.Alpha <= 0.0 {
 		t.Error("expected Alpha to increase after Update tick")
 	}
 
 	// Test pull force when active
-	wp.State = WpActive
+	wp.State = oe.WpActive
 	wp.Alpha = 1.0
 
 	// Center is at wp.Pos. Let's test a target at distance 100 pixels (wp.Radius is 220)

@@ -28,6 +28,8 @@ type Runtime interface {
 	SonarActive() bool
 	TimeOfDay() float64
 
+	IsSolid(x, y, w, h float64) bool
+
 	Emit(cmd GameCommand)
 }
 

@@ -17,7 +17,7 @@ type ShatterBulb struct {
 	BaseEntity
 }
 
-func (s *ShatterBulb) Update(gr Runtime, CaveGrid [][]bool) {
+func (s *ShatterBulb) Update(gr Runtime) {
 	vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
 	targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
 	if gr.HasActiveVehicle() {
@@ -69,7 +69,7 @@ type FalseBulbSnare struct {
 	State int
 }
 
-func (ent *FalseBulbSnare) Update(gr Runtime, CaveGrid [][]bool) {
+func (ent *FalseBulbSnare) Update(gr Runtime) {
 	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
 	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
@@ -174,7 +174,7 @@ type BrimstoneSiphon struct {
 	Direction string // "up", "down", "left", "right"
 }
 
-func (ent *BrimstoneSiphon) Update(gr Runtime, CaveGrid [][]bool) {
+func (ent *BrimstoneSiphon) Update(gr Runtime) {
 	ent.Timer = (ent.Timer + 1) % 120
 	if ent.Timer >= 60 {
 		var jx, jy, jw, jh float64
@@ -262,7 +262,7 @@ type ThermoclineRammer struct {
 	StunTimer int
 }
 
-func (ent *ThermoclineRammer) Update(gr Runtime, CaveGrid [][]bool) {
+func (ent *ThermoclineRammer) Update(gr Runtime) {
 	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
 	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
@@ -318,7 +318,7 @@ func (ent *ThermoclineRammer) Update(gr Runtime, CaveGrid [][]bool) {
 			}
 			ent.Vel.X = math.Cos(ent.Facing) * 0.8
 			ent.Vel.Y = math.Sin(ent.Facing) * 0.4
-			if !isSolid(CaveGrid, ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+			if !gr.IsSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
 				ent.Pos = ent.Pos.Add(ent.Vel)
 			} else {
 				ent.Facing += math.Pi
@@ -327,7 +327,7 @@ func (ent *ThermoclineRammer) Update(gr Runtime, CaveGrid [][]bool) {
 	case 1: // charging
 		nextX := ent.Pos.X + ent.Vel.X
 		nextY := ent.Pos.Y + ent.Vel.Y
-		if isSolid(CaveGrid, nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
+		if gr.IsSolid(nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
 			ent.State = 2
 			ent.StunTimer = 180
 			ent.Vel = gvec.Vec2{}
@@ -430,7 +430,7 @@ type NerveMat struct {
 	BaseEntity
 }
 
-func (ent *NerveMat) Update(gr Runtime, CaveGrid [][]bool) {
+func (ent *NerveMat) Update(gr Runtime) {
 	vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
 	targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
 	if gr.HasActiveVehicle() {
@@ -464,7 +464,7 @@ type ElectroWeaver struct {
 	Facing float64
 }
 
-func (ent *ElectroWeaver) Update(gr Runtime, CaveGrid [][]bool) {
+func (ent *ElectroWeaver) Update(gr Runtime) {
 	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
 	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
@@ -513,7 +513,7 @@ func (ent *ElectroWeaver) Update(gr Runtime, CaveGrid [][]bool) {
 		ent.Vel.Y = math.Sin(gr.TimeOfDay()/40.0) * 0.8
 	}
 
-	if !isSolid(CaveGrid, ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+	if !gr.IsSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
 		ent.Pos = ent.Pos.Add(ent.Vel)
 	}
 }

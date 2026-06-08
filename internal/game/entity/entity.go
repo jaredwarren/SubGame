@@ -28,7 +28,7 @@ const (
 
 // CaveEntity represents any plant, predator, or interactive entity inside caves.
 type CaveEntity interface {
-	Update(gr Runtime, CaveGrid [][]bool)
+	Update(gr Runtime)
 	Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64)
 	IsActive() bool
 	SetActive(active bool)
