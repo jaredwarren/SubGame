@@ -1,4 +1,4 @@
-package world
+package cave
 
 import (
 	"math/rand"

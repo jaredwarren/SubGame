@@ -197,9 +197,10 @@ func (c *CaveScene) handlePlayerMining(g GameContext, inp InputSource, p *player
 	mty := int(worldY) / config.TileSize
 
 	for _, ent := range c.Entities {
-		if ent.GetType() == entity.EntShatterBulb && ent.IsActive() {
-			pos := ent.GetPos()
-			dims := ent.GetDimensions()
+		sb, ok := ent.(*entity.ShatterBulb)
+		if ok && sb.IsActive() {
+			pos := sb.GetPos()
+			dims := sb.GetDimensions()
 			if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
 				px := p.Pos.X + p.Width/2
 				py := p.Pos.Y + p.Height/2

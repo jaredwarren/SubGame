@@ -22,7 +22,6 @@ type PassiveFish struct {
 func NewPassiveFish(x, y float64, facingRight bool, swimPhase float64) *PassiveFish {
 	return &PassiveFish{
 		BaseEntity: BaseEntity{
-			Type:       EntPassiveFish,
 			Pos:        gvec.Vec2{X: x, Y: y},
 			Dimensions: gvec.Vec2{X: 20, Y: 12},
 			Active:     true,
