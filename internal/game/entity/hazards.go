@@ -498,6 +498,18 @@ func (ent *NerveMat) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay
 	}
 }
 
+// WeaverContext defines the context interface needed by ElectroWeaver.
+type WeaverContext interface {
+	PlayerPos() gvec.Vec2
+	PlayerDims() gvec.Vec2
+	FlashlightOn() bool
+	SonarActive() bool
+	HasActiveVehicle() bool
+	TimeOfDay() float64
+	IsSolid(x, y, w, h float64) bool
+	Emit(cmd GameCommand)
+}
+
 // ElectroWeaver is a serpentine predator that tracks electrical sources and strikes.
 type ElectroWeaver struct {
 	BaseEntity
@@ -506,8 +518,12 @@ type ElectroWeaver struct {
 }
 
 func (ent *ElectroWeaver) Update(gr Runtime) {
-	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
-	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
+	ent.update(gr)
+}
+
+func (ent *ElectroWeaver) update(g WeaverContext) {
+	px := g.PlayerPos().X + g.PlayerDims().X/2.0
+	py := g.PlayerPos().Y + g.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
@@ -518,15 +534,15 @@ func (ent *ElectroWeaver) Update(gr Runtime) {
 		return
 	}
 
-	isElectricity := gr.FlashlightOn() || gr.SonarActive() || gr.HasActiveVehicle()
+	isElectricity := g.FlashlightOn() || g.SonarActive() || g.HasActiveVehicle()
 	if isElectricity && dist < 500.0 {
 		ent.Timer++
-		gr.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
+		g.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
 		if ent.Timer >= 300 {
-			gr.Emit(DamagePlayerCmd{Amount: 45.0})
-			gr.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: 180, Level: 3})
-			ent.Pos.X = gr.PlayerPos().X + float64(rand.Intn(120)-60)
-			ent.Pos.Y = gr.PlayerPos().Y + float64(rand.Intn(120)-60)
+			g.Emit(DamagePlayerCmd{Amount: 45.0})
+			g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: 180, Level: 3})
+			ent.Pos.X = g.PlayerPos().X + float64(rand.Intn(120)-60)
+			ent.Pos.Y = g.PlayerPos().Y + float64(rand.Intn(120)-60)
 			ent.Timer = 0
 		}
 	} else {
@@ -546,15 +562,15 @@ func (ent *ElectroWeaver) Update(gr Runtime) {
 			ent.Vel.X = (dx / dDist) * 1.5
 			ent.Vel.Y = (dy / dDist) * 1.5
 		} else {
-			ent.Vel.X = math.Cos(gr.TimeOfDay()/30.0) * 1.2
-			ent.Vel.Y = math.Sin(gr.TimeOfDay()/30.0) * 1.2
+			ent.Vel.X = math.Cos(g.TimeOfDay()/30.0) * 1.2
+			ent.Vel.Y = math.Sin(g.TimeOfDay()/30.0) * 1.2
 		}
 	} else {
-		ent.Vel.X = math.Cos(gr.TimeOfDay()/40.0) * 0.8
-		ent.Vel.Y = math.Sin(gr.TimeOfDay()/40.0) * 0.8
+		ent.Vel.X = math.Cos(g.TimeOfDay()/40.0) * 0.8
+		ent.Vel.Y = math.Sin(g.TimeOfDay()/40.0) * 0.8
 	}
 
-	if !gr.IsSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+	if !g.IsSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
 		ent.Pos = ent.Pos.Add(ent.Vel)
 	}
 }

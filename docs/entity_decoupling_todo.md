@@ -90,18 +90,18 @@ Currently, all cave entities implement `entity.CaveEntity` and accept the large 
   ```
 
 ### 6. `ElectroWeaver`
-- [ ] **Location**: [hazards.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/hazards.go)
-- [ ] **Interface**: Define `WeaverContext`:
+- [x] **Location**: [hazards.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/hazards.go)
+- [x] **Interface**: Define `WeaverContext`:
   ```go
   type WeaverContext interface {
-      PlayerPos() gvec.Vec2
-      PlayerDims() gvec.Vec2
-      FlashlightOn() bool
-      SonarActive() bool
-      HasActiveVehicle() bool
-      TimeOfDay() float64
-      IsSolid(x, y, w, h float64) bool
-      Emit(cmd GameCommand)
+  	PlayerPos() gvec.Vec2
+  	PlayerDims() gvec.Vec2
+  	FlashlightOn() bool
+  	SonarActive() bool
+  	HasActiveVehicle() bool
+  	TimeOfDay() float64
+  	IsSolid(x, y, w, h float64) bool
+  	Emit(cmd GameCommand)
   }
   ```
 
