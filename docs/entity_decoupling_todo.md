@@ -69,23 +69,23 @@ Currently, all cave entities implement `entity.CaveEntity` and accept the large 
   ```
 
 ### 5. `ThermoclineRammer`
-- [ ] **Location**: [hazards.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/hazards.go)
-- [ ] **Interface**: Define `RammerContext`:
+- [x] **Location**: [hazards.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/hazards.go)
+- [x] **Interface**: Define `RammerContext`:
   ```go
   type RammerContext interface {
-      PlayerPos() gvec.Vec2
-      PlayerDims() gvec.Vec2
-      PlayerVel() gvec.Vec2
-      IsPlayerSprinting() bool
-      HasActiveVehicle() bool
-      ActiveVehicleMoving() bool
-      ActiveVehiclePos() gvec.Vec2
-      ActiveVehicleDims() gvec.Vec2
-      SoundWaveTimer() int
-      SoundWaveX() float64
-      SoundWaveY() float64
-      IsSolid(x, y, w, h float64) bool
-      Emit(cmd GameCommand)
+  	PlayerPos() gvec.Vec2
+  	PlayerDims() gvec.Vec2
+  	PlayerVel() gvec.Vec2
+  	IsPlayerSprinting() bool
+  	HasActiveVehicle() bool
+  	ActiveVehicleMoving() bool
+  	ActiveVehiclePos() gvec.Vec2
+  	ActiveVehicleDims() gvec.Vec2
+  	SoundWaveTimer() int
+  	SoundWaveX() float64
+  	SoundWaveY() float64
+  	IsSolid(x, y, w, h float64) bool
+  	Emit(cmd GameCommand)
   }
   ```
 

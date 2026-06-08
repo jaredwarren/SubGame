@@ -282,9 +282,30 @@ type ThermoclineRammer struct {
 	StunTimer int
 }
 
+// RammerContext defines the context interface needed by ThermoclineRammer.
+type RammerContext interface {
+	PlayerPos() gvec.Vec2
+	PlayerDims() gvec.Vec2
+	PlayerVel() gvec.Vec2
+	IsPlayerSprinting() bool
+	HasActiveVehicle() bool
+	ActiveVehicleMoving() bool
+	ActiveVehiclePos() gvec.Vec2
+	ActiveVehicleDims() gvec.Vec2
+	SoundWaveTimer() int
+	SoundWaveX() float64
+	SoundWaveY() float64
+	IsSolid(x, y, w, h float64) bool
+	Emit(cmd GameCommand)
+}
+
 func (ent *ThermoclineRammer) Update(gr Runtime) {
-	px := gr.PlayerPos().X + gr.PlayerDims().X/2.0
-	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2.0
+	ent.update(gr)
+}
+
+func (ent *ThermoclineRammer) update(g RammerContext) {
+	px := g.PlayerPos().X + g.PlayerDims().X/2.0
+	py := g.PlayerPos().Y + g.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
@@ -299,14 +320,14 @@ func (ent *ThermoclineRammer) Update(gr Runtime) {
 
 	isAggroTrigger := false
 	if dist < 250.0 {
-		if !gr.HasActiveVehicle() && gr.IsPlayerSprinting() && (math.Abs(gr.PlayerVel().X) > 1.2 || math.Abs(gr.PlayerVel().Y) > 1.2) {
+		if !g.HasActiveVehicle() && g.IsPlayerSprinting() && (math.Abs(g.PlayerVel().X) > 1.2 || math.Abs(g.PlayerVel().Y) > 1.2) {
 			isAggroTrigger = true
 		}
-		if gr.HasActiveVehicle() && gr.ActiveVehicleMoving() {
+		if g.HasActiveVehicle() && g.ActiveVehicleMoving() {
 			isAggroTrigger = true
 		}
 	}
-	if gr.SoundWaveTimer() > 0 && math.Hypot(gr.SoundWaveX()-ex, gr.SoundWaveY()-ey) < 250.0 {
+	if g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < 250.0 {
 		isAggroTrigger = true
 	}
 
@@ -338,7 +359,7 @@ func (ent *ThermoclineRammer) Update(gr Runtime) {
 			}
 			ent.Vel.X = math.Cos(ent.Facing) * 0.8
 			ent.Vel.Y = math.Sin(ent.Facing) * 0.4
-			if !gr.IsSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+			if !g.IsSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
 				ent.Pos = ent.Pos.Add(ent.Vel)
 			} else {
 				ent.Facing += math.Pi
@@ -347,7 +368,7 @@ func (ent *ThermoclineRammer) Update(gr Runtime) {
 	case 1: // charging
 		nextX := ent.Pos.X + ent.Vel.X
 		nextY := ent.Pos.Y + ent.Vel.Y
-		if gr.IsSolid(nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
+		if g.IsSolid(nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
 			ent.State = 2
 			ent.StunTimer = 180
 			ent.Vel = gvec.Vec2{}
@@ -356,12 +377,12 @@ func (ent *ThermoclineRammer) Update(gr Runtime) {
 			ent.Pos.Y = nextY
 		}
 
-		vWidth, vHeight := gr.PlayerDims().X, gr.PlayerDims().Y
-		targetX, targetY := gr.PlayerPos().X, gr.PlayerPos().Y
-		if gr.HasActiveVehicle() {
-			vPos := gr.ActiveVehiclePos()
+		vWidth, vHeight := g.PlayerDims().X, g.PlayerDims().Y
+		targetX, targetY := g.PlayerPos().X, g.PlayerPos().Y
+		if g.HasActiveVehicle() {
+			vPos := g.ActiveVehiclePos()
 			targetX, targetY = vPos.X, vPos.Y
-			vDims := gr.ActiveVehicleDims()
+			vDims := g.ActiveVehicleDims()
 			vWidth, vHeight = vDims.X, vDims.Y
 		}
 		if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
@@ -385,14 +406,14 @@ func (ent *ThermoclineRammer) Update(gr Runtime) {
 			kbForce := 6.5
 			forceVec := gvec.Vec2{X: dirX * kbForce, Y: dirY * kbForce}
 
-			if gr.HasActiveVehicle() {
-				gr.Emit(DamageActiveVehicleCmd{Amount: 30.0})
-				gr.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
+			if g.HasActiveVehicle() {
+				g.Emit(DamageActiveVehicleCmd{Amount: 30.0})
+				g.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
+				g.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
 			} else {
-				gr.Emit(DamagePlayerCmd{Amount: 25.0})
-				gr.Emit(KnockbackPlayerCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
+				g.Emit(DamagePlayerCmd{Amount: 25.0})
+				g.Emit(KnockbackPlayerCmd{Force: forceVec})
+				g.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
 			}
 
 			// Push rammer back in opposite direction to prevent continuous overlap
