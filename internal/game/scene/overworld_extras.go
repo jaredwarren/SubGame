@@ -127,6 +127,19 @@ func (o *OverworldScene) InitializeExtras(g GameContext) {
 	}
 }
 
+type fishContext struct {
+	targetCenter gvec.Vec2
+	scene        *OverworldScene
+}
+
+func (fc fishContext) TargetCenter() gvec.Vec2 {
+	return fc.targetCenter
+}
+
+func (fc fishContext) IsSolid(x, y float64) bool {
+	return fc.scene.IsSolid(x-2, y-2, 4, 4)
+}
+
 // UpdateExtras runs update logic for cosmetic fish, crates, and vents.
 func (o *OverworldScene) UpdateExtras(g GameContext) {
 	o.InitializeExtras(g)
@@ -147,13 +160,14 @@ func (o *OverworldScene) UpdateExtras(g GameContext) {
 		targetCenter = pCenter
 	}
 
-	isSolid := func(x, y float64) bool {
-		return o.IsSolid(x-2, y-2, 4, 4)
+	fc := fishContext{
+		targetCenter: targetCenter,
+		scene:        o,
 	}
 
 	// Update cosmetic fish
 	for _, f := range o.fish {
-		f.Update(targetCenter, isSolid)
+		f.Update(fc)
 	}
 
 	// Update vents (push force, heat damage, bubble particle spawning)

@@ -136,16 +136,29 @@ func (c *PassiveCrab) CanCatch(playerPos gvec.Vec2) bool {
 	return math.Hypot(playerPos.X-cx, playerPos.Y-cy) <= 64.0
 }
 
+// CrabContext defines the context interface needed by PassiveCrab.
+type CrabContext interface {
+	PlayerPos() gvec.Vec2
+	PlayerDims() gvec.Vec2
+	FlashlightOn() bool
+	PlayerFacing() float64
+	IsSolid(x, y, w, h float64) bool
+}
+
 func (c *PassiveCrab) Update(gr Runtime) {
-	px := gr.PlayerPos().X + gr.PlayerDims().X/2
-	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2
+	c.update(gr)
+}
+
+func (c *PassiveCrab) update(g CrabContext) {
+	px := g.PlayerPos().X + g.PlayerDims().X/2
+	py := g.PlayerPos().Y + g.PlayerDims().Y/2
 	cx := c.Pos.X + c.Dimensions.X/2
 	cy := c.Pos.Y + c.Dimensions.Y/2
 	dist := math.Hypot(px-cx, py-cy)
 
 	isLit := false
-	if gr.FlashlightOn() && dist < 300 {
-		facingAngle := gr.PlayerFacing()
+	if g.FlashlightOn() && dist < 300 {
+		facingAngle := g.PlayerFacing()
 		dx := cx - px
 		dy := cy - py
 		angleToEnt := math.Atan2(dy, dx)
@@ -191,7 +204,7 @@ func (c *PassiveCrab) Update(gr Runtime) {
 	}
 
 	nextX := c.Pos.X + c.Vel.X
-	if !gr.IsSolid(nextX, c.Pos.Y, c.Dimensions.X, c.Dimensions.Y) {
+	if !g.IsSolid(nextX, c.Pos.Y, c.Dimensions.X, c.Dimensions.Y) {
 		c.Pos.X = nextX
 	} else {
 		c.FacingRight = !c.FacingRight
@@ -199,7 +212,7 @@ func (c *PassiveCrab) Update(gr Runtime) {
 	}
 
 	nextY := c.Pos.Y + c.Vel.Y
-	if !gr.IsSolid(c.Pos.X, nextY, c.Dimensions.X, c.Dimensions.Y) {
+	if !g.IsSolid(c.Pos.X, nextY, c.Dimensions.X, c.Dimensions.Y) {
 		c.Pos.Y = nextY
 	} else {
 		c.Vel.Y = 0

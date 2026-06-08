@@ -20,10 +20,17 @@ type CosmeticFish struct {
 	WobbleSpd float64
 }
 
+// CosmeticFishContext defines the context interface needed by CosmeticFish.
+type CosmeticFishContext interface {
+	TargetCenter() gvec.Vec2
+	IsSolid(x, y float64) bool
+}
+
 // Update updates the fish position, flocking behavior, and fleeing from the player.
-func (f *CosmeticFish) Update(playerCenter gvec.Vec2, isSolid func(x, y float64) bool) {
-	dx := f.Pos.X - playerCenter.X
-	dy := f.Pos.Y - playerCenter.Y
+func (f *CosmeticFish) Update(g CosmeticFishContext) {
+	targetCenter := g.TargetCenter()
+	dx := f.Pos.X - targetCenter.X
+	dy := f.Pos.Y - targetCenter.Y
 	dist := math.Hypot(dx, dy)
 
 	f.WobbleVal += f.WobbleSpd
@@ -59,14 +66,14 @@ func (f *CosmeticFish) Update(playerCenter gvec.Vec2, isSolid func(x, y float64)
 
 	// Move and handle solid/land check separately for X and Y
 	newX := f.Pos.X + f.Vel.X
-	if isSolid(newX, f.Pos.Y) {
+	if g.IsSolid(newX, f.Pos.Y) {
 		f.Vel.X = -f.Vel.X * 0.5
 	} else {
 		f.Pos.X = newX
 	}
 
 	newY := f.Pos.Y + f.Vel.Y
-	if isSolid(f.Pos.X, newY) {
+	if g.IsSolid(f.Pos.X, newY) {
 		f.Vel.Y = -f.Vel.Y * 0.5
 	} else {
 		f.Pos.Y = newY

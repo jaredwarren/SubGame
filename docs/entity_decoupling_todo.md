@@ -19,15 +19,15 @@ This document lists the remaining entities and hazards in the codebase that shou
 - [x] **Caller**: Update [overworld.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/overworld.go) to use the new package type `oe.Whirlpool` and updated methods.
 
 ### 2. `CosmeticFish` (Refactor Signature)
-- [ ] **Location**: [cosmetic_fish.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/overworld/cosmetic_fish.go)
-- [ ] **Interface**: Define `CosmeticFishContext`:
+- [x] **Location**: [cosmetic_fish.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/overworld/cosmetic_fish.go)
+- [x] **Interface**: Define `CosmeticFishContext`:
   ```go
   type CosmeticFishContext interface {
-      PlayerCenter() gvec.Vec2
-      IsSolid(x, y float64) bool
+  	TargetCenter() gvec.Vec2
+  	IsSolid(x, y float64) bool
   }
   ```
-- [ ] **Signature**: Change `Update(playerCenter gvec.Vec2, isSolid func(x, y float64) bool)` to `Update(g CosmeticFishContext)`.
+- [x] **Signature**: Change `Update(playerCenter gvec.Vec2, isSolid func(x, y float64) bool)` to `Update(g CosmeticFishContext)`.
 
 ---
 
@@ -36,16 +36,15 @@ This document lists the remaining entities and hazards in the codebase that shou
 Currently, all cave entities implement `entity.CaveEntity` and accept the large `entity.Runtime` interface (19 methods). To satisfy the **Interface Segregation Principle (ISP)**, they should declare their own narrow interfaces.
 
 ### 3. `PassiveCrab`
-- [ ] **Location**: [creatures.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/creatures.go)
-- [ ] **Interface**: Define `CrabContext`:
+- [x] **Location**: [creatures.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/creatures.go)
+- [x] **Interface**: Define `CrabContext`:
   ```go
   type CrabContext interface {
-      PlayerPos() gvec.Vec2
-      PlayerDims() gvec.Vec2
-      FlashlightOn() bool
-      PlayerFacing() float64
-      PlayerFacingActiveVehicle() float64
-      IsSolid(x, y, w, h float64) bool
+  	PlayerPos() gvec.Vec2
+  	PlayerDims() gvec.Vec2
+  	FlashlightOn() bool
+  	PlayerFacing() float64
+  	IsSolid(x, y, w, h float64) bool
   }
   ```
 

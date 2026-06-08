@@ -31,6 +31,22 @@ func (m *mockGameContext) TriggerScreenShake(dur int, intensity float64) {
 func (m *mockGameContext) GetPlayer() *player.Player         { return m.player }
 func (m *mockGameContext) GetActiveVehicle() vehicle.Vehicle { return m.activeVehicle }
 
+type mockCosmeticFishContext struct {
+	targetCenter gvec.Vec2
+	isSolidFunc  func(x, y float64) bool
+}
+
+func (m mockCosmeticFishContext) TargetCenter() gvec.Vec2 {
+	return m.targetCenter
+}
+
+func (m mockCosmeticFishContext) IsSolid(x, y float64) bool {
+	if m.isSolidFunc != nil {
+		return m.isSolidFunc(x, y)
+	}
+	return false
+}
+
 func TestCosmeticFishWanderAndFlee(t *testing.T) {
 	fish := &oe.CosmeticFish{
 		Pos:       gvec.Vec2{X: 100, Y: 100},
@@ -43,7 +59,8 @@ func TestCosmeticFishWanderAndFlee(t *testing.T) {
 
 	// 1. Far player position -> wander gently
 	playerFar := gvec.Vec2{X: 1000, Y: 1000}
-	fish.Update(playerFar, mockIsSolid)
+	ctxFar := mockCosmeticFishContext{targetCenter: playerFar, isSolidFunc: mockIsSolid}
+	fish.Update(ctxFar)
 
 	// Since player is far, fish should move slightly, but not flee
 	if math.Abs(fish.Vel.X) > 1.0 || math.Abs(fish.Vel.Y) > 1.0 {
@@ -52,8 +69,9 @@ func TestCosmeticFishWanderAndFlee(t *testing.T) {
 
 	// 2. Near player position -> flee rapidly (update multiple times to accelerate)
 	playerNear := gvec.Vec2{X: 90, Y: 100} // Player is 10 pixels to the left of the fish
+	ctxNear := mockCosmeticFishContext{targetCenter: playerNear, isSolidFunc: mockIsSolid}
 	for i := 0; i < 15; i++ {
-		fish.Update(playerNear, mockIsSolid)
+		fish.Update(ctxNear)
 	}
 
 	// Fish should run away to the right (+X direction)
@@ -159,7 +177,11 @@ func TestCosmeticFishCollision(t *testing.T) {
 		return x > 101.0
 	}
 
-	fish.Update(gvec.Vec2{X: 500, Y: 500}, isSolidMock)
+	ctx := mockCosmeticFishContext{
+		targetCenter: gvec.Vec2{X: 500, Y: 500},
+		isSolidFunc:  isSolidMock,
+	}
+	fish.Update(ctx)
 
 	// X position should remain at 100 because of collision, but Y should move forward
 	if fish.Pos.X != 100.0 {
