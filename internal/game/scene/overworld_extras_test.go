@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -27,11 +28,11 @@ func (m *mockGameContext) TriggerScreenShake(dur int, intensity float64) {
 	m.shakeDuration = dur
 	m.shakeIntensity = intensity
 }
-func (m *mockGameContext) GetPlayer() *player.Player { return m.player }
+func (m *mockGameContext) GetPlayer() *player.Player         { return m.player }
 func (m *mockGameContext) GetActiveVehicle() vehicle.Vehicle { return m.activeVehicle }
 
 func TestCosmeticFishWanderAndFlee(t *testing.T) {
-	fish := &CosmeticFish{
+	fish := &oe.CosmeticFish{
 		Pos:       gvec.Vec2{X: 100, Y: 100},
 		BasePos:   gvec.Vec2{X: 100, Y: 100},
 		WobbleVal: 0,
@@ -65,7 +66,7 @@ func TestCosmeticFishWanderAndFlee(t *testing.T) {
 }
 
 func TestFloatingCrateState(t *testing.T) {
-	crate := &FloatingCrate{
+	crate := &oe.FloatingCrate{
 		Pos:        gvec.Vec2{X: 100, Y: 100},
 		InitialPos: gvec.Vec2{X: 100, Y: 100},
 		Collected:  false,
@@ -78,15 +79,15 @@ func TestFloatingCrateState(t *testing.T) {
 }
 
 func TestThermalVentEruptingPushPhysics(t *testing.T) {
-	vent := &ThermalVent{
+	vent := &oe.ThermalVent{
 		Pos:        gvec.Vec2{X: 100, Y: 100},
 		Radius:     50.0,
-		State:      VentErupting,
+		State:      oe.VentErupting,
 		StateTimer: 100,
 		Intensity:  1.0,
 	}
 
-	p := player.NewPlayer(110, 100) // 10 pixels to the right
+	p := player.NewPlayer(100, 90) // Center is (110, 100), which is 10 pixels to the right of vent
 	p.Vel = gvec.Vec2{X: 0, Y: 0}
 	ctx := &mockGameContext{
 		player: p,
@@ -94,7 +95,7 @@ func TestThermalVentEruptingPushPhysics(t *testing.T) {
 
 	// In Erupting state, should apply push force and damage
 	initialHealth := p.CurrentHealth
-	vent.Update(ctx, gvec.Vec2{X: 110, Y: 100}, gvec.Vec2{X: float64(p.Width), Y: float64(p.Height)}, false)
+	vent.Update(ctx)
 
 	if p.Vel.X <= 0 {
 		t.Errorf("expected player to be pushed right (+X) by erupting vent, got Vel.X = %f", p.Vel.X)
@@ -105,14 +106,14 @@ func TestThermalVentEruptingPushPhysics(t *testing.T) {
 }
 
 func TestThermalVentDormantAndWarning(t *testing.T) {
-	vent := &ThermalVent{
+	vent := &oe.ThermalVent{
 		Pos:        gvec.Vec2{X: 100, Y: 100},
 		Radius:     50.0,
-		State:      VentDormant,
+		State:      oe.VentDormant,
 		StateTimer: 100,
 	}
 
-	p := player.NewPlayer(110, 100)
+	p := player.NewPlayer(100, 90) // Center is (110, 100)
 	p.Vel = gvec.Vec2{X: 0, Y: 0}
 	ctx := &mockGameContext{
 		player: p,
@@ -120,7 +121,7 @@ func TestThermalVentDormantAndWarning(t *testing.T) {
 
 	// 1. Dormant: no push force, no damage
 	initialHealth := p.CurrentHealth
-	vent.Update(ctx, gvec.Vec2{X: 110, Y: 100}, gvec.Vec2{X: float64(p.Width), Y: float64(p.Height)}, false)
+	vent.Update(ctx)
 
 	if p.Vel.X != 0 || p.Vel.Y != 0 {
 		t.Errorf("expected zero push force in dormant state, got Vel = %+v", p.Vel)
@@ -130,8 +131,8 @@ func TestThermalVentDormantAndWarning(t *testing.T) {
 	}
 
 	// 2. Warning: screen rumble, but no push force or damage
-	vent.State = VentWarning
-	vent.Update(ctx, gvec.Vec2{X: 110, Y: 100}, gvec.Vec2{X: float64(p.Width), Y: float64(p.Height)}, false)
+	vent.State = oe.VentWarning
+	vent.Update(ctx)
 
 	if p.Vel.X != 0 || p.Vel.Y != 0 {
 		t.Errorf("expected zero push force in warning state, got Vel = %+v", p.Vel)
@@ -145,7 +146,7 @@ func TestThermalVentDormantAndWarning(t *testing.T) {
 }
 
 func TestCosmeticFishCollision(t *testing.T) {
-	fish := &CosmeticFish{
+	fish := &oe.CosmeticFish{
 		Pos:       gvec.Vec2{X: 100, Y: 100},
 		Vel:       gvec.Vec2{X: 2.0, Y: 2.0}, // Moving down-right
 		BasePos:   gvec.Vec2{X: 100, Y: 100},

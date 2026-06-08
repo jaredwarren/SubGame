@@ -15,6 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
@@ -22,12 +23,12 @@ import (
 
 // OverworldScene manages the top-down surface sailing view.
 type OverworldScene struct {
-	World        *world.World
-	whirlpool    *Whirlpool
-	crates       []*FloatingCrate
-	vents        []*ThermalVent
-	fish         []*CosmeticFish
-	initialized  bool
+	World       *world.World
+	whirlpool   *Whirlpool
+	crates      []*oe.FloatingCrate
+	vents       []*oe.ThermalVent
+	fish        []*oe.CosmeticFish
+	initialized bool
 }
 
 // NewOverworldScene creates a new OverworldScene.
@@ -223,7 +224,7 @@ func (o *OverworldScene) CheckCollisions(p *player.Player, baseStation *base.Bas
 
 var (
 	trenchTexture         *ebiten.Image
-	trenchTextureLoaded bool
+	trenchTextureLoaded   bool
 	wreckageTexture       *ebiten.Image
 	wreckageTextureLoaded bool
 )
