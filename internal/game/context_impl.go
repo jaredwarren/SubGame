@@ -11,6 +11,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/scene"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
+	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -229,3 +230,35 @@ func (g *Game) SetDeathReason(reason string) { g.deathReason = reason }
 
 func (g *Game) IsDebugLightShaderDisabled() bool { return g.DebugDisableLightShader }
 func (g *Game) IsDebugWaterShaderDisabled() bool { return g.DebugDisableWaterShader }
+
+// --- Story and Lore ---
+
+func (g *Game) GetStoryManager() *story.StoryManager { return g.storyManager }
+
+func (g *Game) TransitionToPDA() {
+	if g.currentState == scene.StateOverworld || g.currentState == scene.StateCave {
+		g.pdaPriorState = g.currentState
+	}
+	g.menuOpenedAnywhere = true
+	g.baseMenu.ActiveTab = 4
+	g.TransitionTo(g.baseMenu)
+}
+
+func (g *Game) ClosePDA() {
+	if g.pdaPriorState == scene.StateCave {
+		g.TransitionTo(g.caveState)
+	} else {
+		g.TransitionTo(g.overworldState)
+	}
+	g.pdaPriorState = 0
+	g.menuOpenedAnywhere = false
+}
+
+func (g *Game) IsMenuOpenedAnywhere() bool {
+	return g.menuOpenedAnywhere
+}
+
+func (g *Game) TransitionToIntro(seed int64) {
+	g.introState.SetSeed(seed)
+	g.TransitionTo(g.introState)
+}

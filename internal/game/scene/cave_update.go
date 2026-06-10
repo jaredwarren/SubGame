@@ -207,6 +207,10 @@ func (c *CaveScene) handlePlayerMining(g GameContext, inp InputSource, p *player
 				if math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2)) <= 96.0 {
 					if bulb, ok := ent.(*entity.ShatterBulb); ok {
 						bulb.Pop(entityRuntime)
+						unlocked := g.GetStoryManager().TriggerEvent("pop", "shatter-bulb")
+						if unlocked != nil {
+							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+						}
 					}
 					break
 				}
@@ -229,6 +233,10 @@ func (c *CaveScene) handlePlayerMining(g GameContext, inp InputSource, p *player
 						ent.SetActive(false)
 						c.Entities = append(c.Entities[:i], c.Entities[i+1:]...)
 						g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90, 1)
+						unlocked := g.GetStoryManager().TriggerEvent("catch", harvestedItem.GetName())
+						if unlocked != nil {
+							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+						}
 					} else {
 						g.SetMineWarning("Inventory full!", 90, 1)
 					}
@@ -269,8 +277,16 @@ func (c *CaveScene) handlePlayerMining(g GameContext, inp InputSource, p *player
 								break
 							}
 						}
+						unlocked := g.GetStoryManager().TriggerEvent("mine", bpNode.GetName())
+						if unlocked != nil {
+							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+						}
 					} else {
 						p.Inventory.AddItem(node, 1)
+						unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
+						if unlocked != nil {
+							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+						}
 					}
 					c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)
 				}

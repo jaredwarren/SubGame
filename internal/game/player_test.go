@@ -616,15 +616,26 @@ func TestTitleScene_Transitions(t *testing.T) {
 		t.Errorf("expected initial scene to be titleState, got %+v", g.currentScene)
 	}
 
-	// 2. Press Enter to transition to overworld
+	// 2. Press Enter to transition to intro
 	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
 	err := g.Update()
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	if g.currentState != StateIntro {
+		t.Errorf("expected state to transition to StateIntro on Enter, got %s", g.currentState)
+	}
+
+	// 2.5. Press Enter inside Intro to go to Overworld
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if g.currentState != StateOverworld {
-		t.Errorf("expected state to transition to StateOverworld on Enter, got %s", g.currentState)
+		t.Errorf("expected state to transition to StateOverworld from Intro on Enter, got %s", g.currentState)
 	}
 
 	// 3. Reset back to title scene
@@ -645,7 +656,7 @@ func TestTitleScene_Transitions(t *testing.T) {
 		t.Errorf("expected state to remain StateTitle after clicking outside button, got %s", g.currentState)
 	}
 
-	// 5. Click inside the "Dive" button -> should transition
+	// 5. Click inside the "Dive" button -> should transition to Intro
 	// Dive button is at X: 520, Y: 460, W: 240, H: 60
 	mockInput.CursorPos = gvec.Vec2{X: 640, Y: 490}
 	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
@@ -653,8 +664,20 @@ func TestTitleScene_Transitions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if g.currentState != StateIntro {
+		t.Errorf("expected state to transition to StateIntro on button click, got %s", g.currentState)
+	}
+
+	// 5.5. Press Enter inside Intro to go to Overworld
+	mockInput.JustPressedMouse = make(map[ebiten.MouseButton]bool)
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if g.currentState != StateOverworld {
-		t.Errorf("expected state to transition to StateOverworld on button click, got %s", g.currentState)
+		t.Errorf("expected state to transition to StateOverworld from Intro, got %s", g.currentState)
 	}
 }
 
@@ -715,7 +738,19 @@ func TestTitleScene_SeedInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Should transition to overworld
+	// Should transition to StateIntro
+	if g.currentState != StateIntro {
+		t.Fatalf("expected state to transition to StateIntro, got %s", g.currentState)
+	}
+
+	// Press Enter to transition to StateOverworld
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if g.currentState != StateOverworld {
 		t.Fatalf("expected state to transition to StateOverworld, got %s", g.currentState)
 	}
@@ -754,12 +789,28 @@ func TestTitleScene_SeedInputBackspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Now press Enter to start the game
+	// Now press Enter to transition to StateIntro
 	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
 	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
 	err = g.Update()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if g.currentState != StateIntro {
+		t.Fatalf("expected state to transition to StateIntro, got %s", g.currentState)
+	}
+
+	// Press Enter inside Intro to splash down to Overworld
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
+	err = g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if g.currentState != StateOverworld {
+		t.Fatalf("expected state to transition to StateOverworld, got %s", g.currentState)
 	}
 
 	// Seed should be 123

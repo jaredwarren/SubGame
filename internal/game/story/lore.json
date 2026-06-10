@@ -1,0 +1,89 @@
+{
+  "entries": [
+    {
+      "id": "raw_fish_caught",
+      "category": "Fauna",
+      "title": "Cave Fish Bio-Scan",
+      "trigger_type": "catch",
+      "trigger_target": "raw fish",
+      "paragraphs": [
+        {
+          "header": "AETHERCORP CLASSIFIED TELEMETRY",
+          "text": "Specimen: Cave Fish. Yields standard biomass. Consuming after cooking restores moderate stamina. Do not engage in unnecessary hunting; focus on resource extraction quotas."
+        },
+        {
+          "header": "TRITON BIOLOGIST JOURNAL - DR. ARIS",
+          "text": "These small fish navigate the shallow caves with incredible precision using lateral line vibration sensors. They are harmless, but their sudden darting paths have startled me more than once in the dark."
+        }
+      ]
+    },
+    {
+      "id": "raw_crab_caught",
+      "category": "Fauna",
+      "title": "Cave Crab Bio-Scan",
+      "trigger_type": "catch",
+      "trigger_target": "raw crab",
+      "paragraphs": [
+        {
+          "header": "AETHERCORP CLASSIFIED TELEMETRY",
+          "text": "Specimen: Cave Crab. Subject withdraws into a calcified shell when exposed to light or proximity. Biomass is edible but low-yield."
+        },
+        {
+          "header": "TRITON EXPEDITION - OBS-44",
+          "text": "We noticed the crabs anchor themselves firmly to horizontal rock ledges. When we flashed our heavy submersible lights on them, they froze instantly. They seem to use the darkness as their primary defense."
+        }
+      ]
+    },
+    {
+      "id": "shatter_bulb_popped",
+      "category": "Flora",
+      "title": "Shatter-Bulb Analysis",
+      "trigger_type": "pop",
+      "trigger_target": "shatter-bulb",
+      "paragraphs": [
+        {
+          "header": "AETHERCORP HAZARD ASSESSMENT",
+          "text": "Shatter-Bulb gas pockets are pressurized. Popping them releases breathable O2 but emits high-frequency acoustic waves. Predators within 150 meters will detect this sound profile."
+        },
+        {
+          "header": "TRITON EXPEDITION NOTES",
+          "text": "We've been using the Shatter-Bulbs to refill our tanks in emergencies. It feels like breathing glass, but it keeps the lungs going. Just be careful not to pop them when the larger things are swimming nearby."
+        }
+      ]
+    },
+    {
+      "id": "mined_copper",
+      "category": "Geology",
+      "title": "Copper Vein Salvage",
+      "trigger_type": "mine",
+      "trigger_target": "copper",
+      "paragraphs": [
+        {
+          "header": "AETHERCORP RESOURCE LOG",
+          "text": "Copper Node: High purity detected. Primary use: wiring harnesses, circuit integration, scanner tools, and solar assemblies."
+        },
+        {
+          "header": "TRITON ENGI NOTE",
+          "text": "We found copper deposits embedded in the cave walls. It's stable enough to mine with a standard pick, but the deeper we go, the more the local electrical anomalies seem to corrode the copper tools."
+        }
+      ]
+    },
+    {
+      "id": "mined_abyssal",
+      "category": "Geology",
+      "title": "Abyssal Shard Discovery",
+      "trigger_type": "mine",
+      "trigger_target": "abyssal ore",
+      "paragraphs": [
+        {
+          "header": "AETHERCORP URGENT MEMO",
+          "text": "Classified Asset: Abyssal Ore. Highly dense radioactive isotope. Warning: Retrieve all samples. Under no circumstances should field personnel discuss the isotope's energetic output on unencrypted lines."
+        },
+        {
+          "header": "TRITON LAST LOG - COMMANDER STERLING",
+          "text": "We found it. The Abyssal Ore is glowing in the pitch black. The reactor is overloaded, and the hull integrity is down to 30%. Aethercorp told us to hold our position, but the storm is coming from the deep. We need to build the rocket now. If anyone finds this... don't look for us."
+        }
+      ]
+    }
+  ]
+}

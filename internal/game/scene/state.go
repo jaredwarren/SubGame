@@ -5,6 +5,7 @@ type State int
 
 const (
 	StateTitle State = iota
+	StateIntro
 	StateOverworld
 	StateCave
 	StateBaseMenu
@@ -17,6 +18,8 @@ func (s State) String() string {
 	switch s {
 	case StateTitle:
 		return "Title"
+	case StateIntro:
+		return "Intro"
 	case StateOverworld:
 		return "Overworld"
 	case StateCave:

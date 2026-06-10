@@ -13,6 +13,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
+	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -105,4 +106,11 @@ type GameContext interface {
 	// Debug toggles
 	IsDebugLightShaderDisabled() bool
 	IsDebugWaterShaderDisabled() bool
+
+	// Story and Lore
+	GetStoryManager() *story.StoryManager
+	TransitionToPDA()
+	ClosePDA()
+	IsMenuOpenedAnywhere() bool
+	TransitionToIntro(seed int64)
 }

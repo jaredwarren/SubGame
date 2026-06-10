@@ -8,6 +8,7 @@ type State = scene.State
 // Re-export state constants so existing game-package code and tests continue to compile.
 const (
 	StateTitle     State = scene.StateTitle
+	StateIntro     State = scene.StateIntro
 	StateOverworld State = scene.StateOverworld
 	StateCave      State = scene.StateCave
 	StateBaseMenu  State = scene.StateBaseMenu

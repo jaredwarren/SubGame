@@ -95,6 +95,13 @@ func (g *Game) handleInput() {
 	if g.currentState == StateOverworld && g.baseStation.DistanceToPlayer(g.player) < 100.0 && g.Input.IsKeyJustPressed(ebiten.KeyE) {
 		g.TransitionTo(g.baseMenu)
 	}
+	if g.Input.IsKeyJustPressed(ebiten.KeyJ) {
+		if g.currentState == StateBaseMenu {
+			g.ClosePDA()
+		} else if g.currentState == StateOverworld || g.currentState == StateCave {
+			g.TransitionToPDA()
+		}
+	}
 	g.handleDebugInput()
 }
 

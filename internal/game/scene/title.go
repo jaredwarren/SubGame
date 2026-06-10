@@ -103,13 +103,13 @@ func (s *TitleScene) Update(g GameContext) error {
 		cursor := inp.Cursor()
 		mx, my := cursor.X, cursor.Y
 		if mx >= s.btnX && mx < s.btnX+s.btnW && my >= s.btnY && my < s.btnY+s.btnH {
-			g.StartGame(parseSeed(s.seedText))
+			g.TransitionToIntro(parseSeed(s.seedText))
 			return nil
 		}
 	}
 
 	if inp.IsKeyJustPressed(ebiten.KeyEnter) {
-		g.StartGame(parseSeed(s.seedText))
+		g.TransitionToIntro(parseSeed(s.seedText))
 		return nil
 	}
 

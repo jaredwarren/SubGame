@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -209,13 +210,14 @@ var CraftingRecipes = []Recipe{
 
 // BaseMenuScene manages tab selections and base management interactions.
 type BaseMenuScene struct {
-	ActiveTab int
-	ScrollY   float64
+	ActiveTab         int
+	ScrollY           float64
+	SelectedLoreIndex int
 }
 
 // NewBaseMenuScene instantiates a BaseMenuScene.
 func NewBaseMenuScene() *BaseMenuScene {
-	return &BaseMenuScene{ActiveTab: 0, ScrollY: 0}
+	return &BaseMenuScene{ActiveTab: 0, ScrollY: 0, SelectedLoreIndex: 0}
 }
 
 func (m *BaseMenuScene) OnEnter(g GameContext) {
@@ -230,7 +232,11 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 	inp := g.GetInput()
 
 	if inp.IsKeyJustPressed(ebiten.KeyE) || inp.IsKeyJustPressed(ebiten.KeyO) {
-		g.TransitionToOverworld()
+		if g.IsMenuOpenedAnywhere() {
+			g.ClosePDA()
+		} else {
+			g.TransitionToOverworld()
+		}
 		return nil
 	}
 
@@ -250,14 +256,16 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 
 	if leftClicked {
 		ty := int(panelY) + 40
-		if my >= ty && my < ty+30 {
-			for i := 0; i < 4; i++ {
+		if my >= ty && my < ty+30 && !g.IsMenuOpenedAnywhere() {
+			for i := 0; i < 5; i++ {
 				tx := int(panelX) + 30 + i*150
 				if mx >= tx && mx < tx+140 {
 					if i == 2 && !b.HasModule(item.ModuleStorage) {
 						continue
 					}
 					m.ActiveTab = i
+					m.ScrollY = 0
+					m.SelectedLoreIndex = 0
 				}
 			}
 		}
@@ -455,6 +463,40 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 				}
 			}
 		}
+
+	case 4:
+		unlocked := g.GetStoryManager().GetUnlockedEntries()
+		if len(unlocked) > 0 {
+			_, wy := inp.Wheel()
+			if wy != 0 {
+				m.ScrollY -= wy * 15
+				maxScroll := float64(len(unlocked)*32 - 300)
+				if maxScroll < 0 {
+					maxScroll = 0
+				}
+				if m.ScrollY < 0 {
+					m.ScrollY = 0
+				} else if m.ScrollY > maxScroll {
+					m.ScrollY = maxScroll
+				}
+			}
+
+			if leftClicked {
+				listX := int(panelX) + 30
+				listY := int(panelY) + 95
+				listW := 260
+				listH := 335
+
+				if mx >= listX && mx < listX+listW && my >= listY && my < listY+listH {
+					viewportMinY := listY + 5
+					clickY := float64(my-viewportMinY) + m.ScrollY
+					clickedIdx := int(clickY) / 32
+					if clickedIdx >= 0 && clickedIdx < len(unlocked) {
+						m.SelectedLoreIndex = clickedIdx
+					}
+				}
+			}
+		}
 	}
 
 	return nil
@@ -482,26 +524,34 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 	}
 	ebitenutil.DebugPrintAt(screen, powerText, int(panelX)+420, int(panelY)+12)
 
-	tabLabels := []string{"1. OVERVIEW", "2. FABRICATOR", "3. BASE VAULT", "4. MEDICAL"}
-	for i := 0; i < 4; i++ {
-		tx := panelX + 30 + float32(i*150)
+	tabLabels := []string{"1. OVERVIEW", "2. FABRICATOR", "3. BASE VAULT", "4. MEDICAL", "5. PDA LOGS"}
+	if g.IsMenuOpenedAnywhere() {
+		tx := panelX + 30
 		ty := panelY + 40
+		vector.FillRect(screen, tx, ty, 160, 30, color.RGBA{32, 45, 68, 255}, false)
+		vector.StrokeRect(screen, tx, ty, 160, 30, 1.0, color.RGBA{95, 125, 165, 255}, false)
+		ebitenutil.DebugPrintAt(screen, "★ DETACHED PDA LOGS ★", int(tx)+10, int(ty)+6)
+	} else {
+		for i := 0; i < 5; i++ {
+			tx := panelX + 30 + float32(i*150)
+			ty := panelY + 40
 
-		label := tabLabels[i]
-		if i == 2 && !b.HasModule(item.ModuleStorage) {
-			label = "3. VAULT [LOCKED]"
+			label := tabLabels[i]
+			if i == 2 && !b.HasModule(item.ModuleStorage) {
+				label = "3. VAULT [LOCKED]"
+			}
+
+			tabBg := color.RGBA{18, 24, 38, 255}
+			tabBorder := color.RGBA{45, 58, 78, 255}
+			if m.ActiveTab == i {
+				tabBg = color.RGBA{32, 45, 68, 255}
+				tabBorder = color.RGBA{95, 125, 165, 255}
+			}
+
+			vector.FillRect(screen, tx, ty, 140, 30, tabBg, false)
+			vector.StrokeRect(screen, tx, ty, 140, 30, 1.0, tabBorder, false)
+			ebitenutil.DebugPrintAt(screen, label, int(tx)+12, int(ty)+6)
 		}
-
-		tabBg := color.RGBA{18, 24, 38, 255}
-		tabBorder := color.RGBA{45, 58, 78, 255}
-		if m.ActiveTab == i {
-			tabBg = color.RGBA{32, 45, 68, 255}
-			tabBorder = color.RGBA{95, 125, 165, 255}
-		}
-
-		vector.FillRect(screen, tx, ty, 140, 30, tabBg, false)
-		vector.StrokeRect(screen, tx, ty, 140, 30, 1.0, tabBorder, false)
-		ebitenutil.DebugPrintAt(screen, label, int(tx)+12, int(ty)+6)
 	}
 
 	vector.StrokeLine(screen, panelX+20, panelY+75, panelX+panelW-20, panelY+75, 1.0, color.RGBA{68, 88, 120, 255}, false)
@@ -734,9 +784,138 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 		ebitenutil.DebugPrintAt(screen, healText, int(medX)+260, int(medY)+166)
 		ebitenutil.DebugPrintAt(screen, healSubText, int(medX)+260, int(medY)+186)
 		vector.StrokeRect(screen, medX+230, medY+150, 280, 60, 1.0, color.RGBA{70, 100, 140, 255}, false)
+
+	case 4:
+		// Left Panel: Entry List
+		listX := panelX + 30
+		listY := panelY + 95
+		listW := float32(260)
+		listH := float32(335)
+		vector.FillRect(screen, listX, listY, listW, listH, color.RGBA{16, 22, 34, 255}, false)
+		vector.StrokeRect(screen, listX, listY, listW, listH, 1.0, color.RGBA{48, 62, 85, 255}, false)
+		ebitenutil.DebugPrintAt(screen, "DECRYPTED LOGS LIST", int(listX)+15, int(listY)-20)
+
+		// Right Panel: Detail View
+		rightX := panelX + 310
+		rightY := panelY + 95
+		rightW := float32(460)
+		rightH := float32(335)
+		vector.FillRect(screen, rightX, rightY, rightW, rightH, color.RGBA{16, 22, 34, 255}, false)
+		vector.StrokeRect(screen, rightX, rightY, rightW, rightH, 1.0, color.RGBA{48, 62, 85, 255}, false)
+
+		unlocked := g.GetStoryManager().GetUnlockedEntries()
+		if len(unlocked) == 0 {
+			ebitenutil.DebugPrintAt(screen, "No database entries decrypted.", int(listX)+15, int(listY)+40)
+			ebitenutil.DebugPrintAt(screen, "Harvest resources or catch wildlife", int(listX)+15, int(listY)+60)
+			ebitenutil.DebugPrintAt(screen, "to decrypt logs automatically.", int(listX)+15, int(listY)+80)
+
+			ebitenutil.DebugPrintAt(screen, "★ PDA LOG SYSTEM OFFLINE ★", int(rightX)+110, int(rightY)+40)
+			ebitenutil.DebugPrintAt(screen, "Data packets are locked behind active", int(rightX)+50, int(rightY)+100)
+			ebitenutil.DebugPrintAt(screen, "environmental telemetry grids. Explore,", int(rightX)+50, int(rightY)+120)
+			ebitenutil.DebugPrintAt(screen, "mine, and recover items to unlock logs.", int(rightX)+50, int(rightY)+140)
+		} else {
+			if m.SelectedLoreIndex >= len(unlocked) {
+				m.SelectedLoreIndex = len(unlocked) - 1
+			}
+			if m.SelectedLoreIndex < 0 {
+				m.SelectedLoreIndex = 0
+			}
+
+			// Render left panel entries
+			rowH := float32(32)
+			viewportMinY := listY + 5
+			viewportH := listH - 10
+
+			rect := image.Rect(int(listX), int(viewportMinY), int(listX+listW), int(viewportMinY+viewportH))
+			subImg := screen.SubImage(rect)
+			if subImg != nil {
+				clippedScreen := subImg.(*ebiten.Image)
+				for idx, entry := range unlocked {
+					ry := viewportMinY + float32(idx)*rowH - float32(m.ScrollY)
+					
+					bgClr := color.RGBA{22, 28, 42, 255}
+					borderClr := color.RGBA{42, 54, 76, 255}
+					if idx == m.SelectedLoreIndex {
+						bgClr = color.RGBA{38, 54, 86, 255}
+						borderClr = color.RGBA{100, 140, 200, 255}
+					}
+					
+					vector.FillRect(clippedScreen, listX+5, ry, listW-10, 28, bgClr, false)
+					vector.StrokeRect(clippedScreen, listX+5, ry, listW-10, 28, 0.8, borderClr, false)
+
+					titleText := fmt.Sprintf("[%s] %s", entry.Category, entry.Title)
+					if len(titleText) > 28 {
+						titleText = titleText[:25] + "..."
+					}
+					drawColoredDebugText(clippedScreen, titleText, int(listX)+12, int(ry)+6, color.RGBA{220, 220, 220, 255})
+				}
+			}
+
+			// Render scrollbar for left panel if needed
+			totalH := float32(len(unlocked) * 32)
+			if totalH > viewportH {
+				scrollBarX := listX + listW - 8
+				vector.FillRect(screen, scrollBarX, viewportMinY, 4, viewportH, color.RGBA{24, 30, 44, 128}, false)
+				handleH := viewportH * (viewportH / totalH)
+				if handleH < 15 {
+					handleH = 15
+				}
+				maxScroll := totalH - viewportH
+				var handleY float32
+				if maxScroll > 0 {
+					handleY = viewportMinY + (float32(m.ScrollY)/maxScroll)*(viewportH-handleH)
+				} else {
+					handleY = viewportMinY
+				}
+				vector.FillRect(screen, scrollBarX, handleY, 4, handleH, color.RGBA{100, 130, 180, 255}, false)
+			}
+
+			// Render right panel selected entry
+			entry := unlocked[m.SelectedLoreIndex]
+			drawColoredDebugText(screen, entry.Title, int(rightX)+15, int(rightY)+15, color.RGBA{220, 180, 50, 255})
+			drawColoredDebugText(screen, "Category: "+entry.Category, int(rightX)+15, int(rightY)+35, color.RGBA{100, 180, 220, 255})
+			vector.StrokeLine(screen, rightX+15, rightY+55, rightX+rightW-15, rightY+55, 0.8, color.RGBA{48, 62, 85, 255}, false)
+
+			textStartY := rightY + 65
+			for _, pGraph := range entry.Paragraphs {
+				drawColoredDebugText(screen, pGraph.Header, int(rightX)+15, int(textStartY), color.RGBA{140, 170, 220, 255})
+				textStartY += 18
+
+				wrappedLines := wrapText(pGraph.Text, 62)
+				for _, line := range wrappedLines {
+					drawColoredDebugText(screen, line, int(rightX)+15, int(textStartY), color.RGBA{200, 200, 200, 255})
+					textStartY += 16
+				}
+				textStartY += 12 // margin between paragraphs
+			}
+		}
 	}
 
-	ebitenutil.DebugPrintAt(screen, "Press [E] or [O] to Close Terminal Interface", int(panelX)+260, int(panelY)+panelH-25)
+	closeText := "Press [E] or [O] to Close Terminal Interface"
+	if g.IsMenuOpenedAnywhere() {
+		closeText = "Press [J], [E], or [O] to Close PDA logs"
+	}
+	ebitenutil.DebugPrintAt(screen, closeText, int(panelX)+260, int(panelY)+panelH-25)
+}
+
+// wrapText splits a single long string of text into multiple lines of maxChars length.
+func wrapText(text string, maxChars int) []string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return nil
+	}
+	var lines []string
+	currentLine := words[0]
+	for _, word := range words[1:] {
+		if len(currentLine)+1+len(word) > maxChars {
+			lines = append(lines, currentLine)
+			currentLine = word
+		} else {
+			currentLine += " " + word
+		}
+	}
+	lines = append(lines, currentLine)
+	return lines
 }
 
 func drawInventoryGrid(g GameContext, screen *ebiten.Image, startX, startY float32, inv *item.Inventory) {

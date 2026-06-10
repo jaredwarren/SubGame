@@ -12,6 +12,7 @@ type Scene = scene.Scene
 type GameContext = scene.GameContext
 
 type TitleScene = scene.TitleScene
+type IntroScene = scene.IntroScene
 type OverworldScene = scene.OverworldScene
 type CaveScene = scene.CaveScene
 type BaseMenuScene = scene.BaseMenuScene
@@ -28,6 +29,7 @@ var CraftingRecipes = scene.CraftingRecipes
 
 // Constructor wrappers so NewGame() and tests call unchanged function names.
 func NewTitleScene() *TitleScene      { return scene.NewTitleScene() }
+func NewIntroScene() *IntroScene      { return scene.NewIntroScene() }
 func NewCaveScene() *CaveScene        { return scene.NewCaveScene() }
 func NewBaseMenuScene() *BaseMenuScene { return scene.NewBaseMenuScene() }
 func NewGameOverScene() *GameOverScene { return scene.NewGameOverScene() }

@@ -11,6 +11,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
+	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
@@ -25,6 +26,7 @@ type Game struct {
 	nextScene             Scene // scheduled deferred transition
 	transitionedThisFrame bool
 	titleState            *TitleScene
+	introState            *IntroScene
 	overworldState        *OverworldScene
 	caveState             *CaveScene
 	baseMenu              *BaseMenuScene
@@ -85,6 +87,11 @@ type Game struct {
 	// Debug
 	DebugDisableLightShader bool
 	DebugDisableWaterShader bool
+
+	// Story and Lore
+	storyManager       *story.StoryManager
+	pdaPriorState      State
+	menuOpenedAnywhere bool
 }
 
 // NewGame creates a fully initialized Game ready to run.
@@ -99,6 +106,9 @@ func NewGame() *Game {
 
 	baseStation := base.NewBaseStation(spawnX+96.0, spawnY-64.0)
 	skiff := vehicle.NewSkiff(spawnX, spawnY)
+
+	sm := story.NewStoryManager()
+	_ = sm.Load(story.LoreJSONBytes)
 
 	g := &Game{
 		currentState:      StateTitle,
@@ -115,9 +125,11 @@ func NewGame() *Game {
 		Sonar:             sonar.NewSonar(),
 		caveEntities:      make(map[string][]entity.CaveEntity),
 		FlashlightOn:      true,
+		storyManager:      sm,
 	}
 
 	g.titleState = NewTitleScene()
+	g.introState = NewIntroScene()
 	g.overworldState = NewOverworldScene(w)
 	g.caveState = NewCaveScene()
 	g.baseMenu = NewBaseMenuScene()
