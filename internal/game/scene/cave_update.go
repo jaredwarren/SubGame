@@ -148,10 +148,9 @@ func (c *CaveScene) updateVehicle(g GameContext, inp InputSource, activeVehicle 
 	if mech, ok := activeVehicle.(*vehicle.HeavyMech); ok && !mech.IsDrilling {
 		if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 			cursor := inp.Cursor()
-			camX := mech.Pos.X - config.ScreenWidth/2 + mech.Dimensions.X/2
-			camY := mech.Pos.Y - config.ScreenHeight/2 + mech.Dimensions.Y/2
-			worldX := camX + cursor.X
-			worldY := camY + cursor.Y
+			cam := g.GetCamera()
+			worldX := cam.Pos.X + cursor.X
+			worldY := cam.Pos.Y + cursor.Y
 
 			mtx := int(worldX) / config.TileSize
 			mty := int(worldY) / config.TileSize
@@ -188,10 +187,9 @@ func (c *CaveScene) handlePlayerMining(g GameContext, inp InputSource, p *player
 	p.MiningAnimTimer = 24
 
 	cursor := inp.Cursor()
-	camX := p.Pos.X - config.ScreenWidth/2 + p.Width/2
-	camY := p.Pos.Y - config.ScreenHeight/2 + p.Height/2
-	worldX := camX + cursor.X
-	worldY := camY + cursor.Y
+	cam := g.GetCamera()
+	worldX := cam.Pos.X + cursor.X
+	worldY := cam.Pos.Y + cursor.Y
 
 	mtx := int(worldX) / config.TileSize
 	mty := int(worldY) / config.TileSize
