@@ -238,19 +238,7 @@ func (s *Skiff) checkCollisions(runtime Runtime) {
 }
 
 func (s *Skiff) isSolid(runtime Runtime, pos gvec.Vec2) bool {
-	x1 := int(math.Floor(pos.X)) / TileSize
-	x2 := int(math.Floor(pos.X+s.Dimensions.X)) / TileSize
-	y1 := int(math.Floor(pos.Y)) / TileSize
-	y2 := int(math.Floor(pos.Y+s.Dimensions.Y)) / TileSize
-
-	for tx := x1; tx <= x2; tx++ {
-		for ty := y1; ty <= y2; ty++ {
-			if runtime.IsOverworldSolidAt(tx, ty) {
-				return true
-			}
-		}
-	}
-	return false
+	return solidAt(runtime.IsOverworldSolidAt, pos, s.Dimensions)
 }
 
 func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {

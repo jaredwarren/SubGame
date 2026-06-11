@@ -227,19 +227,7 @@ func (m *HeavyMech) checkCollisions(runtime Runtime) {
 }
 
 func (m *HeavyMech) isSolid(runtime Runtime, pos gvec.Vec2) bool {
-	x1 := int(math.Floor(pos.X)) / TileSize
-	x2 := int(math.Floor(pos.X+m.Dimensions.X)) / TileSize
-	y1 := int(math.Floor(pos.Y)) / TileSize
-	y2 := int(math.Floor(pos.Y+m.Dimensions.Y)) / TileSize
-
-	for tx := x1; tx <= x2; tx++ {
-		for ty := y1; ty <= y2; ty++ {
-			if runtime.IsCaveSolidAt(tx, ty) {
-				return true
-			}
-		}
-	}
-	return false
+	return solidAt(runtime.IsCaveSolidAt, pos, m.Dimensions)
 }
 
 func (m *HeavyMech) Draw(screen *ebiten.Image, camX, camY float64) {

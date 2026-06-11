@@ -2,6 +2,7 @@ package vehicle
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/item"
@@ -67,4 +68,23 @@ func drawFilledTriangle(screen *ebiten.Image, x1, y1, x2, y2, x3, y3 float32, cl
 	triangleVertices[2] = ebiten.Vertex{DstX: x3, DstY: y3, SrcX: 1, SrcY: 1, ColorR: rf, ColorG: gf, ColorB: bf, ColorA: af}
 
 	screen.DrawTriangles(triangleVertices, triangleIndices, emptyImage, nil)
+}
+
+// solidAt checks if the bounding box at pos with dimensions dims is overlapping with solid tiles.
+// It uses floor division to properly map negative coordinates, and subtracts an epsilon of 0.001
+// from the maximum bounds to prevent flush-boundary probing errors.
+func solidAt(query func(tx, ty int) bool, pos, dims gvec.Vec2) bool {
+	x1 := int(math.Floor(pos.X / float64(TileSize)))
+	x2 := int(math.Floor((pos.X + dims.X - 0.001) / float64(TileSize)))
+	y1 := int(math.Floor(pos.Y / float64(TileSize)))
+	y2 := int(math.Floor((pos.Y + dims.Y - 0.001) / float64(TileSize)))
+
+	for tx := x1; tx <= x2; tx++ {
+		for ty := y1; ty <= y2; ty++ {
+			if query(tx, ty) {
+				return true
+			}
+		}
+	}
+	return false
 }
