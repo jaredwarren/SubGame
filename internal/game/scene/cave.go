@@ -5,7 +5,6 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
-	"math"
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -205,10 +204,7 @@ func (c *CaveScene) IsSolid(g GameContext, x, y, w, h float64) bool {
 	gridW := len(c.CaveGrid)
 	gridH := len(c.CaveGrid[0])
 
-	x1 := int(math.Floor(x)) / config.TileSize
-	x2 := int(math.Floor(x+w)) / config.TileSize
-	y1 := int(math.Floor(y)) / config.TileSize
-	y2 := int(math.Floor(y+h)) / config.TileSize
+	x1, x2, y1, y2 := tileRange(x, y, w, h, config.TileSize)
 
 	for tx := x1; tx <= x2; tx++ {
 		for ty := y1; ty <= y2; ty++ {

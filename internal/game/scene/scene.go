@@ -2,6 +2,7 @@ package scene
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/base"
@@ -114,4 +115,20 @@ type GameContext interface {
 	ClosePDA()
 	IsMenuOpenedAnywhere() bool
 	TransitionToIntro(seed int64)
+}
+
+// tileAt calculates the tile index for a given single coordinate using floor division to handle negative bounds.
+func tileAt(coord float64, tileSize int) int {
+	return int(math.Floor(coord / float64(tileSize)))
+}
+
+// tileRange calculates the tile index range spanned by a bounding box.
+// Subtracts a small epsilon of 0.001 from the maximum bounds to prevent flush boundaries probing an extra tile.
+func tileRange(x, y, w, h float64, tileSize int) (x1, x2, y1, y2 int) {
+	d := float64(tileSize)
+	x1 = int(math.Floor(x / d))
+	x2 = int(math.Floor((x + w - 0.001) / d))
+	y1 = int(math.Floor(y / d))
+	y2 = int(math.Floor((y + h - 0.001) / d))
+	return
 }

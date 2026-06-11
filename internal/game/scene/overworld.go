@@ -187,8 +187,8 @@ func (o *OverworldScene) Update(g GameContext) error {
 	isMoving := speed > 0.1
 	p.UpdateStats(false, isSprinting && isMoving && moving)
 
-	tx := int(p.Pos.X+p.Width/2) / config.TileSize
-	ty := int(p.Pos.Y+p.Height/2) / config.TileSize
+	tx := tileAt(p.Pos.X+p.Width/2.0, config.TileSize)
+	ty := tileAt(p.Pos.Y+p.Height/2.0, config.TileSize)
 	if tx < 0 || tx >= o.World.Width || ty < 0 || ty >= o.World.Height {
 		if inp.IsKeyJustPressed(ebiten.KeyE) {
 			g.EnterCave(tx, ty)
@@ -293,10 +293,7 @@ func LoadAssets() {
 
 // IsSolid checks if the proposed bounding box overlaps with solid land.
 func (o *OverworldScene) IsSolid(x, y, w, h float64) bool {
-	x1 := int(math.Floor(x)) / config.TileSize
-	x2 := int(math.Floor(x+w)) / config.TileSize
-	y1 := int(math.Floor(y)) / config.TileSize
-	y2 := int(math.Floor(y+h)) / config.TileSize
+	x1, x2, y1, y2 := tileRange(x, y, w, h, config.TileSize)
 
 	for tx := x1; tx <= x2; tx++ {
 		for ty := y1; ty <= y2; ty++ {
@@ -704,8 +701,8 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 	}
 
 	if !isPiloting {
-		pTileX := int(p.Pos.X+p.Width/2) / config.TileSize
-		pTileY := int(p.Pos.Y+p.Height/2) / config.TileSize
+		pTileX := tileAt(p.Pos.X+p.Width/2.0, config.TileSize)
+		pTileY := tileAt(p.Pos.Y+p.Height/2.0, config.TileSize)
 		if pTileX < 0 || pTileX >= o.World.Width || pTileY < 0 || pTileY >= o.World.Height {
 			promptText := "Press [E] to Dive into Void"
 			promptX := float32(p.CenterX()) - 95
