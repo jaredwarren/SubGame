@@ -377,6 +377,27 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 	startTileY := int(camY) / config.TileSize
 	endTileY := (int(camY)+config.ScreenHeight)/config.TileSize + 1
 
+	// Precompute active cave vehicle coordinates to avoid Sprintf allocations per tile.
+	var cavesWithVehicles map[[2]int]bool
+	hasVoidDiveVehicle := false
+	if vehiclesMap := g.GetAllCaveVehicles(); len(vehiclesMap) > 0 {
+		cavesWithVehicles = make(map[[2]int]bool)
+		for key, vehicles := range vehiclesMap {
+			if len(vehicles) > 0 {
+				if key == "void_dive" {
+					hasVoidDiveVehicle = true
+				} else {
+					var cx, cy int
+					if _, err := fmt.Sscanf(key, "%d_%d", &cx, &cy); err == nil {
+						cavesWithVehicles[[2]int{cx, cy}] = true
+					}
+				}
+			}
+		}
+	}
+
+	op := &ebiten.DrawImageOptions{}
+
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
 			sx := float32(tx*config.TileSize - int(camX))
@@ -502,7 +523,8 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeClr, false)
 
 			if drawTexture != nil {
-				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Reset()
+				op.ColorScale.Reset()
 				wImg, hImg := drawTexture.Bounds().Dx(), drawTexture.Bounds().Dy()
 				if wImg > 0 && hImg > 0 {
 					op.GeoM.Scale(float64(config.TileSize)/float64(wImg), float64(config.TileSize)/float64(hImg))
@@ -519,26 +541,30 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			// Draw procedurally generated trees, plants, and grass texture for land tiles
 			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height && o.World.OverworldMap[tx][ty] == world.TileLand {
 				// Seed generator deterministically based on tile coords
-				rng := rand.New(rand.NewSource(int64(clampedTx*8123 + clampedTy*9137)))
+				rngVal := hashCoords(clampedTx, clampedTy)
+				if rngVal == 0 {
+					rngVal = 1
+				}
+				rng := statelessRNG(rngVal)
 				dist := o.World.WaterDist[clampedTx][clampedTy]
 				isSand := dist == 1
 
 				if isSand {
 					// 1. Draw sand ripples (subtle darker lines)
-					numRipples := rng.Intn(2) + 1
+					numRipples := rng.intn(2) + 1
 					rippleClr := applyLight(color.RGBA{220, 200, 150, 255}, mult)
 					for i := 0; i < numRipples; i++ {
-						rx := float32(rng.Float64()*40.0) + 12.0
-						ry := float32(rng.Float64()*40.0) + 12.0
+						rx := float32(rng.float64()*40.0) + 12.0
+						ry := float32(rng.float64()*40.0) + 12.0
 						vector.StrokeLine(screen, sx+rx, sy+ry, sx+rx+8, sy+ry+2, 1.0, rippleClr, false)
 					}
 
 					// 2. Draw occasional pebble or starfish (40% chance)
-					if rng.Float64() < 0.40 {
-						px := float32(rng.Float64()*44.0) + 10.0
-						py := float32(rng.Float64()*44.0) + 10.0
+					if rng.float64() < 0.40 {
+						px := float32(rng.float64()*44.0) + 10.0
+						py := float32(rng.float64()*44.0) + 10.0
 
-						if rng.Float64() < 0.15 {
+						if rng.float64() < 0.15 {
 							// Rare starfish! (Orange cross/star)
 							starClr := applyLight(color.RGBA{235, 110, 50, 255}, mult)
 							vector.StrokeLine(screen, sx+px-3, sy+py, sx+px+3, sy+py, 1.2, starClr, false)
@@ -552,13 +578,13 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 					}
 				} else {
 					// 1. Grass tufts/blades for texture
-					numGrass := rng.Intn(3) + 2
+					numGrass := rng.intn(3) + 2
 					grassClr := applyLight(color.RGBA{60, 195, 120, 255}, mult)
 					for i := 0; i < numGrass; i++ {
-						gx := float32(rng.Float64()*50.0) + 7.0
-						gy := float32(rng.Float64()*50.0) + 7.0
-						lenG := float32(rng.Float64()*4.0 + 3.0)
-						angleG := (rng.Float64() - 0.5) * 0.4 // slight tilt
+						gx := float32(rng.float64()*50.0) + 7.0
+						gy := float32(rng.float64()*50.0) + 7.0
+						lenG := float32(rng.float64()*4.0 + 3.0)
+						angleG := (rng.float64() - 0.5) * 0.4 // slight tilt
 
 						// Draw two blades per tuft
 						gx2 := gx + lenG*float32(math.Sin(float64(angleG)))
@@ -571,9 +597,9 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 					}
 
 					// 2. Flowering plants (35% chance)
-					if rng.Float64() < 0.35 {
-						px := float32(rng.Float64()*40.0) + 12.0
-						py := float32(rng.Float64()*40.0) + 12.0
+					if rng.float64() < 0.35 {
+						px := float32(rng.float64()*40.0) + 12.0
+						py := float32(rng.float64()*40.0) + 12.0
 
 						// Stem
 						stemClr := applyLight(color.RGBA{40, 150, 80, 255}, mult)
@@ -581,7 +607,7 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 
 						// Flower petals (red, yellow, or blue)
 						var petalClr color.RGBA
-						switch rng.Intn(3) {
+						switch rng.intn(3) {
 						case 0:
 							petalClr = color.RGBA{235, 80, 80, 255} // red
 						case 1:
@@ -596,9 +622,9 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 					}
 
 					// 3. Leafy Trees (22% chance)
-					if rng.Float64() < 0.22 {
-						tx := float32(rng.Float64()*24.0) + 20.0
-						ty := float32(rng.Float64()*24.0) + 20.0
+					if rng.float64() < 0.22 {
+						tx := float32(rng.float64()*24.0) + 20.0
+						ty := float32(rng.float64()*24.0) + 20.0
 
 						shadowClr := color.RGBA{4, 12, 8, 55}
 						trunkClr := applyLight(color.RGBA{100, 65, 35, 255}, mult)
@@ -625,109 +651,73 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			// Draw procedurally generated waves for standard water tiles
 			currTile := o.World.OverworldMap[clampedTx][clampedTy]
 			if currTile == world.TileWater || currTile == world.TileTrench || currTile == world.TileWreckage {
-				ticks := g.GetTicks()
+				if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
+					ticks := g.GetTicks()
 
-				for nx := tx - 1; nx <= tx+1; nx++ {
-					for ny := ty - 1; ny <= ty+1; ny++ {
-						if nx < 0 || nx >= o.World.Width || ny < 0 || ny >= o.World.Height {
-							continue
+					// Only generate waves on a subset of water tiles (50% density)
+					tileRngVal := hashCoords(tx, ty)
+					if tileRngVal == 0 {
+						tileRngVal = 1
+					}
+					tileRng := statelessRNG(tileRngVal)
+					if tileRng.float64() < 0.5 {
+						rngVal := hashCoords(tx, ty) ^ 0x5555555555555555
+						if rngVal == 0 {
+							rngVal = 1
 						}
-						neighborTile := o.World.OverworldMap[nx][ny]
-						if neighborTile == world.TileWater || neighborTile == world.TileTrench || neighborTile == world.TileWreckage {
-							// Only generate waves on a subset of water tiles (50% density)
-							tileRng := rand.New(rand.NewSource(int64(nx*997 + ny*1009)))
-							if tileRng.Float64() < 0.5 {
-								rng := rand.New(rand.NewSource(int64(nx*773 + ny*877)))
+						rng := statelessRNG(rngVal)
 
-								// Static base offset inside the tile
-								baseOffsetX := rng.Float64() * float64(config.TileSize)
-								baseOffsetY := rng.Float64() * float64(config.TileSize)
+						// Static base offset inside the tile
+						baseOffsetX := rng.float64() * float64(config.TileSize)
+						baseOffsetY := rng.float64() * float64(config.TileSize)
 
-								// Life cycle configuration (140 ticks per cycle)
-								const cycleLength = 140.0
-								phaseOffset := rng.Float64() * cycleLength
-								cycleTime := math.Mod(ticks+phaseOffset, cycleLength)
-								lifeFrac := cycleTime / cycleLength
+						// Life cycle configuration (140 ticks per cycle)
+						const cycleLength = 140.0
+						phaseOffset := rng.float64() * cycleLength
+						cycleTime := math.Mod(ticks+phaseOffset, cycleLength)
+						lifeFrac := cycleTime / cycleLength
 
-								// Fade in and out
-								opacity := math.Sin(lifeFrac * math.Pi)
-								if opacity < 0 {
-									opacity = 0
-								}
+						// Fade in and out
+						opacity := math.Sin(lifeFrac * math.Pi)
+						if opacity < 0 {
+							opacity = 0
+						}
 
-								// Slow wind drift to the left and slightly down
-								driftX := -lifeFrac * 14.0
-								driftY := lifeFrac * 4.0
+						// Slow wind drift to the left and slightly down
+						driftX := -lifeFrac * 14.0
+						driftY := lifeFrac * 4.0
 
-								// Wave center in world space
-								wcx := float64(nx*config.TileSize) + baseOffsetX + driftX
-								wcy := float64(ny*config.TileSize) + baseOffsetY + driftY
+						// Wave center in world space
+						wcx := float64(tx*config.TileSize) + baseOffsetX + driftX
+						wcy := float64(ty*config.TileSize) + baseOffsetY + driftY
 
-								// Dynamic bobbing: all points of the wave bob together smoothly
-								wcyBobbed := wcy + math.Sin(ticks*0.06+wcx*0.02)*1.2
+						// Dynamic bobbing: all points of the wave bob together smoothly
+						wcyBobbed := wcy + math.Sin(ticks*0.06+wcx*0.02)*1.2
 
-								// Variety in wave type, length, and color
-								waveType := rng.Intn(3)
+						// Variety in wave type, length, and color
+						waveType := rng.intn(3)
 
-								// Draw function for a wave line segment, clipped precisely to tile bounds using math.Floor
-								drawWaveSegment := func(x1, y1, x2, y2 float64, thickness float32, clr color.RGBA) {
-									t1x := int(math.Floor(x1 / float64(config.TileSize)))
-									t1y := int(math.Floor(y1 / float64(config.TileSize)))
-									t2x := int(math.Floor(x2 / float64(config.TileSize)))
-									t2y := int(math.Floor(y2 / float64(config.TileSize)))
+						switch waveType {
+						case 0: // Small white foam cap
+							halfLen := 3.0 + rng.float64()*2.0
+							clr := color.RGBA{245, 250, 255, uint8(opacity * 170.0)}
+							drawWaveCurve(screen, camX, camY, wcx, wcyBobbed, halfLen, 1.0, 1.2, clr, mult)
 
-									if t1x == tx && t1y == ty && t2x == tx && t2y == ty {
-										lx1 := float32(x1 - camX)
-										ly1 := float32(y1 - camY)
-										lx2 := float32(x2 - camX)
-										ly2 := float32(y2 - camY)
-										litColor := applyLight(clr, mult)
-										vector.StrokeLine(screen, lx1, ly1, lx2, ly2, thickness, litColor, true)
-									}
-								}
+						case 1: // Medium light-blue wave
+							halfLen := 6.0 + rng.float64()*4.0
+							clr := color.RGBA{135, 215, 255, uint8(opacity * 130.0)}
+							drawWaveCurve(screen, camX, camY, wcx, wcyBobbed, halfLen, 1.5, 1.2, clr, mult)
 
-								// Draw function for a parabolic wave curve
-								drawWaveCurve := func(targetWcx, targetWcy, halfLen, maxArcHeight float64, thickness float32, clr color.RGBA) {
-									const segments = 6
-									xStep := (halfLen * 2.0) / segments
-									var lastX, lastY float64
+						case 2: // Double crest (light-blue base with white cap)
+							halfLen := 8.0 + rng.float64()*5.0
+							clrBlue := color.RGBA{130, 205, 255, uint8(opacity * 120.0)}
+							clrWhite := color.RGBA{245, 250, 255, uint8(opacity * 180.0)}
 
-									for i := 0; i <= segments; i++ {
-										frac := float64(i) / float64(segments)
-										wx := targetWcx - halfLen + float64(i)*xStep
-										arc := 4.0 * frac * (1.0 - frac) * maxArcHeight
-										wy := targetWcy - arc
+							// 1. Blue base crest
+							drawWaveCurve(screen, camX, camY, wcx, wcyBobbed, halfLen, 1.8, 1.2, clrBlue, mult)
 
-										if i > 0 {
-											drawWaveSegment(lastX, lastY, wx, wy, thickness, clr)
-										}
-										lastX, lastY = wx, wy
-									}
-								}
-
-								switch waveType {
-								case 0: // Small white foam cap
-									halfLen := 3.0 + rng.Float64()*2.0
-									clr := color.RGBA{245, 250, 255, uint8(opacity * 170.0)}
-									drawWaveCurve(wcx, wcyBobbed, halfLen, 1.0, 1.2, clr)
-
-								case 1: // Medium light-blue wave
-									halfLen := 6.0 + rng.Float64()*4.0
-									clr := color.RGBA{135, 215, 255, uint8(opacity * 130.0)}
-									drawWaveCurve(wcx, wcyBobbed, halfLen, 1.5, 1.2, clr)
-
-								case 2: // Double crest (light-blue base with white cap)
-									halfLen := 8.0 + rng.Float64()*5.0
-									clrBlue := color.RGBA{130, 205, 255, uint8(opacity * 120.0)}
-									clrWhite := color.RGBA{245, 250, 255, uint8(opacity * 180.0)}
-
-									// 1. Blue base crest
-									drawWaveCurve(wcx, wcyBobbed, halfLen, 1.8, 1.2, clrBlue)
-
-									// 2. White cap (offset upwards and shorter)
-									drawWaveCurve(wcx, wcyBobbed-2.0, halfLen*0.5, 1.0, 1.0, clrWhite)
-								}
-							}
+							// 2. White cap (offset upwards and shorter)
+							drawWaveCurve(screen, camX, camY, wcx, wcyBobbed-2.0, halfLen*0.5, 1.0, 1.0, clrWhite, mult)
 						}
 					}
 				}
@@ -737,12 +727,11 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			trenchKey := g.GetActiveTrenchKey()
 			trenchX, trenchY := g.GetActiveTrenchCoords()
 			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
-				key := fmt.Sprintf("%d_%d", tx, ty)
-				if vehicles := g.GetCaveVehicles(key); len(vehicles) > 0 {
+				if cavesWithVehicles != nil && cavesWithVehicles[[2]int{tx, ty}] {
 					hasVehicle = true
 				}
 			} else if trenchKey == "void_dive" && tx == trenchX && ty == trenchY {
-				if vehicles := g.GetCaveVehicles("void_dive"); len(vehicles) > 0 {
+				if hasVoidDiveVehicle {
 					hasVehicle = true
 				}
 			}
@@ -818,5 +807,65 @@ func applyLight(c color.RGBA, mult float64) color.RGBA {
 		G: uint8(float64(c.G) * mult),
 		B: uint8(float64(c.B) * mult),
 		A: c.A,
+	}
+}
+
+type statelessRNG uint64
+
+func (r *statelessRNG) next() uint64 {
+	*r ^= *r >> 12
+	*r ^= *r << 25
+	*r ^= *r >> 27
+	return uint64(*r) * 0x2545F4914F6CDD1D
+}
+
+func (r *statelessRNG) float64() float64 {
+	return float64(r.next()) / float64(math.MaxUint64)
+}
+
+func (r *statelessRNG) intn(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	return int(r.next() % uint64(n))
+}
+
+func hashCoords(tx, ty int) uint64 {
+	// Injective combination of 32-bit coordinates into 64-bit int
+	x := (int64(tx) << 32) | (int64(uint32(ty)))
+	// SplitMix64 finalizer
+	u := uint64(x)
+	u ^= u >> 33
+	u *= 0xff51afd7ed558ccd
+	u ^= u >> 33
+	u *= 0xc4ceb9fe1a85ec53
+	u ^= u >> 33
+	return u
+}
+
+func drawWaveSegment(screen *ebiten.Image, camX, camY float64, x1, y1, x2, y2 float64, thickness float32, clr color.RGBA, mult float64) {
+	lx1 := float32(x1 - camX)
+	ly1 := float32(y1 - camY)
+	lx2 := float32(x2 - camX)
+	ly2 := float32(y2 - camY)
+	litColor := applyLight(clr, mult)
+	vector.StrokeLine(screen, lx1, ly1, lx2, ly2, thickness, litColor, true)
+}
+
+func drawWaveCurve(screen *ebiten.Image, camX, camY float64, targetWcx, targetWcy, halfLen, maxArcHeight float64, thickness float32, clr color.RGBA, mult float64) {
+	const segments = 6
+	xStep := (halfLen * 2.0) / segments
+	var lastX, lastY float64
+
+	for i := 0; i <= segments; i++ {
+		frac := float64(i) / float64(segments)
+		wx := targetWcx - halfLen + float64(i)*xStep
+		arc := 4.0 * frac * (1.0 - frac) * maxArcHeight
+		wy := targetWcy - arc
+
+		if i > 0 {
+			drawWaveSegment(screen, camX, camY, lastX, lastY, wx, wy, thickness, clr, mult)
+		}
+		lastX, lastY = wx, wy
 	}
 }

@@ -4,11 +4,8 @@ import (
 	"image"
 	"image/color"
 	_ "image/png"
-	"log"
 	"math"
 	"math/rand"
-	"os"
-	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -17,67 +14,8 @@ import (
 )
 
 var (
-	heavyMechSheet       *ebiten.Image
-	heavyMechSheetOnce   sync.Once
-	heavyMechSheetLoaded bool
+	heavyMechSheet *ebiten.Image
 )
-
-func loadHeavyMechSheetLazy() {
-	if heavyMechSheetLoaded {
-		return
-	}
-	heavyMechSheetLoaded = true
-
-	paths := []string{
-		"assets/textures/heavy_mech.png",
-		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/heavy_mech.png",
-		"../../assets/textures/heavy_mech.png",
-		"../assets/textures/heavy_mech.png",
-		"../../../assets/textures/heavy_mech.png",
-	}
-
-	var file *os.File
-	var err error
-	for _, p := range paths {
-		file, err = os.Open(p)
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		log.Printf("Warning: Failed to open assets/textures/heavy_mech.png: %v", err)
-		return
-	}
-	defer func() { _ = file.Close() }()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Warning: Failed to decode assets/textures/heavy_mech.png: %v", err)
-		return
-	}
-
-	bounds := img.Bounds()
-	rgba := image.NewRGBA(bounds)
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			clr := img.At(x, y)
-			r, g, b, a := clr.RGBA()
-			ru := uint8(r >> 8)
-			gu := uint8(g >> 8)
-			bu := uint8(b >> 8)
-			au := uint8(a >> 8)
-
-			if gu > 140 && ru < 100 && bu < 100 {
-				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
-			} else {
-				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
-			}
-		}
-	}
-
-	heavyMechSheet = ebiten.NewImageFromImage(rgba)
-}
 
 // HeavyMech is a cave-walker with a drill arm, high depth tolerance, and thruster propulsion.
 type HeavyMech struct {
@@ -311,8 +249,6 @@ func (m *HeavyMech) Draw(screen *ebiten.Image, camX, camY float64) {
 	h := float32(m.Dimensions.Y)
 
 	isFacingRight := math.Cos(m.Facing) >= 0
-
-	loadHeavyMechSheetLazy()
 
 	if heavyMechSheet != nil {
 		col := 0

@@ -14,11 +14,64 @@ import (
 )
 
 type ShallowSeabedCave struct {
-	Grid [][]bool
+	Grid       [][]bool
+	tileImages []*ebiten.Image
 }
 
 func NewShallowSeabedCave(grid [][]bool) *ShallowSeabedCave {
-	return &ShallowSeabedCave{Grid: grid}
+	c := &ShallowSeabedCave{
+		Grid:       grid,
+		tileImages: make([]*ebiten.Image, 8),
+	}
+	c.preRenderTiles()
+	return c
+}
+
+func (c *ShallowSeabedCave) preRenderTiles() {
+	rockColor := color.RGBA{180, 155, 100, 255}
+	strokeColor := color.RGBA{210, 185, 120, 255}
+	darkSandColor := color.RGBA{150, 130, 80, 255}
+	lightSandColor := color.RGBA{215, 190, 125, 255}
+
+	for idx := range c.tileImages {
+		img := ebiten.NewImage(config.TileSize, config.TileSize)
+		// 1. Fill base rock color
+		vector.FillRect(img, 0, 0, config.TileSize, config.TileSize, rockColor, false)
+		// 2. Stroke boundary
+		vector.StrokeRect(img, 0, 0, config.TileSize, config.TileSize, 0.5, strokeColor, false)
+
+		// Create a local RNG for this variant's generation
+		rng := rand.New(rand.NewSource(int64(idx * 997)))
+
+		// 3. Draw darker sand grains
+		for i := 0; i < 6; i++ {
+			px := float32(rng.Intn(config.TileSize-4)) + 2
+			py := float32(rng.Intn(config.TileSize-4)) + 2
+			vector.FillRect(img, px, py, 2, 2, darkSandColor, false)
+		}
+
+		// 4. Draw lighter sand grains
+		for i := 0; i < 6; i++ {
+			px := float32(rng.Intn(config.TileSize-4)) + 2
+			py := float32(rng.Intn(config.TileSize-4)) + 2
+			vector.FillRect(img, px, py, 2, 2, lightSandColor, false)
+		}
+
+		c.tileImages[idx] = img
+	}
+}
+
+func hashCoords(tx, ty int) uint64 {
+	// Injective combination of 32-bit coordinates into 64-bit int
+	x := (int64(tx) << 32) | (int64(uint32(ty)))
+	// SplitMix64 finalizer
+	u := uint64(x)
+	u ^= u >> 33
+	u *= 0xff51afd7ed558ccd
+	u ^= u >> 33
+	u *= 0xc4ceb9fe1a85ec53
+	u ^= u >> 33
+	return u
 }
 
 func (c *ShallowSeabedCave) GetCaveType() CaveType { return CaveOrganicShallow }
@@ -54,32 +107,21 @@ func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camY float64, m
 }
 
 func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
+	op := ebiten.DrawImageOptions{}
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
 			if c.Grid[tx][ty] {
-				sx := float32(tx*config.TileSize - int(camX))
-				sy := float32(ty*config.TileSize - int(camY))
-				rockColor := color.RGBA{180, 155, 100, 255}
-				strokeColor := color.RGBA{210, 185, 120, 255}
-				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
-				vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
+				sx := float64(tx*config.TileSize - int(camX))
+				sy := float64(ty*config.TileSize - int(camY))
 
-				// Deterministic pseudo-random seed based on tile coordinates to prevent flickering
-				rng := rand.New(rand.NewSource(int64(tx*73 + ty*37)))
+				op.GeoM.Reset()
+				op.GeoM.Translate(sx, sy)
 
-				// Draw darker sand grains
-				for i := 0; i < 6; i++ {
-					px := float32(rng.Intn(config.TileSize-4)) + 2
-					py := float32(rng.Intn(config.TileSize-4)) + 2
-					vector.FillRect(screen, sx+px, sy+py, 2, 2, color.RGBA{150, 130, 80, 255}, false)
-				}
+				// Injective stateless hash to choose the variant
+				h := hashCoords(tx, ty)
+				variantIdx := h % uint64(len(c.tileImages))
 
-				// Draw lighter sand grains
-				for i := 0; i < 6; i++ {
-					px := float32(rng.Intn(config.TileSize-4)) + 2
-					py := float32(rng.Intn(config.TileSize-4)) + 2
-					vector.FillRect(screen, sx+px, sy+py, 2, 2, color.RGBA{215, 190, 125, 255}, false)
-				}
+				screen.DrawImage(c.tileImages[variantIdx], &op)
 			}
 		}
 	}

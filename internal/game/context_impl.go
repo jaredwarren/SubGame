@@ -136,6 +136,9 @@ func (g *Game) GetOverworldVehicles() []vehicle.Vehicle { return g.OverworldVehi
 func (g *Game) GetCaveVehicles(key string) []vehicle.Vehicle {
 	return g.CaveVehicles[key]
 }
+func (g *Game) GetAllCaveVehicles() map[string][]vehicle.Vehicle {
+	return g.CaveVehicles
+}
 func (g *Game) GetActiveTrenchKey() string { return g.activeTrenchKey }
 func (g *Game) GetActiveTrenchCoords() (x, y int) {
 	return g.activeTrenchX, g.activeTrenchY

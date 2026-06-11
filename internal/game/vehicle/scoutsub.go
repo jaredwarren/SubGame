@@ -4,10 +4,8 @@ import (
 	"image"
 	"image/color"
 	_ "image/png"
-	"log"
 	"math"
 	"math/rand"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -16,66 +14,8 @@ import (
 )
 
 var (
-	scoutSubSheet       *ebiten.Image
-	scoutSubSheetLoaded bool
+	scoutSubSheet *ebiten.Image
 )
-
-func loadScoutSubSheetLazy() {
-	if scoutSubSheetLoaded {
-		return
-	}
-	scoutSubSheetLoaded = true
-
-	paths := []string{
-		"assets/textures/scout_sub.png",
-		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/scout_sub.png",
-		"../../assets/textures/scout_sub.png",
-		"../assets/textures/scout_sub.png",
-		"../../../assets/textures/scout_sub.png",
-	}
-
-	var file *os.File
-	var err error
-	for _, p := range paths {
-		file, err = os.Open(p)
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		log.Printf("Warning: Failed to open assets/textures/scout_sub.png: %v", err)
-		return
-	}
-	defer func() { _ = file.Close() }()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Warning: Failed to decode assets/textures/scout_sub.png: %v", err)
-		return
-	}
-
-	bounds := img.Bounds()
-	rgba := image.NewRGBA(bounds)
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			clr := img.At(x, y)
-			r, g, b, a := clr.RGBA()
-			ru := uint8(r >> 8)
-			gu := uint8(g >> 8)
-			bu := uint8(b >> 8)
-			au := uint8(a >> 8)
-
-			if gu > 140 && ru < 100 && bu < 100 {
-				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
-			} else {
-				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
-			}
-		}
-	}
-
-	scoutSubSheet = ebiten.NewImageFromImage(rgba)
-}
 
 // SonarSettings configures sonar behaviour for a vehicle.
 type SonarSettings struct {
@@ -308,8 +248,6 @@ func (sub *ScoutSub) Draw(screen *ebiten.Image, camX, camY float64) {
 	h := float32(sub.Dimensions.Y)
 
 	isFacingRight := math.Cos(sub.Facing) >= 0
-
-	loadScoutSubSheetLazy()
 
 	if scoutSubSheet != nil {
 		rect := image.Rect(481, 141, 2752, 1472)

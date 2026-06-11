@@ -96,6 +96,7 @@ type Game struct {
 
 // NewGame creates a fully initialized Game ready to run.
 func NewGame() *Game {
+	vehicle.LoadAssets()
 	w := world.NewWorld(12345)
 
 	spawnX, spawnY := findWaterSpawn(w)

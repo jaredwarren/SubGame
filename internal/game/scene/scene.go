@@ -55,6 +55,7 @@ type GameContext interface {
 	GetActiveVehicle() vehicle.Vehicle
 	GetOverworldVehicles() []vehicle.Vehicle
 	GetCaveVehicles(key string) []vehicle.Vehicle
+	GetAllCaveVehicles() map[string][]vehicle.Vehicle
 	GetActiveTrenchKey() string
 	GetActiveTrenchCoords() (x, y int)
 

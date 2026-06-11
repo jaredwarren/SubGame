@@ -4,9 +4,7 @@ import (
 	"image"
 	"image/color"
 	_ "image/png"
-	"log"
 	"math"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -25,46 +23,8 @@ const (
 const activeWakeStyle = WakeStyleVSegments
 
 var (
-	skiffSheet       *ebiten.Image
-	skiffSheetLoaded bool
+	skiffSheet *ebiten.Image
 )
-
-func loadSkiffSheetLazy() {
-	if skiffSheetLoaded {
-		return
-	}
-	skiffSheetLoaded = true
-
-	paths := []string{
-		"assets/textures/skiff.png",
-		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/skiff.png",
-		"../../assets/textures/skiff.png",
-		"../assets/textures/skiff.png",
-		"../../../assets/textures/skiff.png",
-	}
-
-	var file *os.File
-	var err error
-	for _, p := range paths {
-		file, err = os.Open(p)
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		log.Printf("Warning: Failed to open assets/textures/skiff.png: %v", err)
-		return
-	}
-	defer func() { _ = file.Close() }()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Warning: Failed to decode assets/textures/skiff.png: %v", err)
-		return
-	}
-
-	skiffSheet = ebiten.NewImageFromImage(img)
-}
 
 type skiffWakePoint struct {
 	x, y      float64
@@ -417,8 +377,6 @@ func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {
 			vector.StrokeLine(screen, float32(rXStart), float32(rYStart), float32(rXEnd), float32(rYEnd), thickInner, clrInner, true)
 		}
 	}
-
-	loadSkiffSheetLazy()
 
 	if skiffSheet != nil {
 		rect := image.Rect(348, 82, 676, 948)
