@@ -338,6 +338,23 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 
 	cursor := g.GetInput().Cursor()
 	mx, my := int(cursor.X), int(cursor.Y)
+
+	activeVehicle := g.GetActiveVehicle()
+	if activeVehicle != nil && activeVehicle.GetKit() != nil {
+		btnX := panelX + 730
+		btnY := panelY + 12
+		const btnW, btnH = 200.0, 24.0
+		btnBg := color.RGBA{22, 50, 80, 255}
+		btnBorder := color.RGBA{45, 175, 215, 255}
+		if mx >= int(btnX) && mx < int(btnX+btnW) && my >= int(btnY) && my < int(btnY+btnH) {
+			btnBg = color.RGBA{30, 80, 120, 255}
+			btnBorder = color.RGBA{60, 200, 255, 255}
+		}
+		vector.FillRect(screen, btnX, btnY, btnW, btnH, btnBg, false)
+		vector.StrokeRect(screen, btnX, btnY, btnW, btnH, 1.0, btnBorder, false)
+		ebitenutil.DebugPrintAt(screen, "  PICK UP VEHICLE", int(btnX)+10, int(btnY)+4)
+	}
+
 	var hoveredItemName = "None"
 
 	startX_P := panelX + 30
@@ -420,7 +437,6 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 		}
 	}
 
-	activeVehicle := g.GetActiveVehicle()
 	vUpg := activeVehicle.GetUpgrades()
 	if vUpg != nil {
 		upgY := panelY + 220

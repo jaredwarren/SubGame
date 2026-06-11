@@ -185,6 +185,17 @@ func (g *Game) handleVehicleInventoryClicks() {
 	panelY := float64(config.ScreenHeight-360) / 2.0
 	const slotSz, gap = 48.0, 8.0
 
+	// Check if Pick Up button is clicked
+	if g.ActiveVehicle != nil && g.ActiveVehicle.GetKit() != nil {
+		btnX := panelX + 730
+		btnY := panelY + 12
+		const btnW, btnH = 200.0, 24.0
+		if float64(mx) >= btnX && float64(mx) < btnX+btnW && float64(my) >= btnY && float64(my) < btnY+btnH {
+			g.pickUpActiveVehicle()
+			return
+		}
+	}
+
 	// Transfer from player inventory to vehicle
 	pStartX := panelX + 30
 	pStartY := panelY + 60
@@ -554,3 +565,46 @@ func min(a, b float64) float64 {
 	}
 	return b
 }
+
+func (g *Game) pickUpActiveVehicle() {
+	v := g.ActiveVehicle
+	if v == nil {
+		return
+	}
+	kit := v.GetKit()
+	if kit == nil {
+		return
+	}
+	if (v.GetCargo() != nil && !v.GetCargo().IsEmpty()) || (v.GetUpgrades() != nil && !v.GetUpgrades().IsEmpty()) {
+		g.SetMineWarning("Vehicle cargo and upgrades must be empty to pick up!", 120, 2)
+		return
+	}
+	if g.player.Inventory.AddItem(kit, 1) {
+		g.removeVehicle(v)
+		g.ActiveVehicle = nil
+		g.showInventory = false
+		g.SetMineWarning("Picked up "+v.GetName()+"!", 120, 1)
+	} else {
+		g.SetMineWarning("Inventory full! Cannot pick up vehicle.", 120, 2)
+	}
+}
+
+func (g *Game) removeVehicle(v vehicle.Vehicle) {
+	if g.currentState == StateOverworld {
+		for i, ov := range g.OverworldVehicles {
+			if ov == v {
+				g.OverworldVehicles = append(g.OverworldVehicles[:i], g.OverworldVehicles[i+1:]...)
+				break
+			}
+		}
+	} else {
+		list := g.CaveVehicles[g.activeTrenchKey]
+		for i, cv := range list {
+			if cv == v {
+				g.CaveVehicles[g.activeTrenchKey] = append(list[:i], list[i+1:]...)
+				break
+			}
+		}
+	}
+}
+

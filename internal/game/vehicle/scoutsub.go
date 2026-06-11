@@ -135,6 +135,8 @@ func (sub *ScoutSub) GetFacing() float64           { return sub.Facing }
 func (sub *ScoutSub) ApplyForce(force gvec.Vec2) {
 	sub.Vel = sub.Vel.Add(force)
 }
+func (sub *ScoutSub) GetKit() item.Item { return &ScoutSubKit{} }
+
 
 func (sub *ScoutSub) TakeDamage(amount float64) {
 	sub.Health -= amount

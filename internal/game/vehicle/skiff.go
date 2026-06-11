@@ -121,6 +121,8 @@ func (s *Skiff) GetFacing() float64           { return s.Facing }
 func (s *Skiff) ApplyForce(force gvec.Vec2) {
 	s.Vel = s.Vel.Add(force)
 }
+func (s *Skiff) GetKit() item.Item { return nil }
+
 
 func (s *Skiff) TakeDamage(amount float64) {
 	s.Health -= amount

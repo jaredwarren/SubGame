@@ -819,3 +819,59 @@ func TestTitleScene_SeedInputBackspace(t *testing.T) {
 		t.Errorf("expected world seed to be 123, got %d", g.world.Seed)
 	}
 }
+
+func TestVehicle_PickUp(t *testing.T) {
+	g := NewGame()
+	
+	// Set state to Cave and prepare a trench key
+	g.currentState = StateCave
+	g.activeTrenchKey = "0_0"
+	sub := vehicle.NewScoutSub(100, 100)
+	g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
+	g.ActiveVehicle = sub
+
+	// 1. Try picking up sub with cargo inside -> should fail.
+	sub.GetCargo().AddItem(&item.Titanium{}, 1)
+	g.pickUpActiveVehicle()
+
+	// Active vehicle should still be sub, and inventory shouldn't have sub kit.
+	if g.ActiveVehicle != sub {
+		t.Error("expected active vehicle to remain sub when cargo is not empty")
+	}
+	if item.HasItem[*vehicle.ScoutSubKit](g.player.Inventory, 1) {
+		t.Error("expected player inventory to not contain ScoutSubKit when pickup failed")
+	}
+
+	// 2. Clear cargo and upgrades, but player inventory is full -> should fail.
+	sub.GetCargo().Clear()
+	if sub.GetUpgrades() != nil {
+		sub.GetUpgrades().Clear()
+	}
+	// Fill player inventory (size is 24)
+	for i := 0; i < 24; i++ {
+		g.player.Inventory.Slots[i] = item.ItemStack{Item: &item.Titanium{}, Quantity: 10}
+	}
+	g.pickUpActiveVehicle()
+	if g.ActiveVehicle != sub {
+		t.Error("expected active vehicle to remain sub when player inventory is full")
+	}
+
+	// 3. Free up one slot -> should succeed.
+	g.player.Inventory.Slots[0] = item.ItemStack{}
+	g.pickUpActiveVehicle()
+	
+	if g.ActiveVehicle != nil {
+		t.Error("expected active vehicle to be nil after successful pickup")
+	}
+	// Verify sub kit is in inventory
+	if !item.HasItem[*vehicle.ScoutSubKit](g.player.Inventory, 1) {
+		t.Error("expected player inventory to contain ScoutSubKit after successful pickup")
+	}
+	// Verify sub is removed from CaveVehicles list
+	for _, cv := range g.CaveVehicles[g.activeTrenchKey] {
+		if cv == sub {
+			t.Error("expected sub to be removed from CaveVehicles list")
+		}
+	}
+}
+

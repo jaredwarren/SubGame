@@ -127,6 +127,8 @@ func (m *HeavyMech) GetFacing() float64           { return m.Facing }
 func (m *HeavyMech) ApplyForce(force gvec.Vec2) {
 	// HeavyMech is too heavy and stable to get knocked back!
 }
+func (m *HeavyMech) GetKit() item.Item { return &HeavyMechKit{} }
+
 
 func (m *HeavyMech) TakeDamage(amount float64) {
 	m.Health -= amount * 0.6 // 40% damage reduction

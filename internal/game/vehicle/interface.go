@@ -29,6 +29,7 @@ type Vehicle interface {
 	RechargeBattery(amount float64)
 	GetFacing() float64
 	ApplyForce(force gvec.Vec2)
+	GetKit() item.Item
 }
 
 // Deployable defines the interface for items that can deploy a vehicle.

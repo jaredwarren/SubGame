@@ -215,3 +215,17 @@ func (inv *Inventory) Clear() {
 	}
 	inv.counts = make(map[reflect.Type]int)
 }
+
+// IsEmpty returns true if the inventory is nil or contains no items in any slots.
+func (inv *Inventory) IsEmpty() bool {
+	if inv == nil {
+		return true
+	}
+	for _, slot := range inv.Slots {
+		if slot.Item != nil {
+			return false
+		}
+	}
+	return true
+}
+
