@@ -9,15 +9,15 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/light"
-	"github.com/jaredwarren/SubGame/internal/game/player"
-	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 // CrateContext defines the interface needed by FloatingCrate to interact with the game scene.
 type CrateContext interface {
-	GetPlayer() *player.Player
-	GetActiveVehicle() vehicle.Vehicle
+	GetTargetCenter() gvec.Vec2
+	GetTargetDimensions() gvec.Vec2
+	IsPiloting() bool
+	AddLoot(loot item.Item) bool
 	SpawnDebris(x, y float64, clr color.RGBA)
 	TriggerScreenShake(duration int, intensity float64)
 	SetMineWarning(msg string, duration, level int)
@@ -62,21 +62,8 @@ func (c *FloatingCrate) Draw(screen *ebiten.Image, camX, camY float64, ticks flo
 }
 
 func (c *FloatingCrate) Update(g CrateContext) {
-	p := g.GetPlayer()
-	isPiloting := false
-	var targetCenter gvec.Vec2
-	var targetDims gvec.Vec2
-
-	activeVeh := g.GetActiveVehicle()
-	if activeVeh != nil {
-		isPiloting = true
-		vPos := activeVeh.GetPos()
-		targetDims = activeVeh.GetDimensions()
-		targetCenter = gvec.Vec2{X: vPos.X + targetDims.X/2.0, Y: vPos.Y + targetDims.Y/2.0}
-	} else {
-		targetCenter = gvec.Vec2{X: p.Pos.X + p.Width/2.0, Y: p.Pos.Y + p.Height/2.0}
-		targetDims = gvec.Vec2{X: p.Width, Y: p.Height}
-	}
+	targetCenter := g.GetTargetCenter()
+	targetDims := g.GetTargetDimensions()
 
 	if c.Collected {
 		c.RespawnTimer--
@@ -99,7 +86,7 @@ func (c *FloatingCrate) Update(g CrateContext) {
 		// Loot generation
 		r := rand.Float64()
 
-		// TODO: fix this, these items and percenteages should be defined by the Floating Crate
+		// TODO: fix this, these items and percentages should be defined by the Floating Crate
 		var loot item.Item
 		if r < 0.50 {
 			loot = &item.ScrapMetal{}
@@ -113,12 +100,7 @@ func (c *FloatingCrate) Update(g CrateContext) {
 			loot = &item.PowerCell{}
 		}
 
-		added := false
-		if isPiloting {
-			added = activeVeh.GetCargo().AddItem(loot, 1)
-		} else {
-			added = p.Inventory.AddItem(loot, 1)
-		}
+		added := g.AddLoot(loot)
 
 		if added {
 			c.Collected = true
@@ -129,10 +111,6 @@ func (c *FloatingCrate) Update(g CrateContext) {
 			g.TriggerScreenShake(10, 1.5)
 
 			g.SetMineWarning("Salvaged: "+loot.GetName()+"!", 120, 1)
-
-			if !isPiloting {
-				p.RecalculateUpgrades()
-			}
 		} else {
 			g.SetMineWarning("Inventory full! Cannot salvage crate.", 60, 2)
 		}

@@ -31,6 +31,12 @@ type Vehicle interface {
 	ApplyForce(force gvec.Vec2)
 }
 
+// Deployable defines the interface for items that can deploy a vehicle.
+type Deployable interface {
+	item.Item
+	Deploy(x, y float64) Vehicle
+}
+
 // TileSize matches the global tile size used for collision calculations.
 const TileSize = 64
 

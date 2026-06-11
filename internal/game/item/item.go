@@ -142,6 +142,11 @@ func drawItemIconSprite(screen *ebiten.Image, name string, cx, cy, size float32)
 	return true
 }
 
+// DrawItemIconSprite wraps the internal drawItemIconSprite function so other packages can render item icons.
+func DrawItemIconSprite(screen *ebiten.Image, name string, cx, cy, size float32) bool {
+	return drawItemIconSprite(screen, name, cx, cy, size)
+}
+
 // Item defines the interface that all inventory-compatible items must implement.
 type Item interface {
 	GetName() string
@@ -306,36 +311,6 @@ func (s *Scanner) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 }
 func (s *Scanner) IsPlayerUpgrade() bool { return true }
 
-// Deployable vehicle kit item types.
-type ScoutSubKit struct{}
-
-func (k *ScoutSubKit) GetName() string       { return "Scout Sub Kit" }
-func (k *ScoutSubKit) GetMaxStack() int      { return 1 }
-func (k *ScoutSubKit) GetColor() color.Color { return color.RGBA{15, 160, 185, 255} }
-func (k *ScoutSubKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawItemIconSprite(screen, k.GetName(), cx, cy, size) {
-		return
-	}
-	// Small sub capsule silhouette
-	vector.FillRect(screen, cx-size/2.0, cy-size/4.0, size, size/2.0, k.GetColor(), false)
-	vector.FillCircle(screen, cx+size/4.0, cy, size/4.0, color.RGBA{80, 205, 255, 255}, false)
-}
-func (k *ScoutSubKit) IsPlayerUpgrade() bool { return false }
-
-type HeavyMechKit struct{}
-
-func (k *HeavyMechKit) GetName() string       { return "Heavy Mech Kit" }
-func (k *HeavyMechKit) GetMaxStack() int      { return 1 }
-func (k *HeavyMechKit) GetColor() color.Color { return color.RGBA{218, 98, 16, 255} }
-func (k *HeavyMechKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawItemIconSprite(screen, k.GetName(), cx, cy, size) {
-		return
-	}
-	// Tiny mech torso silhouette
-	vector.FillRect(screen, cx-size/3.0, cy-size/3.0, size/1.5, size/1.5, k.GetColor(), false)
-	vector.FillRect(screen, cx-size/2.0, cy+size/6.0, size, size/6.0, color.RGBA{60, 70, 80, 255}, false)
-}
-func (k *HeavyMechKit) IsPlayerUpgrade() bool { return false }
 
 // NewItemFromType instantiates a new concrete Item struct using reflect.New.
 func NewItemFromType(t reflect.Type) Item {

@@ -8,8 +8,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/light"
-	"github.com/jaredwarren/SubGame/internal/game/player"
-	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
@@ -18,8 +16,11 @@ type VentContext interface {
 	GetTicks() float64
 	SpawnBubble(x, y float64)
 	TriggerScreenShake(duration int, intensity float64)
-	GetPlayer() *player.Player
-	GetActiveVehicle() vehicle.Vehicle
+	GetTargetCenter() gvec.Vec2
+	GetTargetDimensions() gvec.Vec2
+	IsPiloting() bool
+	ApplyTargetForce(force gvec.Vec2)
+	DamageTarget(damage float64)
 }
 
 
@@ -56,21 +57,8 @@ func NewThermalVent(pos gvec.Vec2, seedOffset int64) *ThermalVent {
 
 // Update ticks the thermal vent bubble particle spawn rate and geyser state machine.
 func (v *ThermalVent) Update(g VentContext) {
-	p := g.GetPlayer()
-	isPiloting := false
-	var targetCenter gvec.Vec2
-	var targetDims gvec.Vec2
-
-	activeVeh := g.GetActiveVehicle()
-	if activeVeh != nil {
-		isPiloting = true
-		vPos := activeVeh.GetPos()
-		targetDims = activeVeh.GetDimensions()
-		targetCenter = gvec.Vec2{X: vPos.X + targetDims.X/2.0, Y: vPos.Y + targetDims.Y/2.0}
-	} else {
-		targetCenter = gvec.Vec2{X: p.Pos.X + p.Width/2.0, Y: p.Pos.Y + p.Height/2.0}
-		targetDims = gvec.Vec2{X: p.Width, Y: p.Height}
-	}
+	isPiloting := g.IsPiloting()
+	targetCenter := g.GetTargetCenter()
 
 	// Tick down StateTimer and handle transitions
 	if v.StateTimer <= 0 {
@@ -147,18 +135,15 @@ func (v *ThermalVent) Update(g VentContext) {
 		}
 
 		if isPiloting {
-			activeVeh := g.GetActiveVehicle()
 			// Apply physical force to the vehicle
-			activeVeh.ApplyForce(gvec.Vec2{X: pushX * 0.35, Y: pushY * 0.35})
+			g.ApplyTargetForce(gvec.Vec2{X: pushX * 0.35, Y: pushY * 0.35})
 			// Deal continuous structural damage to the vehicle
-			activeVeh.TakeDamage(0.06 * intensityScale)
+			g.DamageTarget(0.06 * intensityScale)
 		} else {
 			// Apply force to player velocity
-			p := g.GetPlayer()
-			p.Vel.X += pushX
-			p.Vel.Y += pushY
+			g.ApplyTargetForce(gvec.Vec2{X: pushX, Y: pushY})
 			// Deal damage to swimming player
-			p.CurrentHealth -= 0.15 * intensityScale
+			g.DamageTarget(0.15 * intensityScale)
 		}
 
 		// Trigger visual screen shake if close, scaled by intensity

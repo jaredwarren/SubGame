@@ -437,23 +437,3 @@ func (c *CaveScene) drawBioluminescence(g GameContext, screen *ebiten.Image, cam
 		}
 	}
 }
-
-func (c *CaveScene) drawBackgroundParticles(g GameContext, screen *ebiten.Image) {
-	camX := g.GetCamera().Pos.X
-	camY := g.GetCamera().Pos.Y
-
-	for _, p := range g.GetParticles() {
-		if p.Type != particle.ParticlePlankton || p.Pos.Y < 0 {
-			continue
-		}
-		sx := float32(p.Pos.X - camX)
-		sy := float32(p.Pos.Y - camY)
-		clr := p.Color
-		opacity := p.Life
-		if p.Life > 0.9 {
-			opacity = (1.0 - p.Life) * 10.0
-		}
-		clr.A = uint8(float64(clr.A) * opacity)
-		vector.FillRect(screen, sx-p.Size/2.0, sy-p.Size/2.0, p.Size, p.Size, clr, false)
-	}
-}

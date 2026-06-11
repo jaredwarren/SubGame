@@ -11,7 +11,6 @@ import (
 )
 
 type mockGameContext struct {
-	GameContext
 	ticks          float64
 	bubbles        []gvec.Vec2
 	shakeDuration  int
@@ -28,8 +27,44 @@ func (m *mockGameContext) TriggerScreenShake(dur int, intensity float64) {
 	m.shakeDuration = dur
 	m.shakeIntensity = intensity
 }
-func (m *mockGameContext) GetPlayer() *player.Player         { return m.player }
-func (m *mockGameContext) GetActiveVehicle() vehicle.Vehicle { return m.activeVehicle }
+
+func (m *mockGameContext) GetTargetCenter() gvec.Vec2 {
+	if m.activeVehicle != nil {
+		vPos := m.activeVehicle.GetPos()
+		vDims := m.activeVehicle.GetDimensions()
+		return gvec.Vec2{X: vPos.X + vDims.X/2.0, Y: vPos.Y + vDims.Y/2.0}
+	}
+	p := m.player
+	return gvec.Vec2{X: p.Pos.X + p.Width/2.0, Y: p.Pos.Y + p.Height/2.0}
+}
+
+func (m *mockGameContext) GetTargetDimensions() gvec.Vec2 {
+	if m.activeVehicle != nil {
+		return m.activeVehicle.GetDimensions()
+	}
+	p := m.player
+	return gvec.Vec2{X: p.Width, Y: p.Height}
+}
+
+func (m *mockGameContext) IsPiloting() bool {
+	return m.activeVehicle != nil
+}
+
+func (m *mockGameContext) ApplyTargetForce(force gvec.Vec2) {
+	if m.activeVehicle != nil {
+		m.activeVehicle.ApplyForce(force)
+	} else {
+		m.player.Vel = m.player.Vel.Add(force)
+	}
+}
+
+func (m *mockGameContext) DamageTarget(damage float64) {
+	if m.activeVehicle != nil {
+		m.activeVehicle.TakeDamage(damage)
+	} else {
+		m.player.CurrentHealth -= damage
+	}
+}
 
 type mockCosmeticFishContext struct {
 	targetCenter gvec.Vec2

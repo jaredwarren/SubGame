@@ -9,6 +9,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
@@ -683,8 +684,8 @@ func TestTitleScene_Transitions(t *testing.T) {
 
 func TestPlayer_EquipUpgrade_VehicleKits(t *testing.T) {
 	p := player.NewPlayer(0, 0)
-	subKit := &item.ScoutSubKit{}
-	mechKit := &item.HeavyMechKit{}
+	subKit := &vehicle.ScoutSubKit{}
+	mechKit := &vehicle.HeavyMechKit{}
 
 	// Attempting to equip vehicle kits as upgrades should return false
 	if p.EquipUpgrade(subKit) {
@@ -695,7 +696,7 @@ func TestPlayer_EquipUpgrade_VehicleKits(t *testing.T) {
 	}
 
 	// Verify upgrades inventory is empty
-	if item.HasItem[*item.ScoutSubKit](p.Upgrades, 1) || item.HasItem[*item.HeavyMechKit](p.Upgrades, 1) {
+	if item.HasItem[*vehicle.ScoutSubKit](p.Upgrades, 1) || item.HasItem[*vehicle.HeavyMechKit](p.Upgrades, 1) {
 		t.Error("expected upgrades inventory to be empty of vehicle kits")
 	}
 }

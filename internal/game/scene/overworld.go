@@ -27,8 +27,9 @@ type OverworldScene struct {
 	whirlpool   *oe.Whirlpool
 	crates      []*oe.FloatingCrate
 	vents       []*oe.ThermalVent
-	fish        []*oe.CosmeticFish
-	initialized bool
+	fish         []*oe.CosmeticFish
+	tileTextures map[world.TileType]*ebiten.Image
+	initialized  bool
 }
 
 // NewOverworldScene creates a new OverworldScene.
@@ -36,11 +37,25 @@ func NewOverworldScene(w *world.World) *OverworldScene {
 	return &OverworldScene{World: w}
 }
 
+func (o *OverworldScene) getTileTexture(tileType world.TileType) *ebiten.Image {
+	if o.tileTextures == nil {
+		loadTrenchTextureLazy()
+		loadWreckageTextureLazy()
+		o.tileTextures = map[world.TileType]*ebiten.Image{
+			world.TileTrench:   trenchTexture,
+			world.TileWreckage: wreckageTexture,
+		}
+	}
+	return o.tileTextures[tileType]
+}
+
 func (o *OverworldScene) OnEnter(g GameContext) {
 	g.SetCurrentState(StateOverworld)
 	if o.whirlpool == nil {
 		o.whirlpool = oe.NewWhirlpool(g.GetWorld().Seed)
-		o.whirlpool.Relocate(o.World, g.GetBaseStation().Pos)
+		rng := rand.New(rand.NewSource(g.GetWorld().Seed + 997))
+		pos := o.FindSafeWhirlpoolSpawnPos(g.GetBaseStation().Pos, rng)
+		o.whirlpool.Relocate(pos)
 	}
 }
 
@@ -50,10 +65,12 @@ func (o *OverworldScene) OnExit(g GameContext) {}
 func (o *OverworldScene) Update(g GameContext) error {
 	if o.whirlpool == nil {
 		o.whirlpool = oe.NewWhirlpool(g.GetWorld().Seed)
-		o.whirlpool.Relocate(o.World, g.GetBaseStation().Pos)
+		rng := rand.New(rand.NewSource(g.GetWorld().Seed + 997))
+		pos := o.FindSafeWhirlpoolSpawnPos(g.GetBaseStation().Pos, rng)
+		o.whirlpool.Relocate(pos)
 	}
 
-	o.whirlpool.Update(g)
+	o.whirlpool.Update(whirlpoolContext{scene: o, g: g})
 	o.UpdateExtras(g)
 
 	// If piloting a vehicle, apply forces to the vehicle and handle death.
@@ -464,26 +481,21 @@ func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
 			rv := uint8(float64(baseClr.R)*(1.0-t) + float64(voidClr.R)*t)
 			gv := uint8(float64(baseClr.G)*(1.0-t) + float64(voidClr.G)*t)
 			bv := uint8(float64(baseClr.B)*(1.0-t) + float64(voidClr.B)*t)
-			tileClr := color.RGBA{rv, gv, bv, 255}
+			av := uint8(float64(baseClr.A)*(1.0-t) + float64(voidClr.A)*t)
+			tileClr := color.RGBA{rv, gv, bv, av}
 
 			srv := uint8(float64(baseStrokeClr.R)*(1.0-t) + float64(voidStrokeClr.R)*t)
 			sgv := uint8(float64(baseStrokeClr.G)*(1.0-t) + float64(voidStrokeClr.G)*t)
 			sbv := uint8(float64(baseStrokeClr.B)*(1.0-t) + float64(voidStrokeClr.B)*t)
-			strokeClr := color.RGBA{srv, sgv, sbv, 255}
+			sav := uint8(float64(baseStrokeClr.A)*(1.0-t) + float64(voidStrokeClr.A)*t)
+			strokeClr := color.RGBA{srv, sgv, sbv, sav}
 
 			mult := GetOverworldLightMultiplier(g.GetTimeOfDay())
 			tileClr = applyLight(tileClr, mult)
 			strokeClr = applyLight(strokeClr, mult)
 
-			var drawTexture *ebiten.Image
 			tileType := o.World.OverworldMap[clampedTx][clampedTy]
-			if tileType == world.TileTrench {
-				loadTrenchTextureLazy()
-				drawTexture = trenchTexture
-			} else if tileType == world.TileWreckage {
-				loadWreckageTextureLazy()
-				drawTexture = wreckageTexture
-			}
+			drawTexture := o.getTileTexture(tileType)
 
 			// Always draw the base background tile (e.g. water color) first
 			vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, tileClr, false)

@@ -415,3 +415,23 @@ func (m *HeavyMech) Draw(screen *ebiten.Image, camX, camY float64) {
 		vector.FillCircle(screen, flameX2, flameY1+float32(rand.Intn(6)), 4, color.RGBA{240, 110, 30, 220}, false)
 	}
 }
+
+// HeavyMechKit represents the deployable kit for the Heavy Mech.
+type HeavyMechKit struct{}
+
+func (k *HeavyMechKit) GetName() string       { return "Heavy Mech Kit" }
+func (k *HeavyMechKit) GetMaxStack() int      { return 1 }
+func (k *HeavyMechKit) GetColor() color.Color { return color.RGBA{218, 98, 16, 255} }
+func (k *HeavyMechKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if item.DrawItemIconSprite(screen, k.GetName(), cx, cy, size) {
+		return
+	}
+	// Tiny mech torso silhouette
+	vector.FillRect(screen, cx-size/3.0, cy-size/3.0, size/1.5, size/1.5, k.GetColor(), false)
+	vector.FillRect(screen, cx-size/2.0, cy+size/6.0, size, size/6.0, color.RGBA{60, 70, 80, 255}, false)
+}
+func (k *HeavyMechKit) IsPlayerUpgrade() bool { return false }
+func (k *HeavyMechKit) Deploy(x, y float64) Vehicle {
+	return NewHeavyMech(x, y)
+}
+

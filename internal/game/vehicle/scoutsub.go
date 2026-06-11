@@ -355,3 +355,23 @@ func (sub *ScoutSub) Draw(screen *ebiten.Image, camX, camY float64) {
 
 	vector.FillCircle(screen, sx+w/2.0, sy+h/2.0, 5, color.RGBA{20, 30, 50, 255}, false)
 }
+
+// ScoutSubKit represents the deployable kit for the Scout Submarine.
+type ScoutSubKit struct{}
+
+func (k *ScoutSubKit) GetName() string       { return "Scout Sub Kit" }
+func (k *ScoutSubKit) GetMaxStack() int      { return 1 }
+func (k *ScoutSubKit) GetColor() color.Color { return color.RGBA{15, 160, 185, 255} }
+func (k *ScoutSubKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if item.DrawItemIconSprite(screen, k.GetName(), cx, cy, size) {
+		return
+	}
+	// Small sub capsule silhouette
+	vector.FillRect(screen, cx-size/2.0, cy-size/4.0, size, size/2.0, k.GetColor(), false)
+	vector.FillCircle(screen, cx+size/4.0, cy, size/4.0, color.RGBA{80, 205, 255, 255}, false)
+}
+func (k *ScoutSubKit) IsPlayerUpgrade() bool { return false }
+func (k *ScoutSubKit) Deploy(x, y float64) Vehicle {
+	return NewScoutSub(x, y)
+}
+

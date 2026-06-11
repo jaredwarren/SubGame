@@ -4,32 +4,29 @@ import (
 	"math"
 	"testing"
 
-	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/gvec"
-	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 type mockWhirlpoolContext struct {
-	w       *world.World
 	basePos gvec.Vec2
 }
 
-func (m *mockWhirlpoolContext) GetWorld() *world.World {
-	return m.w
+func (m *mockWhirlpoolContext) BaseStationPos() gvec.Vec2 {
+	return m.basePos
 }
 
-func (m *mockWhirlpoolContext) GetBaseStation() *base.BaseStation {
-	return &base.BaseStation{Pos: m.basePos}
+func (m *mockWhirlpoolContext) FindSafeSpawnPos(baseStationPos gvec.Vec2) gvec.Vec2 {
+	return gvec.Vec2{X: baseStationPos.X + 1000.0, Y: baseStationPos.Y + 1000.0}
 }
 
 func TestWhirlpoolBasic(t *testing.T) {
-	w := world.NewWorld(12345)
-	wp := oe.NewWhirlpool(w.Seed)
+	wp := oe.NewWhirlpool(12345)
 
 	basePos := gvec.Vec2{X: 50.0 * config.TileSize, Y: 50.0 * config.TileSize}
-	wp.Relocate(w, basePos)
+	spawnPos := gvec.Vec2{X: basePos.X + 1000.0, Y: basePos.Y + 1000.0}
+	wp.Relocate(spawnPos)
 
 	// Verify it spawned far from base
 	dist := math.Hypot(wp.Pos.X-basePos.X, wp.Pos.Y-basePos.Y)
@@ -46,7 +43,7 @@ func TestWhirlpoolBasic(t *testing.T) {
 	}
 
 	// Simulate one update tick
-	ctx := &mockWhirlpoolContext{w: w, basePos: basePos}
+	ctx := &mockWhirlpoolContext{basePos: basePos}
 	wp.Update(ctx)
 	if wp.Alpha <= 0.0 {
 		t.Error("expected Alpha to increase after Update tick")

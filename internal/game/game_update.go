@@ -96,9 +96,10 @@ func (g *Game) handleInput() {
 		g.TransitionTo(g.baseMenu)
 	}
 	if g.Input.IsKeyJustPressed(ebiten.KeyJ) {
-		if g.currentState == StateBaseMenu {
+		switch g.currentState {
+		case StateBaseMenu:
 			g.ClosePDA()
-		} else if g.currentState == StateOverworld || g.currentState == StateCave {
+		case StateOverworld, StateCave:
 			g.TransitionToPDA()
 		}
 	}
@@ -283,8 +284,8 @@ func (g *Game) handlePlayerInventoryClicks() {
 	startY := panelY + 60.0
 
 	// Main inventory grid
-	for r := 0; r < 3; r++ {
-		for c := 0; c < cols; c++ {
+	for r := range 3 {
+		for c := range cols {
 			idx := r*cols + c
 			sx := int(startX) + c*int(slotSz+gap)
 			sy := int(startY) + r*int(slotSz+gap)
@@ -302,7 +303,7 @@ func (g *Game) handlePlayerInventoryClicks() {
 	// Equipped gear slots (uninstall on click)
 	gearStartX := panelX + (600.0-(4.0*slotSz+3.0*gap))/2.0
 	gearSlotsY := startY + 3.0*(slotSz+gap) + 5.0 + 22.0
-	for c := 0; c < 4; c++ {
+	for c := range 4 {
 		sx := int(gearStartX) + c*int(slotSz+gap)
 		sy := int(gearSlotsY)
 		if !inSlot(mx, my, sx, sy, int(slotSz)) || g.player.Upgrades == nil || c >= len(g.player.Upgrades.Slots) {
@@ -333,16 +334,10 @@ func (g *Game) activatePlayerItem(it item.Item) {
 	if g.currentState != StateCave {
 		return
 	}
-	switch it.(type) {
-	case *item.ScoutSubKit:
-		sub := vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y)
-		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], sub)
-		g.player.Inventory.Remove(it, 1)
-		g.player.RecalculateUpgrades()
-		g.showInventory = false
-	case *item.HeavyMechKit:
-		mech := vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y)
-		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
+
+	if deployable, ok := it.(vehicle.Deployable); ok {
+		veh := deployable.Deploy(g.player.Pos.X, g.player.Pos.Y)
+		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], veh)
 		g.player.Inventory.Remove(it, 1)
 		g.player.RecalculateUpgrades()
 		g.showInventory = false
@@ -428,6 +423,18 @@ func (g *Game) exitVehicle(vPos, vDims gvec.Vec2) {
 }
 
 // checkVehicleEntry lets the player board a nearby vehicle with [F].
+func (g *Game) getVehiclesForCurrentScene() []vehicle.Vehicle {
+	switch g.currentState {
+	case StateOverworld:
+		return g.OverworldVehicles
+	case StateCave:
+		return g.CaveVehicles[g.activeTrenchKey]
+	default:
+		return nil
+	}
+}
+
+// checkVehicleEntry lets the player board a nearby vehicle with [F].
 func (g *Game) checkVehicleEntry() {
 	if g.ActiveVehicle != nil || g.justExited {
 		return
@@ -435,13 +442,7 @@ func (g *Game) checkVehicleEntry() {
 	if !g.Input.IsKeyJustPressed(ebiten.KeyF) {
 		return
 	}
-	var candidates []vehicle.Vehicle
-	switch g.currentState {
-	case StateOverworld:
-		candidates = g.OverworldVehicles
-	case StateCave:
-		candidates = g.CaveVehicles[g.activeTrenchKey]
-	}
+	candidates := g.getVehiclesForCurrentScene()
 	for _, v := range candidates {
 		vPos := v.GetPos()
 		vDims := v.GetDimensions()
@@ -456,13 +457,7 @@ func (g *Game) checkVehicleEntry() {
 
 // updateIdleVehicles ticks all vehicles that the player is not currently piloting.
 func (g *Game) updateIdleVehicles(vrt *vehicleRuntimeAdapter) {
-	var idle []vehicle.Vehicle
-	switch g.currentState {
-	case StateOverworld:
-		idle = g.OverworldVehicles
-	case StateCave:
-		idle = g.CaveVehicles[g.activeTrenchKey]
-	}
+	idle := g.getVehiclesForCurrentScene()
 	for _, v := range idle {
 		if v != g.ActiveVehicle {
 			v.Update(vrt)

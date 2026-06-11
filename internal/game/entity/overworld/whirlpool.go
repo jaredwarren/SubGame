@@ -7,10 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/jaredwarren/SubGame/internal/game/base"
-	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/gvec"
-	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 type WhirlpoolState int
@@ -42,8 +39,8 @@ type Whirlpool struct {
 
 // WhirlpoolContext defines the context interface needed by Whirlpool to update itself.
 type WhirlpoolContext interface {
-	GetWorld() *world.World
-	GetBaseStation() *base.BaseStation
+	BaseStationPos() gvec.Vec2
+	FindSafeSpawnPos(baseStationPos gvec.Vec2) gvec.Vec2
 }
 
 // NewWhirlpool creates an unpositioned whirlpool with an internal RNG.
@@ -56,53 +53,9 @@ func NewWhirlpool(seed int64) *Whirlpool {
 	return wp
 }
 
-// Relocate places the whirlpool at a random ocean water tile far from land and player spawn.
-func (wp *Whirlpool) Relocate(w *world.World, baseStationPos gvec.Vec2) {
-	var candidates []gvec.Vec2
-	for tx := 0; tx < w.Width; tx++ {
-		for ty := 0; ty < w.Height; ty++ {
-			if w.OverworldMap[tx][ty] == world.TileWater {
-				// Land distance check: must be far from land
-				if w.LandDist[tx][ty] >= 3 {
-					tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
-					tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
-
-					// Distance check to player spawn / base station (at least 15 tiles = 960 pixels)
-					dist := math.Hypot(tileX-baseStationPos.X, tileY-baseStationPos.Y)
-					if dist >= 960.0 {
-						candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
-					}
-				}
-			}
-		}
-	}
-
-	if len(candidates) > 0 {
-		idx := wp.rng.Intn(len(candidates))
-		wp.Pos = candidates[idx]
-	} else {
-		// Fallback: search for any water tile if no deep/far water tile is available
-		for tx := 0; tx < w.Width; tx++ {
-			for ty := 0; ty < w.Height; ty++ {
-				if w.OverworldMap[tx][ty] == world.TileWater {
-					tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
-					tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
-					candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
-				}
-			}
-		}
-		if len(candidates) > 0 {
-			idx := wp.rng.Intn(len(candidates))
-			wp.Pos = candidates[idx]
-		} else {
-			// Absolute fallback to map center
-			wp.Pos = gvec.Vec2{
-				X: float64(w.Width*config.TileSize) / 2.0,
-				Y: float64(w.Height*config.TileSize) / 2.0,
-			}
-		}
-	}
-
+// Relocate places the whirlpool at a specific coordinate.
+func (wp *Whirlpool) Relocate(pos gvec.Vec2) {
+	wp.Pos = pos
 	wp.State = WpFadeIn
 	wp.StateTimer = 300 // 5 seconds at 60 FPS
 	wp.Alpha = 0.0
@@ -132,13 +85,6 @@ func (wp *Whirlpool) respawnParticle(p *whirlpoolParticle) {
 
 // Update ticks the state machine, rotates the vortex, and updates the foam particles.
 func (wp *Whirlpool) Update(g WhirlpoolContext) {
-	w := g.GetWorld()
-	baseStation := g.GetBaseStation()
-	var baseStationPos gvec.Vec2
-	if baseStation != nil {
-		baseStationPos = baseStation.Pos
-	}
-
 	// Spin speed
 	wp.Rotation += 0.04
 	if wp.Rotation > 2*math.Pi {
@@ -166,7 +112,9 @@ func (wp *Whirlpool) Update(g WhirlpoolContext) {
 	case WpFadeOut:
 		wp.Alpha = float64(wp.StateTimer)/300.0
 		if wp.StateTimer <= 0 {
-			wp.Relocate(w, baseStationPos)
+			basePos := g.BaseStationPos()
+			spawnPos := g.FindSafeSpawnPos(basePos)
+			wp.Relocate(spawnPos)
 		}
 	}
 

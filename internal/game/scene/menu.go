@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 )
 
 // Ingredient represents an item constructor and quantity required for a recipe.
@@ -70,7 +71,7 @@ var CraftingRecipes = []Recipe{
 		Unlocked: true,
 	},
 	{
-		NewResult: func() item.Item { return &item.ScoutSubKit{} },
+		NewResult: func() item.Item { return &vehicle.ScoutSubKit{} },
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 6},
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 4},
@@ -80,7 +81,7 @@ var CraftingRecipes = []Recipe{
 		Unlocked: false,
 	},
 	{
-		NewResult: func() item.Item { return &item.HeavyMechKit{} },
+		NewResult: func() item.Item { return &vehicle.HeavyMechKit{} },
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 8},
 			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 6},
