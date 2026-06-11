@@ -1,15 +1,17 @@
 package resource
 
 import (
+	"bytes"
 	"image"
 	"image/color"
+	"image/draw"
 	_ "image/png"
 	"log"
 	"math/rand"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/assets"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
@@ -86,58 +88,29 @@ var (
 	spritesLoaded  bool
 )
 
-func loadSpritesLazy() {
-	if spritesLoaded {
-		return
-	}
-	spritesLoaded = true
-
-	paths := []string{
-		"assets/textures/ore_sheet.png",
-		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/ore_sheet.png",
-		"../../assets/textures/ore_sheet.png",
-		"../assets/textures/ore_sheet.png",
-	}
-
-	var file *os.File
-	var err error
-	for _, p := range paths {
-		file, err = os.Open(p)
-		if err == nil {
-			break
-		}
-	}
+// LoadAssets preloads and chroma-keys all resource crystal sprites.
+func LoadAssets() {
+	img, _, err := image.Decode(bytes.NewReader(assets.OreSheetPNG))
 	if err != nil {
-		log.Printf("Warning: Failed to open assets/textures/ore_sheet.png: %v", err)
-		return
-	}
-	defer func() { _ = file.Close() }()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Warning: Failed to decode assets/textures/ore_sheet.png: %v", err)
+		log.Printf("Error: Failed to decode ore sheet: %v", err)
 		return
 	}
 
 	bounds := img.Bounds()
 	rgba := image.NewRGBA(bounds)
+	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
 
-	// Chroma keying: set green background to transparent (Alpha 0)
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			clr := img.At(x, y)
-			r, g, b, a := clr.RGBA()
-			ru := uint8(r >> 8)
-			gu := uint8(g >> 8)
-			bu := uint8(b >> 8)
-			au := uint8(a >> 8)
+	// Chroma-key green pixels using fast direct byte slice manipulation
+	for i := 0; i < len(rgba.Pix); i += 4 {
+		ru := rgba.Pix[i]
+		gu := rgba.Pix[i+1]
+		bu := rgba.Pix[i+2]
 
-			// Green background keying: dominant green channel, low red and blue channels
-			if gu > 140 && ru < 100 && bu < 100 {
-				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
-			} else {
-				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
-			}
+		if gu > 140 && ru < 100 && bu < 100 {
+			rgba.Pix[i] = 0
+			rgba.Pix[i+1] = 0
+			rgba.Pix[i+2] = 0
+			rgba.Pix[i+3] = 0
 		}
 	}
 
@@ -161,6 +134,7 @@ func loadSpritesLazy() {
 		QuartzSprite = sheet.SubImage(image.Rect(w*2, 0, w*3, h)).(*ebiten.Image)
 		AbyssalSprite = sheet.SubImage(image.Rect(w*3, 0, w*4, h)).(*ebiten.Image)
 	}
+	spritesLoaded = true
 }
 
 func drawCracks(screen *ebiten.Image, sx, sy float32, hitsToMine int) {
@@ -260,7 +234,6 @@ func (n *TitaniumNode) RequiresMech() bool     { return false }
 func (n *TitaniumNode) GetBaseItem() item.Item { return &item.Titanium{} }
 func (n *TitaniumNode) GetColor() color.Color  { return color.RGBA{168, 178, 188, 255} }
 func (n *TitaniumNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	loadSpritesLazy()
 	if drawNodeIconSprite(screen, cx, cy, size, TitaniumSprite) {
 		return
 	}
@@ -268,7 +241,6 @@ func (n *TitaniumNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 }
 
 func (n *TitaniumNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	loadSpritesLazy()
 	if drawNodeSprite(screen, n.Tx, n.Ty, camX, camY, TitaniumSprite, n.HitsToMine) {
 		return
 	}
@@ -292,7 +264,6 @@ func (n *CopperNode) RequiresMech() bool     { return false }
 func (n *CopperNode) GetBaseItem() item.Item { return &item.Copper{} }
 func (n *CopperNode) GetColor() color.Color  { return color.RGBA{218, 118, 48, 255} }
 func (n *CopperNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	loadSpritesLazy()
 	if drawNodeIconSprite(screen, cx, cy, size, CopperSprite) {
 		return
 	}
@@ -300,7 +271,6 @@ func (n *CopperNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 }
 
 func (n *CopperNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	loadSpritesLazy()
 	if drawNodeSprite(screen, n.Tx, n.Ty, camX, camY, CopperSprite, n.HitsToMine) {
 		return
 	}
@@ -324,7 +294,6 @@ func (n *QuartzNode) RequiresMech() bool     { return false }
 func (n *QuartzNode) GetBaseItem() item.Item { return &item.Quartz{} }
 func (n *QuartzNode) GetColor() color.Color  { return color.RGBA{48, 218, 245, 255} }
 func (n *QuartzNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	loadSpritesLazy()
 	if drawNodeIconSprite(screen, cx, cy, size, QuartzSprite) {
 		return
 	}
@@ -333,7 +302,6 @@ func (n *QuartzNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 }
 
 func (n *QuartzNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	loadSpritesLazy()
 	if drawNodeSprite(screen, n.Tx, n.Ty, camX, camY, QuartzSprite, n.HitsToMine) {
 		return
 	}
@@ -357,7 +325,6 @@ func (n *AbyssalOreNode) RequiresMech() bool     { return true }
 func (n *AbyssalOreNode) GetBaseItem() item.Item { return &item.AbyssalOre{} }
 func (n *AbyssalOreNode) GetColor() color.Color  { return color.RGBA{148, 48, 218, 255} }
 func (n *AbyssalOreNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	loadSpritesLazy()
 	if drawNodeIconSprite(screen, cx, cy, size, AbyssalSprite) {
 		return
 	}
@@ -366,7 +333,6 @@ func (n *AbyssalOreNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 }
 
 func (n *AbyssalOreNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	loadSpritesLazy()
 	if drawNodeSprite(screen, n.Tx, n.Ty, camX, camY, AbyssalSprite, n.HitsToMine) {
 		return
 	}

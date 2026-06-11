@@ -1,15 +1,17 @@
 package item
 
 import (
+	"bytes"
 	"image"
 	"image/color"
+	"image/draw"
 	_ "image/png"
 	"log"
-	"os"
 	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/assets"
 )
 
 var (
@@ -17,57 +19,31 @@ var (
 	iconsLoaded bool
 )
 
-func loadIconsLazy() {
-	if iconsLoaded {
-		return
-	}
-	iconsLoaded = true
+// LoadAssets preloads and chroma-keys all item icon sprites.
+func LoadAssets() {
 	iconSprites = make(map[string]*ebiten.Image)
 
-	paths := []string{
-		"assets/textures/item_icons.png",
-		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/item_icons.png",
-		"../../assets/textures/item_icons.png",
-		"../assets/textures/item_icons.png",
-	}
-
-	var file *os.File
-	var err error
-	for _, p := range paths {
-		file, err = os.Open(p)
-		if err == nil {
-			break
-		}
-	}
+	img, _, err := image.Decode(bytes.NewReader(assets.ItemIconsPNG))
 	if err != nil {
-		log.Printf("Warning: Failed to open assets/textures/item_icons.png: %v", err)
-		return
-	}
-	defer func() { _ = file.Close() }()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Warning: Failed to decode assets/textures/item_icons.png: %v", err)
+		log.Printf("Error: Failed to decode item icons: %v", err)
 		return
 	}
 
 	bounds := img.Bounds()
 	rgba := image.NewRGBA(bounds)
+	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
 
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			clr := img.At(x, y)
-			r, g, b, a := clr.RGBA()
-			ru := uint8(r >> 8)
-			gu := uint8(g >> 8)
-			bu := uint8(b >> 8)
-			au := uint8(a >> 8)
+	// Chroma-key green pixels using fast direct byte slice manipulation
+	for i := 0; i < len(rgba.Pix); i += 4 {
+		ru := rgba.Pix[i]
+		gu := rgba.Pix[i+1]
+		bu := rgba.Pix[i+2]
 
-			if gu > 140 && ru < 100 && bu < 100 {
-				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
-			} else {
-				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
-			}
+		if gu > 140 && ru < 100 && bu < 100 {
+			rgba.Pix[i] = 0
+			rgba.Pix[i+1] = 0
+			rgba.Pix[i+2] = 0
+			rgba.Pix[i+3] = 0
 		}
 	}
 
@@ -122,10 +98,10 @@ func loadIconsLazy() {
 			iconSprites[name] = sub
 		}
 	}
+	iconsLoaded = true
 }
 
 func drawItemIconSprite(screen *ebiten.Image, name string, cx, cy, size float32) bool {
-	loadIconsLazy()
 	sprite, ok := iconSprites[name]
 	if !ok || sprite == nil {
 		return false

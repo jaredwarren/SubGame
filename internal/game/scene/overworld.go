@@ -1,18 +1,20 @@
 package scene
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	_ "image/png"
 	"log"
 	"math"
 	"math/rand"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/assets"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
@@ -39,8 +41,6 @@ func NewOverworldScene(w *world.World) *OverworldScene {
 
 func (o *OverworldScene) getTileTexture(tileType world.TileType) *ebiten.Image {
 	if o.tileTextures == nil {
-		loadTrenchTextureLazy()
-		loadWreckageTextureLazy()
 		o.tileTextures = map[world.TileType]*ebiten.Image{
 			world.TileTrench:   trenchTexture,
 			world.TileWreckage: wreckageTexture,
@@ -249,98 +249,46 @@ var (
 func removeChromaKey(img image.Image) *ebiten.Image {
 	bounds := img.Bounds()
 	rgba := image.NewRGBA(bounds)
+	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
 
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			clr := img.At(x, y)
-			r, g, b, a := clr.RGBA()
-			ru := uint8(r >> 8)
-			gu := uint8(g >> 8)
-			bu := uint8(b >> 8)
-			au := uint8(a >> 8)
+	for i := 0; i < len(rgba.Pix); i += 4 {
+		ru := rgba.Pix[i]
+		gu := rgba.Pix[i+1]
+		bu := rgba.Pix[i+2]
 
-			if gu > 140 && ru < 100 && bu < 100 {
-				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
-			} else {
-				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
-			}
+		if gu > 140 && ru < 100 && bu < 100 {
+			rgba.Pix[i] = 0
+			rgba.Pix[i+1] = 0
+			rgba.Pix[i+2] = 0
+			rgba.Pix[i+3] = 0
 		}
 	}
 	return ebiten.NewImageFromImage(rgba)
 }
 
-func loadTrenchTextureLazy() {
-	if trenchTextureLoaded {
-		return
-	}
-	trenchTextureLoaded = true
-
-	paths := []string{
-		"assets/textures/trench_surface.png",
-		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/trench_surface.png",
-		"../../assets/textures/trench_surface.png",
-		"../assets/textures/trench_surface.png",
-		"../../../assets/textures/trench_surface.png",
-	}
-
-	var file *os.File
-	var err error
-	for _, p := range paths {
-		file, err = os.Open(p)
-		if err == nil {
-			break
+// LoadAssets preloads and chroma-keys all overworld tile textures.
+func LoadAssets() {
+	// 1. Trench Texture
+	{
+		img, _, err := image.Decode(bytes.NewReader(assets.TrenchSurfacePNG))
+		if err != nil {
+			log.Printf("Error: Failed to decode trench surface: %v", err)
+		} else {
+			trenchTexture = removeChromaKey(img)
+			trenchTextureLoaded = true
 		}
 	}
-	if err != nil {
-		log.Printf("Warning: Failed to open assets/textures/trench_surface.png: %v", err)
-		return
-	}
-	defer func() { _ = file.Close() }()
 
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Warning: Failed to decode assets/textures/trench_surface.png: %v", err)
-		return
-	}
-
-	trenchTexture = removeChromaKey(img)
-}
-
-func loadWreckageTextureLazy() {
-	if wreckageTextureLoaded {
-		return
-	}
-	wreckageTextureLoaded = true
-
-	paths := []string{
-		"assets/textures/wreckage_surface.png",
-		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/wreckage_surface.png",
-		"../../assets/textures/wreckage_surface.png",
-		"../assets/textures/wreckage_surface.png",
-		"../../../assets/textures/wreckage_surface.png",
-	}
-
-	var file *os.File
-	var err error
-	for _, p := range paths {
-		file, err = os.Open(p)
-		if err == nil {
-			break
+	// 2. Wreckage Texture
+	{
+		img, _, err := image.Decode(bytes.NewReader(assets.WreckageSurfacePNG))
+		if err != nil {
+			log.Printf("Error: Failed to decode wreckage surface: %v", err)
+		} else {
+			wreckageTexture = removeChromaKey(img)
+			wreckageTextureLoaded = true
 		}
 	}
-	if err != nil {
-		log.Printf("Warning: Failed to open assets/textures/wreckage_surface.png: %v", err)
-		return
-	}
-	defer func() { _ = file.Close() }()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Warning: Failed to decode assets/textures/wreckage_surface.png: %v", err)
-		return
-	}
-
-	wreckageTexture = removeChromaKey(img)
 }
 
 // IsSolid checks if the proposed bounding box overlaps with solid land.

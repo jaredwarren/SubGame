@@ -10,6 +10,10 @@ import (
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
+// fishPath is a pre-allocated path reused across CosmeticFish Draw calls to avoid allocations.
+// This is safe only when called sequentially from a single rendering goroutine.
+var fishPath = &vector.Path{}
+
 // CosmeticFish represents an individual fish swimming near shorelines.
 type CosmeticFish struct {
 	Pos       gvec.Vec2
@@ -118,15 +122,15 @@ func (f *CosmeticFish) Draw(screen *ebiten.Image, camX, camY float64, ticks floa
 	fishColor := color.RGBA{110, 190, 220, 180}
 	fishColor = light.ApplyLight(fishColor, mult)
 
-	var path vector.Path
-	path.MoveTo(tipX, tipY)
-	path.LineTo(blX, blY)
-	path.LineTo(brX, brY)
-	path.Close()
+	fishPath.Reset()
+	fishPath.MoveTo(tipX, tipY)
+	fishPath.LineTo(blX, blY)
+	fishPath.LineTo(brX, brY)
+	fishPath.Close()
 
 	var opts vector.DrawPathOptions
 	opts.ColorScale.ScaleWithColor(fishColor)
-	vector.FillPath(screen, &path, nil, &opts)
+	vector.FillPath(screen, fishPath, nil, &opts)
 
 	// Triangular wiggling tail fin
 	tailBaseX := sx + float32(-bodyLen*0.5*cos)
@@ -136,10 +140,10 @@ func (f *CosmeticFish) Draw(screen *ebiten.Image, camX, camY float64, ticks floa
 	tailTipR_X := tailBaseX + float32(4.5*tailCos-2.2*-tailSin)
 	tailTipR_Y := tailBaseY + float32(4.5*tailSin-2.2*tailCos)
 
-	var tailPath vector.Path
-	tailPath.MoveTo(tailBaseX, tailBaseY)
-	tailPath.LineTo(tailTipL_X, tailTipL_Y)
-	tailPath.LineTo(tailTipR_X, tailTipR_Y)
-	tailPath.Close()
-	vector.FillPath(screen, &tailPath, nil, &opts)
+	fishPath.Reset()
+	fishPath.MoveTo(tailBaseX, tailBaseY)
+	fishPath.LineTo(tailTipL_X, tailTipL_Y)
+	fishPath.LineTo(tailTipR_X, tailTipR_Y)
+	fishPath.Close()
+	vector.FillPath(screen, fishPath, nil, &opts)
 }

@@ -7,9 +7,11 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/game/scene"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
 	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
@@ -97,6 +99,10 @@ type Game struct {
 // NewGame creates a fully initialized Game ready to run.
 func NewGame() *Game {
 	vehicle.LoadAssets()
+	resource.LoadAssets()
+	item.LoadAssets()
+	base.LoadAssets()
+	scene.LoadAssets()
 	w := world.NewWorld(12345)
 
 	spawnX, spawnY := findWaterSpawn(w)

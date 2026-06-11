@@ -22,6 +22,12 @@ type TitleScene struct {
 	seedX, seedY, seedW, seedH float64
 	seedFocused                bool
 	runesBuffer                []rune
+
+	fallbackBackground *ebiten.Image
+	titleImg           *ebiten.Image
+	btnTextImg         *ebiten.Image
+	seedTextImg        *ebiten.Image
+	lastDisplayText    string
 }
 
 // NewTitleScene creates a new TitleScene.
@@ -39,6 +45,26 @@ func NewTitleScene() *TitleScene {
 
 	s.seedX = (float64(config.ScreenWidth) - s.seedW) / 2.0
 	s.seedY = 535.0
+
+	// Pre-render fallback background gradient
+	s.fallbackBackground = ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
+	for y := 0; y < config.ScreenHeight; y++ {
+		ratio := float64(y) / float64(config.ScreenHeight)
+		r := uint8(5 - 5*ratio)
+		gr := uint8(20 - 15*ratio)
+		b := uint8(45 - 25*ratio)
+		vector.StrokeLine(s.fallbackBackground, 0, float32(y), float32(config.ScreenWidth), float32(y), 1.0, color.RGBA{R: r, G: gr, B: b, A: 255}, false)
+	}
+
+	// Pre-render static text images
+	s.titleImg = ebiten.NewImage(200, 20)
+	ebitenutil.DebugPrintAt(s.titleImg, s.titleText, 40, 2)
+
+	s.btnTextImg = ebiten.NewImage(80, 16)
+	ebitenutil.DebugPrintAt(s.btnTextImg, "D I V E", 20, 0)
+
+	// Pre-allocate dynamic seed text image
+	s.seedTextImg = ebiten.NewImage(int(s.seedW), 20)
 
 	paths := []string{
 		"StartBackground.jpeg",
@@ -139,20 +165,11 @@ func (s *TitleScene) Draw(g GameContext, screen *ebiten.Image) {
 		scaleY := float64(config.ScreenHeight) / float64(bounds.Dy())
 		op.GeoM.Scale(scaleX, scaleY)
 		screen.DrawImage(s.backgroundImage, op)
-	} else {
-		for y := 0; y < config.ScreenHeight; y++ {
-			ratio := float64(y) / float64(config.ScreenHeight)
-			r := uint8(5 - 5*ratio)
-			gr := uint8(20 - 15*ratio)
-			b := uint8(45 - 25*ratio)
-			vector.StrokeLine(screen, 0, float32(y), float32(config.ScreenWidth), float32(y), 1.0, color.RGBA{R: r, G: gr, B: b, A: 255}, false)
-		}
+	} else if s.fallbackBackground != nil {
+		screen.DrawImage(s.fallbackBackground, nil)
 	}
 
 	vector.FillRect(screen, 0, 0, config.ScreenWidth, config.ScreenHeight, color.RGBA{R: 0, G: 4, B: 12, A: 160}, false)
-
-	titleImg := ebiten.NewImage(200, 20)
-	ebitenutil.DebugPrintAt(titleImg, s.titleText, 40, 2)
 
 	op := &ebiten.DrawImageOptions{}
 	scale := 5.0
@@ -162,7 +179,9 @@ func (s *TitleScene) Draw(g GameContext, screen *ebiten.Image) {
 	ty := 150.0
 	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(tx, ty)
-	screen.DrawImage(titleImg, op)
+	if s.titleImg != nil {
+		screen.DrawImage(s.titleImg, op)
+	}
 
 	subText := "D E E P   O C E A N   S U R V I V A L   A D V E N T U R E"
 	subX := (config.ScreenWidth - len(subText)*6) / 2
@@ -185,10 +204,6 @@ func (s *TitleScene) Draw(g GameContext, screen *ebiten.Image) {
 	vector.FillRect(screen, float32(s.btnX), float32(s.btnY), float32(s.btnW), float32(s.btnH), btnBgColor, false)
 	vector.StrokeRect(screen, float32(s.btnX), float32(s.btnY), float32(s.btnW), float32(s.btnH), 2.0, btnBorderColor, false)
 
-	btnText := "D I V E"
-	btnTextImg := ebiten.NewImage(80, 16)
-	ebitenutil.DebugPrintAt(btnTextImg, btnText, 20, 0)
-
 	btnTextOp := &ebiten.DrawImageOptions{}
 	btnTextScale := 2.0
 	btnTextW := 80.0 * btnTextScale
@@ -198,7 +213,9 @@ func (s *TitleScene) Draw(g GameContext, screen *ebiten.Image) {
 
 	btnTextOp.GeoM.Scale(btnTextScale, btnTextScale)
 	btnTextOp.GeoM.Translate(btnTextX, btnTextY)
-	screen.DrawImage(btnTextImg, btnTextOp)
+	if s.btnTextImg != nil {
+		screen.DrawImage(s.btnTextImg, btnTextOp)
+	}
 
 	// Bounding box checking for hovering the seed input
 	isSeedHovered := mx >= s.seedX && mx < s.seedX+s.seedW && my >= s.seedY && my < s.seedY+s.seedH
@@ -227,17 +244,22 @@ func (s *TitleScene) Draw(g GameContext, screen *ebiten.Image) {
 		displayText += "|"
 	}
 
-	seedTextImg := ebiten.NewImage(int(s.seedW), 20)
-	ebitenutil.DebugPrintAt(seedTextImg, displayText, 12, 2)
+	if s.seedTextImg != nil {
+		if displayText != s.lastDisplayText {
+			s.lastDisplayText = displayText
+			s.seedTextImg.Fill(color.RGBA{0, 0, 0, 0})
+			ebitenutil.DebugPrintAt(s.seedTextImg, displayText, 12, 2)
+		}
 
-	seedTextOp := &ebiten.DrawImageOptions{}
-	if s.seedText == "" {
-		seedTextOp.ColorScale.Scale(0.6, 0.7, 0.8, 1.0)
-	} else if !s.seedFocused {
-		seedTextOp.ColorScale.Scale(0.9, 0.9, 0.9, 1.0)
+		seedTextOp := &ebiten.DrawImageOptions{}
+		if s.seedText == "" {
+			seedTextOp.ColorScale.Scale(0.6, 0.7, 0.8, 1.0)
+		} else if !s.seedFocused {
+			seedTextOp.ColorScale.Scale(0.9, 0.9, 0.9, 1.0)
+		}
+		seedTextOp.GeoM.Translate(s.seedX, s.seedY+(s.seedH-20)/2)
+		screen.DrawImage(s.seedTextImg, seedTextOp)
 	}
-	seedTextOp.GeoM.Translate(s.seedX, s.seedY+(s.seedH-20)/2)
-	screen.DrawImage(seedTextImg, seedTextOp)
 
 	instText := "Press ENTER or Click DIVE to begin your descent"
 	instX := (config.ScreenWidth - len(instText)*6) / 2
