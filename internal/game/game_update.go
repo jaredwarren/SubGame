@@ -199,8 +199,8 @@ func (g *Game) handleVehicleInventoryClicks() {
 	// Transfer from player inventory to vehicle
 	pStartX := panelX + 30
 	pStartY := panelY + 60
-	for r := 0; r < 3; r++ {
-		for c := 0; c < 8; c++ {
+	for r := range 3 {
+		for c := range 8 {
 			idx := r*8 + c
 			sx := int(pStartX) + c*int(slotSz+gap)
 			sy := int(pStartY) + r*int(slotSz+gap)
@@ -220,8 +220,8 @@ func (g *Game) handleVehicleInventoryClicks() {
 	vCols, vRows := cargoLayout(len(vInv.Slots))
 	vStartX := panelX + 510
 	vStartY := panelY + 60
-	for r := 0; r < vRows; r++ {
-		for c := 0; c < vCols; c++ {
+	for r := range vRows {
+		for c := range vCols {
 			idx := r*vCols + c
 			sx := int(vStartX) + c*int(slotSz+gap)
 			sy := int(vStartY) + r*int(slotSz+gap)
@@ -239,7 +239,7 @@ func (g *Game) handleVehicleInventoryClicks() {
 	// Transfer from vehicle upgrades to player
 	if vUpg := g.ActiveVehicle.GetUpgrades(); vUpg != nil {
 		upgSlotsY := panelY + 240 // 220 + 20
-		for c := 0; c < len(vUpg.Slots); c++ {
+		for c := range vUpg.Slots {
 			sx := int(vStartX) + c*int(slotSz+gap)
 			sy := int(upgSlotsY)
 			if !inSlot(mx, my, sx, sy, int(slotSz)) {
@@ -559,13 +559,6 @@ func cargoLayout(numSlots int) (cols, rows int) {
 	}
 }
 
-func min(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func (g *Game) pickUpActiveVehicle() {
 	v := g.ActiveVehicle
 	if v == nil {
@@ -607,4 +600,3 @@ func (g *Game) removeVehicle(v vehicle.Vehicle) {
 		}
 	}
 }
-

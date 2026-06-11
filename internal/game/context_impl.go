@@ -160,7 +160,12 @@ func (g *Game) SetCaveEntities(key string, entities []entity.CaveEntity) {
 // --- Entity runtime ---
 
 func (g *Game) NewEntityRuntime() entity.Runtime {
-	return &entityRuntimeAdapter{g: g}
+	return &entityRuntimeAdapter{
+		playerAdapter:  playerAdapter{g: g},
+		vehicleAdapter: vehicleAdapter{g: g},
+		sonarAdapter:   sonarAdapter{g: g},
+		worldAdapter:   worldAdapter{g: g},
+	}
 }
 
 func (g *Game) DrainEntityCommands(rt entity.Runtime) {
