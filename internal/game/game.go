@@ -94,6 +94,7 @@ type Game struct {
 	storyManager       *story.StoryManager
 	pdaPriorState      State
 	menuOpenedAnywhere bool
+	craftingRecipes    []scene.Recipe
 }
 
 // NewGame creates a fully initialized Game ready to run.
@@ -133,6 +134,7 @@ func NewGame() *Game {
 		caveEntities:      make(map[string][]entity.CaveEntity),
 		FlashlightOn:      true,
 		storyManager:      sm,
+		craftingRecipes:   scene.DefaultCraftingRecipes(),
 	}
 
 	g.titleState = NewTitleScene()

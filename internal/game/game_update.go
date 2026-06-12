@@ -492,9 +492,10 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 				}
 			}
 		case vehicle.UnlockRecipeCmd:
-			for idx := range CraftingRecipes {
-				if CraftingRecipes[idx].NewResult().GetName() == c.RecipeResultName {
-					CraftingRecipes[idx].Unlocked = true
+			recipes := g.GetCraftingRecipes()
+			for idx := range recipes {
+				if recipes[idx].NewResult().GetName() == c.RecipeResultName {
+					recipes[idx].Unlocked = true
 					g.SetMineWarning("Unlocked: "+c.RecipeResultName+"!", 120, 1)
 					break
 				}
@@ -505,6 +506,8 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 			g.Particles = append(g.Particles, particle.NewDebrisParticles(c.Pos.X, c.Pos.Y, c.Color)...)
 		case vehicle.TriggerShakeCmd:
 			g.TriggerScreenShake(c.Duration, c.Intensity)
+		case vehicle.SetWarningCmd:
+			g.SetMineWarning(c.Message, c.Duration, c.Level)
 		}
 	}
 	rt.cmds = rt.cmds[:0]

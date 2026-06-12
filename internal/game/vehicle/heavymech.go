@@ -187,10 +187,19 @@ func (m *HeavyMech) Update(runtime Runtime) {
 					recipeName := m.TargetDrillNode.GetRecipeResultName()
 					if recipeName != "" {
 						runtime.Emit(UnlockRecipeCmd{RecipeResultName: recipeName})
+						runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
 					} else {
-						m.Cargo.AddItem(m.TargetDrillNode, 1)
+						if m.Cargo.AddItem(m.TargetDrillNode, 1) {
+							runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
+						} else {
+							m.TargetDrillNode.SetHitsToMine(1)
+							runtime.Emit(SetWarningCmd{
+								Message:  "Cargo hold full! Cannot mine resource.",
+								Duration: 120,
+								Level:    2,
+							})
+						}
 					}
-					runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
 				}
 			}
 			m.TargetDrillNode = nil

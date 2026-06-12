@@ -13,10 +13,11 @@ import (
 // ThermoclineRammer is a fast-charging aquatic predator that rams the player.
 type ThermoclineRammer struct {
 	BaseEntity
-	State     int
-	Timer     int
-	Facing    float64
-	StunTimer int
+	State        int
+	Timer        int
+	Facing       float64
+	StunTimer    int
+	ChargeOrigin gvec.Vec2
 }
 
 // RammerContext defines the context interface needed by ThermoclineRammer.
@@ -72,6 +73,8 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 	case 0: // patrol
 		if isAggroTrigger {
 			ent.State = 1
+			ent.Timer = 0
+			ent.ChargeOrigin = ent.Pos
 			dx := px - ex
 			dy := py - ey
 			if math.Abs(dx) > math.Abs(dy) {
@@ -103,6 +106,15 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 			}
 		}
 	case 1: // charging
+		ent.Timer++
+		displacement := math.Hypot(ent.Pos.X-ent.ChargeOrigin.X, ent.Pos.Y-ent.ChargeOrigin.Y)
+		if ent.Timer >= 90 || displacement > 350.0 {
+			ent.State = 2
+			ent.StunTimer = 180
+			ent.Vel = gvec.Vec2{}
+			break
+		}
+
 		nextX := ent.Pos.X + ent.Vel.X
 		nextY := ent.Pos.Y + ent.Vel.Y
 		if g.IsSolid(nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {

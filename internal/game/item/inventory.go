@@ -31,7 +31,10 @@ func normalizeType(t reflect.Type) reflect.Type {
 	if t.Kind() == reflect.Pointer && t.Elem().Kind() == reflect.Struct {
 		instance := reflect.New(t.Elem()).Interface()
 		if provider, ok := instance.(BaseItemProvider); ok {
-			normalized = reflect.TypeOf(provider.GetBaseItem())
+			baseItem := provider.GetBaseItem()
+			if baseItem != nil {
+				normalized = reflect.TypeOf(baseItem)
+			}
 		}
 	}
 
@@ -55,12 +58,33 @@ func (inv *Inventory) AddItem(item Item, qty int) bool {
 		return false
 	}
 
+	if provider, ok := item.(BaseItemProvider); ok && provider.GetBaseItem() == nil {
+		return false
+	}
+
 	t := normalizeType(reflect.TypeOf(item))
+	if t == nil {
+		return false
+	}
 	if t != reflect.TypeOf(item) {
 		item = NewItemFromType(t)
 	}
 
 	maxStack := item.GetMaxStack()
+
+	// Pre-compute capacity: count available space in existing stacks of type t,
+	// plus maxStack space for each empty slot.
+	availableSpace := 0
+	for i := range inv.Slots {
+		if inv.Slots[i].Item == nil {
+			availableSpace += maxStack
+		} else if normalizeType(reflect.TypeOf(inv.Slots[i].Item)) == t {
+			availableSpace += maxStack - inv.Slots[i].Quantity
+		}
+	}
+	if availableSpace < qty {
+		return false
+	}
 
 	// 1. First, attempt to fill existing stacks of this item
 	for i := range inv.Slots {
@@ -178,21 +202,66 @@ func (inv *Inventory) Count(it Item) int {
 }
 
 // Resize changes the size of the inventory slots slice, keeping existing items.
-func (inv *Inventory) Resize(newSize int) {
+// If shrinking, it attempts to compact non-empty stacks from the truncated region into surviving slots.
+// Returns the stacks (ItemStacks) that could not be preserved.
+func (inv *Inventory) Resize(newSize int) []ItemStack {
 	if inv == nil {
-		return
+		return nil
 	}
 	if newSize == len(inv.Slots) {
-		return
+		return nil
 	}
 
-	// If shrinking, update counts map for lost items
+	var lost []ItemStack
+
+	// If shrinking, try to compact items from the truncated slots (newSize to end)
+	// into the surviving slots (0 to newSize-1).
 	if newSize < len(inv.Slots) {
 		for i := newSize; i < len(inv.Slots); i++ {
 			slot := inv.Slots[i]
-			if slot.Item != nil && slot.Quantity > 0 {
-				t := normalizeType(reflect.TypeOf(slot.Item))
-				inv.counts[t] -= slot.Quantity
+			if slot.Item == nil || slot.Quantity <= 0 {
+				continue
+			}
+
+			t := normalizeType(reflect.TypeOf(slot.Item))
+			maxStack := slot.Item.GetMaxStack()
+			qtyToAdd := slot.Quantity
+
+			// Try to top up existing stacks of this item in the surviving range
+			for j := 0; j < newSize; j++ {
+				if inv.Slots[j].Item != nil && normalizeType(reflect.TypeOf(inv.Slots[j].Item)) == t && inv.Slots[j].Quantity < maxStack {
+					space := maxStack - inv.Slots[j].Quantity
+					if qtyToAdd <= space {
+						inv.Slots[j].Quantity += qtyToAdd
+						qtyToAdd = 0
+						break
+					} else {
+						inv.Slots[j].Quantity = maxStack
+						qtyToAdd -= space
+					}
+				}
+			}
+
+			// If still have items left, try to place them in any empty slots in the surviving range
+			if qtyToAdd > 0 {
+				for j := 0; j < newSize; j++ {
+					if inv.Slots[j].Item == nil {
+						if qtyToAdd <= maxStack {
+							inv.Slots[j] = ItemStack{Item: slot.Item, Quantity: qtyToAdd}
+							qtyToAdd = 0
+							break
+						} else {
+							inv.Slots[j] = ItemStack{Item: slot.Item, Quantity: maxStack}
+							qtyToAdd -= maxStack
+						}
+					}
+				}
+			}
+
+			// Any remaining quantity that couldn't be placed in the surviving range is lost
+			if qtyToAdd > 0 {
+				lost = append(lost, ItemStack{Item: slot.Item, Quantity: qtyToAdd})
+				inv.counts[t] -= qtyToAdd
 				if inv.counts[t] < 0 {
 					inv.counts[t] = 0
 				}
@@ -203,6 +272,34 @@ func (inv *Inventory) Resize(newSize int) {
 	newSlots := make([]ItemStack, newSize)
 	copy(newSlots, inv.Slots)
 	inv.Slots = newSlots
+
+	return lost
+}
+
+// Clone returns a deep copy of the Inventory.
+func (inv *Inventory) Clone() *Inventory {
+	if inv == nil {
+		return nil
+	}
+	clone := &Inventory{
+		Slots:  make([]ItemStack, len(inv.Slots)),
+		counts: make(map[reflect.Type]int),
+	}
+	copy(clone.Slots, inv.Slots)
+	for k, v := range inv.counts {
+		clone.counts[k] = v
+	}
+	return clone
+}
+
+// WouldResizeLoseItems returns true if resizing to newSize would result in any lost items.
+func (inv *Inventory) WouldResizeLoseItems(newSize int) bool {
+	if inv == nil || newSize >= len(inv.Slots) {
+		return false
+	}
+	clone := inv.Clone()
+	lost := clone.Resize(newSize)
+	return len(lost) > 0
 }
 
 // Clear empties all slots in the inventory and resets counts.

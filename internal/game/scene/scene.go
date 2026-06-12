@@ -111,6 +111,7 @@ type GameContext interface {
 
 	// Story and Lore
 	GetStoryManager() *story.StoryManager
+	GetCraftingRecipes() []Recipe
 	TransitionToPDA()
 	ClosePDA()
 	IsMenuOpenedAnywhere() bool

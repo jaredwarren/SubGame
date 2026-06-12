@@ -44,14 +44,14 @@ func (c *ShallowSeabedCave) preRenderTiles() {
 		rng := rand.New(rand.NewSource(int64(idx * 997)))
 
 		// 3. Draw darker sand grains
-		for i := 0; i < 6; i++ {
+		for range 6 {
 			px := float32(rng.Intn(config.TileSize-4)) + 2
 			py := float32(rng.Intn(config.TileSize-4)) + 2
 			vector.FillRect(img, px, py, 2, 2, darkSandColor, false)
 		}
 
 		// 4. Draw lighter sand grains
-		for i := 0; i < 6; i++ {
+		for range 6 {
 			px := float32(rng.Intn(config.TileSize-4)) + 2
 			py := float32(rng.Intn(config.TileSize-4)) + 2
 			vector.FillRect(img, px, py, 2, 2, lightSandColor, false)

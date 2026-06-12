@@ -39,6 +39,12 @@ func (ent *FalseBulbSnare) Update(gr Runtime) {
 func (ent *FalseBulbSnare) update(g SnareContext) {
 	px := g.PlayerPos().X + g.PlayerDims().X/2.0
 	py := g.PlayerPos().Y + g.PlayerDims().Y/2.0
+	if g.HasActiveVehicle() {
+		vPos := g.ActiveVehiclePos()
+		vDims := g.ActiveVehicleDims()
+		px = vPos.X + vDims.X/2.0
+		py = vPos.Y + vDims.Y/2.0
+	}
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
@@ -101,8 +107,13 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 		vWidth, vHeight = vDims.X, vDims.Y
 	}
 	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
-		g.Emit(DamagePlayerCmd{Amount: 20.0})
-		g.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+		if g.HasActiveVehicle() {
+			g.Emit(DamageActiveVehicleCmd{Amount: 20.0})
+			g.Emit(SetMineWarningCmd{Message: "VEHICLE ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+		} else {
+			g.Emit(DamagePlayerCmd{Amount: 20.0})
+			g.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+		}
 		ent.Active = false
 	}
 }

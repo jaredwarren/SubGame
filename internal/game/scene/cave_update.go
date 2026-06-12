@@ -127,8 +127,34 @@ func (c *CaveScene) spawnPlankton(g GameContext) {
 }
 
 func (c *CaveScene) updateEntities(g GameContext, entityRuntime entity.Runtime) {
+	var gridW, gridH int
+	if len(c.CaveGrid) > 0 {
+		gridW = len(c.CaveGrid)
+		gridH = len(c.CaveGrid[0])
+	}
+
 	for _, ent := range c.Entities {
 		ent.Update(entityRuntime)
+
+		if gridW > 0 && gridH > 0 {
+			maxX := float64(gridW * config.TileSize)
+			maxY := float64(gridH * config.TileSize)
+			pos := ent.GetPos()
+			dims := ent.GetDimensions()
+
+			if pos.X < 0 {
+				pos.X = 0
+			} else if pos.X > maxX-dims.X {
+				pos.X = maxX - dims.X
+			}
+
+			if pos.Y < -32.0 {
+				pos.Y = -32.0
+			} else if pos.Y > maxY-dims.Y {
+				pos.Y = maxY - dims.Y
+			}
+			ent.SetPos(pos)
+		}
 	}
 
 	activeCount := 0
@@ -268,9 +294,10 @@ func (c *CaveScene) handlePlayerMining(g GameContext, inp InputSource, p *player
 
 				if node.GetHitsToMine() <= 0 {
 					if bpNode, ok := node.(*resource.BlueprintNode); ok {
-						for idx := range CraftingRecipes {
-							if CraftingRecipes[idx].NewResult().GetName() == bpNode.RecipeResultName {
-								CraftingRecipes[idx].Unlocked = true
+						recipes := g.GetCraftingRecipes()
+						for idx := range recipes {
+							if recipes[idx].NewResult().GetName() == bpNode.RecipeResultName {
+								recipes[idx].Unlocked = true
 								g.SetMineWarning("Unlocked: "+bpNode.RecipeResultName+"!", 120, 1)
 								break
 							}

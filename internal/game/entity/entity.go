@@ -31,6 +31,7 @@ type CaveEntity interface {
 	IsActive() bool
 	SetActive(active bool)
 	GetPos() gvec.Vec2
+	SetPos(pos gvec.Vec2)
 	GetDimensions() gvec.Vec2
 	//GetType() EntityType
 }
@@ -54,6 +55,7 @@ type BaseEntity struct {
 func (b *BaseEntity) IsActive() bool           { return b.Active }
 func (b *BaseEntity) SetActive(active bool)    { b.Active = active }
 func (b *BaseEntity) GetPos() gvec.Vec2        { return b.Pos }
+func (b *BaseEntity) SetPos(pos gvec.Vec2)     { b.Pos = pos }
 func (b *BaseEntity) GetDimensions() gvec.Vec2 { return b.Dimensions }
 
 //func (b *BaseEntity) GetType() EntityType      { return b.Type }

@@ -6,7 +6,10 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/base"
+	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -351,11 +354,15 @@ func TestHeavyMech_WaterlinePhysics(t *testing.T) {
 }
 
 func TestRecipeBlueprintUnlocking(t *testing.T) {
+	// Create a new game session
+	g := NewGame()
+	recipes := g.GetCraftingRecipes()
+
 	// Initially, verify that UHC O2 Tank recipe is locked
 	var uhcRecipe *Recipe
-	for idx := range CraftingRecipes {
-		if CraftingRecipes[idx].NewResult().GetName() == "Ultra High Capacity O2 Tank" {
-			uhcRecipe = &CraftingRecipes[idx]
+	for idx := range recipes {
+		if recipes[idx].NewResult().GetName() == "Ultra High Capacity O2 Tank" {
+			uhcRecipe = &recipes[idx]
 			break
 		}
 	}
@@ -366,12 +373,9 @@ func TestRecipeBlueprintUnlocking(t *testing.T) {
 	// Force lock it for the test
 	uhcRecipe.Unlocked = false
 
-	// Create a new game session
-	g := NewGame()
-
 	// Verify it's locked in the fabricator list count
 	unlockedCountBefore := 0
-	for _, rcp := range CraftingRecipes {
+	for _, rcp := range recipes {
 		if rcp.Unlocked {
 			unlockedCountBefore++
 		}
@@ -383,18 +387,280 @@ func TestRecipeBlueprintUnlocking(t *testing.T) {
 	g.drainVehicleCommands(vrt)
 
 	// Verify it is unlocked
-	if !uhcRecipe.Unlocked {
+	recipesAfter := g.GetCraftingRecipes()
+	var uhcRecipeAfter *Recipe
+	for idx := range recipesAfter {
+		if recipesAfter[idx].NewResult().GetName() == "Ultra High Capacity O2 Tank" {
+			uhcRecipeAfter = &recipesAfter[idx]
+			break
+		}
+	}
+	if uhcRecipeAfter == nil || !uhcRecipeAfter.Unlocked {
 		t.Errorf("expected Ultra High Capacity O2 Tank to be unlocked after UnlockRecipeCmd")
 	}
 
 	// Verify that the fabricator unlocked recipe count increased by 1
 	unlockedCountAfter := 0
-	for _, rcp := range CraftingRecipes {
+	for _, rcp := range recipesAfter {
 		if rcp.Unlocked {
 			unlockedCountAfter++
 		}
 	}
 	if unlockedCountAfter != unlockedCountBefore+1 {
 		t.Errorf("expected unlocked count to increase by 1, went from %d to %d", unlockedCountBefore, unlockedCountAfter)
+	}
+}
+
+func TestInventory_Resize_Compaction(t *testing.T) {
+	inv := item.NewInventory(5)
+	tit := &item.Titanium{}
+	qz := &item.Quartz{}
+
+	// Case 1: Compaction with loss
+	inv.AddItem(tit, 9) // slot 0: Titanium x 9
+	inv.AddItem(qz, 5)  // slot 1: Quartz x 5
+	inv.AddItem(tit, 3) // slot 0 -> 10, slot 2 -> 2
+	inv.AddItem(qz, 6)  // slot 1 -> 10, slot 3 -> 1
+	inv.AddItem(tit, 4) // slot 2 -> 6
+
+	lost := inv.Resize(2)
+	if len(lost) != 2 {
+		t.Errorf("expected 2 lost stacks, got %d", len(lost))
+	}
+	
+	var titLost, qzLost int
+	for _, stack := range lost {
+		if _, ok := stack.Item.(*item.Titanium); ok {
+			titLost = stack.Quantity
+		}
+		if _, ok := stack.Item.(*item.Quartz); ok {
+			qzLost = stack.Quantity
+		}
+	}
+	if titLost != 6 {
+		t.Errorf("expected 6 Titanium lost, got %d", titLost)
+	}
+	if qzLost != 1 {
+		t.Errorf("expected 1 Quartz lost, got %d", qzLost)
+	}
+
+	if inv.Count(tit) != 10 {
+		t.Errorf("expected 10 Titanium left, got %d", inv.Count(tit))
+	}
+	if inv.Count(qz) != 10 {
+		t.Errorf("expected 10 Quartz left, got %d", inv.Count(qz))
+	}
+
+	// Case 2: Compaction without loss
+	inv2 := item.NewInventory(5)
+	inv2.AddItem(tit, 8)
+	inv2.AddItem(qz, 6)
+
+	// Manually split so they occupy extra slots but can be compacted fully
+	inv2.Slots[0].Quantity = 3
+	inv2.Slots[2] = item.ItemStack{Item: tit, Quantity: 5}
+	inv2.Slots[1].Quantity = 2
+	inv2.Slots[3] = item.ItemStack{Item: qz, Quantity: 4}
+
+	lost2 := inv2.Resize(2)
+	if len(lost2) != 0 {
+		t.Errorf("expected 0 lost stacks in compaction case, got %d", len(lost2))
+	}
+	if inv2.Count(tit) != 8 {
+		t.Errorf("expected Titanium count to remain 8, got %d", inv2.Count(tit))
+	}
+	if inv2.Count(qz) != 6 {
+		t.Errorf("expected Quartz count to remain 6, got %d", inv2.Count(qz))
+	}
+	if inv2.Slots[0].Quantity != 8 || inv2.Slots[1].Quantity != 6 {
+		t.Errorf("expected compacted slot quantities to be 8 and 6, got %d and %d", inv2.Slots[0].Quantity, inv2.Slots[1].Quantity)
+	}
+}
+
+func TestBaseMenu_UninstallStorage_OverflowRefusal(t *testing.T) {
+	g := NewGame()
+	g.TransitionTo(g.baseMenu)
+	g.baseMenu.ActiveTab = 0
+	g.Input = NewMockInput()
+
+	// Install Storage MKII
+	storageMKII := &item.UpgradeStorageMKII{}
+	g.baseStation.InstallUpgrade(storageMKII)
+
+	if len(g.baseStation.Storage.Slots) != 48 {
+		t.Fatalf("expected storage slots to expand to 48, got %d", len(g.baseStation.Storage.Slots))
+	}
+
+	// Add 30 items to storage so it exceeds 24 slots capacity (Fins have max stack of 1)
+	fins := &item.Fins{}
+	for i := 0; i < 30; i++ {
+		g.baseStation.Storage.AddItem(fins, 1)
+	}
+
+	// Find the upgrade slot index
+	upgradeIdx := -1
+	for i, slot := range g.baseStation.Upgrades.Slots {
+		if slot.Item == storageMKII {
+			upgradeIdx = i
+			break
+		}
+	}
+	if upgradeIdx == -1 {
+		t.Fatal("expected storage MKII to be found in base upgrades")
+	}
+
+	// Simulate clicking to uninstall Storage MKII
+	mockInput := g.Input.(*MockInput)
+	const (
+		panelW = 800
+		panelH = 500
+	)
+	panelX := float64(config.ScreenWidth-panelW) / 2.0
+	panelY := float64(config.ScreenHeight-panelH) / 2.0
+	mockInput.CursorPos = gvec.Vec2{
+		X: panelX + 445 + float64(upgradeIdx)*46 + 20,
+		Y: panelY + 140 + 20,
+	}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+
+	// Update game
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify uninstallation is blocked
+	if g.baseStation.Upgrades.Slots[upgradeIdx].Item != storageMKII {
+		t.Error("expected Storage MKII to remain installed")
+	}
+	if len(g.baseStation.Storage.Slots) != 48 {
+		t.Errorf("expected storage slots to remain 48, got %d", len(g.baseStation.Storage.Slots))
+	}
+
+	// Verify SetMineWarning message was displayed
+	msg, _ := g.GetMineWarning()
+	expectedMsg := "Vault has too many items to uninstall storage upgrade!"
+	if msg != expectedMsg {
+		t.Errorf("expected mine warning %q, got %q", expectedMsg, msg)
+	}
+}
+
+func TestHeavyMechDrill_CargoFull(t *testing.T) {
+	g := NewGame()
+	g.TransitionTo(g.caveState)
+
+	// Create a mech and make it active
+	mech := vehicle.NewHeavyMech(100, 100)
+	g.ActiveVehicle = mech
+	g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
+
+	// Fill mech's cargo hold completely
+	cargo := mech.GetCargo()
+	tit := &item.Titanium{}
+	for i := 0; i < len(cargo.Slots); i++ {
+		cargo.AddItem(tit, 10)
+	}
+
+	// Verify that adding another item to cargo fails
+	if cargo.AddItem(&item.Quartz{}, 1) {
+		t.Fatal("expected cargo hold to be full")
+	}
+
+	// Create a resource node at (5, 5) tile coordinates
+	node := resource.NewCopperNode(5, 5)
+	node.SetHitsToMine(1)
+	g.caveState.Nodes = []resource.Resource{node}
+
+	// Trigger drill strike on the node
+	mech.DrillStrike(node)
+
+	// Run update loop for 16 frames to finish the drill animation (timer starts at 15)
+	for i := 0; i < 16; i++ {
+		err := g.Update()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Assert copper node remains in the cave nodes
+	if len(g.caveState.Nodes) != 1 || g.caveState.Nodes[0] != node {
+		t.Errorf("expected copper node to remain in the cave nodes, got %d nodes", len(g.caveState.Nodes))
+	}
+	// Assert hits were refunded to 1
+	if node.GetHitsToMine() != 1 {
+		t.Errorf("expected node hits to be refunded to 1, got %d", node.GetHitsToMine())
+	}
+	// Assert warning message was displayed
+	msg, _ := g.GetMineWarning()
+	expectedMsg := "Cargo hold full! Cannot mine resource."
+	if msg != expectedMsg {
+		t.Errorf("expected warning %q, got %q", expectedMsg, msg)
+	}
+}
+
+func TestFalseBulbSnare_VehicleCollision(t *testing.T) {
+	g := NewGame()
+	g.TransitionTo(g.caveState)
+
+	// Create a mech and make it active (piloted)
+	mech := vehicle.NewHeavyMech(100, 100)
+	g.ActiveVehicle = mech
+	g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], mech)
+
+	// Initial player health is max
+	initialPlayerHp := g.player.CurrentHealth
+	initialMechHp := mech.GetHealth()
+
+	// Spawn a FalseBulbSnare overlapping the mech
+	snare := &entity.FalseBulbSnare{
+		BaseEntity: entity.BaseEntity{
+			Pos:        gvec.Vec2{X: 100, Y: 100},
+			Dimensions: gvec.Vec2{X: 16, Y: 16},
+			Active:     true,
+		},
+	}
+	g.caveState.Entities = []entity.CaveEntity{snare}
+
+	// Update game once to process the update and collision
+	err := g.Update()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert:
+	// 1. Snare is no longer active
+	if snare.IsActive() {
+		t.Error("expected FalseBulbSnare to be inactive after collision")
+	}
+	// 2. Mech took hull damage (health decreased)
+	if mech.GetHealth() >= initialMechHp {
+		t.Errorf("expected active vehicle to take damage, went from %f to %f", initialMechHp, mech.GetHealth())
+	}
+	// 3. Player took ZERO personal damage
+	if g.player.CurrentHealth != initialPlayerHp {
+		t.Errorf("expected player to take zero damage, went from %f to %f", initialPlayerHp, g.player.CurrentHealth)
+	}
+	// 4. Correct warning message was displayed
+	msg, _ := g.GetMineWarning()
+	expectedMsg := "VEHICLE ATTACKED BY FALSE-BULB SNARE!"
+	if msg != expectedMsg {
+		t.Errorf("expected warning %q, got %q", expectedMsg, msg)
+	}
+}
+
+func TestInventory_AddItemBlueprintNode(t *testing.T) {
+	inv := item.NewInventory(5)
+	node := resource.NewBlueprintNode(0, 0, "Ultra High Capacity O2 Tank")
+
+	// Verify that adding a BlueprintNode (whose GetBaseItem returns nil) does not panic and returns false.
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("AddItem panicked with BlueprintNode: %v", r)
+		}
+	}()
+
+	res := inv.AddItem(node, 1)
+	if res {
+		t.Error("expected AddItem with BlueprintNode to return false, got true")
 	}
 }

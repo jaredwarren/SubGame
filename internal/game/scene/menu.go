@@ -209,6 +209,15 @@ var CraftingRecipes = []Recipe{
 	},
 }
 
+// DefaultCraftingRecipes returns a fresh copy of the default CraftingRecipes slice.
+func DefaultCraftingRecipes() []Recipe {
+	recipes := make([]Recipe, len(CraftingRecipes))
+	for i, rcp := range CraftingRecipes {
+		recipes[i] = rcp
+	}
+	return recipes
+}
+
 // BaseMenuScene manages tab selections and base management interactions.
 type BaseMenuScene struct {
 	ActiveTab         int
@@ -305,6 +314,10 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 				if mx >= sx && mx < sx+40 && my >= sy && my < sy+40 {
 					slot := &b.Upgrades.Slots[c]
 					if slot.Item != nil {
+						if b.WouldUninstallOverflow(c) {
+							g.SetMineWarning("Vault has too many items to uninstall storage upgrade!", 120, 2)
+							continue
+						}
 						if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
 							b.Upgrades.Remove(slot.Item, 1)
 							b.RecalculateProperties()
@@ -318,7 +331,8 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 	case 1:
 		_, wy := inp.Wheel()
 		unlockedCount := 0
-		for _, rcp := range CraftingRecipes {
+		recipes := g.GetCraftingRecipes()
+		for _, rcp := range recipes {
 			if rcp.Unlocked {
 				unlockedCount++
 			}
@@ -345,7 +359,7 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 
 			if my >= viewportMinY && my < viewportMaxY {
 				visibleIndex := 0
-				for _, rcp := range CraftingRecipes {
+				for _, rcp := range recipes {
 					if !rcp.Unlocked {
 						continue
 					}
@@ -655,7 +669,8 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 		if subImg != nil {
 			clippedScreen := subImg.(*ebiten.Image)
 			visibleIndex := 0
-			for _, rcp := range CraftingRecipes {
+			recipes := g.GetCraftingRecipes()
+			for _, rcp := range recipes {
 				if !rcp.Unlocked {
 					continue
 				}
@@ -723,7 +738,8 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 		}
 
 		unlockedCount := 0
-		for _, rcp := range CraftingRecipes {
+		recipes := g.GetCraftingRecipes()
+		for _, rcp := range recipes {
 			if rcp.Unlocked {
 				unlockedCount++
 			}

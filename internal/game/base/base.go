@@ -247,3 +247,42 @@ func (b *BaseStation) InstallUpgrade(it item.Item) bool {
 	}
 	return false
 }
+
+// WouldUninstallOverflow returns true if removing the upgrade at the given slot index
+// would cause the base station's storage inventory to lose items due to shrinking capacity.
+func (b *BaseStation) WouldUninstallOverflow(upgradeIdx int) bool {
+	if b.Upgrades == nil || upgradeIdx < 0 || upgradeIdx >= len(b.Upgrades.Slots) {
+		return false
+	}
+	upgItem := b.Upgrades.Slots[upgradeIdx].Item
+	if upgItem == nil {
+		return false
+	}
+	upg, ok := upgItem.(item.UpgradeItem)
+	if !ok {
+		return false
+	}
+
+	// If it doesn't grant storage, it's always safe
+	if upg.GetStorageSlots() == 0 {
+		return false
+	}
+
+	// Calculate what the storage capacity would be WITHOUT this upgrade
+	storageSlots := 24
+	for i, slot := range b.Upgrades.Slots {
+		if i == upgradeIdx || slot.Item == nil {
+			continue
+		}
+		if otherUpg, ok := slot.Item.(item.UpgradeItem); ok {
+			if slots := otherUpg.GetStorageSlots(); slots > storageSlots {
+				storageSlots = slots
+			}
+		}
+	}
+
+	if b.Storage != nil {
+		return b.Storage.WouldResizeLoseItems(storageSlots)
+	}
+	return false
+}

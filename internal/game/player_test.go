@@ -218,6 +218,35 @@ func TestInventory_AddItem(t *testing.T) {
 	}
 }
 
+func TestInventory_AddItem_Atomic(t *testing.T) {
+	inv := item.NewInventory(1)
+	tit := &item.Titanium{}
+	maxStack := tit.GetMaxStack()
+
+	// Fill the slot partially, leaving space for exactly 2 items
+	if !inv.AddItem(tit, maxStack-2) {
+		t.Fatal("expected successfully adding initial items")
+	}
+
+	// Try to add 3 items (exceeds available capacity of 2)
+	if inv.AddItem(tit, 3) {
+		t.Error("expected AddItem to fail when space is insufficient")
+	}
+
+	// Assert inventory was not mutated (still has maxStack-2 items)
+	count := inv.Count(tit)
+	if count != maxStack-2 {
+		t.Errorf("expected inventory to retain original count %d, got %d", maxStack-2, count)
+	}
+
+	if !item.HasItem[*item.Titanium](inv, maxStack-2) {
+		t.Errorf("expected counts cache to have %d Titanium", maxStack-2)
+	}
+	if item.HasItem[*item.Titanium](inv, maxStack-1) {
+		t.Errorf("expected counts cache not to have %d Titanium", maxStack-1)
+	}
+}
+
 func TestBaseMenu_OpenClose(t *testing.T) {
 	g := NewGame()
 	g.TransitionTo(g.overworldState)

@@ -70,12 +70,20 @@ type TriggerShakeCmd struct {
 	Intensity float64
 }
 
+// SetWarningCmd requests a user-facing warning popup with the given message, duration, and level.
+type SetWarningCmd struct {
+	Message  string
+	Duration int
+	Level    int
+}
+
 func (ActivateSonarCmd) gameCommand()  {}
 func (RemoveCaveNodeCmd) gameCommand() {}
 func (UnlockRecipeCmd) gameCommand()   {}
 func (SpawnBubbleCmd) gameCommand()    {}
 func (SpawnDebrisCmd) gameCommand()    {}
 func (TriggerShakeCmd) gameCommand()   {}
+func (SetWarningCmd) gameCommand()     {}
 
 // Runtime exposes world/game state that vehicles need without importing package game.
 // Synchronous queries return values immediately; mutations are submitted via Emit

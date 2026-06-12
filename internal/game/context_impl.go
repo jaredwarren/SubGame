@@ -66,6 +66,21 @@ func (g *Game) StartGame(seed int64) {
 	g.MineWarningTimer = 0
 	g.MineWarningLevel = 0
 
+	// Reset progression and PDA state
+	g.craftingRecipes = scene.DefaultCraftingRecipes()
+
+	sm := story.NewStoryManager()
+	_ = sm.Load(story.LoreJSONBytes)
+	g.storyManager = sm
+
+	if g.baseMenu != nil {
+		g.baseMenu.ActiveTab = 0
+		g.baseMenu.ScrollY = 0
+		g.baseMenu.SelectedLoreIndex = 0
+	}
+	g.pdaPriorState = StateTitle
+	g.menuOpenedAnywhere = false
+
 	g.overworldState = NewOverworldScene(w)
 
 	g.TransitionToOverworld()
@@ -242,6 +257,10 @@ func (g *Game) IsDebugWaterShaderDisabled() bool { return g.DebugDisableWaterSha
 // --- Story and Lore ---
 
 func (g *Game) GetStoryManager() *story.StoryManager { return g.storyManager }
+
+func (g *Game) GetCraftingRecipes() []scene.Recipe {
+	return g.craftingRecipes
+}
 
 func (g *Game) TransitionToPDA() {
 	if g.currentState == scene.StateOverworld || g.currentState == scene.StateCave {
