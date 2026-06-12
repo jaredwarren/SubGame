@@ -171,93 +171,19 @@ func (g *Game) handleInventoryClicks() {
 		return
 	}
 	if g.ActiveVehicle != nil {
-		g.handleVehicleInventoryClicks()
+		g.hud.HandleVehicleInventoryClicks(g)
 	} else {
-		g.handlePlayerInventoryClicks()
+		g.hud.HandlePlayerInventoryClicks(g)
 	}
 }
 
-// handleVehicleInventoryClicks handles the combined diver+vehicle cargo panel.
-func (g *Game) handleVehicleInventoryClicks() {
-	cursor := g.Input.Cursor()
-	mx, my := int(cursor.X), int(cursor.Y)
-	panelX := float64(config.ScreenWidth-960) / 2.0
-	panelY := float64(config.ScreenHeight-360) / 2.0
-	const slotSz, gap = 48.0, 8.0
-
-	// Check if Pick Up button is clicked
-	if g.ActiveVehicle != nil && g.ActiveVehicle.GetKit() != nil {
-		btnX := panelX + 730
-		btnY := panelY + 12
-		const btnW, btnH = 200.0, 24.0
-		if float64(mx) >= btnX && float64(mx) < btnX+btnW && float64(my) >= btnY && float64(my) < btnY+btnH {
-			g.pickUpActiveVehicle()
-			return
-		}
-	}
-
-	// Transfer from player inventory to vehicle
-	pStartX := panelX + 30
-	pStartY := panelY + 60
-	for r := range 3 {
-		for c := range 8 {
-			idx := r*8 + c
-			sx := int(pStartX) + c*int(slotSz+gap)
-			sy := int(pStartY) + r*int(slotSz+gap)
-			if !inSlot(mx, my, sx, sy, int(slotSz)) || idx >= len(g.player.Inventory.Slots) {
-				continue
-			}
-			slot := &g.player.Inventory.Slots[idx]
-			if slot.Item == nil {
-				continue
-			}
-			g.transferToVehicle(slot.Item)
-		}
-	}
-
-	// Transfer from vehicle cargo to player
-	vInv := g.ActiveVehicle.GetCargo()
-	vCols, vRows := cargoLayout(len(vInv.Slots))
-	vStartX := panelX + 510
-	vStartY := panelY + 60
-	for r := range vRows {
-		for c := range vCols {
-			idx := r*vCols + c
-			sx := int(vStartX) + c*int(slotSz+gap)
-			sy := int(vStartY) + r*int(slotSz+gap)
-			if !inSlot(mx, my, sx, sy, int(slotSz)) || idx >= len(vInv.Slots) {
-				continue
-			}
-			slot := &vInv.Slots[idx]
-			if slot.Item != nil && g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
-				vInv.Remove(slot.Item, 1)
-				g.player.RecalculateUpgrades()
-			}
-		}
-	}
-
-	// Transfer from vehicle upgrades to player
-	if vUpg := g.ActiveVehicle.GetUpgrades(); vUpg != nil {
-		upgSlotsY := panelY + 240 // 220 + 20
-		for c := range vUpg.Slots {
-			sx := int(vStartX) + c*int(slotSz+gap)
-			sy := int(upgSlotsY)
-			if !inSlot(mx, my, sx, sy, int(slotSz)) {
-				continue
-			}
-			slot := &vUpg.Slots[c]
-			if slot.Item != nil && g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
-				vUpg.Remove(slot.Item, 1)
-				g.player.RecalculateUpgrades()
-			}
-		}
-	}
-}
-
-// transferToVehicle tries to move an item from the player's hand to the active vehicle,
+// TransferToVehicle tries to move an item from the player's hand to the active vehicle,
 // preferring power-cell recharging → upgrade slot → cargo in that order.
-func (g *Game) transferToVehicle(it item.Item) {
+func (g *Game) TransferToVehicle(it item.Item) {
 	v := g.ActiveVehicle
+	if v == nil {
+		return
+	}
 
 	if _, isPowerCell := it.(*item.PowerCell); isPowerCell {
 		if v.GetBattery() < v.GetMaxBattery() {
@@ -284,52 +210,8 @@ func (g *Game) transferToVehicle(it item.Item) {
 	}
 }
 
-// handlePlayerInventoryClicks handles clicks on the solo player inventory / gear panel.
-func (g *Game) handlePlayerInventoryClicks() {
-	cursor := g.Input.Cursor()
-	mx, my := int(cursor.X), int(cursor.Y)
-	panelX := float64(config.ScreenWidth-600) / 2.0
-	panelY := float64(config.ScreenHeight-420) / 2.0
-	const cols, slotSz, gap = 8, 56.0, 10.0
-	startX := panelX + (600.0-float64(cols*(56+10)-10))/2.0
-	startY := panelY + 60.0
-
-	// Main inventory grid
-	for r := range 3 {
-		for c := range cols {
-			idx := r*cols + c
-			sx := int(startX) + c*int(slotSz+gap)
-			sy := int(startY) + r*int(slotSz+gap)
-			if !inSlot(mx, my, sx, sy, int(slotSz)) || idx >= len(g.player.Inventory.Slots) {
-				continue
-			}
-			slot := &g.player.Inventory.Slots[idx]
-			if slot.Item == nil {
-				continue
-			}
-			g.activatePlayerItem(slot.Item)
-		}
-	}
-
-	// Equipped gear slots (uninstall on click)
-	gearStartX := panelX + (600.0-(4.0*slotSz+3.0*gap))/2.0
-	gearSlotsY := startY + 3.0*(slotSz+gap) + 5.0 + 22.0
-	for c := range 4 {
-		sx := int(gearStartX) + c*int(slotSz+gap)
-		sy := int(gearSlotsY)
-		if !inSlot(mx, my, sx, sy, int(slotSz)) || g.player.Upgrades == nil || c >= len(g.player.Upgrades.Slots) {
-			continue
-		}
-		slot := &g.player.Upgrades.Slots[c]
-		if slot.Item != nil && g.player.Inventory.AddItem(item.Clone(slot.Item), 1) {
-			g.player.Upgrades.Remove(slot.Item, 1)
-			g.player.RecalculateUpgrades()
-		}
-	}
-}
-
-// activatePlayerItem applies the appropriate action for clicking an item in the player inventory.
-func (g *Game) activatePlayerItem(it item.Item) {
+// ActivatePlayerItem applies the appropriate action for clicking an item in the player inventory.
+func (g *Game) ActivatePlayerItem(it item.Item) {
 	if g.player.EquipUpgrade(it) {
 		g.player.Inventory.Remove(it, 1)
 		g.player.RecalculateUpgrades()
@@ -545,24 +427,9 @@ func (g *Game) updateCamera() {
 
 // --- small helpers ---
 
-// inSlot reports whether (mx, my) falls inside the square slot at (sx, sy) with side sz.
-func inSlot(mx, my, sx, sy, sz int) bool {
-	return mx >= sx && mx < sx+sz && my >= sy && my < sy+sz
-}
 
-// cargoLayout returns the column/row count for a vehicle cargo grid of the given slot count.
-func cargoLayout(numSlots int) (cols, rows int) {
-	switch numSlots {
-	case 24:
-		return 8, 3
-	case 12:
-		return 6, 2
-	default:
-		return 4, 2
-	}
-}
 
-func (g *Game) pickUpActiveVehicle() {
+func (g *Game) PickUpActiveVehicle() {
 	v := g.ActiveVehicle
 	if v == nil {
 		return

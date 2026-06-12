@@ -284,41 +284,25 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 	switch m.ActiveTab {
 	case 0:
 		if leftClicked {
-			pStartX := panelX + 45
-			pStartY := panelY + 140
-			for r := 0; r < 3; r++ {
-				for c := 0; c < 8; c++ {
-					idx := r*8 + c
-					if idx >= len(p.Inventory.Slots) {
-						continue
-					}
-					sx := int(pStartX) + c*(40+6)
-					sy := int(pStartY) + r*(40+6)
-					if mx >= sx && mx < sx+40 && my >= sy && my < sy+40 {
-						slot := &p.Inventory.Slots[idx]
-						if slot.Item != nil {
-							if b.InstallUpgrade(slot.Item) {
-								p.Inventory.Remove(slot.Item, 1)
-								p.RecalculateUpgrades()
-							}
-						}
+			hoveredIdx := BaseMenuPlayerInvLayout.HoveredSlot(panelX, panelY, len(p.Inventory.Slots), mx, my)
+			if hoveredIdx != -1 {
+				slot := &p.Inventory.Slots[hoveredIdx]
+				if slot.Item != nil {
+					if b.InstallUpgrade(slot.Item) {
+						p.Inventory.Remove(slot.Item, 1)
+						p.RecalculateUpgrades()
 					}
 				}
 			}
 
-			bStartX := panelX + 445
-			bStartY := panelY + 140
-			for c := 0; c < 4; c++ {
-				sx := int(bStartX) + c*(40+6)
-				sy := int(bStartY)
-				if mx >= sx && mx < sx+40 && my >= sy && my < sy+40 {
-					slot := &b.Upgrades.Slots[c]
+			if b.Upgrades != nil {
+				hoveredModuleIdx := BaseMenuInstalledModulesLayout.HoveredSlot(panelX, panelY, len(b.Upgrades.Slots), mx, my)
+				if hoveredModuleIdx != -1 {
+					slot := &b.Upgrades.Slots[hoveredModuleIdx]
 					if slot.Item != nil {
-						if b.WouldUninstallOverflow(c) {
+						if b.WouldUninstallOverflow(hoveredModuleIdx) {
 							g.SetMineWarning("Vault has too many items to uninstall storage upgrade!", 120, 2)
-							continue
-						}
-						if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+						} else if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
 							b.Upgrades.Remove(slot.Item, 1)
 							b.RecalculateProperties()
 							p.RecalculateUpgrades()
@@ -409,56 +393,25 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 
 	case 2:
 		if leftClicked && b.HasModule(item.ModuleStorage) {
-			const (
-				cols   = 8
-				slotSz = 40
-				gap    = 6
-			)
-			pRows := len(p.Inventory.Slots) / cols
-			bRows := len(b.Storage.Slots) / cols
-
-			pStartX := panelX + 30
-			pStartY := panelY + 110
-
-			for r := 0; r < pRows; r++ {
-				for c := 0; c < cols; c++ {
-					idx := r*cols + c
-					if idx >= len(p.Inventory.Slots) {
-						continue
-					}
-					sx := int(pStartX) + c*(slotSz+gap)
-					sy := int(pStartY) + r*(slotSz+gap)
-					if mx >= sx && mx < sx+slotSz && my >= sy && my < sy+slotSz {
-						slot := &p.Inventory.Slots[idx]
-						if slot.Item != nil {
-							if b.Storage.AddItem(item.Clone(slot.Item), 1) {
-								p.Inventory.Remove(slot.Item, 1)
-								p.RecalculateUpgrades()
-							}
-						}
+			hoveredIdx := BaseVaultPlayerInvLayout.HoveredSlot(panelX, panelY, len(p.Inventory.Slots), mx, my)
+			if hoveredIdx != -1 {
+				slot := &p.Inventory.Slots[hoveredIdx]
+				if slot.Item != nil {
+					if b.Storage.AddItem(item.Clone(slot.Item), 1) {
+						p.Inventory.Remove(slot.Item, 1)
+						p.RecalculateUpgrades()
 					}
 				}
 			}
 
-			bStartX := panelX + 430
-			bStartY := panelY + 110
-
-			for r := 0; r < bRows; r++ {
-				for c := 0; c < cols; c++ {
-					idx := r*cols + c
-					if idx >= len(b.Storage.Slots) {
-						continue
-					}
-					sx := int(bStartX) + c*(slotSz+gap)
-					sy := int(bStartY) + r*(slotSz+gap)
-					if mx >= sx && mx < sx+slotSz && my >= sy && my < sy+slotSz {
-						slot := &b.Storage.Slots[idx]
-						if slot.Item != nil {
-							if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
-								b.Storage.Remove(slot.Item, 1)
-								p.RecalculateUpgrades()
-							}
-						}
+			vaultLayout := GetBaseVaultStorageLayout(len(b.Storage.Slots))
+			hoveredVaultIdx := vaultLayout.HoveredSlot(panelX, panelY, len(b.Storage.Slots), mx, my)
+			if hoveredVaultIdx != -1 {
+				slot := &b.Storage.Slots[hoveredVaultIdx]
+				if slot.Item != nil {
+					if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+						b.Storage.Remove(slot.Item, 1)
+						p.RecalculateUpgrades()
 					}
 				}
 			}
@@ -578,7 +531,7 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 		vector.FillRect(screen, schematicX, schematicY, 380, 335, color.RGBA{16, 22, 34, 255}, false)
 		vector.StrokeRect(screen, schematicX, schematicY, 380, 335, 1.0, color.RGBA{48, 62, 85, 255}, false)
 		ebitenutil.DebugPrintAt(screen, "PLAYER INVENTORY (CLICK UPGRADE TO INSTALL)", int(schematicX)+15, int(schematicY)+15)
-		drawInventoryGrid(g, screen, float32(schematicX)+15, float32(schematicY)+45, p.Inventory)
+		drawInventoryGrid(g, screen, float64(panelX), float64(panelY), BaseMenuPlayerInvLayout, p.Inventory)
 
 		upgradeX := panelX + 430
 		upgradeY := panelY + 95
@@ -586,20 +539,18 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 		vector.StrokeRect(screen, upgradeX, upgradeY, 340, 335, 1.0, color.RGBA{48, 62, 85, 255}, false)
 		ebitenutil.DebugPrintAt(screen, "INSTALLED MODULES (CLICK TO UNINSTALL)", int(upgradeX)+15, int(upgradeY)+15)
 
-		const (
-			slotSz = 40
-			gap    = 6
-		)
 		cursor := g.GetInput().Cursor()
 		mx, my := int(cursor.X), int(cursor.Y)
 
 		for c := 0; c < 4; c++ {
-			sx := upgradeX + 15 + float32(c*(slotSz+gap))
-			sy := upgradeY + 45
+			rect := BaseMenuInstalledModulesLayout.SlotRect(float64(panelX), float64(panelY), c)
+			sx := float32(rect.Min.X)
+			sy := float32(rect.Min.Y)
+			slotSz := float32(BaseMenuInstalledModulesLayout.SlotSz)
 
 			slotBg := color.RGBA{24, 30, 44, 255}
 			slotBorder := color.RGBA{54, 68, 92, 255}
-			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
+			isHovered := BaseMenuInstalledModulesLayout.InSlot(float64(panelX), float64(panelY), c, mx, my)
 			if isHovered {
 				slotBg = color.RGBA{38, 48, 70, 255}
 				slotBorder = color.RGBA{100, 130, 180, 255}
@@ -767,12 +718,13 @@ func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
 		pStartX := panelX + 30
 		pStartY := panelY + 110
 		ebitenutil.DebugPrintAt(screen, "PLAYER INVENTORY (CLICK TO STORE)", int(pStartX), int(pStartY)-25)
-		drawInventoryGrid(g, screen, pStartX, pStartY, p.Inventory)
+		drawInventoryGrid(g, screen, float64(panelX), float64(panelY), BaseVaultPlayerInvLayout, p.Inventory)
 
 		bStartX := panelX + 430
 		bStartY := panelY + 110
 		ebitenutil.DebugPrintAt(screen, "BASE VAULT (CLICK TO TAKE)", int(bStartX), int(bStartY)-25)
-		drawInventoryGrid(g, screen, bStartX, bStartY, b.Storage)
+		vaultLayout := GetBaseVaultStorageLayout(len(b.Storage.Slots))
+		drawInventoryGrid(g, screen, float64(panelX), float64(panelY), vaultLayout, b.Storage)
 
 		arrowX := panelX + 395
 		arrowY := panelY + 180
@@ -935,45 +887,34 @@ func wrapText(text string, maxChars int) []string {
 	return lines
 }
 
-func drawInventoryGrid(g GameContext, screen *ebiten.Image, startX, startY float32, inv *item.Inventory) {
-	const (
-		cols   = 8
-		slotSz = 40
-		gap    = 6
-	)
-	rows := len(inv.Slots) / cols
-
+func drawInventoryGrid(g GameContext, screen *ebiten.Image, panelX, panelY float64, d LayoutDescriptor, inv *item.Inventory) {
 	cursor := g.GetInput().Cursor()
 	mx, my := int(cursor.X), int(cursor.Y)
 
-	for r := 0; r < rows; r++ {
-		for c := 0; c < cols; c++ {
-			idx := r*cols + c
-			if idx >= len(inv.Slots) {
-				continue
-			}
-			sx := startX + float32(c*(slotSz+gap))
-			sy := startY + float32(r*(slotSz+gap))
+	for idx := 0; idx < len(inv.Slots); idx++ {
+		rect := d.SlotRect(panelX, panelY, idx)
+		sx := float32(rect.Min.X)
+		sy := float32(rect.Min.Y)
+		slotSz := float32(d.SlotSz)
 
-			slotBg := color.RGBA{24, 30, 44, 255}
-			slotBorder := color.RGBA{54, 68, 92, 255}
-			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
-			if isHovered {
-				slotBg = color.RGBA{38, 48, 70, 255}
-				slotBorder = color.RGBA{100, 130, 180, 255}
-			}
+		slotBg := color.RGBA{24, 30, 44, 255}
+		slotBorder := color.RGBA{54, 68, 92, 255}
+		isHovered := d.InSlot(panelX, panelY, idx, mx, my)
+		if isHovered {
+			slotBg = color.RGBA{38, 48, 70, 255}
+			slotBorder = color.RGBA{100, 130, 180, 255}
+		}
 
-			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
-			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
+		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
-			itemStack := inv.Slots[idx]
-			if itemStack.Item != nil {
-				cx := sx + slotSz/2.0
-				cy := sy + slotSz/2.0
-				itemStack.Item.DrawIcon(screen, cx, cy, slotSz*0.7)
-				if itemStack.Quantity > 1 {
-					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", itemStack.Quantity), int(sx)+4, int(sy)+slotSz-15)
-				}
+		itemStack := inv.Slots[idx]
+		if itemStack.Item != nil {
+			cx := sx + slotSz/2.0
+			cy := sy + slotSz/2.0
+			itemStack.Item.DrawIcon(screen, cx, cy, slotSz*0.7)
+			if itemStack.Quantity > 1 {
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", itemStack.Quantity), int(sx)+4, int(sy)+int(slotSz)-15)
 			}
 		}
 	}

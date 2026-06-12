@@ -218,77 +218,62 @@ func drawStatBar(screen *ebiten.Image, x, y, w, h float32, ratio float64, barCol
 
 // DrawInventory renders the player's grid inventory overlay.
 func (h *HUD) DrawInventory(screen *ebiten.Image, g GameContext, inv *item.Inventory) {
-	const (
-		panelW = 600
-		panelH = 420
-		cols   = 8
-		rows   = 3
-		slotSz = 56
-		gap    = 10
-	)
+	layout := SoloInventoryGridDescriptor
+	panelX := (float64(config.ScreenWidth) - layout.PanelW) / 2.0
+	panelY := (float64(config.ScreenHeight) - layout.PanelH) / 2.0
 
-	panelX := float32(config.ScreenWidth-panelW) / 2.0
-	panelY := float32(config.ScreenHeight-panelH) / 2.0
-
-	vector.FillRect(screen, panelX, panelY, panelW, panelH, color.RGBA{14, 20, 32, 238}, false)
-	vector.StrokeRect(screen, panelX, panelY, panelW, panelH, 1.5, color.RGBA{68, 88, 120, 255}, false)
-	vector.FillRect(screen, panelX+15, panelY+12, 110, 24, color.RGBA{22, 32, 50, 255}, false)
+	vector.FillRect(screen, float32(panelX), float32(panelY), float32(layout.PanelW), float32(layout.PanelH), color.RGBA{14, 20, 32, 238}, false)
+	vector.StrokeRect(screen, float32(panelX), float32(panelY), float32(layout.PanelW), float32(layout.PanelH), 1.5, color.RGBA{68, 88, 120, 255}, false)
+	vector.FillRect(screen, float32(panelX)+15, float32(panelY)+12, 110, 24, color.RGBA{22, 32, 50, 255}, false)
 	ebitenutil.DebugPrintAt(screen, " INVENTORY", int(panelX)+20, int(panelY)+16)
 
 	cursor := g.GetInput().Cursor()
 	mx, my := int(cursor.X), int(cursor.Y)
 	var hoveredItemName = "None"
 
-	startX := panelX + float32(panelW-float32(cols*(slotSz+gap)-gap))/2.0
-	startY := panelY + 60.0
+	for slotIdx := 0; slotIdx < len(inv.Slots); slotIdx++ {
+		rect := layout.SlotRect(panelX, panelY, slotIdx)
+		sx := float32(rect.Min.X)
+		sy := float32(rect.Min.Y)
+		slotSz := float32(layout.SlotSz)
 
-	for r := 0; r < rows; r++ {
-		for c := 0; c < cols; c++ {
-			slotIdx := r*cols + c
-			if slotIdx >= len(inv.Slots) {
-				continue
+		slotBg := color.RGBA{20, 26, 38, 255}
+		slotBorder := color.RGBA{48, 60, 80, 255}
+		isHovered := mx >= rect.Min.X && mx < rect.Max.X && my >= rect.Min.Y && my < rect.Max.Y
+		if isHovered {
+			slotBg = color.RGBA{32, 42, 62, 255}
+			slotBorder = color.RGBA{95, 125, 165, 255}
+			if inv.Slots[slotIdx].Item != nil {
+				hoveredItemName = inv.Slots[slotIdx].Item.GetName()
 			}
-			sx := startX + float32(c*(slotSz+gap))
-			sy := startY + float32(r*(slotSz+gap))
+		}
 
-			slotBg := color.RGBA{20, 26, 38, 255}
-			slotBorder := color.RGBA{48, 60, 80, 255}
-			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
-			if isHovered {
-				slotBg = color.RGBA{32, 42, 62, 255}
-				slotBorder = color.RGBA{95, 125, 165, 255}
-				if inv.Slots[slotIdx].Item != nil {
-					hoveredItemName = inv.Slots[slotIdx].Item.GetName()
-				}
-			}
+		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
 
-			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
-			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
-
-			slot := inv.Slots[slotIdx]
-			if slot.Item != nil {
-				drawItemIcon(screen, sx, sy, slotSz, slot.Item)
-				if slot.Quantity > 1 {
-					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+6, int(sy)+int(slotSz)-17)
-				}
+		slot := inv.Slots[slotIdx]
+		if slot.Item != nil {
+			drawItemIcon(screen, sx, sy, slotSz, slot.Item)
+			if slot.Quantity > 1 {
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+6, int(sy)+int(slotSz)-17)
 			}
 		}
 	}
 
 	p := g.GetPlayer()
-	gearY := startY + float32(rows*(slotSz+gap)) + 5.0
+	gearLayout := SoloGearGridDescriptor
+	gearY := float32(panelY + layout.StartY + float64(layout.Rows)*(layout.SlotSz+layout.Gap) - layout.Gap + 5.0)
 	ebitenutil.DebugPrintAt(screen, "EQUIPPED GEAR (CLICK ITEM TO EQUIP / UNEQUIP)", int(panelX)+20, int(gearY))
 
-	gearStartX := panelX + (panelW-(4.0*float32(slotSz)+3.0*float32(gap)))/2.0
-	gearSlotsY := gearY + 22.0
-
 	for c := 0; c < 4; c++ {
-		sx := gearStartX + float32(c*(slotSz+gap))
-		sy := gearSlotsY
+		rect := gearLayout.SlotRect(panelX, panelY, c)
+		sx := float32(rect.Min.X)
+		sy := float32(rect.Min.Y)
+		slotSz := float32(gearLayout.SlotSz)
 
 		slotBg := color.RGBA{20, 26, 38, 255}
 		slotBorder := color.RGBA{48, 60, 80, 255}
-		isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
+		isHovered := mx >= rect.Min.X && mx < rect.Max.X && my >= rect.Min.Y && my < rect.Max.Y
 		if isHovered {
 			slotBg = color.RGBA{32, 42, 62, 255}
 			slotBorder = color.RGBA{95, 125, 165, 255}
@@ -305,9 +290,9 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g GameContext, inv *item.Inven
 		}
 	}
 
-	tooltipY := panelY + panelH - 42
-	vector.FillRect(screen, panelX+20, tooltipY, panelW-40, 24, color.RGBA{8, 12, 18, 255}, false)
-	vector.StrokeRect(screen, panelX+20, tooltipY, panelW-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
+	tooltipY := float32(panelY + layout.PanelH - 42)
+	vector.FillRect(screen, float32(panelX)+20, tooltipY, float32(layout.PanelW)-40, 24, color.RGBA{8, 12, 18, 255}, false)
+	vector.StrokeRect(screen, float32(panelX)+20, tooltipY, float32(layout.PanelW)-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
 	tooltipText := "Hover an item to view details."
 	if hoveredItemName != "None" {
 		tooltipText = hoveredItemName
@@ -317,23 +302,15 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g GameContext, inv *item.Inven
 
 // DrawVehicleInventory renders a split UI showing player inventory and vehicle cargo.
 func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *item.Inventory, vInv *item.Inventory, vName string) {
-	const (
-		panelW = 960
-		panelH = 360
-		colsP  = 8
-		rowsP  = 3
-		slotSz = 48
-		gap    = 8
-	)
+	layoutP := VehiclePlayerInvLayout
+	panelX := (float64(config.ScreenWidth) - layoutP.PanelW) / 2.0
+	panelY := (float64(config.ScreenHeight) - layoutP.PanelH) / 2.0
 
-	panelX := float32(config.ScreenWidth-panelW) / 2.0
-	panelY := float32(config.ScreenHeight-panelH) / 2.0
-
-	vector.FillRect(screen, panelX, panelY, panelW, panelH, color.RGBA{14, 20, 32, 238}, false)
-	vector.StrokeRect(screen, panelX, panelY, panelW, panelH, 1.5, color.RGBA{68, 88, 120, 255}, false)
-	vector.FillRect(screen, panelX+30, panelY+12, 160, 24, color.RGBA{22, 32, 50, 255}, false)
+	vector.FillRect(screen, float32(panelX), float32(panelY), float32(layoutP.PanelW), float32(layoutP.PanelH), color.RGBA{14, 20, 32, 238}, false)
+	vector.StrokeRect(screen, float32(panelX), float32(panelY), float32(layoutP.PanelW), float32(layoutP.PanelH), 1.5, color.RGBA{68, 88, 120, 255}, false)
+	vector.FillRect(screen, float32(panelX)+30, float32(panelY)+12, 160, 24, color.RGBA{22, 32, 50, 255}, false)
 	ebitenutil.DebugPrintAt(screen, " DIVER INVENTORY", int(panelX)+35, int(panelY)+16)
-	vector.FillRect(screen, panelX+510, panelY+12, 200, 24, color.RGBA{22, 32, 50, 255}, false)
+	vector.FillRect(screen, float32(panelX)+510, float32(panelY)+12, 200, 24, color.RGBA{22, 32, 50, 255}, false)
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf(" %s CARGO", vName), int(panelX)+515, int(panelY)+16)
 
 	cursor := g.GetInput().Cursor()
@@ -350,130 +327,204 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 			btnBg = color.RGBA{30, 80, 120, 255}
 			btnBorder = color.RGBA{60, 200, 255, 255}
 		}
-		vector.FillRect(screen, btnX, btnY, btnW, btnH, btnBg, false)
-		vector.StrokeRect(screen, btnX, btnY, btnW, btnH, 1.0, btnBorder, false)
+		vector.FillRect(screen, float32(btnX), float32(btnY), btnW, btnH, btnBg, false)
+		vector.StrokeRect(screen, float32(btnX), float32(btnY), btnW, btnH, 1.0, btnBorder, false)
 		ebitenutil.DebugPrintAt(screen, "  PICK UP VEHICLE", int(btnX)+10, int(btnY)+4)
 	}
 
 	var hoveredItemName = "None"
 
-	startX_P := panelX + 30
-	startY_P := panelY + 60
+	// Player Inventory Grid
+	for slotIdx := 0; slotIdx < len(pInv.Slots); slotIdx++ {
+		rect := layoutP.SlotRect(panelX, panelY, slotIdx)
+		sx := float32(rect.Min.X)
+		sy := float32(rect.Min.Y)
+		slotSz := float32(layoutP.SlotSz)
 
-	for r := 0; r < rowsP; r++ {
-		for c := 0; c < colsP; c++ {
-			slotIdx := r*colsP + c
-			if slotIdx >= len(pInv.Slots) {
-				continue
+		slotBg := color.RGBA{20, 26, 38, 255}
+		slotBorder := color.RGBA{48, 60, 80, 255}
+		isHovered := mx >= rect.Min.X && mx < rect.Max.X && my >= rect.Min.Y && my < rect.Max.Y
+		if isHovered {
+			slotBg = color.RGBA{32, 42, 62, 255}
+			slotBorder = color.RGBA{95, 125, 165, 255}
+			if pInv.Slots[slotIdx].Item != nil {
+				hoveredItemName = pInv.Slots[slotIdx].Item.GetName()
 			}
-			sx := startX_P + float32(c*(slotSz+gap))
-			sy := startY_P + float32(r*(slotSz+gap))
-
-			slotBg := color.RGBA{20, 26, 38, 255}
-			slotBorder := color.RGBA{48, 60, 80, 255}
-			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
-			if isHovered {
-				slotBg = color.RGBA{32, 42, 62, 255}
-				slotBorder = color.RGBA{95, 125, 165, 255}
-				if pInv.Slots[slotIdx].Item != nil {
-					hoveredItemName = pInv.Slots[slotIdx].Item.GetName()
-				}
-			}
-			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
-			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
-			slot := pInv.Slots[slotIdx]
-			if slot.Item != nil {
-				drawItemIcon(screen, sx, sy, slotSz, slot.Item)
-				if slot.Quantity > 1 {
-					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
-				}
+		}
+		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
+		slot := pInv.Slots[slotIdx]
+		if slot.Item != nil {
+			drawItemIcon(screen, sx, sy, slotSz, slot.Item)
+			if slot.Quantity > 1 {
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
 			}
 		}
 	}
 
-	numSlots := len(vInv.Slots)
-	var vCols, vRows int
-	// TODO: numslots should be configurable and not hard-coded to 24, 12, etc.
-	switch numSlots {
-	case 24:
-		vCols, vRows = 8, 3
-	case 12:
-		vCols, vRows = 6, 2
-	default:
-		vCols, vRows = 4, 2
-	}
+	// Vehicle Cargo Grid
+	layoutV := GetVehicleCargoLayout(len(vInv.Slots))
+	for slotIdx := 0; slotIdx < len(vInv.Slots); slotIdx++ {
+		rect := layoutV.SlotRect(panelX, panelY, slotIdx)
+		sx := float32(rect.Min.X)
+		sy := float32(rect.Min.Y)
+		slotSz := float32(layoutV.SlotSz)
 
-	startX_V := panelX + 510
-	startY_V := panelY + 60
-
-	for r := 0; r < vRows; r++ {
-		for c := 0; c < vCols; c++ {
-			slotIdx := r*vCols + c
-			if slotIdx >= numSlots {
-				continue
+		slotBg := color.RGBA{20, 26, 38, 255}
+		slotBorder := color.RGBA{48, 60, 80, 255}
+		isHovered := mx >= rect.Min.X && mx < rect.Max.X && my >= rect.Min.Y && my < rect.Max.Y
+		if isHovered {
+			slotBg = color.RGBA{32, 42, 62, 255}
+			slotBorder = color.RGBA{95, 125, 165, 255}
+			if vInv.Slots[slotIdx].Item != nil {
+				hoveredItemName = vInv.Slots[slotIdx].Item.GetName()
 			}
-			sx := startX_V + float32(c*(slotSz+gap))
-			sy := startY_V + float32(r*(slotSz+gap))
-
-			slotBg := color.RGBA{20, 26, 38, 255}
-			slotBorder := color.RGBA{48, 60, 80, 255}
-			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
-			if isHovered {
-				slotBg = color.RGBA{32, 42, 62, 255}
-				slotBorder = color.RGBA{95, 125, 165, 255}
-				if vInv.Slots[slotIdx].Item != nil {
-					hoveredItemName = vInv.Slots[slotIdx].Item.GetName()
-				}
-			}
-			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
-			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
-			slot := vInv.Slots[slotIdx]
-			if slot.Item != nil {
-				drawItemIcon(screen, sx, sy, slotSz, slot.Item)
-				if slot.Quantity > 1 {
-					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
-				}
+		}
+		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
+		slot := vInv.Slots[slotIdx]
+		if slot.Item != nil {
+			drawItemIcon(screen, sx, sy, slotSz, slot.Item)
+			if slot.Quantity > 1 {
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
 			}
 		}
 	}
 
+	// Vehicle Upgrades Grid
 	vUpg := activeVehicle.GetUpgrades()
 	if vUpg != nil {
-		upgY := panelY + 220
+		startX_V := float32(panelX + 510)
+		upgY := float32(panelY + 220)
 		vector.FillRect(screen, startX_V, upgY, 200, 18, color.RGBA{22, 32, 50, 255}, false)
 		ebitenutil.DebugPrintAt(screen, " VEHICLE UPGRADES", int(startX_V), int(upgY)+2)
 
-		upgSlotsY := upgY + 24
+		layoutUpg := GetVehicleUpgradeLayout(len(vUpg.Slots))
 		for c := 0; c < len(vUpg.Slots); c++ {
-			sx := startX_V + float32(c*(slotSz+gap))
-			sy := upgSlotsY
+			rect := layoutUpg.SlotRect(panelX, panelY, c)
+			sx := float32(rect.Min.X)
+			sy := float32(rect.Min.Y)
+			slotSz := float32(layoutUpg.SlotSz)
 
 			slotBg := color.RGBA{20, 26, 38, 255}
 			slotBorder := color.RGBA{48, 60, 80, 255}
-			isHovered := mx >= int(sx) && mx < int(sx+slotSz) && my >= int(sy) && my < int(sy+slotSz)
+			isHovered := mx >= rect.Min.X && mx < rect.Max.X && my >= rect.Min.Y && my < rect.Max.Y
 			if isHovered {
 				slotBg = color.RGBA{32, 42, 62, 255}
 				slotBorder = color.RGBA{95, 125, 165, 255}
-				if c < len(vUpg.Slots) && vUpg.Slots[c].Item != nil {
+				if vUpg.Slots[c].Item != nil {
 					hoveredItemName = vUpg.Slots[c].Item.GetName()
 				}
 			}
 			vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
 			vector.StrokeRect(screen, sx, sy, slotSz, slotSz, 1.0, slotBorder, false)
-			if c < len(vUpg.Slots) && vUpg.Slots[c].Item != nil {
+			if vUpg.Slots[c].Item != nil {
 				drawItemIcon(screen, sx, sy, slotSz, vUpg.Slots[c].Item)
 			}
 		}
 	}
 
-	tooltipY := panelY + panelH - 42
-	vector.FillRect(screen, panelX+20, tooltipY, panelW-40, 24, color.RGBA{8, 12, 18, 255}, false)
-	vector.StrokeRect(screen, panelX+20, tooltipY, panelW-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
+	tooltipY := float32(panelY + 360 - 42)
+	vector.FillRect(screen, float32(panelX)+20, tooltipY, float32(layoutP.PanelW)-40, 24, color.RGBA{8, 12, 18, 255}, false)
+	vector.StrokeRect(screen, float32(panelX)+20, tooltipY, float32(layoutP.PanelW)-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
 	tooltipText := "Hover an item to view details. Click item to transfer."
 	if hoveredItemName != "None" {
 		tooltipText = hoveredItemName
 	}
 	ebitenutil.DebugPrintAt(screen, tooltipText, int(panelX)+30, int(tooltipY)+4)
+}
+
+// HandlePlayerInventoryClicks processes clicks on the player inventory and gear grid.
+func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
+	cursor := g.GetInput().Cursor()
+	mx, my := int(cursor.X), int(cursor.Y)
+	p := g.GetPlayer()
+
+	panelX := float64(config.ScreenWidth-600) / 2.0
+	panelY := float64(config.ScreenHeight-420) / 2.0
+
+	// Main inventory grid
+	hoveredIdx := SoloInventoryGridDescriptor.HoveredSlot(panelX, panelY, len(p.Inventory.Slots), mx, my)
+	if hoveredIdx != -1 {
+		slot := &p.Inventory.Slots[hoveredIdx]
+		if slot.Item != nil {
+			g.ActivatePlayerItem(slot.Item)
+		}
+		return
+	}
+
+	// Equipped gear slots (uninstall on click)
+	if p.Upgrades != nil {
+		hoveredGearIdx := SoloGearGridDescriptor.HoveredSlot(panelX, panelY, len(p.Upgrades.Slots), mx, my)
+		if hoveredGearIdx != -1 {
+			slot := &p.Upgrades.Slots[hoveredGearIdx]
+			if slot.Item != nil && p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				p.Upgrades.Remove(slot.Item, 1)
+				p.RecalculateUpgrades()
+			}
+		}
+	}
+}
+
+// HandleVehicleInventoryClicks processes clicks on the player + vehicle inventory split panel.
+func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
+	cursor := g.GetInput().Cursor()
+	mx, my := int(cursor.X), int(cursor.Y)
+	p := g.GetPlayer()
+	v := g.GetActiveVehicle()
+	if v == nil {
+		return
+	}
+
+	panelX := float64(config.ScreenWidth-960) / 2.0
+	panelY := float64(config.ScreenHeight-360) / 2.0
+
+	// Check if Pick Up button is clicked
+	if v.GetKit() != nil {
+		btnX := panelX + 730
+		btnY := panelY + 12
+		const btnW, btnH = 200.0, 24.0
+		if float64(mx) >= btnX && float64(mx) < btnX+btnW && float64(my) >= btnY && float64(my) < btnY+btnH {
+			g.PickUpActiveVehicle()
+			return
+		}
+	}
+
+	// Transfer from player inventory to vehicle
+	hoveredPlayerIdx := VehiclePlayerInvLayout.HoveredSlot(panelX, panelY, len(p.Inventory.Slots), mx, my)
+	if hoveredPlayerIdx != -1 {
+		slot := &p.Inventory.Slots[hoveredPlayerIdx]
+		if slot.Item != nil {
+			g.TransferToVehicle(slot.Item)
+		}
+		return
+	}
+
+	// Transfer from vehicle cargo to player
+	vInv := v.GetCargo()
+	cargoLayoutDesc := GetVehicleCargoLayout(len(vInv.Slots))
+	hoveredCargoIdx := cargoLayoutDesc.HoveredSlot(panelX, panelY, len(vInv.Slots), mx, my)
+	if hoveredCargoIdx != -1 {
+		slot := &vInv.Slots[hoveredCargoIdx]
+		if slot.Item != nil && p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+			vInv.Remove(slot.Item, 1)
+			p.RecalculateUpgrades()
+		}
+		return
+	}
+
+	// Transfer from vehicle upgrades to player
+	if vUpg := v.GetUpgrades(); vUpg != nil {
+		upgradeLayoutDesc := GetVehicleUpgradeLayout(len(vUpg.Slots))
+		hoveredUpgradeIdx := upgradeLayoutDesc.HoveredSlot(panelX, panelY, len(vUpg.Slots), mx, my)
+		if hoveredUpgradeIdx != -1 {
+			slot := &vUpg.Slots[hoveredUpgradeIdx]
+			if slot.Item != nil && p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				vUpg.Remove(slot.Item, 1)
+				p.RecalculateUpgrades()
+			}
+		}
+	}
 }
 
 func drawItemIcon(screen *ebiten.Image, sx, sy, slotSz float32, i item.Item) {

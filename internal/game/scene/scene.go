@@ -15,6 +15,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/game/story"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -104,6 +105,11 @@ type GameContext interface {
 
 	// Overworld interactions
 	DestroyOverworldVehicle(v vehicle.Vehicle)
+
+	// Inventory/item interactions
+	PickUpActiveVehicle()
+	TransferToVehicle(it item.Item)
+	ActivatePlayerItem(it item.Item)
 
 	// Debug toggles
 	IsDebugLightShaderDisabled() bool

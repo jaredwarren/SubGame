@@ -861,7 +861,7 @@ func TestVehicle_PickUp(t *testing.T) {
 
 	// 1. Try picking up sub with cargo inside -> should fail.
 	sub.GetCargo().AddItem(&item.Titanium{}, 1)
-	g.pickUpActiveVehicle()
+	g.PickUpActiveVehicle()
 
 	// Active vehicle should still be sub, and inventory shouldn't have sub kit.
 	if g.ActiveVehicle != sub {
@@ -880,14 +880,14 @@ func TestVehicle_PickUp(t *testing.T) {
 	for i := 0; i < 24; i++ {
 		g.player.Inventory.Slots[i] = item.ItemStack{Item: &item.Titanium{}, Quantity: 10}
 	}
-	g.pickUpActiveVehicle()
+	g.PickUpActiveVehicle()
 	if g.ActiveVehicle != sub {
 		t.Error("expected active vehicle to remain sub when player inventory is full")
 	}
 
 	// 3. Free up one slot -> should succeed.
 	g.player.Inventory.Slots[0] = item.ItemStack{}
-	g.pickUpActiveVehicle()
+	g.PickUpActiveVehicle()
 	
 	if g.ActiveVehicle != nil {
 		t.Error("expected active vehicle to be nil after successful pickup")
