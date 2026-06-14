@@ -5,6 +5,7 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
+	"math"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -15,6 +16,16 @@ import (
 
 const TileSize = 64
 
+type AttachDirection int
+
+const (
+	AttachNone AttachDirection = iota
+	AttachTop
+	AttachBottom
+	AttachLeft
+	AttachRight
+)
+
 // Resource defines the interface that all mineable nodes/objects must implement.
 type Resource interface {
 	item.Item
@@ -24,12 +35,15 @@ type Resource interface {
 	RequiresMech() bool
 	Draw(screen *ebiten.Image, camX, camY float64)
 	GetRecipeResultName() string
+	SetAttachDir(dir AttachDirection)
+	GetAttachDir() AttachDirection
 }
 
 // BaseResourceNode holds the shared state for all resource node types.
 type BaseResourceNode struct {
 	Tx, Ty     int // Tile coordinates
 	HitsToMine int
+	AttachDir  AttachDirection
 }
 
 func (b *BaseResourceNode) GetTilePos() (int, int) {
@@ -48,6 +62,14 @@ func (b *BaseResourceNode) GetRecipeResultName() string {
 	return ""
 }
 
+func (b *BaseResourceNode) SetAttachDir(dir AttachDirection) {
+	b.AttachDir = dir
+}
+
+func (b *BaseResourceNode) GetAttachDir() AttachDirection {
+	return b.AttachDir
+}
+
 // drawNodeBase renders the shared backing block behind all resource nodes.
 func drawNodeBase(screen *ebiten.Image, tx, ty int, camX, camY float64) (float32, float32) {
 	sx := float32(tx*TileSize - int(camX))
@@ -57,24 +79,244 @@ func drawNodeBase(screen *ebiten.Image, tx, ty int, camX, camY float64) (float32
 	return sx, sy
 }
 
-// drawMineral renders the mineral crystal at the center of a node.
-func drawMineral(screen *ebiten.Image, sx, sy float32, hitsToMine int, mineralColor, coreColor color.Color, hasExtraShard bool) {
-	cx := sx + float32(TileSize)/2.0
-	cy := sy + float32(TileSize)/2.0
+var gPath vector.Path
 
-	// Scale size based on hits left
-	size := float32(14.0) * (float32(hitsToMine) / 3.0)
-	if size < 4.0 {
-		size = 4.0
+// Helper to darken a color
+func darkenColor(c color.Color, factor float32) color.RGBA {
+	r, g, b, a := c.RGBA()
+	return color.RGBA{
+		R: uint8(float32(r>>8) * factor),
+		G: uint8(float32(g>>8) * factor),
+		B: uint8(float32(b>>8) * factor),
+		A: uint8(a >> 8),
+	}
+}
+
+// Helper to blend two colors
+func blendColor(c1, c2 color.Color, t float32) color.RGBA {
+	r1, g1, b1, a1 := c1.RGBA()
+	r2, g2, b2, a2 := c2.RGBA()
+	return color.RGBA{
+		R: uint8((1.0-t)*float32(r1>>8) + t*float32(r2>>8)),
+		G: uint8((1.0-t)*float32(g1>>8) + t*float32(g2>>8)),
+		B: uint8((1.0-t)*float32(b1>>8) + t*float32(b2>>8)),
+		A: uint8((1.0-t)*float32(a1>>8) + t*float32(a2>>8)),
+	}
+}
+
+// rotateVec rotates a 2D vector by an angle in radians
+func rotateVec(v [2]float32, angle float32) [2]float32 {
+	cosA := float32(math.Cos(float64(angle)))
+	sinA := float32(math.Sin(float64(angle)))
+	return [2]float32{
+		v[0]*cosA - v[1]*sinA,
+		v[0]*sinA + v[1]*cosA,
+	}
+}
+
+// localToScreen transforms a local point (lx, ly) to screen space based on growth basis
+func localToScreen(cx, cy float32, lx, ly float32, dirVec, perpVec [2]float32) (float32, float32) {
+	return cx + lx*perpVec[0] + ly*dirVec[0], cy + lx*perpVec[1] + ly*dirVec[1]
+}
+
+// drawShard draws a single 3D crystal shard growing in local space
+func drawShard(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, length, width float32, shadowColor, highlightColor color.Color) {
+	// Left Face
+	gPath.Reset()
+	lx0, ly0 := localToScreen(cx, cy, 0, 0, dirVec, perpVec)
+	lx1, ly1 := localToScreen(cx, cy, -width/2, 0, dirVec, perpVec)
+	lx2, ly2 := localToScreen(cx, cy, -width/2, length*0.4, dirVec, perpVec)
+	lx3, ly3 := localToScreen(cx, cy, 0, length, dirVec, perpVec)
+	lx4, ly4 := localToScreen(cx, cy, 0, length*0.45, dirVec, perpVec)
+
+	gPath.MoveTo(lx0, ly0)
+	gPath.LineTo(lx1, ly1)
+	gPath.LineTo(lx2, ly2)
+	gPath.LineTo(lx3, ly3)
+	gPath.LineTo(lx4, ly4)
+	gPath.Close()
+	var shadowOpts vector.DrawPathOptions
+	shadowOpts.ColorScale.ScaleWithColor(shadowColor)
+	vector.FillPath(screen, &gPath, nil, &shadowOpts)
+
+	// Right Face
+	gPath.Reset()
+	rx0, ry0 := localToScreen(cx, cy, 0, 0, dirVec, perpVec)
+	rx1, ry1 := localToScreen(cx, cy, 0, length*0.45, dirVec, perpVec)
+	rx2, ry2 := localToScreen(cx, cy, 0, length, dirVec, perpVec)
+	rx3, ry3 := localToScreen(cx, cy, width/2, length*0.4, dirVec, perpVec)
+	rx4, ry4 := localToScreen(cx, cy, width/2, 0, dirVec, perpVec)
+
+	gPath.MoveTo(rx0, ry0)
+	gPath.LineTo(rx1, ry1)
+	gPath.LineTo(rx2, ry2)
+	gPath.LineTo(rx3, ry3)
+	gPath.LineTo(rx4, ry4)
+	gPath.Close()
+	var highlightOpts vector.DrawPathOptions
+	highlightOpts.ColorScale.ScaleWithColor(highlightColor)
+	vector.FillPath(screen, &gPath, nil, &highlightOpts)
+}
+
+// drawCrystalCluster draws 3 crystal shards in a cluster
+func drawCrystalCluster(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, shadowColor, highlightColor color.Color, isSpiky bool) {
+	baseLength := float32(28.0) * scale
+	baseWidth := float32(11.0) * scale
+	if isSpiky {
+		baseLength = float32(34.0) * scale
+		baseWidth = float32(7.0) * scale
 	}
 
-	// Draw raw minerals as overlapping angled rectangles (crystal facets)
-	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, mineralColor, false)
-	vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.0, coreColor, false)
+	// 1. Left shard (rotated by -0.42 radians, slightly shorter)
+	leftDir := rotateVec(dirVec, -0.42)
+	leftPerp := rotateVec(perpVec, -0.42)
+	drawShard(screen, cx, cy, leftDir, leftPerp, baseLength*0.75, baseWidth*0.8, shadowColor, highlightColor)
 
-	// Additional crystal shard for premium minerals
-	if hasExtraShard {
-		vector.FillRect(screen, cx-size/3.0, cy-size/1.2, size/1.5, size/1.5, coreColor, false)
+	// 2. Right shard (rotated by +0.42 radians, slightly shorter)
+	rightDir := rotateVec(dirVec, 0.42)
+	rightPerp := rotateVec(perpVec, 0.42)
+	drawShard(screen, cx, cy, rightDir, rightPerp, baseLength*0.75, baseWidth*0.8, shadowColor, highlightColor)
+
+	// 3. Center shard (straight, full size)
+	drawShard(screen, cx, cy, dirVec, perpVec, baseLength, baseWidth, shadowColor, highlightColor)
+}
+
+// drawNodule draws 4 overlapping sphere-like bumps to represent a nodule
+func drawNodule(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, mineralColor, coreColor color.Color) {
+	R := float32(12.0) * scale
+	if R < 2.0 {
+		R = 2.0
+	}
+
+	type bump struct {
+		lx, ly float32
+		r      float32
+	}
+
+	// Layering order: back to front (Left & Right, then Center, then Top/Tip)
+	bumps := []bump{
+		{-R * 0.45, R * 0.3, R * 0.75}, // Left
+		{R * 0.45, R * 0.3, R * 0.75},  // Right
+		{0, R * 0.5, R},                // Center
+		{0, R * 0.85, R * 0.6},         // Top/Tip
+	}
+
+	for _, b := range bumps {
+		bx, by := localToScreen(cx, cy, b.lx, b.ly, dirVec, perpVec)
+		// 1. Fill base dark bump
+		vector.FillCircle(screen, bx, by, b.r, darkenColor(mineralColor, 0.9), false)
+		// 2. Stroke outline
+		vector.StrokeCircle(screen, bx, by, b.r, 1.0, darkenColor(mineralColor, 0.5), false)
+
+		// 3. Draw shiny highlight offset
+		hx, hy := localToScreen(cx, cy, b.lx-b.r*0.25, b.ly+b.r*0.25, dirVec, perpVec)
+		hr := b.r * 0.28
+		if hr < 1.0 {
+			hr = 1.0
+		}
+		vector.FillCircle(screen, hx, hy, hr, blendColor(coreColor, color.White, 0.6), false)
+	}
+}
+
+// drawQuartzNeedles draws thin, long glowing quartz needles
+func drawQuartzNeedles(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, shadowColor, highlightColor color.Color) {
+	baseLength := float32(36.0) * scale
+	baseWidth := float32(4.5) * scale
+
+	// Draw 4 needles pointing at various angles
+	angles := []float32{-0.5, -0.18, 0.2, 0.55}
+	lengths := []float32{0.7, 1.0, 0.85, 0.65}
+
+	for i, angle := range angles {
+		d := rotateVec(dirVec, angle)
+		p := rotateVec(perpVec, angle)
+		drawShard(screen, cx, cy, d, p, baseLength*lengths[i], baseWidth, shadowColor, highlightColor)
+	}
+}
+
+// drawMineral renders the mineral based on its type and attachment direction
+func drawMineral(screen *ebiten.Image, tx, ty int, camX, camY float64, hitsToMine int, mineralColor, coreColor color.Color, attachDir AttachDirection, mineralName string) {
+	sx := float32(tx*TileSize - int(camX))
+	sy := float32(ty*TileSize - int(camY))
+
+	// Determine basis vectors based on AttachDirection
+	var cx, cy float32
+	var dirVec, perpVec [2]float32
+
+	switch attachDir {
+	case AttachTop:
+		cx = sx + float32(TileSize)/2.0
+		cy = sy
+		dirVec = [2]float32{0, 1}
+		perpVec = [2]float32{-1, 0}
+	case AttachLeft:
+		cx = sx
+		cy = sy + float32(TileSize)/2.0
+		dirVec = [2]float32{1, 0}
+		perpVec = [2]float32{0, -1}
+	case AttachRight:
+		cx = sx + float32(TileSize)
+		cy = sy + float32(TileSize)/2.0
+		dirVec = [2]float32{-1, 0}
+		perpVec = [2]float32{0, 1}
+	case AttachBottom:
+		cx = sx + float32(TileSize)/2.0
+		cy = sy + float32(TileSize)
+		dirVec = [2]float32{0, -1}
+		perpVec = [2]float32{1, 0}
+	default: // AttachNone (fallback / icon center)
+		cx = sx + float32(TileSize)/2.0
+		cy = sy + float32(TileSize)/2.0 + 8.0 // offset slightly down so growing up centers it
+		dirVec = [2]float32{0, -1}
+		perpVec = [2]float32{1, 0}
+	}
+
+	// Scale size based on hits left
+	scale := float32(hitsToMine) / 3.0
+	if scale < 0.35 {
+		scale = 0.35
+	}
+
+	shadowColor := darkenColor(mineralColor, 0.82)
+	highlightColor := blendColor(mineralColor, coreColor, 0.65)
+
+	switch mineralName {
+	case "Copper":
+		drawNodule(screen, cx, cy, dirVec, perpVec, scale, mineralColor, coreColor)
+	case "Quartz":
+		drawQuartzNeedles(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor)
+	case "Abyssal Ore":
+		// Glowing purple crystal shards
+		drawSpikyCrystal := true
+		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
+	default: // Titanium / default
+		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
+	}
+}
+
+// drawMineralIcon renders the mineral crystal or nodule centered at cx, cy with a custom size.
+func drawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, coreColor color.Color, mineralName string) {
+	scale := size / 40.0
+	if scale < 0.2 {
+		scale = 0.2
+	}
+
+	dirVec := [2]float32{0, -1}
+	perpVec := [2]float32{1, 0}
+
+	shadowColor := darkenColor(mineralColor, 0.82)
+	highlightColor := blendColor(mineralColor, coreColor, 0.65)
+
+	switch mineralName {
+	case "Copper":
+		drawNodule(screen, cx, cy, dirVec, perpVec, scale, mineralColor, coreColor)
+	case "Quartz":
+		drawQuartzNeedles(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor)
+	case "Abyssal Ore":
+		drawSpikyCrystal := true
+		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
+	default: // Titanium / default
+		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
 	}
 }
 
@@ -211,20 +453,14 @@ func (n *TitaniumNode) RequiresMech() bool     { return false }
 func (n *TitaniumNode) GetBaseItem() item.Item { return &item.Titanium{} }
 func (n *TitaniumNode) GetColor() color.Color  { return color.RGBA{168, 178, 188, 255} }
 func (n *TitaniumNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawNodeIconSprite(screen, cx, cy, size, TitaniumSprite) {
-		return
-	}
-	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, n.GetColor(), false)
+	coreColor := color.RGBA{220, 230, 240, 255}
+	drawMineralIcon(screen, cx, cy, size, n.GetColor(), coreColor, "Titanium")
 }
 
 func (n *TitaniumNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	if drawNodeSprite(screen, n.Tx, n.Ty, camX, camY, TitaniumSprite, n.HitsToMine) {
-		return
-	}
-	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
 	mineralColor := color.RGBA{160, 175, 185, 255} // Metallic silver
 	coreColor := color.RGBA{220, 230, 240, 255}
-	drawMineral(screen, sx, sy, n.HitsToMine, mineralColor, coreColor, false)
+	drawMineral(screen, n.Tx, n.Ty, camX, camY, n.HitsToMine, mineralColor, coreColor, n.AttachDir, "Titanium")
 }
 
 // ---------------------------------------------------------
@@ -241,20 +477,14 @@ func (n *CopperNode) RequiresMech() bool     { return false }
 func (n *CopperNode) GetBaseItem() item.Item { return &item.Copper{} }
 func (n *CopperNode) GetColor() color.Color  { return color.RGBA{218, 118, 48, 255} }
 func (n *CopperNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawNodeIconSprite(screen, cx, cy, size, CopperSprite) {
-		return
-	}
-	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, n.GetColor(), false)
+	coreColor := color.RGBA{240, 160, 80, 255}
+	drawMineralIcon(screen, cx, cy, size, n.GetColor(), coreColor, "Copper")
 }
 
 func (n *CopperNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	if drawNodeSprite(screen, n.Tx, n.Ty, camX, camY, CopperSprite, n.HitsToMine) {
-		return
-	}
-	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
 	mineralColor := color.RGBA{210, 110, 45, 255} // Copper orange
 	coreColor := color.RGBA{240, 160, 80, 255}
-	drawMineral(screen, sx, sy, n.HitsToMine, mineralColor, coreColor, false)
+	drawMineral(screen, n.Tx, n.Ty, camX, camY, n.HitsToMine, mineralColor, coreColor, n.AttachDir, "Copper")
 }
 
 // ---------------------------------------------------------
@@ -271,21 +501,14 @@ func (n *QuartzNode) RequiresMech() bool     { return false }
 func (n *QuartzNode) GetBaseItem() item.Item { return &item.Quartz{} }
 func (n *QuartzNode) GetColor() color.Color  { return color.RGBA{48, 218, 245, 255} }
 func (n *QuartzNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawNodeIconSprite(screen, cx, cy, size, QuartzSprite) {
-		return
-	}
-	vector.FillCircle(screen, cx, cy, size/2.0, n.GetColor(), false)
-	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
+	coreColor := color.RGBA{220, 250, 255, 255}
+	drawMineralIcon(screen, cx, cy, size, n.GetColor(), coreColor, "Quartz")
 }
 
 func (n *QuartzNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	if drawNodeSprite(screen, n.Tx, n.Ty, camX, camY, QuartzSprite, n.HitsToMine) {
-		return
-	}
-	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
 	mineralColor := color.RGBA{40, 210, 245, 200} // Cyan bioluminescent quartz
 	coreColor := color.RGBA{220, 250, 255, 255}
-	drawMineral(screen, sx, sy, n.HitsToMine, mineralColor, coreColor, true)
+	drawMineral(screen, n.Tx, n.Ty, camX, camY, n.HitsToMine, mineralColor, coreColor, n.AttachDir, "Quartz")
 }
 
 // ---------------------------------------------------------
@@ -302,21 +525,14 @@ func (n *AbyssalOreNode) RequiresMech() bool     { return true }
 func (n *AbyssalOreNode) GetBaseItem() item.Item { return &item.AbyssalOre{} }
 func (n *AbyssalOreNode) GetColor() color.Color  { return color.RGBA{148, 48, 218, 255} }
 func (n *AbyssalOreNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawNodeIconSprite(screen, cx, cy, size, AbyssalSprite) {
-		return
-	}
-	vector.FillCircle(screen, cx, cy, size/2.0, n.GetColor(), false)
-	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
+	coreColor := color.RGBA{230, 180, 255, 255}
+	drawMineralIcon(screen, cx, cy, size, n.GetColor(), coreColor, "Abyssal Ore")
 }
 
 func (n *AbyssalOreNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	if drawNodeSprite(screen, n.Tx, n.Ty, camX, camY, AbyssalSprite, n.HitsToMine) {
-		return
-	}
-	sx, sy := drawNodeBase(screen, n.Tx, n.Ty, camX, camY)
 	mineralColor := color.RGBA{140, 40, 210, 255} // Glowing purple abyssal ore
 	coreColor := color.RGBA{230, 180, 255, 255}
-	drawMineral(screen, sx, sy, n.HitsToMine, mineralColor, coreColor, true)
+	drawMineral(screen, n.Tx, n.Ty, camX, camY, n.HitsToMine, mineralColor, coreColor, n.AttachDir, "Abyssal Ore")
 }
 
 // ---------------------------------------------------------
@@ -706,24 +922,6 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 
 	r := rand.New(rand.NewSource(seed))
 
-	// Helper to check if a tile is adjacent to empty water (open path)
-	isAdjacentToEmpty := func(tx, ty int) bool {
-		for dx := -1; dx <= 1; dx++ {
-			for dy := -1; dy <= 1; dy++ {
-				if dx == 0 && dy == 0 {
-					continue
-				}
-				nx, ny := tx+dx, ty+dy
-				if nx >= 0 && nx < gridW && ny >= 0 && ny < gridH {
-					if !grid[nx][ny] {
-						return true
-					}
-				}
-			}
-		}
-		return false
-	}
-
 	type nodeKind int
 	const (
 		kindTitanium nodeKind = iota
@@ -734,9 +932,24 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 
 	for tx := 1; tx < gridW-1; tx++ {
 		for ty := 1; ty < gridH-1; ty++ {
-			// Place nodes inside solid rock walls
-			if grid[tx][ty] {
-				if isAdjacentToEmpty(tx, ty) {
+			// Place nodes in open (water) tiles that are adjacent to solid walls
+			if !grid[tx][ty] {
+				// Check which cardinal neighbors are solid blocks
+				var possibleDirs []AttachDirection
+				if grid[tx][ty-1] {
+					possibleDirs = append(possibleDirs, AttachTop)
+				}
+				if grid[tx][ty+1] {
+					possibleDirs = append(possibleDirs, AttachBottom)
+				}
+				if grid[tx-1][ty] {
+					possibleDirs = append(possibleDirs, AttachLeft)
+				}
+				if grid[tx+1][ty] {
+					possibleDirs = append(possibleDirs, AttachRight)
+				}
+
+				if len(possibleDirs) > 0 {
 					spawnRoll := r.Float64()
 					kind := kindTitanium
 					var spawnChance = GenConfig.FallbackSpawnChance
@@ -750,7 +963,6 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 						}
 					}
 
-					// TODO: fix below!
 					if activeTier != nil {
 						spawnChance = activeTier.SpawnChance
 						totalWeight := activeTier.TitaniumWeight + activeTier.CopperWeight + activeTier.QuartzWeight + activeTier.AbyssalOreWeight
@@ -769,6 +981,8 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 					}
 
 					if spawnRoll < spawnChance {
+						// Pick one of the adjacent solid wall directions to attach to
+						attachDir := possibleDirs[r.Intn(len(possibleDirs))]
 						var node Resource
 						switch kind {
 						case kindTitanium:
@@ -780,6 +994,7 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 						case kindAbyssalOre:
 							node = NewAbyssalOreNode(tx, ty)
 						}
+						node.SetAttachDir(attachDir)
 						// Scale node hits (health) with depth: base + depth / scale
 						node.SetHitsToMine(GenConfig.BaseHitsToMine + (ty / GenConfig.HitsDepthScale))
 						nodes = append(nodes, node)

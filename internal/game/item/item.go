@@ -5,6 +5,7 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
+	"math"
 	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -134,10 +135,8 @@ func (t *Titanium) GetName() string       { return "Titanium" }
 func (t *Titanium) GetMaxStack() int      { return 10 }
 func (t *Titanium) GetColor() color.Color { return color.RGBA{168, 178, 188, 255} }
 func (t *Titanium) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawItemIconSprite(screen, t.GetName(), cx, cy, size) {
-		return
-	}
-	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, t.GetColor(), false)
+	coreColor := color.RGBA{220, 230, 240, 255}
+	drawMineralIcon(screen, cx, cy, size, t.GetColor(), coreColor, "Titanium")
 }
 
 type Copper struct{}
@@ -146,10 +145,8 @@ func (c *Copper) GetName() string       { return "Copper" }
 func (c *Copper) GetMaxStack() int      { return 10 }
 func (c *Copper) GetColor() color.Color { return color.RGBA{218, 118, 48, 255} }
 func (c *Copper) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawItemIconSprite(screen, c.GetName(), cx, cy, size) {
-		return
-	}
-	vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, c.GetColor(), false)
+	coreColor := color.RGBA{240, 160, 80, 255}
+	drawMineralIcon(screen, cx, cy, size, c.GetColor(), coreColor, "Copper")
 }
 
 type Quartz struct{}
@@ -158,11 +155,8 @@ func (q *Quartz) GetName() string       { return "Quartz" }
 func (q *Quartz) GetMaxStack() int      { return 10 }
 func (q *Quartz) GetColor() color.Color { return color.RGBA{48, 218, 245, 255} }
 func (q *Quartz) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawItemIconSprite(screen, q.GetName(), cx, cy, size) {
-		return
-	}
-	vector.FillCircle(screen, cx, cy, size/2.0, q.GetColor(), false)
-	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
+	coreColor := color.RGBA{220, 250, 255, 255}
+	drawMineralIcon(screen, cx, cy, size, q.GetColor(), coreColor, "Quartz")
 }
 
 type AbyssalOre struct{}
@@ -171,11 +165,8 @@ func (a *AbyssalOre) GetName() string       { return "Abyssal Ore" }
 func (a *AbyssalOre) GetMaxStack() int      { return 10 }
 func (a *AbyssalOre) GetColor() color.Color { return color.RGBA{148, 48, 218, 255} }
 func (a *AbyssalOre) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	if drawItemIconSprite(screen, a.GetName(), cx, cy, size) {
-		return
-	}
-	vector.FillCircle(screen, cx, cy, size/2.0, a.GetColor(), false)
-	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.0, color.RGBA{255, 255, 255, 200}, false)
+	coreColor := color.RGBA{230, 180, 255, 255}
+	drawMineralIcon(screen, cx, cy, size, a.GetColor(), coreColor, "Abyssal Ore")
 }
 
 type O2UpgradeItem interface {
@@ -589,3 +580,167 @@ func (c *CookedCrab) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 }
 func (c *CookedCrab) GetHealthRestore() float64  { return 20.0 }
 func (c *CookedCrab) GetStaminaRestore() float64 { return 20.0 }
+
+var gPath vector.Path
+
+func darkenColor(c color.Color, factor float32) color.RGBA {
+	r, g, b, a := c.RGBA()
+	return color.RGBA{
+		R: uint8(float32(r>>8) * factor),
+		G: uint8(float32(g>>8) * factor),
+		B: uint8(float32(b>>8) * factor),
+		A: uint8(a >> 8),
+	}
+}
+
+func blendColor(c1, c2 color.Color, t float32) color.RGBA {
+	r1, g1, b1, a1 := c1.RGBA()
+	r2, g2, b2, a2 := c2.RGBA()
+	return color.RGBA{
+		R: uint8((1.0-t)*float32(r1>>8) + t*float32(r2>>8)),
+		G: uint8((1.0-t)*float32(g1>>8) + t*float32(g2>>8)),
+		B: uint8((1.0-t)*float32(b1>>8) + t*float32(b2>>8)),
+		A: uint8((1.0-t)*float32(a1>>8) + t*float32(a2>>8)),
+	}
+}
+
+func rotateVec(v [2]float32, angle float32) [2]float32 {
+	cosA := float32(math.Cos(float64(angle)))
+	sinA := float32(math.Sin(float64(angle)))
+	return [2]float32{
+		v[0]*cosA - v[1]*sinA,
+		v[0]*sinA + v[1]*cosA,
+	}
+}
+
+func localToScreen(cx, cy float32, lx, ly float32, dirVec, perpVec [2]float32) (float32, float32) {
+	return cx + lx*perpVec[0] + ly*dirVec[0], cy + lx*perpVec[1] + ly*dirVec[1]
+}
+
+func drawShard(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, length, width float32, shadowColor, highlightColor color.Color) {
+	// Left Face
+	gPath.Reset()
+	lx0, ly0 := localToScreen(cx, cy, 0, 0, dirVec, perpVec)
+	lx1, ly1 := localToScreen(cx, cy, -width/2, 0, dirVec, perpVec)
+	lx2, ly2 := localToScreen(cx, cy, -width/2, length*0.4, dirVec, perpVec)
+	lx3, ly3 := localToScreen(cx, cy, 0, length, dirVec, perpVec)
+	lx4, ly4 := localToScreen(cx, cy, 0, length*0.45, dirVec, perpVec)
+
+	gPath.MoveTo(lx0, ly0)
+	gPath.LineTo(lx1, ly1)
+	gPath.LineTo(lx2, ly2)
+	gPath.LineTo(lx3, ly3)
+	gPath.LineTo(lx4, ly4)
+	gPath.Close()
+	var shadowOpts vector.DrawPathOptions
+	shadowOpts.ColorScale.ScaleWithColor(shadowColor)
+	vector.FillPath(screen, &gPath, nil, &shadowOpts)
+
+	// Right Face
+	gPath.Reset()
+	rx0, ry0 := localToScreen(cx, cy, 0, 0, dirVec, perpVec)
+	rx1, ry1 := localToScreen(cx, cy, 0, length*0.45, dirVec, perpVec)
+	rx2, ry2 := localToScreen(cx, cy, 0, length, dirVec, perpVec)
+	rx3, ry3 := localToScreen(cx, cy, width/2, length*0.4, dirVec, perpVec)
+	rx4, ry4 := localToScreen(cx, cy, width/2, 0, dirVec, perpVec)
+
+	gPath.MoveTo(rx0, ry0)
+	gPath.LineTo(rx1, ry1)
+	gPath.LineTo(rx2, ry2)
+	gPath.LineTo(rx3, ry3)
+	gPath.LineTo(rx4, ry4)
+	gPath.Close()
+	var highlightOpts vector.DrawPathOptions
+	highlightOpts.ColorScale.ScaleWithColor(highlightColor)
+	vector.FillPath(screen, &gPath, nil, &highlightOpts)
+}
+
+func drawCrystalCluster(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, shadowColor, highlightColor color.Color, isSpiky bool) {
+	baseLength := float32(28.0) * scale
+	baseWidth := float32(11.0) * scale
+	if isSpiky {
+		baseLength = float32(34.0) * scale
+		baseWidth = float32(7.0) * scale
+	}
+
+	leftDir := rotateVec(dirVec, -0.42)
+	leftPerp := rotateVec(perpVec, -0.42)
+	drawShard(screen, cx, cy, leftDir, leftPerp, baseLength*0.75, baseWidth*0.8, shadowColor, highlightColor)
+
+	rightDir := rotateVec(dirVec, 0.42)
+	rightPerp := rotateVec(perpVec, 0.42)
+	drawShard(screen, cx, cy, rightDir, rightPerp, baseLength*0.75, baseWidth*0.8, shadowColor, highlightColor)
+
+	drawShard(screen, cx, cy, dirVec, perpVec, baseLength, baseWidth, shadowColor, highlightColor)
+}
+
+func drawNodule(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, mineralColor, coreColor color.Color) {
+	R := float32(12.0) * scale
+	if R < 2.0 {
+		R = 2.0
+	}
+
+	type bump struct {
+		lx, ly float32
+		r      float32
+	}
+
+	bumps := []bump{
+		{-R * 0.45, R * 0.3, R * 0.75},
+		{R * 0.45, R * 0.3, R * 0.75},
+		{0, R * 0.5, R},
+		{0, R * 0.85, R * 0.6},
+	}
+
+	for _, b := range bumps {
+		bx, by := localToScreen(cx, cy, b.lx, b.ly, dirVec, perpVec)
+		vector.FillCircle(screen, bx, by, b.r, darkenColor(mineralColor, 0.9), false)
+		vector.StrokeCircle(screen, bx, by, b.r, 1.0, darkenColor(mineralColor, 0.5), false)
+
+		hx, hy := localToScreen(cx, cy, b.lx-b.r*0.25, b.ly+b.r*0.25, dirVec, perpVec)
+		hr := b.r * 0.28
+		if hr < 1.0 {
+			hr = 1.0
+		}
+		vector.FillCircle(screen, hx, hy, hr, blendColor(coreColor, color.White, 0.6), false)
+	}
+}
+
+func drawQuartzNeedles(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, shadowColor, highlightColor color.Color) {
+	baseLength := float32(36.0) * scale
+	baseWidth := float32(4.5) * scale
+
+	angles := []float32{-0.5, -0.18, 0.2, 0.55}
+	lengths := []float32{0.7, 1.0, 0.85, 0.65}
+
+	for i, angle := range angles {
+		d := rotateVec(dirVec, angle)
+		p := rotateVec(perpVec, angle)
+		drawShard(screen, cx, cy, d, p, baseLength*lengths[i], baseWidth, shadowColor, highlightColor)
+	}
+}
+
+func drawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, coreColor color.Color, mineralName string) {
+	scale := size / 40.0
+	if scale < 0.2 {
+		scale = 0.2
+	}
+
+	dirVec := [2]float32{0, -1}
+	perpVec := [2]float32{1, 0}
+
+	shadowColor := darkenColor(mineralColor, 0.82)
+	highlightColor := blendColor(mineralColor, coreColor, 0.65)
+
+	switch mineralName {
+	case "Copper":
+		drawNodule(screen, cx, cy, dirVec, perpVec, scale, mineralColor, coreColor)
+	case "Quartz":
+		drawQuartzNeedles(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor)
+	case "Abyssal Ore":
+		drawSpikyCrystal := true
+		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
+	default:
+		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
+	}
+}
