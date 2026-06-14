@@ -52,19 +52,13 @@ func (g *Game) StartGame(seed int64) {
 	g.TimeOfDay = 0
 	g.Ticks = 0
 	g.WeaverTrackingTimer = 0
-	g.SoundWaveTimer = 0
-	g.SoundWaveRadius = 0
-	g.SoundWaveX = 0
-	g.SoundWaveY = 0
+	g.SoundWave = SoundWaveState{}
 	g.playerSlowed = false
 	g.FlashlightOn = true
 	g.Particles = nil
-	g.shakeDuration = 0
-	g.shakeIntensity = 0
+	g.Shake = ScreenShake{}
 	g.deathReason = ""
-	g.MineWarning = ""
-	g.MineWarningTimer = 0
-	g.MineWarningLevel = 0
+	g.MineWarning = WarningBanner{}
 
 	// Reset progression and PDA state
 	g.craftingRecipes = scene.DefaultCraftingRecipes()
@@ -212,14 +206,14 @@ func (g *Game) GetTicks() float64     { return g.Ticks }
 func (g *Game) GetSonar() *sonar.Sonar { return g.Sonar }
 
 func (g *Game) GetSoundWaveState() (timer int, x, y, radius float64) {
-	return g.SoundWaveTimer, g.SoundWaveX, g.SoundWaveY, g.SoundWaveRadius
+	return g.SoundWave.Timer, g.SoundWave.X, g.SoundWave.Y, g.SoundWave.Radius
 }
 
 func (g *Game) SetSoundWaveState(timer int, x, y, radius float64) {
-	g.SoundWaveTimer = timer
-	g.SoundWaveX = x
-	g.SoundWaveY = y
-	g.SoundWaveRadius = radius
+	g.SoundWave.Timer = timer
+	g.SoundWave.X = x
+	g.SoundWave.Y = y
+	g.SoundWave.Radius = radius
 }
 
 func (g *Game) IsPlayerSlowed() bool             { return g.playerSlowed }
@@ -233,13 +227,13 @@ func (g *Game) IsInventoryOpen() bool   { return g.showInventory }
 func (g *Game) SetInventoryOpen(v bool) { g.showInventory = v }
 
 func (g *Game) GetMineWarning() (msg string, timer int) {
-	return g.MineWarning, g.MineWarningTimer
+	return g.MineWarning.Message, g.MineWarning.Timer
 }
 
 func (g *Game) SetMineWarning(msg string, duration, level int) {
-	g.MineWarning = msg
-	g.MineWarningTimer = duration
-	g.MineWarningLevel = level
+	g.MineWarning.Message = msg
+	g.MineWarning.Timer = duration
+	g.MineWarning.Level = level
 }
 
 // TriggerScreenShake is defined in game.go.

@@ -81,19 +81,19 @@ func (a *sonarAdapter) FlashlightOn() bool {
 }
 
 func (a *sonarAdapter) SoundWaveTimer() int {
-	return a.g.SoundWaveTimer
+	return a.g.SoundWave.Timer
 }
 
 func (a *sonarAdapter) SoundWaveX() float64 {
-	return a.g.SoundWaveX
+	return a.g.SoundWave.X
 }
 
 func (a *sonarAdapter) SoundWaveY() float64 {
-	return a.g.SoundWaveY
+	return a.g.SoundWave.Y
 }
 
 func (a *sonarAdapter) SoundWaveRadius() float64 {
-	return a.g.SoundWaveRadius
+	return a.g.SoundWave.Radius
 }
 
 func (a *sonarAdapter) SonarActive() bool {
@@ -149,16 +149,16 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 		case entity.RestoreOxygenCmd:
 			g.player.CurrentOxygen = math.Min(g.player.MaxOxygen, g.player.CurrentOxygen+c.Amount)
 		case entity.TriggerSoundWaveCmd:
-			g.SoundWaveTimer = 60
-			g.SoundWaveRadius = 0.0
-			g.SoundWaveX = c.Pos.X
-			g.SoundWaveY = c.Pos.Y
+			g.SoundWave.Timer = 60
+			g.SoundWave.Radius = 0.0
+			g.SoundWave.X = c.Pos.X
+			g.SoundWave.Y = c.Pos.Y
 		case entity.SetPlayerSlowedCmd:
 			g.playerSlowed = c.Slowed
 		case entity.SetMineWarningCmd:
-			g.MineWarning = c.Message
-			g.MineWarningTimer = c.Duration
-			g.MineWarningLevel = c.Level
+			g.MineWarning.Message = c.Message
+			g.MineWarning.Timer = c.Duration
+			g.MineWarning.Level = c.Level
 		case entity.UpdateWeaverTrackingTimerCmd:
 			g.WeaverTrackingTimer = math.Max(g.WeaverTrackingTimer, c.Value)
 		}

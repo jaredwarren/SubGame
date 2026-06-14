@@ -17,13 +17,28 @@ func NewGameWonScene() *GameWonScene {
 	return &GameWonScene{}
 }
 
+// GameWonContext defines the narrow context interface required by GameWonScene.
+type GameWonContext interface {
+	GetInput() InputSource
+	Respawn()
+	SetCurrentState(s State)
+}
+
 func (s *GameWonScene) OnEnter(g GameContext) {
+	s.onEnter(g)
+}
+
+func (s *GameWonScene) onEnter(g GameWonContext) {
 	g.SetCurrentState(StateGameWon)
 }
 
 func (s *GameWonScene) OnExit(g GameContext) {}
 
 func (s *GameWonScene) Update(g GameContext) error {
+	return s.update(g)
+}
+
+func (s *GameWonScene) update(g GameWonContext) error {
 	if g.GetInput().IsKeyJustPressed(ebiten.KeyEnter) {
 		g.Respawn()
 	}
@@ -31,6 +46,10 @@ func (s *GameWonScene) Update(g GameContext) error {
 }
 
 func (s *GameWonScene) Draw(g GameContext, screen *ebiten.Image) {
+	s.draw(g, screen)
+}
+
+func (s *GameWonScene) draw(g GameWonContext, screen *ebiten.Image) {
 	screen.Fill(color.RGBA{R: 8, G: 24, B: 38, A: 255})
 
 	panelW := float32(500)

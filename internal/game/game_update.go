@@ -69,17 +69,17 @@ func (g *Game) advanceTimers() {
 	if g.TimeOfDay >= 14400 {
 		g.TimeOfDay = 0.0
 	}
-	if g.MineWarningTimer > 0 {
-		g.MineWarningTimer--
+	if g.MineWarning.Timer > 0 {
+		g.MineWarning.Timer--
 	}
 }
 
 // updateEffects ticks the sonar, sound wave, and particle systems.
 func (g *Game) updateEffects() {
 	g.Sonar.Update()
-	if g.SoundWaveTimer > 0 {
-		g.SoundWaveTimer--
-		g.SoundWaveRadius += 4.5
+	if g.SoundWave.Timer > 0 {
+		g.SoundWave.Timer--
+		g.SoundWave.Radius += 4.5
 	}
 	g.Particles = particle.UpdateParticles(g.Particles)
 }
@@ -418,10 +418,10 @@ func (g *Game) updateCamera() {
 		g.camera.Pos.X += rand.Float64()*shakeMag - shakeMag/2.0
 		g.camera.Pos.Y += rand.Float64()*shakeMag - shakeMag/2.0
 	}
-	if g.shakeDuration > 0 {
-		g.camera.Pos.X += rand.Float64()*g.shakeIntensity - g.shakeIntensity/2.0
-		g.camera.Pos.Y += rand.Float64()*g.shakeIntensity - g.shakeIntensity/2.0
-		g.shakeDuration--
+	if g.Shake.Duration > 0 {
+		g.camera.Pos.X += rand.Float64()*g.Shake.Intensity - g.Shake.Intensity/2.0
+		g.camera.Pos.Y += rand.Float64()*g.Shake.Intensity - g.Shake.Intensity/2.0
+		g.Shake.Duration--
 	}
 }
 

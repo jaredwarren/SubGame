@@ -107,13 +107,28 @@ func (s *IntroScene) SetSeed(seed int64) {
 	s.seed = seed
 }
 
+// IntroContext defines the narrow context interface required by IntroScene.
+type IntroContext interface {
+	GetInput() InputSource
+	StartGame(seed int64)
+	SetCurrentState(s State)
+}
+
 func (s *IntroScene) OnEnter(g GameContext) {
+	s.onEnter(g)
+}
+
+func (s *IntroScene) onEnter(g IntroContext) {
 	g.SetCurrentState(StateIntro)
 }
 
 func (s *IntroScene) OnExit(g GameContext) {}
 
 func (s *IntroScene) Update(g GameContext) error {
+	return s.update(g)
+}
+
+func (s *IntroScene) update(g IntroContext) error {
 	inp := g.GetInput()
 	if inp.IsKeyJustPressed(ebiten.KeyEnter) || inp.IsKeyJustPressed(ebiten.KeySpace) || inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		g.StartGame(s.seed)
@@ -123,6 +138,10 @@ func (s *IntroScene) Update(g GameContext) error {
 }
 
 func (s *IntroScene) Draw(g GameContext, screen *ebiten.Image) {
+	s.draw(g, screen)
+}
+
+func (s *IntroScene) draw(g IntroContext, screen *ebiten.Image) {
 	if s.background != nil {
 		screen.DrawImage(s.background, nil)
 	}

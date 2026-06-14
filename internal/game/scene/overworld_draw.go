@@ -12,8 +12,8 @@ import (
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
-// Draw renders the overworld tiles in a viewport centered on the player.
-func (o *OverworldScene) Draw(g GameContext, screen *ebiten.Image) {
+// draw renders the overworld tiles in a viewport centered on the player.
+func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 	cam := g.GetCamera()
 	isPiloting := g.GetActiveVehicle() != nil
 	p := g.GetPlayer()
@@ -319,7 +319,7 @@ func (o *OverworldScene) drawLandDecoration(target *ebiten.Image, startTileX, en
 	}
 }
 
-func (o *OverworldScene) drawWaves(screen *ebiten.Image, startTileX, endTileX, startTileY, endTileY int, g GameContext, camX, camY float64) {
+func (o *OverworldScene) drawWaves(screen *ebiten.Image, startTileX, endTileX, startTileY, endTileY int, g OverworldContext, camX, camY float64) {
 	mult := GetOverworldLightMultiplier(g.GetTimeOfDay())
 	ticks := g.GetTicks()
 
@@ -413,7 +413,7 @@ func (o *OverworldScene) drawWaves(screen *ebiten.Image, startTileX, endTileX, s
 	}
 }
 
-func (o *OverworldScene) drawVehicleBeacons(screen *ebiten.Image, startTileX, endTileX, startTileY, endTileY int, g GameContext, camX, camY float64) {
+func (o *OverworldScene) drawVehicleBeacons(screen *ebiten.Image, startTileX, endTileX, startTileY, endTileY int, g OverworldContext, camX, camY float64) {
 	// Precompute active cave vehicle coordinates to avoid Sprintf allocations per tile.
 	var cavesWithVehicles map[[2]int]bool
 	hasVoidDiveVehicle := false

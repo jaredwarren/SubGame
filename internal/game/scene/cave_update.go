@@ -18,8 +18,8 @@ import (
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
-// Update handles player input, side-scroller swimming physics, and checks exit transitions.
-func (c *CaveScene) Update(g GameContext) error {
+// update handles player input, side-scroller swimming physics, and checks exit transitions.
+func (c *CaveScene) update(g CaveContext) error {
 	if c.scrollActive {
 		return c.updateScrollTransition(g)
 	}
@@ -50,7 +50,7 @@ func (c *CaveScene) Update(g GameContext) error {
 	return nil
 }
 
-func (c *CaveScene) updateScrollTransition(g GameContext) error {
+func (c *CaveScene) updateScrollTransition(g CaveContext) error {
 	c.scrollTimer++
 	if c.scrollTimer >= 45 {
 		c.scrollActive = false
@@ -106,7 +106,7 @@ func (c *CaveScene) updateScrollTransition(g GameContext) error {
 	return nil
 }
 
-func (c *CaveScene) spawnPlankton(g GameContext) {
+func (c *CaveScene) spawnPlankton(g CaveContext) {
 	cam := g.GetCamera()
 	particles := g.GetParticles()
 	planktonCount := 0
@@ -126,7 +126,7 @@ func (c *CaveScene) spawnPlankton(g GameContext) {
 	}
 }
 
-func (c *CaveScene) updateEntities(g GameContext, entityRuntime entity.Runtime) {
+func (c *CaveScene) updateEntities(g CaveContext, entityRuntime entity.Runtime) {
 	var gridW, gridH int
 	if len(c.CaveGrid) > 0 {
 		gridW = len(c.CaveGrid)
@@ -170,7 +170,7 @@ func (c *CaveScene) updateEntities(g GameContext, entityRuntime entity.Runtime) 
 	g.DrainEntityCommands(entityRuntime)
 }
 
-func (c *CaveScene) updateVehicle(g GameContext, inp InputSource, activeVehicle vehicle.Vehicle) {
+func (c *CaveScene) updateVehicle(g CaveContext, inp InputSource, activeVehicle vehicle.Vehicle) {
 	if mech, ok := activeVehicle.(*vehicle.HeavyMech); ok && !mech.IsDrilling {
 		if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 			cursor := inp.Cursor()
@@ -199,12 +199,12 @@ func (c *CaveScene) updateVehicle(g GameContext, inp InputSource, activeVehicle 
 	}
 }
 
-func (c *CaveScene) updatePlayer(g GameContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
+func (c *CaveScene) updatePlayer(g CaveContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
 	c.handlePlayerMining(g, inp, p, entityRuntime)
 	c.handlePlayerMovement(g, inp, p)
 }
 
-func (c *CaveScene) handlePlayerMining(g GameContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
+func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
 	if !inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		return
 	}
@@ -321,7 +321,7 @@ func (c *CaveScene) handlePlayerMining(g GameContext, inp InputSource, p *player
 	}
 }
 
-func (c *CaveScene) handlePlayerMovement(g GameContext, inp InputSource, p *player.Player) {
+func (c *CaveScene) handlePlayerMovement(g CaveContext, inp InputSource, p *player.Player) {
 	cam := g.GetCamera()
 	cursor := inp.Cursor()
 	pScreenX := p.Pos.X + p.Width/2.0 - cam.Pos.X
@@ -380,7 +380,7 @@ func (c *CaveScene) handlePlayerMovement(g GameContext, inp InputSource, p *play
 	p.UpdateStats(true, isSprinting && isMoving && swimming)
 }
 
-func (c *CaveScene) updateBoundaryTransitions(g GameContext) {
+func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 	if !c.IsShallow {
 		return
 	}

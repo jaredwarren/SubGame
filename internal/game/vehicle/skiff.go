@@ -210,31 +210,18 @@ func (s *Skiff) checkCollisions(runtime Runtime) {
 	bPos, bSize := runtime.BaseStationPos()
 	hasBase := bSize.X > 0 && bSize.Y > 0
 
-	newX := s.Pos.X + s.Vel.X
-	collidesX := s.isSolid(runtime, gvec.Vec2{X: newX, Y: s.Pos.Y})
-	if !collidesX && hasBase {
-		collidesX = newX < bPos.X+bSize.X && newX+s.Dimensions.X > bPos.X &&
-			s.Pos.Y < bPos.Y+bSize.Y && s.Pos.Y+s.Dimensions.Y > bPos.Y
+	isSolid := func(pos gvec.Vec2) bool {
+		if s.isSolid(runtime, pos) {
+			return true
+		}
+		if hasBase {
+			return pos.X < bPos.X+bSize.X && pos.X+s.Dimensions.X > bPos.X &&
+				pos.Y < bPos.Y+bSize.Y && pos.Y+s.Dimensions.Y > bPos.Y
+		}
+		return false
 	}
 
-	if collidesX {
-		s.Vel.X = 0
-	} else {
-		s.Pos.X = newX
-	}
-
-	newY := s.Pos.Y + s.Vel.Y
-	collidesY := s.isSolid(runtime, gvec.Vec2{X: s.Pos.X, Y: newY})
-	if !collidesY && hasBase {
-		collidesY = s.Pos.X < bPos.X+bSize.X && s.Pos.X+s.Dimensions.X > bPos.X &&
-			newY < bPos.Y+bSize.Y && newY+s.Dimensions.Y > bPos.Y
-	}
-
-	if collidesY {
-		s.Vel.Y = 0
-	} else {
-		s.Pos.Y = newY
-	}
+	gvec.MoveAxisSeparated(&s.Pos, &s.Vel, s.Dimensions, isSolid, nil, nil)
 }
 
 func (s *Skiff) isSolid(runtime Runtime, pos gvec.Vec2) bool {

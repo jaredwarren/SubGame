@@ -18,8 +18,8 @@ import (
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
-// Draw renders the cave scene, solid tiles, and player assets.
-func (c *CaveScene) Draw(g GameContext, finalScreen *ebiten.Image) {
+// draw renders the cave scene, solid tiles, and player assets.
+func (c *CaveScene) draw(g CaveContext, finalScreen *ebiten.Image) {
 	if c.offscreen == nil {
 		c.offscreen = ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
 	}
@@ -39,7 +39,7 @@ func (c *CaveScene) Draw(g GameContext, finalScreen *ebiten.Image) {
 	c.applyWaterDisplacement(g, finalScreen)
 }
 
-func (c *CaveScene) drawScrollTransition(g GameContext) {
+func (c *CaveScene) drawScrollTransition(g CaveContext) {
 	if c.offscreenOld == nil {
 		c.offscreenOld = ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
 	}
@@ -168,7 +168,7 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 	}
 }
 
-func (c *CaveScene) applyLighting(g GameContext) {
+func (c *CaveScene) applyLighting(g CaveContext) {
 	if shader.LightShader == nil || c.IsShallow || g.IsDebugLightShaderDisabled() {
 		return
 	}
@@ -257,7 +257,7 @@ func (c *CaveScene) applyLighting(g GameContext) {
 	c.offscreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.LightShader, &c.shaderOpts)
 }
 
-func (c *CaveScene) applyWaterDisplacement(g GameContext, finalScreen *ebiten.Image) {
+func (c *CaveScene) applyWaterDisplacement(g CaveContext, finalScreen *ebiten.Image) {
 	cam := g.GetCamera()
 	if shader.WaterDisplacementShader != nil && !g.IsDebugWaterShaderDisabled() {
 		var ventPositions [16]float32
@@ -285,7 +285,7 @@ func (c *CaveScene) applyWaterDisplacement(g GameContext, finalScreen *ebiten.Im
 	}
 }
 
-func (c *CaveScene) drawScene(g GameContext, screen *ebiten.Image, activeCave cave.Cave, caveGrid [][]bool, nodes []resource.Resource, entities []entity.CaveEntity, trenchKey string, camX, camY float64, hidePlayer bool) {
+func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave cave.Cave, caveGrid [][]bool, nodes []resource.Resource, entities []entity.CaveEntity, trenchKey string, camX, camY float64, hidePlayer bool) {
 	maxDepth := 6000.0
 	if caveGrid != nil && len(caveGrid[0]) > 0 {
 		maxDepth = float64(len(caveGrid[0]) * config.TileSize)
@@ -399,7 +399,7 @@ func (c *CaveScene) drawScene(g GameContext, screen *ebiten.Image, activeCave ca
 	}
 }
 
-func (c *CaveScene) drawBioluminescence(g GameContext, screen *ebiten.Image, camX, camY float64) {
+func (c *CaveScene) drawBioluminescence(g CaveContext, screen *ebiten.Image, camX, camY float64) {
 	if c.CaveGrid == nil {
 		return
 	}

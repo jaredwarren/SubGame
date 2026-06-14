@@ -16,6 +16,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -27,11 +28,7 @@ type Scene interface {
 	OnExit(g GameContext)
 }
 
-// GameContext is the interface through which scenes interact with the game.
-// game.Game implements this; scenes depend on the interface rather than the concrete type,
-// breaking the circular import that would result from scenes importing the game package.
-type GameContext interface {
-	// Scene navigation
+type Navigator interface {
 	StartGame(seed int64)
 	TransitionToOverworld()
 	TransitionToGameWon()
@@ -39,89 +36,102 @@ type GameContext interface {
 	EnterCave(tx, ty int)
 	ExitCave()
 	HorizontalTransition(newTx, newTy int, newTrenchKey string, newCave cave.Cave, newGrid [][]bool, newNodes []resource.Resource, newEntities []entity.CaveEntity)
-
-	// Input
-	GetInput() InputSource
-
-	// Core state
-	GetCurrentState() State
+	TransitionToPDA()
+	ClosePDA()
+	TransitionToIntro(seed int64)
 	SetCurrentState(s State)
+	GetCurrentState() State
+}
 
-	// Core objects
+type InputAccess interface {
+	GetInput() InputSource
+}
+
+type PlayerAccess interface {
 	GetPlayer() *player.Player
-	GetCamera() *camera.Camera
+	IsPlayerSlowed() bool
+	IsFlashlightOn() bool
+	PickUpActiveVehicle()
+	TransferToVehicle(it item.Item)
+	ActivatePlayerItem(it item.Item)
+}
+
+type WorldAccess interface {
 	GetWorld() *world.World
 	GetBaseStation() *base.BaseStation
+	GetCamera() *camera.Camera
+}
 
-	// Vehicle state
+type CaveStateAccess interface {
+	GetActiveCave() cave.Cave
+	GetCaveNodes(key string) []resource.Resource
+	SetCaveNodes(key string, nodes []resource.Resource)
+	GetCaveEntities(key string) []entity.CaveEntity
+	SetCaveEntities(key string, entities []entity.CaveEntity)
 	GetActiveVehicle() vehicle.Vehicle
 	GetOverworldVehicles() []vehicle.Vehicle
 	GetCaveVehicles(key string) []vehicle.Vehicle
 	GetAllCaveVehicles() map[string][]vehicle.Vehicle
 	GetActiveTrenchKey() string
 	GetActiveTrenchCoords() (x, y int)
+}
 
-	// Cave state
-	GetActiveCave() cave.Cave
-	GetCaveNodes(key string) []resource.Resource
-	SetCaveNodes(key string, nodes []resource.Resource)
-	GetCaveEntities(key string) []entity.CaveEntity
-	SetCaveEntities(key string, entities []entity.CaveEntity)
-
-	// Entity runtime (adapter is private to game package; returned as the public entity.Runtime interface)
+type EffectsEmitter interface {
 	NewEntityRuntime() entity.Runtime
 	DrainEntityCommands(rt entity.Runtime)
-
-	// Particles
 	SpawnPlankton(x, y float64)
 	SpawnDebris(x, y float64, clr color.RGBA)
 	SpawnBubble(x, y float64)
 	GetParticles() []*particle.Particle
-
-	// Time / ticks
-	GetTimeOfDay() float64
-	GetTicks() float64
-
-	// Game state flags
+	TriggerScreenShake(duration int, intensity float64)
 	GetSonar() *sonar.Sonar
 	GetSoundWaveState() (timer int, x, y, radius float64)
 	SetSoundWaveState(timer int, x, y, radius float64)
-	IsPlayerSlowed() bool
-	IsFlashlightOn() bool
-	GetWeaverTrackingTimer() float64
-	SetWeaverTrackingTimer(v float64)
+}
 
-	// HUD / UI
-	IsInventoryOpen() bool
-	GetMineWarning() (msg string, timer int)
-	SetMineWarning(msg string, duration, level int)
-
-	// Screen effects
-	TriggerScreenShake(duration int, intensity float64)
-
-	// Death state
-	GetDeathReason() string
-	SetDeathReason(reason string)
-
-	// Overworld interactions
-	DestroyOverworldVehicle(v vehicle.Vehicle)
-
-	// Inventory/item interactions
-	PickUpActiveVehicle()
-	TransferToVehicle(it item.Item)
-	ActivatePlayerItem(it item.Item)
-
-	// Debug toggles
-	IsDebugLightShaderDisabled() bool
-	IsDebugWaterShaderDisabled() bool
-
-	// Story and Lore
+type StoryAccess interface {
 	GetStoryManager() *story.StoryManager
 	GetCraftingRecipes() []Recipe
-	TransitionToPDA()
-	ClosePDA()
+}
+
+type TimeAccess interface {
+	GetTimeOfDay() float64
+	GetTicks() float64
+}
+
+type UIAccess interface {
+	IsInventoryOpen() bool
+	SetInventoryOpen(v bool)
+	GetMineWarning() (msg string, timer int)
+	SetMineWarning(msg string, duration, level int)
 	IsMenuOpenedAnywhere() bool
-	TransitionToIntro(seed int64)
+}
+
+type DebugAccess interface {
+	IsDebugLightShaderDisabled() bool
+	IsDebugWaterShaderDisabled() bool
+}
+
+// GameContext is the interface through which scenes interact with the game.
+// game.Game implements this; scenes depend on the interface rather than the concrete type,
+// breaking the circular import that would result from scenes importing the game package.
+type GameContext interface {
+	Navigator
+	InputAccess
+	PlayerAccess
+	WorldAccess
+	CaveStateAccess
+	EffectsEmitter
+	StoryAccess
+	TimeAccess
+	UIAccess
+	DebugAccess
+
+	GetDeathReason() string
+	SetDeathReason(reason string)
+	DestroyOverworldVehicle(v vehicle.Vehicle)
+	GetWeaverTrackingTimer() float64
+	SetWeaverTrackingTimer(v float64)
 }
 
 // tileAt calculates the tile index for a given single coordinate using floor division to handle negative bounds.
@@ -132,10 +142,5 @@ func tileAt(coord float64, tileSize int) int {
 // tileRange calculates the tile index range spanned by a bounding box.
 // Subtracts a small epsilon of 0.001 from the maximum bounds to prevent flush boundaries probing an extra tile.
 func tileRange(x, y, w, h float64, tileSize int) (x1, x2, y1, y2 int) {
-	d := float64(tileSize)
-	x1 = int(math.Floor(x / d))
-	x2 = int(math.Floor((x + w - 0.001) / d))
-	y1 = int(math.Floor(y / d))
-	y2 = int(math.Floor((y + h - 0.001) / d))
-	return
+	return gvec.TileRange(gvec.Vec2{X: x, Y: y}, gvec.Vec2{X: w, Y: h}, tileSize)
 }

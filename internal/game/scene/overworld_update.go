@@ -13,8 +13,8 @@ import (
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
-// Update handles input, movement physics, and checks state transition triggers.
-func (o *OverworldScene) Update(g GameContext) error {
+// update handles input, movement physics, and checks state transition triggers.
+func (o *OverworldScene) update(g OverworldContext) error {
 	if o.whirlpool == nil {
 		o.whirlpool = oe.NewWhirlpool(g.GetWorld().Seed)
 		rng := rand.New(rand.NewSource(g.GetWorld().Seed + 997))
@@ -163,31 +163,18 @@ func (o *OverworldScene) Update(g GameContext) error {
 func (o *OverworldScene) CheckCollisions(p *player.Player, baseStation *base.BaseStation) {
 	hasBase := baseStation != nil && baseStation.Size.X > 0 && baseStation.Size.Y > 0
 
-	newX := p.Pos.X + p.Vel.X
-	collidesX := o.IsSolid(newX, p.Pos.Y, p.Width, p.Height)
-	if !collidesX && hasBase {
-		bPos, bSize := baseStation.Pos, baseStation.Size
-		collidesX = newX < bPos.X+bSize.X && newX+p.Width > bPos.X &&
-			p.Pos.Y < bPos.Y+bSize.Y && p.Pos.Y+p.Height > bPos.Y
+	dims := gvec.Vec2{X: p.Width, Y: p.Height}
+	isSolid := func(pos gvec.Vec2) bool {
+		if o.IsSolid(pos.X, pos.Y, p.Width, p.Height) {
+			return true
+		}
+		if hasBase {
+			bPos, bSize := baseStation.Pos, baseStation.Size
+			return pos.X < bPos.X+bSize.X && pos.X+p.Width > bPos.X &&
+				pos.Y < bPos.Y+bSize.Y && pos.Y+p.Height > bPos.Y
+		}
+		return false
 	}
 
-	if collidesX {
-		p.Vel.X = 0
-	} else {
-		p.Pos.X = newX
-	}
-
-	newY := p.Pos.Y + p.Vel.Y
-	collidesY := o.IsSolid(p.Pos.X, newY, p.Width, p.Height)
-	if !collidesY && hasBase {
-		bPos, bSize := baseStation.Pos, baseStation.Size
-		collidesY = p.Pos.X < bPos.X+bSize.X && p.Pos.X+p.Width > bPos.X &&
-			newY < bPos.Y+bSize.Y && newY+p.Height > bPos.Y
-	}
-
-	if collidesY {
-		p.Vel.Y = 0
-	} else {
-		p.Pos.Y = newY
-	}
+	gvec.MoveAxisSeparated(&p.Pos, &p.Vel, dims, isSolid, nil, nil)
 }

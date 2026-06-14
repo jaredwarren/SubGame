@@ -1,17 +1,14 @@
 package base
 
 import (
-	"bytes"
-	"image"
 	"image/color"
-	"image/draw"
 	_ "image/png"
 	"log"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/jaredwarren/SubGame/assets"
+	"github.com/jaredwarren/SubGame/internal/assets"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
@@ -64,55 +61,12 @@ var (
 
 // LoadAssets preloads and chroma-keys the base Life Pod sprite.
 func LoadAssets() {
-	img, _, err := image.Decode(bytes.NewReader(assets.LifepodSurfacePNG))
+	sprite, err := assets.LoadChromaKeyedImage("lifepod_surface", assets.WithTrim())
 	if err != nil {
-		log.Printf("Error: Failed to decode lifepod surface: %v", err)
+		log.Printf("Error: Failed to load lifepod surface: %v", err)
 		return
 	}
-
-	bounds := img.Bounds()
-	rgba := image.NewRGBA(bounds)
-	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
-
-	minX, minY := bounds.Max.X, bounds.Max.Y
-	maxX, maxY := bounds.Min.X, bounds.Min.Y
-
-	for i := 0; i < len(rgba.Pix); i += 4 {
-		ru := rgba.Pix[i]
-		gu := rgba.Pix[i+1]
-		bu := rgba.Pix[i+2]
-
-		pixelIndex := i / 4
-		x := pixelIndex % bounds.Dx()
-		y := pixelIndex / bounds.Dx()
-
-		if gu > 140 && ru < 100 && bu < 100 {
-			rgba.Pix[i] = 0
-			rgba.Pix[i+1] = 0
-			rgba.Pix[i+2] = 0
-			rgba.Pix[i+3] = 0
-		} else {
-			if x < minX {
-				minX = x
-			}
-			if x > maxX {
-				maxX = x
-			}
-			if y < minY {
-				minY = y
-			}
-			if y > maxY {
-				maxY = y
-			}
-		}
-	}
-
-	if maxX >= minX && maxY >= minY {
-		subRect := image.Rect(minX, minY, maxX+1, maxY+1)
-		lifePodSprite = ebiten.NewImageFromImage(rgba.SubImage(subRect))
-	} else {
-		lifePodSprite = ebiten.NewImageFromImage(rgba)
-	}
+	lifePodSprite = sprite
 	lifePodSpriteLoaded = true
 }
 

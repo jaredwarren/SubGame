@@ -21,6 +21,24 @@ import (
 
 // Game implements ebiten.Game and owns all shared game state.
 // Scenes interact with Game through the GameContext interface.
+type SoundWaveState struct {
+	Timer  int
+	Radius float64
+	X      float64
+	Y      float64
+}
+
+type WarningBanner struct {
+	Message string
+	Timer   int
+	Level   int
+}
+
+type ScreenShake struct {
+	Duration  int
+	Intensity float64
+}
+
 type Game struct {
 	// Scene management
 	currentState          State
@@ -66,24 +84,18 @@ type Game struct {
 
 	// Sonar and alerts
 	Sonar            *sonar.Sonar
-	MineWarning      string
-	MineWarningTimer int
-	MineWarningLevel int
+	MineWarning      WarningBanner
 
 	// Biome / AI state
 	caveEntities        map[string][]entity.CaveEntity
 	FlashlightOn        bool
 	WeaverTrackingTimer float64
-	SoundWaveTimer      int
-	SoundWaveRadius     float64
-	SoundWaveX          float64
-	SoundWaveY          float64
+	SoundWave           SoundWaveState
 	playerSlowed        bool // reset each tick by entity system
 
 	// Effects
 	Particles      []*particle.Particle
-	shakeDuration  int
-	shakeIntensity float64
+	Shake          ScreenShake
 	deathReason    string
 
 	// Debug
@@ -187,8 +199,8 @@ func (g *Game) Respawn() {
 	g.player.Inventory.Clear()
 	g.ActiveVehicle = nil
 	g.deathReason = ""
-	g.shakeDuration = 0
-	g.shakeIntensity = 0
+	g.Shake.Duration = 0
+	g.Shake.Intensity = 0
 	g.showInventory = false
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	g.TransitionTo(g.overworldState)
@@ -209,11 +221,11 @@ func (g *Game) DestroyOverworldVehicle(v vehicle.Vehicle) {
 
 // TriggerScreenShake registers a screen shake — higher intensity/longer duration wins.
 func (g *Game) TriggerScreenShake(duration int, intensity float64) {
-	if intensity > g.shakeIntensity || g.shakeDuration <= 0 {
-		g.shakeIntensity = intensity
+	if intensity > g.Shake.Intensity || g.Shake.Duration <= 0 {
+		g.Shake.Intensity = intensity
 	}
-	if duration > g.shakeDuration {
-		g.shakeDuration = duration
+	if duration > g.Shake.Duration {
+		g.Shake.Duration = duration
 	}
 }
 

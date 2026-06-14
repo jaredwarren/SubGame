@@ -2,18 +2,16 @@ package item
 
 import "reflect"
 
-// Inventory manages a collection of item slots and caches counts for O(1) queries.
+// Inventory manages a collection of item slots.
 type Inventory struct {
-	Slots  []ItemStack
-	counts map[reflect.Type]int
+	Slots []ItemStack
 }
 
 // NewInventory creates an empty Inventory of a specific size.
 func NewInventory(size int) *Inventory {
 	slots := make([]ItemStack, size)
 	return &Inventory{
-		Slots:  slots,
-		counts: make(map[reflect.Type]int),
+		Slots: slots,
 	}
 }
 
@@ -42,13 +40,13 @@ func normalizeType(t reflect.Type) reflect.Type {
 	return normalized
 }
 
-// HasItem is a generic query helper that does O(1) map checking (Option B).
+// HasItem is a generic query helper.
 func HasItem[T any](inv *Inventory, qty int) bool {
-	if inv == nil || inv.counts == nil {
+	if inv == nil {
 		return false
 	}
 	var zero T
-	return inv.counts[normalizeType(reflect.TypeOf(zero))] >= qty
+	return inv.HasItem(reflect.TypeOf(zero), qty)
 }
 
 // AddItem inserts an item into the inventory, stack-splitting if necessary.
@@ -92,11 +90,9 @@ func (inv *Inventory) AddItem(item Item, qty int) bool {
 			space := maxStack - inv.Slots[i].Quantity
 			if qty <= space {
 				inv.Slots[i].Quantity += qty
-				inv.counts[t] += qty
 				return true
 			}
 			inv.Slots[i].Quantity = maxStack
-			inv.counts[t] += space
 			qty -= space
 		}
 	}
@@ -122,7 +118,6 @@ func (inv *Inventory) AddItem(item Item, qty int) bool {
 		}
 
 		inv.Slots[emptyIdx] = ItemStack{Item: item, Quantity: addQty}
-		inv.counts[t] += addQty
 		qty -= addQty
 	}
 
@@ -136,7 +131,6 @@ func (inv *Inventory) RemoveItem(t reflect.Type, qty int) bool {
 	if inv == nil || !inv.HasItem(t, qty) {
 		return false
 	}
-	originalQty := qty
 
 	// Remove from stacks starting from the end
 	for i := len(inv.Slots) - 1; i >= 0; i-- {
@@ -155,26 +149,31 @@ func (inv *Inventory) RemoveItem(t reflect.Type, qty int) bool {
 		}
 	}
 
-	inv.counts[t] -= originalQty
 	return true
 }
 
 // HasItem checks if the inventory contains at least the specified quantity of an item type.
 func (inv *Inventory) HasItem(t reflect.Type, qty int) bool {
 	t = normalizeType(t)
-	if inv == nil || inv.counts == nil {
+	if inv == nil {
 		return false
 	}
-	return inv.counts[t] >= qty
+	return inv.CountOf(t) >= qty
 }
 
 // CountOf returns the current quantity for a given item type.
 func (inv *Inventory) CountOf(t reflect.Type) int {
 	t = normalizeType(t)
-	if inv == nil || inv.counts == nil {
+	if inv == nil {
 		return 0
 	}
-	return inv.counts[t]
+	sum := 0
+	for _, slot := range inv.Slots {
+		if slot.Item != nil && normalizeType(reflect.TypeOf(slot.Item)) == t {
+			sum += slot.Quantity
+		}
+	}
+	return sum
 }
 
 // Has reports whether this inventory contains at least qty of the item type.
@@ -261,10 +260,6 @@ func (inv *Inventory) Resize(newSize int) []ItemStack {
 			// Any remaining quantity that couldn't be placed in the surviving range is lost
 			if qtyToAdd > 0 {
 				lost = append(lost, ItemStack{Item: slot.Item, Quantity: qtyToAdd})
-				inv.counts[t] -= qtyToAdd
-				if inv.counts[t] < 0 {
-					inv.counts[t] = 0
-				}
 			}
 		}
 	}
@@ -282,13 +277,9 @@ func (inv *Inventory) Clone() *Inventory {
 		return nil
 	}
 	clone := &Inventory{
-		Slots:  make([]ItemStack, len(inv.Slots)),
-		counts: make(map[reflect.Type]int),
+		Slots: make([]ItemStack, len(inv.Slots)),
 	}
 	copy(clone.Slots, inv.Slots)
-	for k, v := range inv.counts {
-		clone.counts[k] = v
-	}
 	return clone
 }
 
@@ -302,7 +293,7 @@ func (inv *Inventory) WouldResizeLoseItems(newSize int) bool {
 	return len(lost) > 0
 }
 
-// Clear empties all slots in the inventory and resets counts.
+// Clear empties all slots in the inventory.
 func (inv *Inventory) Clear() {
 	if inv == nil {
 		return
@@ -310,7 +301,6 @@ func (inv *Inventory) Clear() {
 	for i := range inv.Slots {
 		inv.Slots[i] = ItemStack{}
 	}
-	inv.counts = make(map[reflect.Type]int)
 }
 
 // IsEmpty returns true if the inventory is nil or contains no items in any slots.

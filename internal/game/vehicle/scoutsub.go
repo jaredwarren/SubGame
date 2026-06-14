@@ -200,29 +200,21 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 }
 
 func (sub *ScoutSub) checkCollisions(runtime Runtime) {
-	newX := sub.Pos.X + sub.Vel.X
-	if sub.isSolid(runtime, gvec.Vec2{X: newX, Y: sub.Pos.Y}) {
+	gvec.MoveAxisSeparated(&sub.Pos, &sub.Vel, sub.Dimensions, func(pos gvec.Vec2) bool {
+		return sub.isSolid(runtime, pos)
+	}, func() {
 		speed := math.Abs(sub.Vel.X)
 		if speed > 2.0 {
 			sub.TakeDamage(speed * 4.0)
 			runtime.Emit(TriggerShakeCmd{Duration: 15, Intensity: speed * 2.0})
 		}
-		sub.Vel.X = 0
-	} else {
-		sub.Pos.X = newX
-	}
-
-	newY := sub.Pos.Y + sub.Vel.Y
-	if sub.isSolid(runtime, gvec.Vec2{X: sub.Pos.X, Y: newY}) {
+	}, func() {
 		speed := math.Abs(sub.Vel.Y)
 		if speed > 2.0 {
 			sub.TakeDamage(speed * 4.0)
 			runtime.Emit(TriggerShakeCmd{Duration: 15, Intensity: speed * 2.0})
 		}
-		sub.Vel.Y = 0
-	} else {
-		sub.Pos.Y = newY
-	}
+	})
 }
 
 func (sub *ScoutSub) isSolid(runtime Runtime, pos gvec.Vec2) bool {

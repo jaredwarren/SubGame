@@ -314,16 +314,16 @@ func TestCaveVehicleBeacon(t *testing.T) {
 	// Exit the cave
 	g.ExitCave()
 
-	// Assert warning message contains coordinates and that warning is active
-	if g.MineWarningTimer <= 0 {
-		t.Error("expected MineWarningTimer to be set upon exiting cave with vehicles")
+		// Assert warning message contains coordinates and that warning is active
+	if g.MineWarning.Timer <= 0 {
+		t.Error("expected MineWarning.Timer to be set upon exiting cave with vehicles")
 	}
 	expectedWarning := "VEHICLE BEACON ACTIVE AT (10, 10)"
-	if g.MineWarning != expectedWarning {
-		t.Errorf("expected MineWarning to be %q, got %q", expectedWarning, g.MineWarning)
+	if g.MineWarning.Message != expectedWarning {
+		t.Errorf("expected MineWarning.Message to be %q, got %q", expectedWarning, g.MineWarning.Message)
 	}
-	if g.MineWarningLevel != 1 {
-		t.Errorf("expected MineWarningLevel to be 1, got %d", g.MineWarningLevel)
+	if g.MineWarning.Level != 1 {
+		t.Errorf("expected MineWarning.Level to be 1, got %d", g.MineWarning.Level)
 	}
 
 	// Verify that the drawing of the beacon is triggered when drawing the overworld scene

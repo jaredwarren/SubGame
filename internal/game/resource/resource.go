@@ -1,17 +1,15 @@
 package resource
 
 import (
-	"bytes"
 	"image"
 	"image/color"
-	"image/draw"
 	_ "image/png"
 	"log"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/jaredwarren/SubGame/assets"
+	"github.com/jaredwarren/SubGame/internal/assets"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
@@ -90,34 +88,13 @@ var (
 
 // LoadAssets preloads and chroma-keys all resource crystal sprites.
 func LoadAssets() {
-	img, _, err := image.Decode(bytes.NewReader(assets.OreSheetPNG))
+	sheet, err := assets.LoadChromaKeyedImage("ore_sheet")
 	if err != nil {
-		log.Printf("Error: Failed to decode ore sheet: %v", err)
+		log.Printf("Error: Failed to load ore sheet: %v", err)
 		return
 	}
 
-	bounds := img.Bounds()
-	rgba := image.NewRGBA(bounds)
-	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
-
-	// Chroma-key green pixels using fast direct byte slice manipulation
-	for i := 0; i < len(rgba.Pix); i += 4 {
-		ru := rgba.Pix[i]
-		gu := rgba.Pix[i+1]
-		bu := rgba.Pix[i+2]
-
-		if gu > 140 && ru < 100 && bu < 100 {
-			rgba.Pix[i] = 0
-			rgba.Pix[i+1] = 0
-			rgba.Pix[i+2] = 0
-			rgba.Pix[i+3] = 0
-		}
-	}
-
-	sheet := ebiten.NewImageFromImage(rgba)
-	if sheet == nil {
-		return
-	}
+	bounds := sheet.Bounds()
 
 	if bounds.Dx() == 3584 && bounds.Dy() == 1184 {
 		// Specific coordinate slice for the user's high-res generated ore sheet

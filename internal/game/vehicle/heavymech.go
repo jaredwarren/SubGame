@@ -215,24 +215,16 @@ func (m *HeavyMech) DrillStrike(node DrillableResource) {
 }
 
 func (m *HeavyMech) checkCollisions(runtime Runtime) {
-	newX := m.Pos.X + m.Vel.X
-	if m.isSolid(runtime, gvec.Vec2{X: newX, Y: m.Pos.Y}) {
-		m.Vel.X = 0
-	} else {
-		m.Pos.X = newX
-	}
-	newY := m.Pos.Y + m.Vel.Y
-	if m.isSolid(runtime, gvec.Vec2{X: m.Pos.X, Y: newY}) {
+	gvec.MoveAxisSeparated(&m.Pos, &m.Vel, m.Dimensions, func(pos gvec.Vec2) bool {
+		return m.isSolid(runtime, pos)
+	}, nil, func() {
 		if m.Vel.Y > 4.5 {
 			m.TakeDamage((m.Vel.Y - 4.5) * 8.0)
 			runtime.Emit(TriggerShakeCmd{Duration: 20, Intensity: (m.Vel.Y - 4.5) * 3.0})
 		} else if m.Vel.Y > 2.0 {
 			runtime.Emit(TriggerShakeCmd{Duration: 10, Intensity: (m.Vel.Y - 2.0) * 1.5})
 		}
-		m.Vel.Y = 0
-	} else {
-		m.Pos.Y = newY
-	}
+	})
 }
 
 func (m *HeavyMech) isSolid(runtime Runtime, pos gvec.Vec2) bool {

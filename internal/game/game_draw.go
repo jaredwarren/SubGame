@@ -101,7 +101,7 @@ func (g *Game) drawVehicleEntryPrompts(screen *ebiten.Image, vehicles []vehicle.
 
 // drawWarningBanner renders the MineWarning text if its timer is active.
 func (g *Game) drawWarningBanner(screen *ebiten.Image) {
-	if g.MineWarningTimer <= 0 {
+	if g.MineWarning.Timer <= 0 {
 		return
 	}
 
@@ -109,7 +109,7 @@ func (g *Game) drawWarningBanner(screen *ebiten.Image) {
 	bgColor := color.RGBA{R: 0, G: 16, B: 32, A: 220}
 	glowColor := color.RGBA{R: 0, G: 191, B: 255, A: 60}
 
-	switch g.MineWarningLevel {
+	switch g.MineWarning.Level {
 	case 2: // warn/yellow
 		borderColor = color.RGBA{R: 255, G: 215, B: 0, A: 255}
 		bgColor = color.RGBA{R: 32, G: 24, B: 0, A: 220}
@@ -130,7 +130,7 @@ func (g *Game) drawWarningBanner(screen *ebiten.Image) {
 	// Draw sharp inner border
 	vector.StrokeRect(screen, wx, wy, 320, 30, 1.2, borderColor, false)
 	// Print text
-	ebitenutil.DebugPrintAt(screen, g.MineWarning, int(wx)+12, int(wy)+7)
+	ebitenutil.DebugPrintAt(screen, g.MineWarning.Message, int(wx)+12, int(wy)+7)
 }
 
 // drawWaypointMarker draws a wayfinding HUD element that always points back to the base station/lifepod.

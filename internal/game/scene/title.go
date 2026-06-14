@@ -90,13 +90,29 @@ func NewTitleScene() *TitleScene {
 	return s
 }
 
+// TitleContext defines the narrow context interface required by TitleScene.
+type TitleContext interface {
+	GetInput() InputSource
+	TransitionToIntro(seed int64)
+	GetTicks() float64
+	SetCurrentState(s State)
+}
+
 func (s *TitleScene) OnEnter(g GameContext) {
+	s.onEnter(g)
+}
+
+func (s *TitleScene) onEnter(g TitleContext) {
 	g.SetCurrentState(StateTitle)
 }
 
 func (s *TitleScene) OnExit(g GameContext) {}
 
 func (s *TitleScene) Update(g GameContext) error {
+	return s.update(g)
+}
+
+func (s *TitleScene) update(g TitleContext) error {
 	inp := g.GetInput()
 
 	if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
@@ -158,6 +174,10 @@ func parseSeed(text string) int64 {
 }
 
 func (s *TitleScene) Draw(g GameContext, screen *ebiten.Image) {
+	s.draw(g, screen)
+}
+
+func (s *TitleScene) draw(g TitleContext, screen *ebiten.Image) {
 	if s.backgroundImage != nil {
 		bounds := s.backgroundImage.Bounds()
 		op := &ebiten.DrawImageOptions{}

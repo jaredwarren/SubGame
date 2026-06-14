@@ -9,8 +9,11 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 )
 
@@ -218,6 +221,21 @@ func DefaultCraftingRecipes() []Recipe {
 	return recipes
 }
 
+// MenuContext defines the narrow context interface required by BaseMenuScene.
+type MenuContext interface {
+	GetInput() InputSource
+	GetPlayer() *player.Player
+	GetBaseStation() *base.BaseStation
+	GetCraftingRecipes() []Recipe
+	GetStoryManager() *story.StoryManager
+	IsMenuOpenedAnywhere() bool
+	ClosePDA()
+	TransitionToOverworld()
+	TransitionToGameWon()
+	SetCurrentState(s State)
+	SetMineWarning(msg string, duration, level int)
+}
+
 // BaseMenuScene manages tab selections and base management interactions.
 type BaseMenuScene struct {
 	ActiveTab         int
@@ -231,14 +249,26 @@ func NewBaseMenuScene() *BaseMenuScene {
 }
 
 func (m *BaseMenuScene) OnEnter(g GameContext) {
+	m.onEnter(g)
+}
+
+func (m *BaseMenuScene) onEnter(g MenuContext) {
 	g.SetCurrentState(StateBaseMenu)
 	m.ScrollY = 0
 }
 
-func (m *BaseMenuScene) OnExit(g GameContext) {}
+func (m *BaseMenuScene) OnExit(g GameContext) {
+	m.onExit(g)
+}
+
+func (m *BaseMenuScene) onExit(g MenuContext) {}
 
 // Update handles mouse interactions within the menu tabs, crafting, and vault transfers.
 func (m *BaseMenuScene) Update(g GameContext) error {
+	return m.update(g)
+}
+
+func (m *BaseMenuScene) update(g MenuContext) error {
 	inp := g.GetInput()
 
 	if inp.IsKeyJustPressed(ebiten.KeyE) || inp.IsKeyJustPressed(ebiten.KeyO) {
@@ -472,6 +502,10 @@ func (m *BaseMenuScene) Update(g GameContext) error {
 
 // Draw renders the management base menu tabs and UI controls.
 func (m *BaseMenuScene) Draw(g GameContext, screen *ebiten.Image) {
+	m.draw(g, screen)
+}
+
+func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 	p := g.GetPlayer()
 	b := g.GetBaseStation()
 
@@ -887,7 +921,7 @@ func wrapText(text string, maxChars int) []string {
 	return lines
 }
 
-func drawInventoryGrid(g GameContext, screen *ebiten.Image, panelX, panelY float64, d LayoutDescriptor, inv *item.Inventory) {
+func drawInventoryGrid(g MenuContext, screen *ebiten.Image, panelX, panelY float64, d LayoutDescriptor, inv *item.Inventory) {
 	cursor := g.GetInput().Cursor()
 	mx, my := int(cursor.X), int(cursor.Y)
 

@@ -5,16 +5,67 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/assets"
+	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/game/sonar"
+	"github.com/jaredwarren/SubGame/internal/game/story"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
+
+// CaveContext defines the narrow context interface required by CaveScene.
+type CaveContext interface {
+	GetInput() InputSource
+	GetPlayer() *player.Player
+	GetCamera() *camera.Camera
+	GetWorld() *world.World
+	GetActiveVehicle() vehicle.Vehicle
+	GetActiveTrenchCoords() (x, y int)
+	GetTimeOfDay() float64
+	GetTicks() float64
+	GetSonar() *sonar.Sonar
+	GetSoundWaveState() (timer int, x, y, radius float64)
+	SetSoundWaveState(timer int, x, y, radius float64)
+	GetCaveNodes(key string) []resource.Resource
+	SetCaveNodes(key string, nodes []resource.Resource)
+	GetCaveEntities(key string) []entity.CaveEntity
+	SetCaveEntities(key string, entities []entity.CaveEntity)
+	NewEntityRuntime() entity.Runtime
+	DrainEntityCommands(rt entity.Runtime)
+	SpawnPlankton(x, y float64)
+	SpawnDebris(x, y float64, clr color.RGBA)
+	SpawnBubble(x, y float64)
+	TriggerScreenShake(duration int, intensity float64)
+	IsInventoryOpen() bool
+	SetInventoryOpen(v bool)
+	ExitCave()
+	HorizontalTransition(newTx, newTy int, newTrenchKey string, newCave cave.Cave, newGrid [][]bool, newNodes []resource.Resource, newEntities []entity.CaveEntity)
+	TransitionToPDA()
+	SetCurrentState(s State)
+	SetMineWarning(msg string, duration, level int)
+	GetWeaverTrackingTimer() float64
+	SetWeaverTrackingTimer(v float64)
+
+	// Additional methods needed by cave scene draw/update
+	IsDebugLightShaderDisabled() bool
+	IsDebugWaterShaderDisabled() bool
+	IsFlashlightOn() bool
+	GetStoryManager() *story.StoryManager
+	GetCraftingRecipes() []Recipe
+	IsPlayerSlowed() bool
+	GetParticles() []*particle.Particle
+	GetCaveVehicles(key string) []vehicle.Vehicle
+	GetActiveTrenchKey() string
+}
 
 // DiverDrawWidth defines the targeted width of the diver sprite on screen.
 var DiverDrawWidth = 36.0
@@ -103,55 +154,14 @@ func NewCaveScene() *CaveScene {
 }
 
 func (c *CaveScene) loadDiverSheet() {
-	paths := []string{
-		"assets/textures/diver_sheet.png",
-		"/Users/jaredwarren/src/github.com/jaredwarren/SubGame/assets/textures/diver_sheet.png",
-		"../../assets/textures/diver_sheet.png",
-		"../assets/textures/diver_sheet.png",
-	}
-
-	var file *os.File
-	var err error
-	for _, p := range paths {
-		file, err = os.Open(p)
-		if err == nil {
-			break
-		}
-	}
+	sheet, err := assets.LoadChromaKeyedImage("diver_sheet")
 	if err != nil {
-		log.Printf("Warning: Failed to open assets/textures/diver_sheet.png: %v", err)
+		log.Printf("Warning: Failed to load diver sheet: %v", err)
 		return
 	}
-	defer func() { _ = file.Close() }()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Warning: Failed to decode assets/textures/diver_sheet.png: %v", err)
-		return
-	}
-
-	bounds := img.Bounds()
-	rgba := image.NewRGBA(bounds)
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			clr := img.At(x, y)
-			r, g, b, a := clr.RGBA()
-			ru := uint8(r >> 8)
-			gu := uint8(g >> 8)
-			bu := uint8(b >> 8)
-			au := uint8(a >> 8)
-			if gu > 140 && ru < 100 && bu < 100 {
-				rgba.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
-			} else {
-				rgba.SetRGBA(x, y, color.RGBA{ru, gu, bu, au})
-			}
-		}
-	}
-
-	sheet := ebiten.NewImageFromImage(rgba)
 	c.diverSheet = sheet
 
+	bounds := sheet.Bounds()
 	frameW := bounds.Dx() / DiverGridCols
 	frameH := bounds.Dy() / DiverGridRows
 
@@ -176,28 +186,36 @@ func (c *CaveScene) loadDiverSheet() {
 }
 
 func (c *CaveScene) OnEnter(g GameContext) {
+	c.onEnter(g)
+}
+
+func (c *CaveScene) onEnter(g CaveContext) {
 	g.SetCurrentState(StateCave)
 }
 
-func (c *CaveScene) OnExit(g GameContext) {}
+func (c *CaveScene) OnExit(g GameContext) {
+	c.onExit(g)
+}
 
-func (c *CaveScene) checkCollisions(g GameContext, p *player.Player) {
-	newX := p.Pos.X + p.Vel.X
-	if c.IsSolid(g, newX, p.Pos.Y, p.Width, p.Height) {
-		p.Vel.X = 0
-	} else {
-		p.Pos.X = newX
-	}
-	newY := p.Pos.Y + p.Vel.Y
-	if c.IsSolid(g, p.Pos.X, newY, p.Width, p.Height) {
-		p.Vel.Y = 0
-	} else {
-		p.Pos.Y = newY
-	}
+func (c *CaveScene) onExit(g CaveContext) {}
+
+func (c *CaveScene) Update(g GameContext) error {
+	return c.update(g)
+}
+
+func (c *CaveScene) Draw(g GameContext, screen *ebiten.Image) {
+	c.draw(g, screen)
+}
+
+func (c *CaveScene) checkCollisions(g CaveContext, p *player.Player) {
+	dims := gvec.Vec2{X: p.Width, Y: p.Height}
+	gvec.MoveAxisSeparated(&p.Pos, &p.Vel, dims, func(pos gvec.Vec2) bool {
+		return c.IsSolid(g, pos.X, pos.Y, p.Width, p.Height)
+	}, nil, nil)
 }
 
 // IsSolid checks if the proposed bounding box overlaps with solid cave tiles.
-func (c *CaveScene) IsSolid(g GameContext, x, y, w, h float64) bool {
+func (c *CaveScene) IsSolid(g CaveContext, x, y, w, h float64) bool {
 	if c.CaveGrid == nil {
 		return false
 	}

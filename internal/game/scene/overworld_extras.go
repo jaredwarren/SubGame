@@ -14,7 +14,7 @@ import (
 )
 
 // InitializeExtras populates the overworld with fish, crates, and vents if not already initialized.
-func (o *OverworldScene) InitializeExtras(g GameContext) {
+func (o *OverworldScene) InitializeExtras(g OverworldContext) {
 	if o.initialized {
 		return
 	}
@@ -143,7 +143,7 @@ func (fc fishContext) IsSolid(x, y float64) bool {
 }
 
 type crateContext struct {
-	g GameContext
+	g OverworldContext
 }
 
 func (cc crateContext) GetTargetCenter() gvec.Vec2 {
@@ -196,7 +196,7 @@ func (cc crateContext) SetMineWarning(msg string, duration, level int) {
 }
 
 type ventContext struct {
-	g GameContext
+	g OverworldContext
 }
 
 func (vc ventContext) GetTicks() float64 {
@@ -257,7 +257,7 @@ func (vc ventContext) DamageTarget(damage float64) {
 
 type whirlpoolContext struct {
 	scene *OverworldScene
-	g     GameContext
+	g     OverworldContext
 }
 
 func (wc whirlpoolContext) BaseStationPos() gvec.Vec2 {
@@ -318,7 +318,7 @@ func (o *OverworldScene) FindSafeWhirlpoolSpawnPos(baseStationPos gvec.Vec2, rng
 }
 
 // UpdateExtras runs update logic for cosmetic fish, crates, and vents.
-func (o *OverworldScene) UpdateExtras(g GameContext) {
+func (o *OverworldScene) UpdateExtras(g OverworldContext) {
 	o.InitializeExtras(g)
 
 	p := g.GetPlayer()
@@ -361,7 +361,7 @@ func (o *OverworldScene) UpdateExtras(g GameContext) {
 }
 
 // DrawExtras draws cosmetic fish, crates, and vents.
-func (o *OverworldScene) DrawExtras(g GameContext, screen *ebiten.Image) {
+func (o *OverworldScene) DrawExtras(g OverworldContext, screen *ebiten.Image) {
 	cam := g.GetCamera()
 	camX, camY := cam.Pos.X, cam.Pos.Y
 	ticks := g.GetTicks()

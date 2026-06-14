@@ -1,17 +1,15 @@
 package item
 
 import (
-	"bytes"
 	"image"
 	"image/color"
-	"image/draw"
 	_ "image/png"
 	"log"
 	"reflect"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/jaredwarren/SubGame/assets"
+	"github.com/jaredwarren/SubGame/internal/assets"
 )
 
 var (
@@ -23,34 +21,13 @@ var (
 func LoadAssets() {
 	iconSprites = make(map[string]*ebiten.Image)
 
-	img, _, err := image.Decode(bytes.NewReader(assets.ItemIconsPNG))
+	sheet, err := assets.LoadChromaKeyedImage("item_icons")
 	if err != nil {
-		log.Printf("Error: Failed to decode item icons: %v", err)
+		log.Printf("Error: Failed to load item icons: %v", err)
 		return
 	}
 
-	bounds := img.Bounds()
-	rgba := image.NewRGBA(bounds)
-	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
-
-	// Chroma-key green pixels using fast direct byte slice manipulation
-	for i := 0; i < len(rgba.Pix); i += 4 {
-		ru := rgba.Pix[i]
-		gu := rgba.Pix[i+1]
-		bu := rgba.Pix[i+2]
-
-		if gu > 140 && ru < 100 && bu < 100 {
-			rgba.Pix[i] = 0
-			rgba.Pix[i+1] = 0
-			rgba.Pix[i+2] = 0
-			rgba.Pix[i+3] = 0
-		}
-	}
-
-	sheet := ebiten.NewImageFromImage(rgba)
-	if sheet == nil {
-		return
-	}
+	bounds := sheet.Bounds()
 
 	cellSize := 316
 	startOffset := 76
