@@ -23,7 +23,6 @@ type CrateContext interface {
 	SetMineWarning(msg string, duration, level int)
 }
 
-
 // FloatingCrate represents a lootable cargo crate near shipwrecks.
 type FloatingCrate struct {
 	Pos          gvec.Vec2
@@ -84,21 +83,7 @@ func (c *FloatingCrate) Update(g CrateContext) {
 	colRadius := 16.0 + math.Max(targetDims.X, targetDims.Y)/2.0
 	if dist < colRadius {
 		// Loot generation
-		r := rand.Float64()
-
-		// TODO: fix this, these items and percentages should be defined by the Floating Crate
-		var loot item.Item
-		if r < 0.50 {
-			loot = &item.ScrapMetal{}
-		} else if r < 0.75 {
-			loot = &item.Titanium{}
-		} else if r < 0.90 {
-			loot = &item.Copper{}
-		} else if r < 0.96 {
-			loot = &item.ElectronicWaste{}
-		} else {
-			loot = &item.PowerCell{}
-		}
+		loot := c.GenerateLoot()
 
 		added := g.AddLoot(loot)
 
@@ -115,4 +100,29 @@ func (c *FloatingCrate) Update(g CrateContext) {
 			g.SetMineWarning("Inventory full! Cannot salvage crate.", 60, 2)
 		}
 	}
+}
+
+// LootItem defines a cargo entry with its cumulative spawn threshold and constructor.
+type LootItem struct {
+	Threshold float64
+	Factory   func() item.Item
+}
+
+var crateLootTable = []LootItem{
+	{Threshold: 0.50, Factory: func() item.Item { return &item.ScrapMetal{} }},
+	{Threshold: 0.75, Factory: func() item.Item { return &item.Titanium{} }},
+	{Threshold: 0.90, Factory: func() item.Item { return &item.Copper{} }},
+	{Threshold: 0.96, Factory: func() item.Item { return &item.ElectronicWaste{} }},
+	{Threshold: 1.00, Factory: func() item.Item { return &item.PowerCell{} }},
+}
+
+// GenerateLoot determines the randomized item inside the crate based on weights.
+func (c *FloatingCrate) GenerateLoot() item.Item {
+	r := rand.Float64()
+	for _, entry := range crateLootTable {
+		if r < entry.Threshold {
+			return entry.Factory()
+		}
+	}
+	return &item.ScrapMetal{} // fallback
 }

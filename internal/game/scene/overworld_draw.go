@@ -80,10 +80,11 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 			ebitenutil.DebugPrintAt(screen, promptText, int(promptX)+10, int(promptY)+4)
 		} else {
 			tile := o.World.OverworldMap[pTileX][pTileY]
-			if tile == world.TileTrench || tile == world.TileWater || tile == world.TileWreckage {
+			info := world.GetTileInfo(tile)
+			if info != nil && info.IsDiveable {
 				promptText := "Press [E] to Dive"
-				if tile == world.TileWreckage {
-					promptText = "Press [E] to Salvage Wreckage"
+				if info.DivePrompt != "" {
+					promptText = info.DivePrompt
 				}
 				promptX := float32(p.CenterX()) - 95
 				promptY := float32(p.CenterY()) - 40
@@ -339,7 +340,8 @@ func (o *OverworldScene) drawWaves(screen *ebiten.Image, startTileX, endTileX, s
 			}
 
 			currTile := o.World.OverworldMap[clampedTx][clampedTy]
-			if currTile == world.TileWater || currTile == world.TileTrench || currTile == world.TileWreckage {
+			currInfo := world.GetTileInfo(currTile)
+			if currInfo != nil && currInfo.IsWater {
 				if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
 					// Only generate waves on a subset of water tiles (50% density)
 					tileRngVal := hashCoords(tx, ty)
@@ -533,8 +535,8 @@ func ComputeTileColors(tx, ty int, tileType world.TileType, landDist, waterDist 
 	var baseClr color.RGBA
 	var baseStrokeClr color.RGBA
 
-	switch tileType {
-	case world.TileWater, world.TileTrench, world.TileWreckage:
+	tileInfo := world.GetTileInfo(tileType)
+	if tileInfo != nil && tileInfo.IsWater {
 		dist := landDist
 		const maxDist = 15
 		lerpT := float64(dist) / float64(maxDist)
@@ -546,7 +548,7 @@ func ComputeTileColors(tx, ty int, tileType world.TileType, landDist, waterDist 
 		b := uint8(165 - lerpT*83)
 		baseClr = color.RGBA{r, gr, b, 255}
 		baseStrokeClr = color.RGBA{r + 8, gr + 10, b + 15, 255}
-	case world.TileLand:
+	} else if tileType == world.TileLand {
 		dist := waterDist
 		isSand := dist == 1 // exactly adjacent to water
 
@@ -595,7 +597,7 @@ func ComputeTileColors(tx, ty int, tileType world.TileType, landDist, waterDist 
 
 func floorDiv(a, b int) int {
 	d := a / b
-	if (a % b) != 0 && (a < 0) != (b < 0) {
+	if (a%b) != 0 && (a < 0) != (b < 0) {
 		d--
 	}
 	return d

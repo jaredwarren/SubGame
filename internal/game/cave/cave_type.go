@@ -19,6 +19,7 @@ const (
 	CaveOrganicTrench
 	CaveWreckage
 	CaveVoid
+	CaveShockKelp
 )
 
 // Cave defines the interface for different cave types.

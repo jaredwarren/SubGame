@@ -148,7 +148,8 @@ func (o *OverworldScene) update(g OverworldContext) error {
 		}
 	} else {
 		tile := o.World.OverworldMap[tx][ty]
-		if tile == world.TileTrench || tile == world.TileWater || tile == world.TileWreckage {
+		info := world.GetTileInfo(tile)
+		if info != nil && info.IsDiveable {
 			if inp.IsKeyJustPressed(ebiten.KeyE) && g.GetBaseStation().DistanceToPlayer(p) >= 100.0 {
 				g.EnterCave(tx, ty)
 				return nil

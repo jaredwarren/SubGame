@@ -3,6 +3,7 @@ package world
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 )
@@ -15,6 +16,7 @@ const (
 	TileLand
 	TileTrench
 	TileWreckage
+	TileShockKelpCave
 )
 
 // World orchestrates procedural generation of overworld and caves.
@@ -64,10 +66,21 @@ func (w *World) generateOverworld() {
 		}
 	}
 
-	// Scatter Trench/Sinkhole and wreckage locations using helper
+	// Scatter features using the tile type registry
 	r := rand.New(rand.NewSource(w.Seed + 13))
-	w.scatterFeature(r, TileTrench, 6)
-	w.scatterFeature(r, TileWreckage, 3)
+	var scatterTypes []TileType
+	for tt, info := range AllTileInfos() {
+		if info.ScatterCount > 0 {
+			scatterTypes = append(scatterTypes, tt)
+		}
+	}
+	sort.Slice(scatterTypes, func(i, j int) bool {
+		return scatterTypes[i] < scatterTypes[j]
+	})
+	for _, tt := range scatterTypes {
+		info := GetTileInfo(tt)
+		w.scatterFeature(r, tt, info.ScatterCount)
+	}
 
 	// Precompute BFS distance maps for fast per-tile lookups
 	w.buildLandDistMap()
@@ -150,7 +163,8 @@ func (w *World) buildLandDistMap() {
 // buildWaterDistMap computes BFS distance from every tile to the nearest water tile.
 func (w *World) buildWaterDistMap() {
 	w.WaterDist = w.buildDistMap(func(t TileType) bool {
-		return t == TileWater || t == TileTrench || t == TileWreckage
+		info := GetTileInfo(t)
+		return info != nil && info.IsWater
 	})
 }
 
@@ -178,12 +192,11 @@ func (w *World) GetCave(tx, ty int) [][]bool {
 	r := rand.New(rand.NewSource(seed))
 
 	var caveGrid [][]bool
-	switch tileType {
-	case TileWreckage:
-		caveGrid = cave.GenerateWreckageGrid(r)
-	case TileTrench:
-		caveGrid = cave.GenerateOrganicTrenchGrid(r)
-	default:
+
+	info := GetTileInfo(tileType)
+	if info != nil && info.GenerateGrid != nil {
+		caveGrid = info.GenerateGrid(r)
+	} else {
 		dist := w.DistanceToLand(tx, ty)
 		hasLeftWater := tx-1 >= 0 && w.OverworldMap[tx-1][ty] == TileWater
 		hasRightWater := tx+1 < w.Width && w.OverworldMap[tx+1][ty] == TileWater

@@ -93,8 +93,10 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 		} else {
 			posText = fmt.Sprintf("Pos: X:%.0f Y:%.0f", p.Pos.X, p.Pos.Y)
 			zoneText = "Zone: Surface Ocean"
-			if w.OverworldMap[tx][ty] == world.TileTrench {
-				depthText = "Est. Dive Depth: Trench (120m)"
+
+			info := world.GetTileInfo(w.OverworldMap[tx][ty])
+			if info != nil && info.EstDiveDepth != "" {
+				depthText = info.EstDiveDepth
 			} else {
 				dist := w.DistanceToLand(tx, ty)
 				floorY := 6 + int(dist*2.2)

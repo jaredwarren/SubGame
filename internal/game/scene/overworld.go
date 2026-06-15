@@ -13,6 +13,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -47,10 +48,10 @@ type OverworldContext interface {
 
 // OverworldScene manages the top-down surface sailing view.
 type OverworldScene struct {
-	World       *world.World
-	whirlpool   *oe.Whirlpool
-	crates      []*oe.FloatingCrate
-	vents       []*oe.ThermalVent
+	World        *world.World
+	whirlpool    *oe.Whirlpool
+	crates       []*oe.FloatingCrate
+	vents        []*oe.ThermalVent
 	fish         []*oe.CosmeticFish
 	tileTextures map[world.TileType]*ebiten.Image
 	initialized  bool
@@ -73,6 +74,9 @@ func (o *OverworldScene) getTileTexture(tileType world.TileType) *ebiten.Image {
 			world.TileTrench:   trenchTexture,
 			world.TileWreckage: wreckageTexture,
 		}
+	}
+	if tileType == world.TileShockKelpCave && o.tileTextures[world.TileShockKelpCave] == nil {
+		o.tileTextures[world.TileShockKelpCave] = cave.GenerateShockKelpReefTexture()
 	}
 	return o.tileTextures[tileType]
 }
@@ -110,7 +114,9 @@ var (
 	trenchTextureLoaded   bool
 	wreckageTexture       *ebiten.Image
 	wreckageTextureLoaded bool
+	shockKelpTexture      *ebiten.Image
 )
+
 
 // LoadAssets preloads and chroma-keys all overworld tile textures.
 func LoadAssets() {
