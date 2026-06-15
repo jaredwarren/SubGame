@@ -106,6 +106,44 @@ func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity 
 					},
 				})
 			}
+
+			// Spawn decorative wreckage barnacles/growths (8% chance near any solid face)
+			var coralAttachments []string
+			if c.Grid[tx][ty+1] {
+				coralAttachments = append(coralAttachments, "floor")
+			}
+			if c.Grid[tx][ty-1] {
+				coralAttachments = append(coralAttachments, "ceiling")
+			}
+			if c.Grid[tx-1][ty] {
+				coralAttachments = append(coralAttachments, "left")
+			}
+			if c.Grid[tx+1][ty] {
+				coralAttachments = append(coralAttachments, "right")
+			}
+
+			if len(coralAttachments) > 0 && r.Float64() < 0.08 {
+				attach := coralAttachments[r.Intn(len(coralAttachments))]
+				variant := r.Intn(2) // 2 variants for wreckage
+				
+				cx := float64(tx * config.TileSize)
+				cy := float64(ty * config.TileSize)
+				
+				switch attach {
+				case "floor":
+					cx += float64(config.TileSize-24) / 2.0
+					cy += float64(config.TileSize - 24)
+				case "ceiling":
+					cx += float64(config.TileSize-24) / 2.0
+				case "left":
+					cy += float64(config.TileSize-24) / 2.0
+				case "right":
+					cx += float64(config.TileSize - 24)
+					cy += float64(config.TileSize-24) / 2.0
+				}
+				
+				entities = append(entities, entity.NewCoral(cx, cy, entity.CoralBiomeWreckage, attach, variant, r))
+			}
 		}
 	}
 

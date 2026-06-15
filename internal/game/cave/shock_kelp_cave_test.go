@@ -75,6 +75,8 @@ func TestShockKelpCaveEntitiesAndResources(t *testing.T) {
 			lurkerCount++
 		case *entity.ElectroWeaver:
 			weaverCount++
+		case *entity.Coral:
+			// Allowed decorative coral
 		default:
 			t.Errorf("expected only *entity.ShockKelp, *entity.VoltaicLurker, or *entity.ElectroWeaver to spawn, but got a different entity type: %T", ent)
 		}

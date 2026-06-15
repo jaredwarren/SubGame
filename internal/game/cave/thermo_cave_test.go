@@ -69,6 +69,8 @@ func TestThermoCaveEntitiesAndResources(t *testing.T) {
 			rammerCount++
 		case *entity.BrimstoneSiphon:
 			siphonCount++
+		case *entity.Coral:
+			// Allowed decorative coral
 		default:
 			t.Errorf("unexpected entity type spawned in ThermoCave: %T", ent)
 		}

@@ -43,7 +43,7 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
 
-	inAbyssal := (py / config.TileSize) >= 80 || g.IsShockKelpCave()
+	inAbyssal := (py/config.TileSize) >= 80 || g.IsShockKelpCave()
 	if !inAbyssal {
 		ent.Timer = 0
 		return
@@ -98,7 +98,7 @@ func (ent *ElectroWeaver) Draw(screen *ebiten.Image, camera *camera.Camera, time
 	cx := sx + sw/2.0
 	cy := sy + sh/2.0
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		lag := float64(i) * 0.3
 		tVal := timeOfDay*0.08 - lag
 		offX := math.Cos(tVal) * 6
