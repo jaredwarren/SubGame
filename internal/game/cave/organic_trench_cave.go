@@ -145,14 +145,12 @@ func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			// Spawn ShockKelp in OrganicTrenchCave (Mid-Depth and Deep)
 			if (ty >= 4 && ty < 80) && ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.18 {
 				height := 32.0 + r.Float64()*48.0
-				entities = append(entities, &entity.ShockKelp{
-					BaseEntity: entity.BaseEntity{
-						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize) - height},
-						Dimensions: gvec.Vec2{X: 16, Y: height},
-						Active:     true,
-					},
-					SwayPhase: r.Float64() * math.Pi * 2,
-				})
+				entities = append(entities, entity.NewShockKelp(
+					float64(tx*config.TileSize)+float64(config.TileSize-16)/2.0,
+					float64(ty*config.TileSize)+float64(config.TileSize)-height,
+					height,
+					"floor",
+				))
 			}
 
 			// Biome 3: Abyssal (ty 80+) - Brine Falls

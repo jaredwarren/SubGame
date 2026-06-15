@@ -173,14 +173,12 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.28 {
 				height := 32.0 + r.Float64()*48.0
 				if r.Float64() < 0.20 {
-					entities = append(entities, &entity.ShockKelp{
-						BaseEntity: entity.BaseEntity{
-							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize) - height},
-							Dimensions: gvec.Vec2{X: 16, Y: height},
-							Active:     true,
-						},
-						SwayPhase: r.Float64() * math.Pi * 2,
-					})
+					entities = append(entities, entity.NewShockKelp(
+						float64(tx*config.TileSize)+float64(config.TileSize-16)/2.0,
+						float64(ty*config.TileSize)+float64(config.TileSize)-height,
+						height,
+						"floor",
+					))
 				} else {
 					entities = append(entities, &entity.Kelp{
 						BaseEntity: entity.BaseEntity{

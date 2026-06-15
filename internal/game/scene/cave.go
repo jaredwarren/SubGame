@@ -291,6 +291,10 @@ func (c *CaveScene) getAmbientColor(isShallow bool, timeOfDay float64) []float32
 	if config.LightCaveForDebug {
 		return []float32{0.02, 0.02, 0.03, 0.15}
 	}
+	if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveShockKelp {
+		// A little dark, not as dark as deep caves (0.97), but darker than standard shallow caves
+		return []float32{0.03, 0.02, 0.06, 0.68}
+	}
 	if isShallow {
 		mult := GetOverworldLightMultiplier(timeOfDay)
 		alpha := float32(0.75 - (mult-0.2)/0.8*0.60)

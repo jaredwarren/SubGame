@@ -43,14 +43,7 @@ func TestPassiveCreatures_Generation(t *testing.T) {
 		},
 	}
 
-	shockKelp := &entity.ShockKelp{
-		BaseEntity: entity.BaseEntity{
-			//Type:       entity.EntShockKelp,
-			Pos:        gvec.Vec2{X: 100, Y: 180},
-			Dimensions: gvec.Vec2{X: 16, Y: 48},
-			Active:     true,
-		},
-	}
+	shockKelp := entity.NewShockKelp(100, 180, 48, "floor")
 
 	// if fish.GetType() != entity.EntPassiveFish {
 	// 	t.Errorf("expected fish type to be EntPassiveFish, got %v", fish.GetType())

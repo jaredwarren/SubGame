@@ -16,6 +16,27 @@ type ShockKelp struct {
 	BaseEntity
 	SwayPhase     float64
 	ShockCooldown int
+	HasOrb        bool
+	AnchorSide    string // "floor", "left", "right"
+}
+
+// NewShockKelp creates a new ShockKelp with randomized sway phase, orb presence, and specified anchor side.
+func NewShockKelp(x, y, height float64, anchor string) *ShockKelp {
+	width := 16.0
+	if anchor == "left" || anchor == "right" {
+		width = 28.0
+	}
+
+	return &ShockKelp{
+		BaseEntity: BaseEntity{
+			Pos:        gvec.Vec2{X: x, Y: y},
+			Dimensions: gvec.Vec2{X: width, Y: height},
+			Active:     true,
+		},
+		SwayPhase:  rand.Float64() * math.Pi * 2,
+		HasOrb:     rand.Float64() < 0.5,
+		AnchorSide: anchor,
+	}
 }
 
 func (k *ShockKelp) Update(gr Runtime) {
@@ -75,37 +96,61 @@ func (k *ShockKelp) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay 
 	sy := float32(k.Pos.Y - camera.Pos.Y)
 	sw := float32(k.Dimensions.X)
 	sh := float32(k.Dimensions.Y)
-	cx := sx + sw/2.0
-	bottomY := sy + sh
+
+	// Determine anchor point
+	var baseX, baseY float32
+	if k.AnchorSide == "left" {
+		baseX = sx
+		baseY = sy + sh
+	} else if k.AnchorSide == "right" {
+		baseX = sx + sw
+		baseY = sy + sh
+	} else { // "floor" or empty fallback
+		baseX = sx + sw/2.0
+		baseY = sy + sh
+	}
 
 	numSegments := int(sh / 8.0)
 	if numSegments < 3 {
 		numSegments = 3
 	}
-	segmentHeight := sh / float32(numSegments)
 
-	lastX := cx
-	lastY := bottomY
+	lastX := baseX
+	lastY := baseY
 
 	for i := 0; i < numSegments; i++ {
-		factor := float64(i+1) / float64(numSegments)
-		swayOffset := float32(math.Sin(k.SwayPhase+float64(i)*0.4)) * 8.0 * float32(factor)
-		nextX := cx + swayOffset
-		nextY := bottomY - float32(i+1)*segmentHeight
+		factor := float32(i+1) / float32(numSegments)
+		swayOffset := float32(math.Sin(k.SwayPhase+float64(i)*0.4)) * 8.0 * factor
+
+		var nextX, nextY float32
+		nextY = baseY - factor*sh
+
+		if k.AnchorSide == "left" {
+			// Curves to the right (away from left wall), then goes straight up
+			curveOffset := sw * float32(math.Sin(float64(factor)*math.Pi/2.0))
+			nextX = baseX + curveOffset + swayOffset
+		} else if k.AnchorSide == "right" {
+			// Curves to the left (away from right wall), then goes straight up
+			curveOffset := sw * float32(math.Sin(float64(factor)*math.Pi/2.0))
+			nextX = baseX - curveOffset + swayOffset
+		} else {
+			// Floor anchor (grows straight up)
+			nextX = baseX + swayOffset
+		}
 
 		// Draw deep purple stalk
-		vector.StrokeLine(screen, lastX, lastY, nextX, nextY, 2.5-float32(factor)*1.0, color.RGBA{110, 30, 160, 255}, false)
+		vector.StrokeLine(screen, lastX, lastY, nextX, nextY, 2.5-factor*1.0, color.RGBA{110, 30, 160, 255}, false)
 
 		// Draw violet/magenta leaves
-		leafSize := 5.0 - float32(factor)*2.0
+		leafSize := 5.0 - factor*2.0
 		if leafSize < 2.0 {
 			leafSize = 2.0
 		}
 		vector.FillCircle(screen, nextX-4.0, nextY, leafSize, color.RGBA{170, 50, 220, 220}, false)
 		vector.FillCircle(screen, nextX+4.0, nextY, leafSize, color.RGBA{170, 50, 220, 220}, false)
 
-		// Draw glowing electric cyan/yellow tip at the very top segment
-		if i == numSegments-1 {
+		// Draw glowing electric cyan/yellow tip at the very top segment (only if HasOrb is true)
+		if i == numSegments-1 && k.HasOrb {
 			pulse := float32(math.Sin(timeOfDay*0.1+k.SwayPhase)) * 1.5
 			vector.FillCircle(screen, nextX, nextY, 6.0+pulse, color.RGBA{0, 230, 255, 100}, false)
 			vector.FillCircle(screen, nextX, nextY, 3.5, color.RGBA{255, 255, 200, 255}, false)

@@ -169,7 +169,10 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 }
 
 func (c *CaveScene) applyLighting(g CaveContext) {
-	if shader.LightShader == nil || c.IsShallow || g.IsDebugLightShaderDisabled() {
+	// Enable lighting for Shock Kelp Cave even though it is classified as shallow
+	isShallowWithoutLight := c.IsShallow && (c.ActiveCave == nil || c.ActiveCave.GetCaveType() != cave.CaveShockKelp)
+
+	if shader.LightShader == nil || isShallowWithoutLight || g.IsDebugLightShaderDisabled() {
 		return
 	}
 

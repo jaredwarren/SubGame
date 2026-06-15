@@ -10,7 +10,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
-	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 type ShockKelpCave struct {
@@ -107,18 +106,37 @@ func (c *ShockKelpCave) GenerateEntities(seed int64) []entity.CaveEntity {
 				continue
 			}
 
-			// Extremely high Shock Kelp density (45%+ chance on floor tiles)
-			if grid[tx][ty+1] && r.Float64() < 0.45 {
-				// Kelp height is between 24 and 52 pixels to leave clearance in narrow tunnels
+			// 1. Floor-anchored kelp (60% chance on solid bottom tile)
+			if grid[tx][ty+1] && r.Float64() < 0.60 {
 				height := 24.0 + r.Float64()*28.0
-				entities = append(entities, &entity.ShockKelp{
-					BaseEntity: entity.BaseEntity{
-						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize) - height},
-						Dimensions: gvec.Vec2{X: 16, Y: height},
-						Active:     true,
-					},
-					SwayPhase: r.Float64() * math.Pi * 2,
-				})
+				entities = append(entities, entity.NewShockKelp(
+					float64(tx*config.TileSize)+float64(config.TileSize-16)/2.0,
+					float64(ty*config.TileSize)+float64(config.TileSize)-height,
+					height,
+					"floor",
+				))
+			}
+
+			// 2. Left-wall anchored kelp (45% chance on solid left tile)
+			if grid[tx-1][ty] && r.Float64() < 0.45 {
+				height := 24.0 + r.Float64()*28.0
+				entities = append(entities, entity.NewShockKelp(
+					float64(tx*config.TileSize),
+					float64(ty*config.TileSize)+float64(config.TileSize)/2.0-height,
+					height,
+					"left",
+				))
+			}
+
+			// 3. Right-wall anchored kelp (45% chance on solid right tile)
+			if grid[tx+1][ty] && r.Float64() < 0.45 {
+				height := 24.0 + r.Float64()*28.0
+				entities = append(entities, entity.NewShockKelp(
+					float64(tx*config.TileSize)+float64(config.TileSize)-28.0,
+					float64(ty*config.TileSize)+float64(config.TileSize)/2.0-height,
+					height,
+					"right",
+				))
 			}
 		}
 	}
