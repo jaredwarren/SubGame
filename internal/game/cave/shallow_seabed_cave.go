@@ -170,6 +170,12 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 					FacingRight: r.Float64() < 0.5,
 				})
 			}
+			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.015 {
+				entities = append(entities, entity.NewSandViper(
+					float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
+					float64(ty*config.TileSize)+float64(config.TileSize-12),
+				))
+			}
 			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.28 {
 				height := 32.0 + r.Float64()*48.0
 				if r.Float64() < 0.20 {
