@@ -95,6 +95,7 @@ type Runtime interface {
 	Input() InputSource
 	PlayerScreenCenter() gvec.Vec2
 	PlayerSlowed() bool
+	PlayerStunned() bool
 	IsOverworldSolidAt(tx, ty int) bool
 	IsCaveSolidAt(tx, ty int) bool
 	CanUseSonar() bool

@@ -58,6 +58,10 @@ func (a *vehicleRuntimeAdapter) PlayerSlowed() bool {
 	return a.g.playerSlowed
 }
 
+func (a *vehicleRuntimeAdapter) PlayerStunned() bool {
+	return a.g.player.StunTimer > 0
+}
+
 func (a *vehicleRuntimeAdapter) IsOverworldSolidAt(tx, ty int) bool {
 	if tx < 0 || tx >= a.g.world.Width || ty < 0 || ty >= a.g.world.Height {
 		return true

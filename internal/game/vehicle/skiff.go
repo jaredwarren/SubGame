@@ -130,6 +130,11 @@ func (s *Skiff) Update(runtime Runtime) {
 		return
 	}
 
+	if runtime.PlayerStunned() {
+		s.Vel = gvec.Vec2{}
+		return
+	}
+
 	const turnSpeed = 0.04
 	input := runtime.Input()
 	if input.IsKeyPressed(ebiten.KeyA) || input.IsKeyPressed(ebiten.KeyArrowLeft) {

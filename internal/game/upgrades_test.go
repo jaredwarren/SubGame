@@ -225,6 +225,7 @@ func (mockRuntime) TimeOfDay() float64                 { return 0.0 }
 func (mockRuntime) Input() vehicle.InputSource         { return mockInput{} }
 func (mockRuntime) PlayerScreenCenter() gvec.Vec2      { return gvec.Vec2{} }
 func (mockRuntime) PlayerSlowed() bool                 { return false }
+func (mockRuntime) PlayerStunned() bool                { return false }
 func (mockRuntime) IsOverworldSolidAt(tx, ty int) bool { return false }
 func (mockRuntime) IsCaveSolidAt(tx, ty int) bool      { return false }
 func (mockRuntime) CanUseSonar() bool                  { return true }
@@ -275,6 +276,7 @@ func (mockActiveRuntime) IsActiveVehicle(v vehicle.Vehicle) bool { return true }
 func (mockActiveRuntime) Input() vehicle.InputSource             { return mockInput{} }
 func (mockActiveRuntime) PlayerScreenCenter() gvec.Vec2          { return gvec.Vec2{} }
 func (mockActiveRuntime) PlayerSlowed() bool                     { return false }
+func (mockActiveRuntime) PlayerStunned() bool                    { return false }
 func (mockActiveRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
 func (mockActiveRuntime) IsOverworldSolidAt(tx, ty int) bool     { return false }
 func (mockActiveRuntime) CanUseSonar() bool                      { return true }
@@ -322,6 +324,7 @@ func (mockMechRuntime) IsActiveVehicle(v vehicle.Vehicle) bool { return true }
 func (mockMechRuntime) Input() vehicle.InputSource             { return mockMechInput{} }
 func (mockMechRuntime) PlayerScreenCenter() gvec.Vec2          { return gvec.Vec2{} }
 func (mockMechRuntime) PlayerSlowed() bool                     { return false }
+func (mockMechRuntime) PlayerStunned() bool                    { return false }
 func (mockMechRuntime) IsCaveSolidAt(tx, ty int) bool          { return false }
 func (mockMechRuntime) IsOverworldSolidAt(tx, ty int) bool     { return false }
 func (mockMechRuntime) CanUseSonar() bool                      { return true }

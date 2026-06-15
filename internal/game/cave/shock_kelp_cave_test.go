@@ -63,11 +63,32 @@ func TestShockKelpCaveEntitiesAndResources(t *testing.T) {
 		t.Fatal("expected some shock kelp entities to spawn, got 0")
 	}
 
-	// Verify all entities are ONLY ShockKelp
+	// Verify all entities are ONLY ShockKelp, VoltaicLurker, or ElectroWeaver
+	kelpCount := 0
+	lurkerCount := 0
+	weaverCount := 0
 	for _, ent := range entities {
-		if _, ok := ent.(*entity.ShockKelp); !ok {
-			t.Errorf("expected only *entity.ShockKelp to spawn, but got a different entity type: %T", ent)
+		switch ent.(type) {
+		case *entity.ShockKelp:
+			kelpCount++
+		case *entity.VoltaicLurker:
+			lurkerCount++
+		case *entity.ElectroWeaver:
+			weaverCount++
+		default:
+			t.Errorf("expected only *entity.ShockKelp, *entity.VoltaicLurker, or *entity.ElectroWeaver to spawn, but got a different entity type: %T", ent)
 		}
+	}
+	if kelpCount == 0 {
+		t.Error("expected to spawn some ShockKelp, got 0")
+	}
+	if lurkerCount == 0 {
+		t.Error("expected to spawn some VoltaicLurker, got 0")
+	}
+	// Note: since weaver count is random (0-2), we don't strictly assert weaverCount > 0,
+	// but we could log it or check it. We'll just check if it's within [0, 2].
+	if weaverCount < 0 || weaverCount > 2 {
+		t.Errorf("expected between 0 and 2 ElectroWeavers, got %d", weaverCount)
 	}
 
 	// Generate resources

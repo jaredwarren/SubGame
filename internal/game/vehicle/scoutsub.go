@@ -109,6 +109,11 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 		return
 	}
 
+	if runtime.PlayerStunned() {
+		sub.Vel = gvec.Vec2{}
+		return
+	}
+
 	input := runtime.Input()
 	cursor := input.Cursor()
 	center := runtime.PlayerScreenCenter()

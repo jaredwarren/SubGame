@@ -28,6 +28,7 @@ type Runtime interface {
 	SonarActive() bool
 	TimeOfDay() float64
 
+	IsShockKelpCave() bool
 	IsSolid(x, y, w, h float64) bool
 
 	Emit(cmd GameCommand)
@@ -75,6 +76,15 @@ type KnockbackActiveVehicleCmd struct {
 	Force gvec.Vec2
 }
 
+type StunPlayerCmd struct {
+	Duration int
+}
+
+type TriggerShakeCmd struct {
+	Duration  int
+	Intensity float64
+}
+
 func (DamagePlayerCmd) gameCommand()              {}
 func (DamageActiveVehicleCmd) gameCommand()       {}
 func (RestoreOxygenCmd) gameCommand()             {}
@@ -84,3 +94,5 @@ func (SetMineWarningCmd) gameCommand()            {}
 func (UpdateWeaverTrackingTimerCmd) gameCommand() {}
 func (KnockbackPlayerCmd) gameCommand()           {}
 func (KnockbackActiveVehicleCmd) gameCommand()    {}
+func (StunPlayerCmd) gameCommand()                {}
+func (TriggerShakeCmd) gameCommand()              {}

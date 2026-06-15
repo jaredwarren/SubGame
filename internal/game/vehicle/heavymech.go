@@ -92,6 +92,11 @@ func (m *HeavyMech) Update(runtime Runtime) {
 		return
 	}
 
+	if runtime.PlayerStunned() {
+		m.Vel = gvec.Vec2{}
+		return
+	}
+
 	input := runtime.Input()
 	cursor := input.Cursor()
 	center := runtime.PlayerScreenCenter()

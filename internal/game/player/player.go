@@ -46,6 +46,7 @@ type Player struct {
 	LastHealth      float64
 	IsDamaged       bool
 	DamageAnimTimer int
+	StunTimer       int
 }
 
 // NewPlayer initializes a player with default stats and empty inventory.
@@ -91,6 +92,11 @@ var DefaultSpeed = map[string]item.Speed{
 
 // UpdateStats handles core stat loops (depleting/regenerating O2, stamina, etc.)
 func (p *Player) UpdateStats(inCave bool, isSprinting bool) {
+	if p.StunTimer > 0 {
+		p.StunTimer--
+		p.Vel = gvec.Vec2{}
+	}
+
 	// Oxygen management
 	if inCave {
 		p.CurrentOxygen -= p.O2DrainRate / 60.0 // Drain O2 per second (at 60 FPS)

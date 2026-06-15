@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -115,6 +116,13 @@ func (a *worldAdapter) IsSolid(x, y, w, h float64) bool {
 	return a.g.caveState.IsSolid(a.g, x, y, w, h)
 }
 
+func (a *worldAdapter) IsShockKelpCave() bool {
+	if a.g.caveState == nil || a.g.caveState.ActiveCave == nil {
+		return false
+	}
+	return a.g.caveState.ActiveCave.GetCaveType() == cave.CaveShockKelp
+}
+
 // entityRuntimeAdapter satisfies entity.Runtime, reading from *Game.
 // Mutations are requested via Emit and collected in a slice, then processed
 // safely by drainEntityCommands.
@@ -161,6 +169,10 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 			g.MineWarning.Level = c.Level
 		case entity.UpdateWeaverTrackingTimerCmd:
 			g.WeaverTrackingTimer = math.Max(g.WeaverTrackingTimer, c.Value)
+		case entity.StunPlayerCmd:
+			g.player.StunTimer = c.Duration
+		case entity.TriggerShakeCmd:
+			g.TriggerScreenShake(c.Duration, c.Intensity)
 		}
 	}
 	rt.cmds = rt.cmds[:0]

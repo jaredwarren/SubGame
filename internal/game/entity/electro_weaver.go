@@ -29,6 +29,7 @@ type WeaverContext interface {
 	TimeOfDay() float64
 	IsSolid(x, y, w, h float64) bool
 	Emit(cmd GameCommand)
+	IsShockKelpCave() bool
 }
 
 func (ent *ElectroWeaver) Update(gr Runtime) {
@@ -42,7 +43,7 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 	dist := math.Hypot(px-ex, py-ey)
 
-	inAbyssal := (py / config.TileSize) >= 80
+	inAbyssal := (py / config.TileSize) >= 80 || g.IsShockKelpCave()
 	if !inAbyssal {
 		ent.Timer = 0
 		return

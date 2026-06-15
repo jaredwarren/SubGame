@@ -322,6 +322,11 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 }
 
 func (c *CaveScene) handlePlayerMovement(g CaveContext, inp InputSource, p *player.Player) {
+	if p.StunTimer > 0 {
+		p.Vel = gvec.Vec2{}
+		return
+	}
+
 	cam := g.GetCamera()
 	cursor := inp.Cursor()
 	pScreenX := p.Pos.X + p.Width/2.0 - cam.Pos.X

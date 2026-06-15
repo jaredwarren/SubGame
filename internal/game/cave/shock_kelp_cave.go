@@ -10,6 +10,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 type ShockKelpCave struct {
@@ -132,12 +133,69 @@ func (c *ShockKelpCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			if grid[tx+1][ty] && r.Float64() < 0.45 {
 				height := 24.0 + r.Float64()*28.0
 				entities = append(entities, entity.NewShockKelp(
-					float64(tx*config.TileSize)+float64(config.TileSize)-28.0,
+					float64(tx*config.TileSize)+float64(config.TileSize-28.0),
 					float64(ty*config.TileSize)+float64(config.TileSize)/2.0-height,
 					height,
 					"right",
 				))
 			}
+
+			// 4. VoltaicLurker (8% chance on solid faces)
+			var lurkerFaces []string
+			if grid[tx-1][ty] {
+				lurkerFaces = append(lurkerFaces, "left")
+			}
+			if grid[tx+1][ty] {
+				lurkerFaces = append(lurkerFaces, "right")
+			}
+			if grid[tx][ty-1] {
+				lurkerFaces = append(lurkerFaces, "top")
+			}
+			if grid[tx][ty+1] {
+				lurkerFaces = append(lurkerFaces, "bottom")
+			}
+
+			if len(lurkerFaces) > 0 && r.Float64() < 0.08 {
+				face := lurkerFaces[r.Intn(len(lurkerFaces))]
+				entities = append(entities, entity.NewVoltaicLurker(
+					float64(tx*config.TileSize),
+					float64(ty*config.TileSize),
+					face,
+				))
+			}
+		}
+	}
+
+	// Spawn 0-2 (random) ElectroWeavers in the shock kelp cave
+	var weaverCandidates []gvec.Vec2
+	for tx := 2; tx < gridW-2; tx++ {
+		for ty := 2; ty < gridH-2; ty++ {
+			if !grid[tx][ty] {
+				weaverCandidates = append(weaverCandidates, gvec.Vec2{X: float64(tx), Y: float64(ty)})
+			}
+		}
+	}
+
+	if len(weaverCandidates) > 0 {
+		numToSpawn := r.Intn(3) // 0, 1, or 2
+		if numToSpawn > len(weaverCandidates) {
+			numToSpawn = len(weaverCandidates)
+		}
+		for i := 0; i < numToSpawn; i++ {
+			idx := r.Intn(len(weaverCandidates))
+			c1 := weaverCandidates[idx]
+			weaverCandidates = append(weaverCandidates[:idx], weaverCandidates[idx+1:]...)
+
+			entities = append(entities, &entity.ElectroWeaver{
+				BaseEntity: entity.BaseEntity{
+					Pos: gvec.Vec2{
+						X: c1.X*float64(config.TileSize) + (float64(config.TileSize)-40.0)/2.0,
+						Y: c1.Y*float64(config.TileSize) + (float64(config.TileSize)-20.0)/2.0,
+					},
+					Dimensions: gvec.Vec2{X: 40, Y: 20},
+					Active:     true,
+				},
+			})
 		}
 	}
 
