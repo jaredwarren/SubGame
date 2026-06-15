@@ -125,6 +125,13 @@ func (o *OverworldScene) InitializeExtras(g OverworldContext) {
 			pos := candidates[i]
 			// Initialize with randomized state timer so they don't all erupt at once
 			o.vents = append(o.vents, oe.NewThermalVent(pos, int64(i*12345)))
+
+			// Set the map tile underneath the thermal vent to TileThermoCave
+			tx := int(pos.X) / config.TileSize
+			ty := int(pos.Y) / config.TileSize
+			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
+				o.World.OverworldMap[tx][ty] = world.TileThermoCave
+			}
 		}
 	}
 }

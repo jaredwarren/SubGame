@@ -20,6 +20,7 @@ const (
 	CaveWreckage
 	CaveVoid
 	CaveShockKelp
+	CaveThermo
 )
 
 // Cave defines the interface for different cave types.
@@ -30,4 +31,5 @@ type Cave interface {
 	DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int)
 	GenerateEntities(seed int64) []entity.CaveEntity
 	GenerateResources(seed int64) []resource.Resource
+	GetAmbientColor(lightMult float64) []float32
 }

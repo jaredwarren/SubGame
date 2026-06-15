@@ -85,6 +85,17 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 		},
 		IsShallow: true,
 	},
+	TileThermoCave: {
+		IsWater:      true,
+		IsDiveable:   false,
+		EstDiveDepth: "Est. Dive Depth: Thermo Cave (45m)",
+		ScatterCount: 0,
+		GenerateGrid: cave.GenerateThermoCaveGrid,
+		CaveFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
+			return cave.NewThermoCave(grid)
+		},
+		IsShallow: true,
+	},
 }
 
 // GetTileInfo returns the TileTypeInfo for a tile type, or nil if unregistered.

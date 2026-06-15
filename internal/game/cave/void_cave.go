@@ -33,3 +33,7 @@ func (c *VoidCave) GenerateEntities(seed int64) []entity.CaveEntity {
 func (c *VoidCave) GenerateResources(seed int64) []resource.Resource {
 	return nil
 }
+
+func (c *VoidCave) GetAmbientColor(lightMult float64) []float32 {
+	return []float32{0.01, 0.01, 0.03, 0.97}
+}

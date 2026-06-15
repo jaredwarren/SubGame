@@ -287,34 +287,15 @@ func getSkyColor(timeOfDay float64) color.RGBA {
 	}
 }
 
-func (c *CaveScene) getAmbientColor(isShallow bool, timeOfDay float64) []float32 {
+func (c *CaveScene) getAmbientColor(timeOfDay float64) []float32 {
 	if config.LightCaveForDebug {
 		return []float32{0.02, 0.02, 0.03, 0.15}
 	}
-	if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveShockKelp {
-		// A little dark, not as dark as deep caves (0.97), but darker than standard shallow caves
-		return []float32{0.03, 0.02, 0.06, 0.68}
-	}
-	if isShallow {
+	if c.ActiveCave != nil {
 		mult := GetOverworldLightMultiplier(timeOfDay)
-		alpha := float32(0.75 - (mult-0.2)/0.8*0.60)
-		return []float32{0.04, 0.06, 0.12, alpha}
+		return c.ActiveCave.GetAmbientColor(mult)
 	}
 	return []float32{0.01, 0.01, 0.03, 0.97}
-}
-
-func max0(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min0(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (c *CaveScene) IsScrollActive() bool {

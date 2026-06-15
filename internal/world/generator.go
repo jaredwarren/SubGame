@@ -17,6 +17,7 @@ const (
 	TileTrench
 	TileWreckage
 	TileShockKelpCave
+	TileThermoCave
 )
 
 // World orchestrates procedural generation of overworld and caves.

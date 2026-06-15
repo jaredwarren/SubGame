@@ -139,6 +139,26 @@ func (o *OverworldScene) update(g OverworldContext) error {
 	isMoving := speed > 0.1
 	p.UpdateStats(false, isSprinting && isMoving && moving)
 
+	// Check dormant thermal vents proximity for entering thermo cave
+	pCenter = gvec.Vec2{X: p.Pos.X + p.Width/2.0, Y: p.Pos.Y + p.Height/2.0}
+	var nearVent *oe.ThermalVent
+	for _, v := range o.vents {
+		dist := math.Hypot(pCenter.X-v.Pos.X, pCenter.Y-v.Pos.Y)
+		if dist < 30.0 {
+			nearVent = v
+			break
+		}
+	}
+
+	if nearVent != nil && nearVent.State == oe.VentDormant {
+		if inp.IsKeyJustPressed(ebiten.KeyE) {
+			vtx := int(nearVent.Pos.X) / config.TileSize
+			vty := int(nearVent.Pos.Y) / config.TileSize
+			g.EnterCave(vtx, vty)
+			return nil
+		}
+	}
+
 	tx := tileAt(p.Pos.X+p.Width/2.0, config.TileSize)
 	ty := tileAt(p.Pos.Y+p.Height/2.0, config.TileSize)
 	if tx < 0 || tx >= o.World.Width || ty < 0 || ty >= o.World.Height {

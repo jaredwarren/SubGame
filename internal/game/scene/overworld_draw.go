@@ -9,6 +9,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -70,26 +72,45 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 	}
 
 	if !isPiloting {
-		pTileX := tileAt(p.Pos.X+p.Width/2.0, config.TileSize)
-		pTileY := tileAt(p.Pos.Y+p.Height/2.0, config.TileSize)
-		if pTileX < 0 || pTileX >= o.World.Width || pTileY < 0 || pTileY >= o.World.Height {
-			promptText := "Press [E] to Dive into Void"
+		// Check dormant thermal vents proximity for custom diving prompt
+		pCenter := gvec.Vec2{X: p.Pos.X + p.Width/2.0, Y: p.Pos.Y + p.Height/2.0}
+		var nearVent *oe.ThermalVent
+		for _, v := range o.vents {
+			dist := math.Hypot(pCenter.X-v.Pos.X, pCenter.Y-v.Pos.Y)
+			if dist < 30.0 {
+				nearVent = v
+				break
+			}
+		}
+
+		if nearVent != nil && nearVent.State == oe.VentDormant {
+			promptText := "Press [E] to Enter Thermo Vent"
 			promptX := float32(p.CenterX()) - 95
 			promptY := float32(p.CenterY()) - 40
 			vector.FillRect(screen, promptX, promptY, 190, 25, color.RGBA{0, 0, 0, 180}, false)
 			ebitenutil.DebugPrintAt(screen, promptText, int(promptX)+10, int(promptY)+4)
 		} else {
-			tile := o.World.OverworldMap[pTileX][pTileY]
-			info := world.GetTileInfo(tile)
-			if info != nil && info.IsDiveable {
-				promptText := "Press [E] to Dive"
-				if info.DivePrompt != "" {
-					promptText = info.DivePrompt
-				}
+			pTileX := tileAt(p.Pos.X+p.Width/2.0, config.TileSize)
+			pTileY := tileAt(p.Pos.Y+p.Height/2.0, config.TileSize)
+			if pTileX < 0 || pTileX >= o.World.Width || pTileY < 0 || pTileY >= o.World.Height {
+				promptText := "Press [E] to Dive into Void"
 				promptX := float32(p.CenterX()) - 95
 				promptY := float32(p.CenterY()) - 40
 				vector.FillRect(screen, promptX, promptY, 190, 25, color.RGBA{0, 0, 0, 180}, false)
 				ebitenutil.DebugPrintAt(screen, promptText, int(promptX)+10, int(promptY)+4)
+			} else {
+				tile := o.World.OverworldMap[pTileX][pTileY]
+				info := world.GetTileInfo(tile)
+				if info != nil && info.IsDiveable {
+					promptText := "Press [E] to Dive"
+					if info.DivePrompt != "" {
+						promptText = info.DivePrompt
+					}
+					promptX := float32(p.CenterX()) - 95
+					promptY := float32(p.CenterY()) - 40
+					vector.FillRect(screen, promptX, promptY, 190, 25, color.RGBA{0, 0, 0, 180}, false)
+					ebitenutil.DebugPrintAt(screen, promptText, int(promptX)+10, int(promptY)+4)
+				}
 			}
 		}
 

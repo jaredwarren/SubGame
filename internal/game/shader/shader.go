@@ -21,6 +21,8 @@ var PersonalRadius float
 var AmbientColor vec4
 var EntranceLight vec2
 var EntranceActive float
+var LavaPositions [8]vec2
+var LavaCount float
 
 func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 	pixelPos := position.xy - imageDstOrigin()
@@ -98,13 +100,28 @@ func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 				angularFade := (dotVal - minDot) / (1.0 - minDot)
 				angularFade = clamp(angularFade * 4.0, 0.0, 1.0)
 
-				entranceIntensity = radialFade * angularFade * 1.0
 			}
+		}
+	}
+	// Lava lights
+	lavaIntensity := 0.0
+	lCount := int(LavaCount)
+	for i := 0; i < 8; i++ {
+		if i >= lCount {
+			break
+		}
+		toLava := pixelPos - LavaPositions[i]
+		distLava := length(toLava)
+		if distLava < 180.0 {
+			// Radial fade for lava glow
+			fade := 1.0 - (distLava / 180.0)
+			fade = fade * fade * (3.0 - 2.0*fade)
+			lavaIntensity = max(lavaIntensity, fade * 0.95)
 		}
 	}
 
 	// Blend illumination channels
-	totalLight := max(personalIntensity, max(coneIntensity, max(sonarIntensity, entranceIntensity)))
+	totalLight := max(personalIntensity, max(coneIntensity, max(sonarIntensity, max(entranceIntensity, lavaIntensity))))
 	totalLight = clamp(totalLight, 0.0, 1.0)
 
 	// Dark overlay mask: fully lit areas remain transparent, dark areas become ambient color

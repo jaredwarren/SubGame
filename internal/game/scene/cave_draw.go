@@ -170,7 +170,7 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 
 func (c *CaveScene) applyLighting(g CaveContext) {
 	// Enable lighting for Shock Kelp Cave even though it is classified as shallow
-	isShallowWithoutLight := c.IsShallow && (c.ActiveCave == nil || c.ActiveCave.GetCaveType() != cave.CaveShockKelp)
+	isShallowWithoutLight := c.IsShallow && (c.ActiveCave == nil || (c.ActiveCave.GetCaveType() != cave.CaveShockKelp && c.ActiveCave.GetCaveType() != cave.CaveThermo))
 
 	if shader.LightShader == nil || isShallowWithoutLight || g.IsDebugLightShaderDisabled() {
 		return
@@ -240,7 +240,7 @@ func (c *CaveScene) applyLighting(g CaveContext) {
 	c.Uniforms["LightRadius"] = radius
 	c.Uniforms["ConeHalfAngle"] = angle
 	c.Uniforms["PersonalRadius"] = float32(65.0)
-	c.Uniforms["AmbientColor"] = c.getAmbientColor(c.IsShallow, g.GetTimeOfDay())
+	c.Uniforms["AmbientColor"] = c.getAmbientColor(g.GetTimeOfDay())
 	c.Uniforms["SonarSource"] = c.sonarSource
 	c.Uniforms["SonarRadius"] = sonarRadius
 	sonarBright := float32(1.0)
@@ -256,6 +256,19 @@ func (c *CaveScene) applyLighting(g CaveContext) {
 		entranceActive = 0.0
 	}
 	c.Uniforms["EntranceActive"] = entranceActive
+
+	var lavaPositions [16]float32
+	var lavaCount float32 = 0
+	for _, ent := range c.Entities {
+		if siphon, ok := ent.(*entity.BrimstoneSiphon); ok && siphon.IsActive() && lavaCount < 8 {
+			idx := int(lavaCount) * 2
+			lavaPositions[idx] = float32(siphon.Pos.X - cam.Pos.X + siphon.Dimensions.X/2.0)
+			lavaPositions[idx+1] = float32(siphon.Pos.Y - cam.Pos.Y + siphon.Dimensions.Y/2.0)
+			lavaCount++
+		}
+	}
+	c.Uniforms["LavaPositions"] = lavaPositions
+	c.Uniforms["LavaCount"] = lavaCount
 
 	c.offscreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.LightShader, &c.shaderOpts)
 }
@@ -367,10 +380,10 @@ func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave ca
 	if caveGrid != nil && activeCave != nil {
 		gridW := len(caveGrid)
 		gridH := len(caveGrid[0])
-		startTileX := max0(int(camX)/config.TileSize, 0)
-		endTileX := min0((int(camX)+config.ScreenWidth)/config.TileSize+1, gridW)
-		startTileY := max0(int(camY)/config.TileSize, 0)
-		endTileY := min0((int(camY)+config.ScreenHeight)/config.TileSize+1, gridH)
+		startTileX := max(int(camX)/config.TileSize, 0)
+		endTileX := min((int(camX)+config.ScreenWidth)/config.TileSize+1, gridW)
+		startTileY := max(int(camY)/config.TileSize, 0)
+		endTileY := min((int(camY)+config.ScreenHeight)/config.TileSize+1, gridH)
 		activeCave.DrawTiles(screen, camX, camY, startTileX, startTileY, endTileX, endTileY)
 	}
 
@@ -408,10 +421,10 @@ func (c *CaveScene) drawBioluminescence(g CaveContext, screen *ebiten.Image, cam
 	}
 	gridW := len(c.CaveGrid)
 	gridH := len(c.CaveGrid[0])
-	startTileX := max0(int(camX)/config.TileSize, 0)
-	endTileX := min0((int(camX)+config.ScreenWidth)/config.TileSize+1, gridW)
-	startTileY := max0(int(camY)/config.TileSize, 0)
-	endTileY := min0((int(camY)+config.ScreenHeight)/config.TileSize+1, gridH)
+	startTileX := max(int(camX)/config.TileSize, 0)
+	endTileX := min((int(camX)+config.ScreenWidth)/config.TileSize+1, gridW)
+	startTileY := max(int(camY)/config.TileSize, 0)
+	endTileY := min((int(camY)+config.ScreenHeight)/config.TileSize+1, gridH)
 
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {

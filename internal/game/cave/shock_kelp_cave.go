@@ -257,6 +257,10 @@ func (c *ShockKelpCave) GenerateResources(seed int64) []resource.Resource {
 	return nodes
 }
 
+func (c *ShockKelpCave) GetAmbientColor(lightMult float64) []float32 {
+	return []float32{0.03, 0.02, 0.06, 0.68}
+}
+
 // GenerateShockKelpCaveGrid generates a shallow, narrow maze-like 60x60 grid.
 func GenerateShockKelpCaveGrid(r *rand.Rand) [][]bool {
 	const (

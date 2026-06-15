@@ -201,6 +201,11 @@ func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
 	return resource.GenerateResourceNodes(c.Grid, seed)
 }
 
+func (c *ShallowSeabedCave) GetAmbientColor(lightMult float64) []float32 {
+	alpha := float32(0.75 - (lightMult-0.2)/0.8*0.60)
+	return []float32{0.04, 0.06, 0.12, alpha}
+}
+
 func GenerateShallowSeabedGrid(r *rand.Rand, distToLand float64, hasLeftWater, hasRightWater bool) [][]bool {
 	const (
 		w = CaveWidth
