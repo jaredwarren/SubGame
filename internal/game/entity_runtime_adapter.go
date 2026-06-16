@@ -138,6 +138,121 @@ func (a *entityRuntimeAdapter) Emit(cmd entity.GameCommand) {
 	a.cmds = append(a.cmds, cmd)
 }
 
+func (a *entityRuntimeAdapter) FindClosestDecoy(pos gvec.Vec2, maxDist float64) (gvec.Vec2, bool) {
+	if a.playerAdapter.g.caveState == nil {
+		return gvec.Vec2{}, false
+	}
+	var closestPos gvec.Vec2
+	closestDist := maxDist
+	found := false
+
+	for _, ent := range a.playerAdapter.g.caveState.Entities {
+		if !ent.IsActive() {
+			continue
+		}
+		if decoy, ok := ent.(*entity.SonicDecoy); ok {
+			decoyCenter := gvec.Vec2{
+				X: decoy.Pos.X + decoy.Dimensions.X/2.0,
+				Y: decoy.Pos.Y + decoy.Dimensions.Y/2.0,
+			}
+			dist := math.Hypot(pos.X-decoyCenter.X, pos.Y-decoyCenter.Y)
+			if dist <= closestDist {
+				closestDist = dist
+				closestPos = decoyCenter
+				found = true
+			}
+		}
+	}
+	return closestPos, found
+}
+
+func (a *entityRuntimeAdapter) CheckDeterrentOcclusion(pos1, pos2 gvec.Vec2) bool {
+	if a.playerAdapter.g.caveState == nil {
+		return false
+	}
+	for _, ent := range a.playerAdapter.g.caveState.Entities {
+		if !ent.IsActive() {
+			continue
+		}
+		if cloud, ok := ent.(*entity.DeterrentCloud); ok {
+			cloudCenter := gvec.Vec2{
+				X: cloud.Pos.X + cloud.Dimensions.X/2.0,
+				Y: cloud.Pos.Y + cloud.Dimensions.Y/2.0,
+			}
+			elapsed := float64(360 - cloud.LifeTimer)
+			var radius float64
+			if elapsed < 60 {
+				radius = (elapsed / 60.0) * 96.0
+			} else {
+				radius = 96.0
+			}
+
+			A := pos1
+			B := pos2
+			C := cloudCenter
+
+			v := gvec.Vec2{X: B.X - A.X, Y: B.Y - A.Y}
+			w := gvec.Vec2{X: C.X - A.X, Y: C.Y - A.Y}
+
+			vLenSq := v.X*v.X + v.Y*v.Y
+			if vLenSq == 0 {
+				dist := math.Hypot(A.X-C.X, A.Y-C.Y)
+				if dist <= radius {
+					return true
+				}
+				continue
+			}
+
+			t := (w.X*v.X + w.Y*v.Y) / vLenSq
+			if t < 0 {
+				t = 0
+			} else if t > 1 {
+				t = 1
+			}
+
+			closestPoint := gvec.Vec2{X: A.X + v.X*t, Y: A.Y + v.Y*t}
+			dist := math.Hypot(closestPoint.X-C.X, closestPoint.Y-C.Y)
+			if dist <= radius {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *entityRuntimeAdapter) CheckDeterrentSlowing(x, y, w, h float64) bool {
+	if a.playerAdapter.g.caveState == nil {
+		return false
+	}
+	for _, ent := range a.playerAdapter.g.caveState.Entities {
+		if !ent.IsActive() {
+			continue
+		}
+		if cloud, ok := ent.(*entity.DeterrentCloud); ok {
+			cloudCenter := gvec.Vec2{
+				X: cloud.Pos.X + cloud.Dimensions.X/2.0,
+				Y: cloud.Pos.Y + cloud.Dimensions.Y/2.0,
+			}
+			elapsed := float64(360 - cloud.LifeTimer)
+			var radius float64
+			if elapsed < 60 {
+				radius = (elapsed / 60.0) * 96.0
+			} else {
+				radius = 96.0
+			}
+
+			px := math.Max(x, math.Min(cloudCenter.X, x+w))
+			py := math.Max(y, math.Min(cloudCenter.Y, y+h))
+
+			dist := math.Hypot(px-cloudCenter.X, py-cloudCenter.Y)
+			if dist <= radius {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // drainEntityCommands applies all entity mutation commands collected during the tick.
 func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 	for _, cmd := range rt.cmds {
@@ -173,6 +288,27 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 			g.player.StunTimer = c.Duration
 		case entity.TriggerShakeCmd:
 			g.TriggerScreenShake(c.Duration, c.Intensity)
+		case entity.DestroyDecoyCmd:
+			if g.caveState != nil {
+				closestDist := 999999.0
+				var closestDecoy *entity.SonicDecoy
+				for _, ent := range g.caveState.Entities {
+					if decoy, ok := ent.(*entity.SonicDecoy); ok && decoy.IsActive() {
+						decoyCenter := gvec.Vec2{
+							X: decoy.Pos.X + decoy.Dimensions.X/2.0,
+							Y: decoy.Pos.Y + decoy.Dimensions.Y/2.0,
+						}
+						dist := math.Hypot(c.Pos.X-decoyCenter.X, c.Pos.Y-decoyCenter.Y)
+						if dist < closestDist {
+							closestDist = dist
+							closestDecoy = decoy
+						}
+					}
+				}
+				if closestDecoy != nil && closestDist < 80.0 {
+					closestDecoy.SetActive(false)
+				}
+			}
 		}
 	}
 	rt.cmds = rt.cmds[:0]

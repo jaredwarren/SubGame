@@ -43,10 +43,10 @@ func (d LayoutDescriptor) HoveredSlot(panelX, panelY float64, numSlots int, mx, 
 
 // Precalculated Layout Configurations
 
-// SoloInventoryGridDescriptor defines the layout for the player's primary grid inventory panel (600x420).
+// SoloInventoryGridDescriptor defines the layout for the player's primary grid inventory panel (600x470).
 var SoloInventoryGridDescriptor = LayoutDescriptor{
 	PanelW:  600,
-	PanelH:  420,
+	PanelH:  470,
 	Cols:    8,
 	Rows:    3,
 	SlotSz:  56,
@@ -58,7 +58,7 @@ var SoloInventoryGridDescriptor = LayoutDescriptor{
 // SoloGearGridDescriptor defines the layout for the player's equipped gear inventory panel.
 var SoloGearGridDescriptor = LayoutDescriptor{
 	PanelW:  600,
-	PanelH:  420,
+	PanelH:  470,
 	Cols:    4,
 	Rows:    1,
 	SlotSz:  56,
@@ -70,7 +70,7 @@ var SoloGearGridDescriptor = LayoutDescriptor{
 // VehiclePlayerInvLayout defines the layout for the player's inventory list in the split vehicle view.
 var VehiclePlayerInvLayout = LayoutDescriptor{
 	PanelW:  960,
-	PanelH:  360,
+	PanelH:  410,
 	Cols:    8,
 	Rows:    3,
 	SlotSz:  48,
@@ -90,7 +90,7 @@ func GetVehicleCargoLayout(numSlots int) LayoutDescriptor {
 	}
 	return LayoutDescriptor{
 		PanelW:  960,
-		PanelH:  360,
+		PanelH:  410,
 		Cols:    cols,
 		Rows:    rows,
 		SlotSz:  48,
@@ -104,7 +104,7 @@ func GetVehicleCargoLayout(numSlots int) LayoutDescriptor {
 func GetVehicleUpgradeLayout(numSlots int) LayoutDescriptor {
 	return LayoutDescriptor{
 		PanelW:  960,
-		PanelH:  360,
+		PanelH:  410,
 		Cols:    numSlots,
 		Rows:    1,
 		SlotSz:  48,
@@ -164,4 +164,28 @@ func GetBaseVaultStorageLayout(numSlots int) LayoutDescriptor {
 		StartX:  430,
 		StartY:  110,
 	}
+}
+
+// SoloHotbarGridDescriptor defines the layout for the player's quick-select hotbar in the inventory panel.
+var SoloHotbarGridDescriptor = LayoutDescriptor{
+	PanelW:  600,
+	PanelH:  420,
+	Cols:    5,
+	Rows:    1,
+	SlotSz:  56,
+	Gap:     10,
+	StartX:  140,
+	StartY:  348,
+}
+
+// VehicleHotbarGridDescriptor defines the layout for the player's hotbar in the split vehicle inventory panel.
+var VehicleHotbarGridDescriptor = LayoutDescriptor{
+	PanelW:  960,
+	PanelH:  360,
+	Cols:    5,
+	Rows:    1,
+	SlotSz:  48,
+	Gap:     8,
+	StartX:  104,
+	StartY:  280,
 }

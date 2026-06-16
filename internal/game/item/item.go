@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/assets"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 var (
@@ -62,6 +63,10 @@ func LoadAssets() {
 		"Cooked Fish":                {3, 4},
 		"Raw Crab":                   {4, 4},
 		"Cooked Crab":                {5, 4},
+		"Sonic Decoy":                {0, 3},
+		"Chemical Deterrent":         {1, 3},
+		"Decoy Launcher Module":      {2, 3},
+		"Chemical Discharger Module": {3, 3},
 	}
 
 	for name, coord := range itemCoords {
@@ -109,6 +114,23 @@ type Item interface {
 	DrawIcon(screen *ebiten.Image, cx, cy, size float32)
 	// GetColor returns the primary display color for this item (used in inventory grids).
 	GetColor() color.Color
+}
+
+// UsableItem is an item that can be actively used by the player from their hand/hotbar.
+type UsableItem interface {
+	Item
+	Use(ctx UsableContext) bool
+}
+
+// UsableContext provides localized state queries and side effects for item usage,
+// avoiding cyclic imports with the entity or scene packages.
+type UsableContext interface {
+	PlayerPos() gvec.Vec2
+	PlayerDims() gvec.Vec2
+	CursorWorldPos() gvec.Vec2
+	SpawnSonicDecoy(pos gvec.Vec2, vel gvec.Vec2)
+	SpawnDeterrentCloud(pos gvec.Vec2)
+	SetMineWarning(msg string, duration, level int)
 }
 
 type PlayerUpgradeItem interface {
@@ -254,6 +276,97 @@ func (s *Scanner) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy, size/2.0, s.GetColor(), false)
 }
 func (s *Scanner) IsPlayerUpgrade() bool { return true }
+
+type SonicDecoy struct{}
+
+func (d *SonicDecoy) GetName() string       { return "Sonic Decoy" }
+func (d *SonicDecoy) GetMaxStack() int      { return 5 }
+func (d *SonicDecoy) GetColor() color.Color { return color.RGBA{180, 210, 50, 255} }
+func (d *SonicDecoy) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, d.GetName(), cx, cy, size) {
+		return
+	}
+	// Draw neon yellow-green cylinder/concentric rings fallback
+	vector.FillRect(screen, cx-size/4.0, cy-size/3.0, size/2.0, size*0.7, d.GetColor(), false)
+	vector.StrokeCircle(screen, cx, cy, size/2.0, 1.5, color.RGBA{255, 255, 255, 180}, false)
+	vector.FillCircle(screen, cx, cy, 3, color.White, false)
+}
+func (d *SonicDecoy) Use(ctx UsableContext) bool {
+	playerCenter := gvec.Vec2{
+		X: ctx.PlayerPos().X + ctx.PlayerDims().X/2.0,
+		Y: ctx.PlayerPos().Y + ctx.PlayerDims().Y/2.0,
+	}
+	cursor := ctx.CursorWorldPos()
+	dir := gvec.Vec2{X: cursor.X - playerCenter.X, Y: cursor.Y - playerCenter.Y}
+	dist := dir.Length()
+	if dist > 0 {
+		dir = dir.Scale(1.0 / dist)
+	} else {
+		dir = gvec.Vec2{X: 1, Y: 0}
+	}
+	launchVel := dir.Scale(6.0)
+
+	ctx.SpawnSonicDecoy(playerCenter, launchVel)
+	ctx.SetMineWarning("Sonic Decoy Launched!", 90, 1)
+	return true
+}
+
+type ChemicalDeterrent struct{}
+
+func (c *ChemicalDeterrent) GetName() string       { return "Chemical Deterrent" }
+func (c *ChemicalDeterrent) GetMaxStack() int      { return 5 }
+func (c *ChemicalDeterrent) GetColor() color.Color { return color.RGBA{40, 25, 60, 255} }
+func (c *ChemicalDeterrent) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, c.GetName(), cx, cy, size) {
+		return
+	}
+	// Draw dark purple capsule with warning stripes
+	vector.FillCircle(screen, cx, cy, size/3.0, c.GetColor(), false)
+	vector.FillRect(screen, cx-size/6.0, cy-size/2.0, size/3.0, size, c.GetColor(), false)
+	// Orange hazard stripe
+	vector.FillRect(screen, cx-size/6.0, cy-size/8.0, size/3.0, size/4.0, color.RGBA{240, 110, 40, 255}, false)
+}
+func (c *ChemicalDeterrent) Use(ctx UsableContext) bool {
+	cursor := ctx.CursorWorldPos()
+	ctx.SpawnDeterrentCloud(cursor)
+	ctx.SetMineWarning("Chemical Deterrent Released!", 90, 1)
+	return true
+}
+
+type DecoyLauncher struct{}
+
+func (l *DecoyLauncher) GetName() string       { return "Decoy Launcher Module" }
+func (l *DecoyLauncher) GetMaxStack() int      { return 1 }
+func (l *DecoyLauncher) GetColor() color.Color { return color.RGBA{110, 120, 130, 255} }
+func (l *DecoyLauncher) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, l.GetName(), cx, cy, size) {
+		return
+	}
+	// Draw tube launcher fallback
+	vector.FillRect(screen, cx-size/3.0, cy-size/2.0, size*0.6, size, l.GetColor(), false)
+	vector.StrokeRect(screen, cx-size/3.0, cy-size/2.0, size*0.6, size, 1.5, color.RGBA{220, 220, 220, 255}, false)
+	// Green activation diode
+	vector.FillCircle(screen, cx, cy-size/4.0, 3, color.RGBA{50, 240, 100, 255}, false)
+}
+func (l *DecoyLauncher) IsVehicleUpgrade() bool { return true }
+
+type ChemicalDischarger struct{}
+
+func (d *ChemicalDischarger) GetName() string       { return "Chemical Discharger Module" }
+func (d *ChemicalDischarger) GetMaxStack() int      { return 1 }
+func (d *ChemicalDischarger) GetColor() color.Color { return color.RGBA{130, 80, 180, 255} }
+func (d *ChemicalDischarger) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if drawItemIconSprite(screen, d.GetName(), cx, cy, size) {
+		return
+	}
+	// Draw double nozzle/violet canister fallback
+	vector.FillRect(screen, cx-size/3.0, cy-size/2.0, size*0.6, size, d.GetColor(), false)
+	// Nozzles
+	vector.FillRect(screen, cx-size/4.0, cy-size/1.8, size/6.0, size/4.0, color.RGBA{80, 80, 90, 255}, false)
+	vector.FillRect(screen, cx+size/12.0, cy-size/1.8, size/6.0, size/4.0, color.RGBA{80, 80, 90, 255}, false)
+}
+func (d *ChemicalDischarger) IsVehicleUpgrade() bool { return true }
+
 
 
 // NewItemFromType instantiates a new concrete Item struct using reflect.New.

@@ -77,13 +77,25 @@ type SetWarningCmd struct {
 	Level    int
 }
 
-func (ActivateSonarCmd) gameCommand()  {}
-func (RemoveCaveNodeCmd) gameCommand() {}
-func (UnlockRecipeCmd) gameCommand()   {}
-func (SpawnBubbleCmd) gameCommand()    {}
-func (SpawnDebrisCmd) gameCommand()    {}
-func (TriggerShakeCmd) gameCommand()   {}
-func (SetWarningCmd) gameCommand()     {}
+// SpawnDecoyCmd requests the game to spawn a Sonic Decoy at Pos with launch velocity Vel.
+type SpawnDecoyCmd struct {
+	Pos, Vel gvec.Vec2
+}
+
+// SpawnDeterrentCloudCmd requests the game to spawn a Deterrent Cloud centered at Pos.
+type SpawnDeterrentCloudCmd struct {
+	Pos gvec.Vec2
+}
+
+func (ActivateSonarCmd) gameCommand()      {}
+func (RemoveCaveNodeCmd) gameCommand()     {}
+func (UnlockRecipeCmd) gameCommand()       {}
+func (SpawnBubbleCmd) gameCommand()        {}
+func (SpawnDebrisCmd) gameCommand()        {}
+func (TriggerShakeCmd) gameCommand()       {}
+func (SetWarningCmd) gameCommand()         {}
+func (SpawnDecoyCmd) gameCommand()         {}
+func (SpawnDeterrentCloudCmd) gameCommand() {}
 
 // Runtime exposes world/game state that vehicles need without importing package game.
 // Synchronous queries return values immediately; mutations are submitted via Emit

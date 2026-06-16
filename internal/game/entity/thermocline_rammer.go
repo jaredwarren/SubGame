@@ -35,6 +35,8 @@ type RammerContext interface {
 	SoundWaveY() float64
 	IsSolid(x, y, w, h float64) bool
 	Emit(cmd GameCommand)
+	FindClosestDecoy(pos gvec.Vec2, maxDist float64) (gvec.Vec2, bool)
+	CheckDeterrentSlowing(x, y, w, h float64) bool
 }
 
 func (ent *ThermoclineRammer) Update(gr Runtime) {
@@ -42,11 +44,35 @@ func (ent *ThermoclineRammer) Update(gr Runtime) {
 }
 
 func (ent *ThermoclineRammer) update(g RammerContext) {
-	px := g.PlayerPos().X + g.PlayerDims().X/2.0
-	py := g.PlayerPos().Y + g.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
-	dist := math.Hypot(px-ex, py-ey)
+
+	var targetX, targetY float64
+	var targetW, targetH float64
+	var isDecoy bool
+
+	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, 350.0)
+	if decoyFound {
+		targetX = decoyPos.X
+		targetY = decoyPos.Y
+		targetW, targetH = 16.0, 16.0
+		isDecoy = true
+	} else {
+		if g.HasActiveVehicle() {
+			vPos := g.ActiveVehiclePos()
+			vDims := g.ActiveVehicleDims()
+			targetX = vPos.X + vDims.X/2.0
+			targetY = vPos.Y + vDims.Y/2.0
+			targetW = vDims.X
+			targetH = vDims.Y
+		} else {
+			targetX = g.PlayerPos().X + g.PlayerDims().X/2.0
+			targetY = g.PlayerPos().Y + g.PlayerDims().Y/2.0
+			targetW = g.PlayerDims().X
+			targetH = g.PlayerDims().Y
+		}
+	}
+	dist := math.Hypot(targetX-ex, targetY-ey)
 
 	if ent.State == 2 {
 		ent.StunTimer--
@@ -57,7 +83,9 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 	}
 
 	isAggroTrigger := false
-	if dist < 250.0 {
+	if decoyFound {
+		isAggroTrigger = true
+	} else if dist < 250.0 {
 		if !g.HasActiveVehicle() && g.IsPlayerSprinting() && (math.Abs(g.PlayerVel().X) > 1.2 || math.Abs(g.PlayerVel().Y) > 1.2) {
 			isAggroTrigger = true
 		}
@@ -65,7 +93,7 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 			isAggroTrigger = true
 		}
 	}
-	if g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < 250.0 {
+	if !decoyFound && g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < 250.0 {
 		isAggroTrigger = true
 	}
 
@@ -75,8 +103,8 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 			ent.State = 1
 			ent.Timer = 0
 			ent.ChargeOrigin = ent.Pos
-			dx := px - ex
-			dy := py - ey
+			dx := targetX - ex
+			dy := targetY - ey
 			if math.Abs(dx) > math.Abs(dy) {
 				ent.Vel.Y = 0
 				if dx > 0 {
@@ -115,8 +143,13 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 			break
 		}
 
-		nextX := ent.Pos.X + ent.Vel.X
-		nextY := ent.Pos.Y + ent.Vel.Y
+		currentVel := ent.Vel
+		if g.CheckDeterrentSlowing(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+			currentVel = currentVel.Scale(0.5)
+		}
+
+		nextX := ent.Pos.X + currentVel.X
+		nextY := ent.Pos.Y + currentVel.Y
 		if g.IsSolid(nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
 			ent.State = 2
 			ent.StunTimer = 180
@@ -126,52 +159,62 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 			ent.Pos.Y = nextY
 		}
 
-		vWidth, vHeight := g.PlayerDims().X, g.PlayerDims().Y
-		targetX, targetY := g.PlayerPos().X, g.PlayerPos().Y
-		if g.HasActiveVehicle() {
-			vPos := g.ActiveVehiclePos()
-			targetX, targetY = vPos.X, vPos.Y
-			vDims := g.ActiveVehicleDims()
-			vWidth, vHeight = vDims.X, vDims.Y
-		}
-		if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
-			dirX, dirY := 0.0, 0.0
-			speed := math.Hypot(ent.Vel.X, ent.Vel.Y)
-			if speed > 0.1 {
-				dirX = ent.Vel.X / speed
-				dirY = ent.Vel.Y / speed
-			} else {
-				dx := (targetX + vWidth/2.0) - ex
-				dy := (targetY + vHeight/2.0) - ey
-				dist := math.Hypot(dx, dy)
-				if dist > 0.1 {
-					dirX = dx / dist
-					dirY = dy / dist
-				} else {
-					dirX = 1.0
-				}
-			}
-
-			kbForce := 6.5
-			forceVec := gvec.Vec2{X: dirX * kbForce, Y: dirY * kbForce}
-
+		targetTopLeftX := targetX - targetW/2.0
+		targetTopLeftY := targetY - targetH/2.0
+		if !isDecoy {
 			if g.HasActiveVehicle() {
-				g.Emit(DamageActiveVehicleCmd{Amount: 30.0})
-				g.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
-				g.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
+				vPos := g.ActiveVehiclePos()
+				targetTopLeftX, targetTopLeftY = vPos.X, vPos.Y
 			} else {
-				g.Emit(DamagePlayerCmd{Amount: 25.0})
-				g.Emit(KnockbackPlayerCmd{Force: forceVec})
-				g.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
+				targetTopLeftX, targetTopLeftY = g.PlayerPos().X, g.PlayerPos().Y
 			}
+		}
 
-			// Push rammer back in opposite direction to prevent continuous overlap
-			pushBackDistance := 40.0
-			ent.Pos.X -= dirX * pushBackDistance
-			ent.Pos.Y -= dirY * pushBackDistance
-			ent.Vel = gvec.Vec2{}
-			ent.State = 2
-			ent.StunTimer = 180
+		if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetTopLeftX, targetTopLeftY, targetW, targetH) {
+			if isDecoy {
+				g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
+				ent.Vel = gvec.Vec2{}
+				ent.State = 2
+				ent.StunTimer = 180
+			} else {
+				dirX, dirY := 0.0, 0.0
+				speed := math.Hypot(ent.Vel.X, ent.Vel.Y)
+				if speed > 0.1 {
+					dirX = ent.Vel.X / speed
+					dirY = ent.Vel.Y / speed
+				} else {
+					dx := targetX - ex
+					dy := targetY - ey
+					dist := math.Hypot(dx, dy)
+					if dist > 0.1 {
+						dirX = dx / dist
+						dirY = dy / dist
+					} else {
+						dirX = 1.0
+					}
+				}
+
+				kbForce := 6.5
+				forceVec := gvec.Vec2{X: dirX * kbForce, Y: dirY * kbForce}
+
+				if g.HasActiveVehicle() {
+					g.Emit(DamageActiveVehicleCmd{Amount: 30.0})
+					g.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
+					g.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
+				} else {
+					g.Emit(DamagePlayerCmd{Amount: 25.0})
+					g.Emit(KnockbackPlayerCmd{Force: forceVec})
+					g.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
+				}
+
+				// Push rammer back in opposite direction to prevent continuous overlap
+				pushBackDistance := 40.0
+				ent.Pos.X -= dirX * pushBackDistance
+				ent.Pos.Y -= dirY * pushBackDistance
+				ent.Vel = gvec.Vec2{}
+				ent.State = 2
+				ent.StunTimer = 180
+			}
 		}
 	}
 }

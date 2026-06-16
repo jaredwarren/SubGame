@@ -4,10 +4,6 @@ This document details the checklist of items required to elevate **SubGame** fro
 
 It focuses purely on **gameplay, aesthetics, UI/UX, audio, and gameplay mechanics**, leaving out distribution and delivery.
 
-
-
-
-
 ---
 
 ## 1. Visual Polish & Aesthetics
@@ -57,6 +53,16 @@ The game currently relies on primitive vector shapes (`vector.FillCircle`, `vect
     - [internal/game/shader.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/shader.go) (LightConeShaderCode)
     - [internal/game/cave.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/cave.go) (LightShader uniform setup and bioluminescent drawings)
 
+- [ ] **Game Juice & Visual Damage Feedback**
+  - **Goal:** Make impacts and physical responses feel weightier and more satisfying.
+  - **Details:**
+    - **Damage Feedback:** Combine screen shake, a brief red overlay vignette on the screen edges, and player/vehicle sprite flashing/blinking (toggling visibility/red overlay) to convey hit impacts clearly.
+    - **Pickup Juice:** Spawn floating text in world-space (e.g., "+1 Titanium") that floats upward and fades out directly above the diver/vehicle when resources are harvested or scavenged.
+  - **Files involved:**
+    - [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go)
+    - [internal/game/scene/hud.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/hud.go)
+    - [internal/game/scene/cave_draw.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/cave_draw.go)
+
 ---
 
 ## 2. UI/UX Polish
@@ -102,6 +108,18 @@ A modern, polished game needs high-fidelity user interfaces. The current HUD and
     - [internal/game/overworld.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/overworld.go)
     - [internal/game/cave.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/cave.go)
 
+- [ ] **Interactive Pause & Settings Menu**
+  - **Goal:** Add options to customize audio, visuals, and check keyboard controls.
+  - **Details:**
+    - Accessible via `ESC` key or a "SETTINGS" button on the Title Screen.
+    - **Audio Controls:** Individual volume sliders for Master, Music, and SFX levels.
+    - **Gameplay Toggles:** A slider/scale to adjust Screen Shake Intensity, and a Fullscreen vs. Windowed toggle.
+    - **Controls Reference:** Visual guide detailing default keyboard and mouse bindings.
+  - **Files involved:**
+    - [internal/game/scene/title.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/title.go)
+    - [internal/game/scene/menu.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/menu.go)
+    - [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go)
+
 ---
 
 ## 3. Gameplay Mechanics & Feature Gaps
@@ -110,7 +128,7 @@ While the core movement and collection loops are built, there are major feature 
 - [ ] **Scanner Tool Mechanics**
   - **Goal:** Implement scanning mechanics to explore lore, gather information, and map environments.
   - **Details:**
-    - **Action:** Allow players to equip the `Scanner Tool` (press a hotkey, e.g., `3`) inside caves. Right-clicking and holding on an entity (creature, plant, unique geography) triggers a 2-second scan progress circle.
+    - **Action:** Allow players to equip the `Scanner Tool` (press a hotkey, e.g., `q`) inside caves. Right-clicking and holding on an entity (creature, plant, unique geography) triggers a 2-second scan progress circle.
     - **Mechanic:** Scanning reveals structural details:
       - Scan walls to detect hidden ore veins behind breakable rock.
       - Scan plants (*Shatter-bulbs*, *Nerve-mats*) to log their oxygen yield/hazard behavior.
@@ -149,6 +167,17 @@ While the core movement and collection loops are built, there are major feature 
   - **Files involved:**
     - [internal/game/vehicle/vehicle.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/vehicle.go)
     - [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go)
+
+- [ ] **World Exploration Landmarks & Wreckage**
+  - **Goal:** Make exploration rewarding by generating interesting environmental points of interest.
+  - **Details:**
+    - **Scattered Wreckage & Sub-Bases:** Abandoned sub-surface structures containing database terminals to scan and decrypt logs/blueprints.
+    - **Natural Landmarks:** Giant leviathan skeletons, deep-sea trenches with pressure hazards, and active hydrothermal chimneys.
+    - **Mysterious Alien Relics:** Strange crystal or stone monoliths emitting glowing energy patterns that can either recharge the player's tools or emit electrical fields.
+  - **Files involved:**
+    - [internal/world/generator.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/world/generator.go)
+    - [internal/game/cave/wreckage_corridor_cave.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/cave/wreckage_corridor_cave.go)
+    - [internal/game/biome_entity.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/biome_entity.go)
 
 ---
 
@@ -212,11 +241,71 @@ Providing a smooth transition between scenes, a solid save/load format, and tuto
     - [internal/game/title_scene.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/title_scene.go)
     - [internal/game/win_scene.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/win_scene.go)
 
-- [ ] **JSON Save & Load System**
-  - **Goal:** Persist game states, positions, bases, and vehicles across sessions.
+- [ ] **JSON Save & Load System (Hybrid)**
+  - **Goal:** Persist game states, positions, bases, and vehicles across sessions automatically and manually.
   - **Details:**
-    - Serialize the player stats, player inventory, active vehicles, customized base upgrades, base storage, and explored coordinates into a local `save.json` file.
+    - Serialize player stats, inventory, active vehicles, customized base upgrades, base storage, and explored coordinates into a local `save.json` file.
+    - **Save Triggers:** Auto-save when docking at the Base Anchor and when transitioning between overworld and cave zones.
+    - **Manual Save:** Add a "Save Game" option in the interactive Pause/Settings menu.
     - Add a "CONTINUE" option on the main Title Scene if a save file exists.
   - **Files involved:**
     - [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go)
     - [internal/game/title_scene.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/title_scene.go)
+
+- [ ] **Run Statistics & Database Records**
+  - **Goal:** Track player progress and exploration statistics, presenting them on completion.
+  - **Details:**
+    - Track comprehensive stats during the run: play time, total resources mined (categorized by type: Titanium, Copper, Quartz, Abyssal Ore), items crafted, scan percentage of marine life/flora, player deaths/respawns, and maximum vertical depth reached.
+    - Render a summary screen overlay on both the GameOver and GameWon scenes.
+  - **Files involved:**
+    - [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go)
+    - [internal/game/scene/win.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/win.go)
+    - [internal/game/scene/gameover.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/gameover.go)
+
+---
+
+## 6. Micro-Polish & Quality of Life (QoL) Details
+These minor details elevate the game feel, visual feedback, and general user experience to a commercial-grade level.
+
+- [ ] **Dynamic Physics & Control Juice**
+  - **Goal:** Improve player control reactivity and atmospheric movement.
+  - **Details:**
+    - **Inertial Drift:** Add subtle coasting/drag physics when releasing movement controls to simulate swimming/floating in water.
+    - **Camera Lerp & Lead:** Use camera smoothing (lerping) and a minor camera offset leading ahead in the direction of the player's movement.
+    - **Screen Shake Decay:** Implement an exponential decay curve for screen shake intensity rather than a sudden stop.
+  - **Files involved:**
+    - [internal/game/camera/camera.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/camera/camera.go)
+    - [internal/game/player/player.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/player/player.go)
+
+- [ ] **UI & UX Micro-Polish**
+  - **Goal:** Ensure smooth menu feedback and visual styling consistency.
+  - **Details:**
+    - **Window Focus Handling:** Mute game audio and pause the simulation automatically when the game window loses focus.
+    - **Hover & Click UI Sounds:** Hook up discrete audio clicks/beeps to all button highlights, selections, or disabled states.
+    - **PDA Typewriter Scroll:** Reveal database text character-by-character with a quiet static ticking sound.
+    - **Tooltip Delay:** Add a 150-200ms delay to tooltips to prevent erratic flashing when hovering over inventory grids.
+    - **Integer Pixel-Grid Alignment:** Render text and HUD boxes on integer coordinate alignments to avoid blurriness or jitter when scaling resolutions.
+  - **Files involved:**
+    - [internal/game/scene/menu.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/menu.go)
+    - [internal/game/scene/hud.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/hud.go)
+    - [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go)
+
+- [ ] **Dynamic Sound & Pitch Variation**
+  - **Goal:** Elevate sonic immersion.
+  - **Details:**
+    - **Underwater Low-Pass Filter:** Apply a subtle low-pass audio filter when submerged compared to on the skiff surface, or during extremely low oxygen states.
+    - **Random SFX Pitch Shift:** Randomize repetitive audio sound effects (pick hits, fin kicks, thrusters) by ±5-10% in pitch so they feel natural.
+  - **Files involved:**
+    - [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go)
+
+- [ ] **Atmospheric Visual Polish**
+  - **Goal:** Enhance sprite and environmental interactions.
+  - **Details:**
+    - **Diver Visor Tracking:** Rotate/pivot the player's head visor slightly toward the current screen cursor position inside caves.
+    - **Propeller Bubble Trails:** Spawn short particle bubble emitters trailing behind swimming diver fins and vehicle engines when moving.
+    - **Landing Sand Puffs:** Emit short bursts of silt dust particles when the heavy mech or player impacts floor tiles fast.
+    - **Damage Hit-Flash:** Force a solid white visual color flash (2-3 frames duration) on character and creature sprites when registering a hit.
+  - **Files involved:**
+    - [internal/game/cave.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/cave.go)
+    - [internal/game/particle/particle.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/particle/particle.go)
+

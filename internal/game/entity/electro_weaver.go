@@ -30,6 +30,8 @@ type WeaverContext interface {
 	IsSolid(x, y, w, h float64) bool
 	Emit(cmd GameCommand)
 	IsShockKelpCave() bool
+	FindClosestDecoy(pos gvec.Vec2, maxDist float64) (gvec.Vec2, bool)
+	CheckDeterrentOcclusion(pos1, pos2 gvec.Vec2) bool
 }
 
 func (ent *ElectroWeaver) Update(gr Runtime) {
@@ -41,7 +43,20 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 	py := g.PlayerPos().Y + g.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
-	dist := math.Hypot(px-ex, py-ey)
+
+	var targetX, targetY float64
+	var isDecoy bool
+
+	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, 500.0)
+	if decoyFound {
+		targetX = decoyPos.X
+		targetY = decoyPos.Y
+		isDecoy = true
+	} else {
+		targetX = px
+		targetY = py
+	}
+	dist := math.Hypot(targetX-ex, targetY-ey)
 
 	inAbyssal := (py/config.TileSize) >= 80 || g.IsShockKelpCave()
 	if !inAbyssal {
@@ -49,16 +64,34 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 		return
 	}
 
-	isElectricity := g.FlashlightOn() || g.SonarActive() || g.HasActiveVehicle()
+	isElectricity := g.FlashlightOn() || g.SonarActive() || g.HasActiveVehicle() || isDecoy
+
+	// Deterrent cloud occlusion + lights off breaking
+	if !isDecoy && !g.FlashlightOn() && g.CheckDeterrentOcclusion(gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: px, Y: py}) {
+		isElectricity = false
+		ent.Timer = 0
+	}
+
 	if isElectricity && dist < 500.0 {
 		ent.Timer++
 		g.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
 		if ent.Timer >= 300 {
-			g.Emit(DamagePlayerCmd{Amount: 45.0})
-			g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: 180, Level: 3})
-			ent.Pos.X = g.PlayerPos().X + float64(rand.Intn(120)-60)
-			ent.Pos.Y = g.PlayerPos().Y + float64(rand.Intn(120)-60)
-			ent.Timer = 0
+			if isDecoy {
+				g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
+				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKES DECOY!", Duration: 120, Level: 1})
+
+				// Teleport back to cooldown (random angle, 350px away)
+				angle := rand.Float64() * 2.0 * math.Pi
+				ent.Pos.X = px + math.Cos(angle)*350.0
+				ent.Pos.Y = py + math.Sin(angle)*350.0
+				ent.Timer = 0
+			} else {
+				g.Emit(DamagePlayerCmd{Amount: 45.0})
+				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: 180, Level: 3})
+				ent.Pos.X = g.PlayerPos().X + float64(rand.Intn(120)-60)
+				ent.Pos.Y = g.PlayerPos().Y + float64(rand.Intn(120)-60)
+				ent.Timer = 0
+			}
 		}
 	} else {
 		if ent.Timer > 0 {
@@ -70,8 +103,8 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 	}
 
 	if ent.Timer > 60 {
-		dx := px - ex
-		dy := py - ey
+		dx := targetX - ex
+		dy := targetY - ey
 		dDist := math.Hypot(dx, dy)
 		if dDist > 100 {
 			ent.Vel.X = (dx / dDist) * 1.5

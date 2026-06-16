@@ -30,6 +30,9 @@ type SnareContext interface {
 	SoundWaveX() float64
 	SoundWaveY() float64
 	Emit(cmd GameCommand)
+	FindClosestDecoy(pos gvec.Vec2, maxDist float64) (gvec.Vec2, bool)
+	CheckDeterrentOcclusion(pos1, pos2 gvec.Vec2) bool
+	CheckDeterrentSlowing(x, y, w, h float64) bool
 }
 
 func (ent *FalseBulbSnare) Update(gr Runtime) {
@@ -37,31 +40,63 @@ func (ent *FalseBulbSnare) Update(gr Runtime) {
 }
 
 func (ent *FalseBulbSnare) update(g SnareContext) {
-	px := g.PlayerPos().X + g.PlayerDims().X/2.0
-	py := g.PlayerPos().Y + g.PlayerDims().Y/2.0
-	if g.HasActiveVehicle() {
-		vPos := g.ActiveVehiclePos()
-		vDims := g.ActiveVehicleDims()
-		px = vPos.X + vDims.X/2.0
-		py = vPos.Y + vDims.Y/2.0
-	}
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
-	dist := math.Hypot(px-ex, py-ey)
+
+	var targetX, targetY float64
+	var targetW, targetH float64
+	var isDecoy bool
+
+	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, 280.0)
+	if decoyFound {
+		targetX = decoyPos.X
+		targetY = decoyPos.Y
+		targetW, targetH = 16.0, 16.0
+		isDecoy = true
+	} else {
+		if g.HasActiveVehicle() {
+			vPos := g.ActiveVehiclePos()
+			vDims := g.ActiveVehicleDims()
+			targetX = vPos.X + vDims.X/2.0
+			targetY = vPos.Y + vDims.Y/2.0
+			targetW = vDims.X
+			targetH = vDims.Y
+		} else {
+			targetX = g.PlayerPos().X + g.PlayerDims().X/2.0
+			targetY = g.PlayerPos().Y + g.PlayerDims().Y/2.0
+			targetW = g.PlayerDims().X
+			targetH = g.PlayerDims().Y
+		}
+	}
+	dist := math.Hypot(targetX-ex, targetY-ey)
 
 	if dist > 360.0 {
 		ent.State = 0
 		return
 	}
 
+	// Occlusion check
+	if !isDecoy {
+		playerTopLeftX, playerTopLeftY := g.PlayerPos().X, g.PlayerPos().Y
+		if g.HasActiveVehicle() {
+			vPos := g.ActiveVehiclePos()
+			playerTopLeftX, playerTopLeftY = vPos.X, vPos.Y
+		}
+		if g.CheckDeterrentSlowing(playerTopLeftX, playerTopLeftY, targetW, targetH) || g.CheckDeterrentOcclusion(gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: targetX, Y: targetY}) {
+			ent.State = 0
+			ent.Vel = gvec.Vec2{}
+			return
+		}
+	}
+
 	isLit := false
-	if g.FlashlightOn() {
+	if !isDecoy && g.FlashlightOn() {
 		facingAngle := g.PlayerFacing()
 		if g.HasActiveVehicle() {
 			facingAngle = g.ActiveVehicleFacing()
 		}
-		dx := ex - px
-		dy := ey - py
+		dx := ex - targetX
+		dy := ey - targetY
 		angleToEnt := math.Atan2(dy, dx)
 		diff := angleToEnt - facingAngle
 		for diff > math.Pi {
@@ -75,8 +110,8 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 		}
 	}
 
-	soundAlerted := g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < 280.0
-	if soundAlerted {
+	soundAlerted := !isDecoy && g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < 280.0
+	if soundAlerted || isDecoy {
 		ent.State = 1
 	}
 
@@ -85,8 +120,8 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 	} else {
 		if dist < 180.0 || ent.State == 1 {
 			ent.State = 1
-			dx := px - ex
-			dy := py - ey
+			dx := targetX - ex
+			dy := targetY - ey
 			dDist := math.Hypot(dx, dy)
 			if dDist > 0 {
 				ent.Vel.X = (dx / dDist) * 3.5
@@ -98,23 +133,30 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 		}
 	}
 
-	vWidth, vHeight := g.PlayerDims().X, g.PlayerDims().Y
-	targetX, targetY := g.PlayerPos().X, g.PlayerPos().Y
-	if g.HasActiveVehicle() {
-		vPos := g.ActiveVehiclePos()
-		targetX, targetY = vPos.X, vPos.Y
-		vDims := g.ActiveVehicleDims()
-		vWidth, vHeight = vDims.X, vDims.Y
-	}
-	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
+	targetTopLeftX := targetX - targetW/2.0
+	targetTopLeftY := targetY - targetH/2.0
+	if !isDecoy {
 		if g.HasActiveVehicle() {
-			g.Emit(DamageActiveVehicleCmd{Amount: 20.0})
-			g.Emit(SetMineWarningCmd{Message: "VEHICLE ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+			vPos := g.ActiveVehiclePos()
+			targetTopLeftX, targetTopLeftY = vPos.X, vPos.Y
 		} else {
-			g.Emit(DamagePlayerCmd{Amount: 20.0})
-			g.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+			targetTopLeftX, targetTopLeftY = g.PlayerPos().X, g.PlayerPos().Y
 		}
-		ent.Active = false
+	}
+	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetTopLeftX, targetTopLeftY, targetW, targetH) {
+		if isDecoy {
+			g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
+			ent.Active = false
+		} else {
+			if g.HasActiveVehicle() {
+				g.Emit(DamageActiveVehicleCmd{Amount: 20.0})
+				g.Emit(SetMineWarningCmd{Message: "VEHICLE ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+			} else {
+				g.Emit(DamagePlayerCmd{Amount: 20.0})
+				g.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+			}
+			ent.Active = false
+		}
 	}
 }
 

@@ -44,6 +44,15 @@ func (m *mockEntityRuntime) IsSolid(x, y, w, h float64) bool {
 func (m *mockEntityRuntime) Emit(cmd entity.GameCommand) {
 	m.emitted = append(m.emitted, cmd)
 }
+func (m *mockEntityRuntime) FindClosestDecoy(pos gvec.Vec2, maxDist float64) (gvec.Vec2, bool) {
+	return gvec.Vec2{}, false
+}
+func (m *mockEntityRuntime) CheckDeterrentOcclusion(pos1, pos2 gvec.Vec2) bool {
+	return false
+}
+func (m *mockEntityRuntime) CheckDeterrentSlowing(x, y, w, h float64) bool {
+	return false
+}
 
 func TestSandViper_Behavior(t *testing.T) {
 	sv := entity.NewSandViper(100, 100)

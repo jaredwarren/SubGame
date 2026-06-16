@@ -32,8 +32,10 @@ type Player struct {
 	DrownDamageRate  float64 // default: 30.0 (Health units lost per second when drowning)
 
 	// Inventory
-	Inventory *item.Inventory
-	Upgrades  *item.Inventory // 4 upgrade/equipment slots
+	Inventory  *item.Inventory
+	Upgrades   *item.Inventory // 4 upgrade/equipment slots
+	Hotbar     *item.Inventory // 5 quick-select slots
+	ActiveSlot int             // 0 to 4
 
 	// Upgrade Cache (Option A)
 	Speed    map[string]item.Speed
@@ -69,6 +71,8 @@ func NewPlayer(x, y float64) *Player {
 		DrownDamageRate:  30.0,
 		Inventory:        item.NewInventory(24),
 		Upgrades:         item.NewInventory(4),
+		Hotbar:           item.NewInventory(5),
+		ActiveSlot:       0,
 		LastHealth:       100.0,
 		Speed:            DefaultSpeed,
 		Buoyancy:         -0.04,
@@ -215,4 +219,12 @@ func (p *Player) UpdateAnimation() {
 			p.IsDamaged = false
 		}
 	}
+}
+
+// GetActiveItem returns the item equipped in the active hotbar slot, or nil.
+func (p *Player) GetActiveItem() item.Item {
+	if p.Hotbar == nil || p.ActiveSlot < 0 || p.ActiveSlot >= len(p.Hotbar.Slots) {
+		return nil
+	}
+	return p.Hotbar.Slots[p.ActiveSlot].Item
 }

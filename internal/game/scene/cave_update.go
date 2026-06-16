@@ -10,6 +10,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
@@ -207,6 +208,31 @@ func (c *CaveScene) updatePlayer(g CaveContext, inp InputSource, p *player.Playe
 func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
 	if !inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		return
+	}
+
+	activeItem := p.GetActiveItem()
+	if activeItem != nil {
+		if usable, ok := activeItem.(item.UsableItem); ok {
+			ctx := &caveUsableContext{
+				scene: c,
+				g:     g,
+				p:     p,
+				inp:   inp,
+			}
+			if usable.Use(ctx) {
+				if p.Hotbar != nil && p.ActiveSlot >= 0 && p.ActiveSlot < len(p.Hotbar.Slots) {
+					slot := &p.Hotbar.Slots[p.ActiveSlot]
+					if slot.Item != nil {
+						slot.Quantity--
+						if slot.Quantity <= 0 {
+							slot.Item = nil
+						}
+					}
+				}
+				p.RecalculateUpgrades()
+				return
+			}
+		}
 	}
 
 	p.IsMining = true

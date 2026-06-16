@@ -31,6 +31,10 @@ type Runtime interface {
 	IsShockKelpCave() bool
 	IsSolid(x, y, w, h float64) bool
 
+	FindClosestDecoy(pos gvec.Vec2, maxDist float64) (gvec.Vec2, bool)
+	CheckDeterrentOcclusion(pos1, pos2 gvec.Vec2) bool
+	CheckDeterrentSlowing(x, y, w, h float64) bool
+
 	Emit(cmd GameCommand)
 }
 
@@ -85,6 +89,10 @@ type TriggerShakeCmd struct {
 	Intensity float64
 }
 
+type DestroyDecoyCmd struct {
+	Pos gvec.Vec2
+}
+
 func (DamagePlayerCmd) gameCommand()              {}
 func (DamageActiveVehicleCmd) gameCommand()       {}
 func (RestoreOxygenCmd) gameCommand()             {}
@@ -96,3 +104,4 @@ func (KnockbackPlayerCmd) gameCommand()           {}
 func (KnockbackActiveVehicleCmd) gameCommand()    {}
 func (StunPlayerCmd) gameCommand()                {}
 func (TriggerShakeCmd) gameCommand()              {}
+func (DestroyDecoyCmd) gameCommand()              {}

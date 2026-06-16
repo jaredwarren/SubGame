@@ -210,6 +210,47 @@ var CraftingRecipes = []Recipe{
 		Tier:     0,
 		Unlocked: true,
 	},
+	{
+		NewResult:      func() item.Item { return &item.SonicDecoy{} },
+		ResultQuantity: 1,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.ElectronicWaste{} }, Quantity: 1},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 2},
+		},
+		Tier:     0,
+		Unlocked: true,
+	},
+	{
+		NewResult:      func() item.Item { return &item.ChemicalDeterrent{} },
+		ResultQuantity: 1,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 1},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
+		},
+		Tier:     1,
+		Unlocked: false,
+	},
+	{
+		NewResult:      func() item.Item { return &item.DecoyLauncher{} },
+		ResultQuantity: 1,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 5},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 3},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
+		},
+		Tier:     1,
+		Unlocked: false,
+	},
+	{
+		NewResult:      func() item.Item { return &item.ChemicalDischarger{} },
+		ResultQuantity: 1,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 5},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 4},
+		},
+		Tier:     1,
+		Unlocked: false,
+	},
 }
 
 // DefaultCraftingRecipes returns a fresh copy of the default CraftingRecipes slice.

@@ -202,6 +202,56 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 			})
 		}
 	}
+
+	if hasPower && input.IsKeyJustPressed(ebiten.KeySpace) {
+		hasDecoyLauncher := item.HasItem[*item.DecoyLauncher](sub.Upgrades, 1)
+		hasChemicalDischarger := item.HasItem[*item.ChemicalDischarger](sub.Upgrades, 1)
+
+		if hasDecoyLauncher {
+			var decoyAmmo item.SonicDecoy
+			if sub.Cargo.Has(&decoyAmmo, 1) && sub.Battery >= 5.0 {
+				sub.Cargo.Remove(&decoyAmmo, 1)
+				sub.Battery -= 5.0
+
+				cosF := math.Cos(sub.Facing)
+				sinF := math.Sin(sub.Facing)
+
+				spawnX := sub.Pos.X + sub.Dimensions.X/2.0 + cosF*(sub.Dimensions.X/2.0+10.0)
+				spawnY := sub.Pos.Y + sub.Dimensions.Y/2.0 + sinF*(sub.Dimensions.Y/2.0+10.0)
+				launchVel := gvec.Vec2{X: cosF * 6.0, Y: sinF * 6.0}
+
+				runtime.Emit(SpawnDecoyCmd{
+					Pos: gvec.Vec2{X: spawnX, Y: spawnY},
+					Vel: launchVel,
+				})
+			} else {
+				runtime.Emit(SetWarningCmd{
+					Message:  "COUNTERMEASURE DEPLETED / LOW POWER",
+					Duration: 90,
+					Level:    2,
+				})
+			}
+		} else if hasChemicalDischarger {
+			var chemicalAmmo item.ChemicalDeterrent
+			if sub.Cargo.Has(&chemicalAmmo, 1) && sub.Battery >= 5.0 {
+				sub.Cargo.Remove(&chemicalAmmo, 1)
+				sub.Battery -= 5.0
+
+				centerX := sub.Pos.X + sub.Dimensions.X/2.0
+				centerY := sub.Pos.Y + sub.Dimensions.Y/2.0
+
+				runtime.Emit(SpawnDeterrentCloudCmd{
+					Pos: gvec.Vec2{X: centerX, Y: centerY},
+				})
+			} else {
+				runtime.Emit(SetWarningCmd{
+					Message:  "COUNTERMEASURE DEPLETED / LOW POWER",
+					Duration: 90,
+					Level:    2,
+				})
+			}
+		}
+	}
 }
 
 func (sub *ScoutSub) checkCollisions(runtime Runtime) {

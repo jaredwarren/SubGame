@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
@@ -103,6 +104,22 @@ func (g *Game) handleInput() {
 			g.TransitionToPDA()
 		}
 	}
+	
+	ctrlPressed := g.Input.IsKeyPressed(ebiten.KeyControl) || g.Input.IsKeyPressed(ebiten.KeyMeta)
+	if !ctrlPressed && (g.currentState == StateOverworld || g.currentState == StateCave) {
+		if g.Input.IsKeyJustPressed(ebiten.Key1) {
+			g.player.ActiveSlot = 0
+		} else if g.Input.IsKeyJustPressed(ebiten.Key2) {
+			g.player.ActiveSlot = 1
+		} else if g.Input.IsKeyJustPressed(ebiten.Key3) {
+			g.player.ActiveSlot = 2
+		} else if g.Input.IsKeyJustPressed(ebiten.Key4) {
+			g.player.ActiveSlot = 3
+		} else if g.Input.IsKeyJustPressed(ebiten.Key5) {
+			g.player.ActiveSlot = 4
+		}
+	}
+
 	g.handleDebugInput()
 }
 
@@ -134,20 +151,21 @@ func (g *Game) handleDebugInput() {
 	if g.currentState != StateOverworld && g.currentState != StateCave {
 		return
 	}
+	ctrlPressed := g.Input.IsKeyPressed(ebiten.KeyControl) || g.Input.IsKeyPressed(ebiten.KeyMeta)
 	switch {
-	case g.Input.IsKeyJustPressed(ebiten.Key1):
+	case ctrlPressed && g.Input.IsKeyJustPressed(ebiten.Key1):
 		g.debugSpawnVehicle(vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y))
-	case g.Input.IsKeyJustPressed(ebiten.Key2):
+	case ctrlPressed && g.Input.IsKeyJustPressed(ebiten.Key2):
 		g.debugSpawnVehicle(vehicle.NewHeavyMech(g.player.Pos.X, g.player.Pos.Y))
-	case g.Input.IsKeyJustPressed(ebiten.Key3):
+	case ctrlPressed && g.Input.IsKeyJustPressed(ebiten.Key3):
 		g.debugSpawnVehicle(vehicle.NewSkiff(g.player.Pos.X, g.player.Pos.Y))
-	case g.Input.IsKeyJustPressed(ebiten.Key4):
+	case ctrlPressed && g.Input.IsKeyJustPressed(ebiten.Key4):
 		g.player.Inventory.AddItem(&item.Titanium{}, 10)
 		g.player.Inventory.AddItem(&item.Copper{}, 10)
 		g.player.Inventory.AddItem(&item.Quartz{}, 10)
 		g.player.Inventory.AddItem(&item.AbyssalOre{}, 10)
 		g.player.RecalculateUpgrades()
-	case g.Input.IsKeyJustPressed(ebiten.Key5):
+	case ctrlPressed && g.Input.IsKeyJustPressed(ebiten.Key5):
 		g.player.CurrentHealth = g.player.MaxHealth
 		g.player.CurrentOxygen = g.player.MaxOxygen
 		g.player.CurrentStamina = g.player.MaxStamina
@@ -390,6 +408,14 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 			g.TriggerScreenShake(c.Duration, c.Intensity)
 		case vehicle.SetWarningCmd:
 			g.SetMineWarning(c.Message, c.Duration, c.Level)
+		case vehicle.SpawnDecoyCmd:
+			decoy := entity.NewSonicDecoy(c.Pos.X, c.Pos.Y, c.Vel)
+			g.caveState.Entities = append(g.caveState.Entities, decoy)
+			g.SetCaveEntities(g.GetActiveTrenchKey(), g.caveState.Entities)
+		case vehicle.SpawnDeterrentCloudCmd:
+			cloud := entity.NewDeterrentCloud(c.Pos.X, c.Pos.Y)
+			g.caveState.Entities = append(g.caveState.Entities, cloud)
+			g.SetCaveEntities(g.GetActiveTrenchKey(), g.caveState.Entities)
 		}
 	}
 	rt.cmds = rt.cmds[:0]

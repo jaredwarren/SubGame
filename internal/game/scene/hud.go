@@ -11,6 +11,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -205,6 +206,8 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 		} else {
 			h.DrawInventory(screen, g, p.Inventory)
 		}
+	} else {
+		h.DrawHUDHotbar(screen, g, p)
 	}
 }
 
@@ -292,6 +295,49 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g GameContext, inv *item.Inven
 		}
 	}
 
+	// Player Hotbar Grid
+	hotbarLayout := SoloHotbarGridDescriptor
+	hotbarLabelY := gearY + float32(gearLayout.SlotSz) + 15.0
+	ebitenutil.DebugPrintAt(screen, "HOTBAR / ACTIVE COUNTERMEASURES (CLICK TO ASSIGN)", int(panelX)+20, int(hotbarLabelY))
+
+	for c := 0; c < 5; c++ {
+		rect := hotbarLayout.SlotRect(panelX, panelY, c)
+		sx := float32(rect.Min.X)
+		sy := float32(rect.Min.Y)
+		slotSz := float32(hotbarLayout.SlotSz)
+
+		slotBg := color.RGBA{20, 26, 38, 255}
+		slotBorder := color.RGBA{48, 60, 80, 255}
+		borderWidth := float32(1.0)
+		isHovered := mx >= rect.Min.X && mx < rect.Max.X && my >= rect.Min.Y && my < rect.Max.Y
+		if isHovered {
+			slotBg = color.RGBA{32, 42, 62, 255}
+			slotBorder = color.RGBA{95, 125, 165, 255}
+			if p.Hotbar != nil && p.Hotbar.Slots[c].Item != nil {
+				hoveredItemName = p.Hotbar.Slots[c].Item.GetName()
+			}
+		}
+		if p.ActiveSlot == c {
+			slotBg = color.RGBA{26, 40, 64, 255}
+			slotBorder = color.RGBA{0, 230, 255, 255}
+			borderWidth = 1.8
+		}
+
+		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, borderWidth, slotBorder, false)
+
+		if p.Hotbar != nil && p.Hotbar.Slots[c].Item != nil {
+			drawItemIcon(screen, sx, sy, slotSz, p.Hotbar.Slots[c].Item)
+			if p.Hotbar.Slots[c].Quantity > 1 {
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", p.Hotbar.Slots[c].Quantity), int(sx)+6, int(sy)+int(slotSz)-17)
+			}
+		} else {
+			drawMiningToolOutline(screen, sx, sy, slotSz)
+		}
+		
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d]", c+1), int(sx)+int(slotSz)/2-9, int(sy)-18)
+	}
+
 	tooltipY := float32(panelY + layout.PanelH - 42)
 	vector.FillRect(screen, float32(panelX)+20, tooltipY, float32(layout.PanelW)-40, 24, color.RGBA{8, 12, 18, 255}, false)
 	vector.StrokeRect(screen, float32(panelX)+20, tooltipY, float32(layout.PanelW)-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
@@ -304,6 +350,7 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g GameContext, inv *item.Inven
 
 // DrawVehicleInventory renders a split UI showing player inventory and vehicle cargo.
 func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *item.Inventory, vInv *item.Inventory, vName string) {
+	p := g.GetPlayer()
 	layoutP := VehiclePlayerInvLayout
 	panelX := (float64(config.ScreenWidth) - layoutP.PanelW) / 2.0
 	panelY := (float64(config.ScreenHeight) - layoutP.PanelH) / 2.0
@@ -361,6 +408,44 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 			if slot.Quantity > 1 {
 				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
 			}
+		}
+	}
+
+	// Player Hotbar Grid in Vehicle View
+	hotbarVLayout := VehicleHotbarGridDescriptor
+	for c := 0; c < 5; c++ {
+		rect := hotbarVLayout.SlotRect(panelX, panelY, c)
+		sx := float32(rect.Min.X)
+		sy := float32(rect.Min.Y)
+		slotSz := float32(hotbarVLayout.SlotSz)
+
+		slotBg := color.RGBA{20, 26, 38, 255}
+		slotBorder := color.RGBA{48, 60, 80, 255}
+		borderWidth := float32(1.0)
+		isHovered := mx >= rect.Min.X && mx < rect.Max.X && my >= rect.Min.Y && my < rect.Max.Y
+		if isHovered {
+			slotBg = color.RGBA{32, 42, 62, 255}
+			slotBorder = color.RGBA{95, 125, 165, 255}
+			if p.Hotbar != nil && p.Hotbar.Slots[c].Item != nil {
+				hoveredItemName = p.Hotbar.Slots[c].Item.GetName()
+			}
+		}
+		if p.ActiveSlot == c {
+			slotBg = color.RGBA{26, 40, 64, 255}
+			slotBorder = color.RGBA{0, 230, 255, 255}
+			borderWidth = 1.8
+		}
+
+		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, borderWidth, slotBorder, false)
+
+		if p.Hotbar != nil && p.Hotbar.Slots[c].Item != nil {
+			drawItemIcon(screen, sx, sy, slotSz, p.Hotbar.Slots[c].Item)
+			if p.Hotbar.Slots[c].Quantity > 1 {
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", p.Hotbar.Slots[c].Quantity), int(sx)+5, int(sy)+int(slotSz)-16)
+			}
+		} else {
+			drawMiningToolOutline(screen, sx, sy, slotSz)
 		}
 	}
 
@@ -426,7 +511,7 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 		}
 	}
 
-	tooltipY := float32(panelY + 360 - 42)
+	tooltipY := float32(panelY + layoutP.PanelH - 42)
 	vector.FillRect(screen, float32(panelX)+20, tooltipY, float32(layoutP.PanelW)-40, 24, color.RGBA{8, 12, 18, 255}, false)
 	vector.StrokeRect(screen, float32(panelX)+20, tooltipY, float32(layoutP.PanelW)-40, 24, 0.8, color.RGBA{40, 52, 70, 255}, false)
 	tooltipText := "Hover an item to view details. Click item to transfer."
@@ -443,14 +528,40 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 	p := g.GetPlayer()
 
 	panelX := float64(config.ScreenWidth-600) / 2.0
-	panelY := float64(config.ScreenHeight-420) / 2.0
+	panelY := float64(config.ScreenHeight-470) / 2.0
 
 	// Main inventory grid
 	hoveredIdx := SoloInventoryGridDescriptor.HoveredSlot(panelX, panelY, len(p.Inventory.Slots), mx, my)
 	if hoveredIdx != -1 {
 		slot := &p.Inventory.Slots[hoveredIdx]
 		if slot.Item != nil {
-			g.ActivatePlayerItem(slot.Item)
+			// Player upgrades (O2 tank, fins) go to equipment upgrades
+			if upg, ok := slot.Item.(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
+				g.ActivatePlayerItem(slot.Item)
+				return
+			}
+			// Other items try to go to Hotbar
+			if p.Hotbar.AddItem(slot.Item, 1) {
+				p.Inventory.Remove(slot.Item, 1)
+				p.RecalculateUpgrades()
+			} else {
+				// Fallback to active tool/deploy direct use
+				g.ActivatePlayerItem(slot.Item)
+			}
+		}
+		return
+	}
+
+	// Hotbar grid
+	hoveredHotbarIdx := SoloHotbarGridDescriptor.HoveredSlot(panelX, panelY, len(p.Hotbar.Slots), mx, my)
+	if hoveredHotbarIdx != -1 {
+		slot := &p.Hotbar.Slots[hoveredHotbarIdx]
+		if slot.Item != nil {
+			// Move item from hotbar back to main inventory
+			if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				p.Hotbar.Remove(slot.Item, 1)
+				p.RecalculateUpgrades()
+			}
 		}
 		return
 	}
@@ -479,7 +590,7 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 	}
 
 	panelX := float64(config.ScreenWidth-960) / 2.0
-	panelY := float64(config.ScreenHeight-360) / 2.0
+	panelY := float64(config.ScreenHeight-410) / 2.0
 
 	// Check if Pick Up button is clicked
 	if v.GetKit() != nil {
@@ -497,7 +608,33 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 	if hoveredPlayerIdx != -1 {
 		slot := &p.Inventory.Slots[hoveredPlayerIdx]
 		if slot.Item != nil {
-			g.TransferToVehicle(slot.Item)
+			// Player upgrades go directly to upgrades/vehicle if vehicle open
+			if upg, ok := slot.Item.(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
+				g.TransferToVehicle(slot.Item)
+				return
+			}
+			// Try to move to hotbar first
+			if p.Hotbar.AddItem(slot.Item, 1) {
+				p.Inventory.Remove(slot.Item, 1)
+				p.RecalculateUpgrades()
+			} else {
+				// Otherwise transfer to vehicle
+				g.TransferToVehicle(slot.Item)
+			}
+		}
+		return
+	}
+
+	// Player hotbar grid clicked (in vehicle view)
+	hoveredHotbarIdx := VehicleHotbarGridDescriptor.HoveredSlot(panelX, panelY, len(p.Hotbar.Slots), mx, my)
+	if hoveredHotbarIdx != -1 {
+		slot := &p.Hotbar.Slots[hoveredHotbarIdx]
+		if slot.Item != nil {
+			// Transfer from hotbar back to player inventory
+			if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				p.Hotbar.Remove(slot.Item, 1)
+				p.RecalculateUpgrades()
+			}
 		}
 		return
 	}
@@ -534,4 +671,72 @@ func drawItemIcon(screen *ebiten.Image, sx, sy, slotSz float32, i item.Item) {
 		return
 	}
 	i.DrawIcon(screen, sx+slotSz/2.0, sy+slotSz/2.0, slotSz*0.45)
+}
+
+// DrawHUDHotbar renders the quick-select hotbar on the active HUD.
+func (h *HUD) DrawHUDHotbar(screen *ebiten.Image, g GameContext, p *player.Player) {
+	if p.Hotbar == nil {
+		return
+	}
+
+	const (
+		slotSz = 40.0
+		gap    = 8.0
+		num    = 5
+	)
+	w := float32(num*(slotSz+gap) - gap)
+	// Center horizontally at bottom
+	x := (float32(config.ScreenWidth) - w) / 2.0
+	y := float32(config.ScreenHeight - 56.0)
+
+	// Draw container background
+	vector.FillRect(screen, x-10, y-10, w+20, slotSz+20, color.RGBA{18, 24, 38, 200}, false)
+	vector.StrokeRect(screen, x-10, y-10, w+20, slotSz+20, 1.5, color.RGBA{70, 90, 120, 255}, false)
+
+	for i := 0; i < num; i++ {
+		sx := x + float32(i)*(slotSz+gap)
+		sy := y
+
+		// Highlight active slot
+		slotBg := color.RGBA{20, 26, 38, 255}
+		slotBorder := color.RGBA{48, 60, 80, 255}
+		borderWidth := float32(1.0)
+		if p.ActiveSlot == i {
+			slotBg = color.RGBA{30, 48, 78, 255}
+			slotBorder = color.RGBA{0, 230, 255, 255}
+			borderWidth = 1.8
+		}
+
+		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, borderWidth, slotBorder, false)
+
+		slot := p.Hotbar.Slots[i]
+		if slot.Item != nil {
+			// Draw item icon
+			drawItemIcon(screen, sx, sy, slotSz, slot.Item)
+			if slot.Quantity > 1 {
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+4, int(sy)+int(slotSz)-15)
+			}
+		} else {
+			// Virtual Mining Tool (Default outline)
+			drawMiningToolOutline(screen, sx, sy, slotSz)
+		}
+
+		// Draw slot index label
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", i+1), int(sx)+int(slotSz)/2-3, int(sy)-22)
+	}
+}
+
+func drawMiningToolOutline(screen *ebiten.Image, sx, sy, size float32) {
+	// A simple pickaxe vector fallback: a brown handle diagonal, and a grey curved head (drawn with two lines).
+	cx := sx + size/2.0
+	cy := sy + size/2.0
+	r := size * 0.28
+
+	// Handle line (diagonal brown line)
+	vector.StrokeLine(screen, cx-r, cy+r, cx+r*0.2, cy-r*0.2, 1.5, color.RGBA{130, 100, 70, 128}, false)
+	// Pickaxe head left prong (diagonal grey line)
+	vector.StrokeLine(screen, cx-r*0.6, cy-r*0.6, cx, cy, 2.0, color.RGBA{180, 190, 200, 128}, false)
+	// Pickaxe head right prong (diagonal grey line)
+	vector.StrokeLine(screen, cx+r*0.6, cy-r*0.6, cx, cy, 2.0, color.RGBA{180, 190, 200, 128}, false)
 }

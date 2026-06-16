@@ -28,6 +28,7 @@ type HeavyMech struct {
 	Battery         float64
 	MaxBattery      float64
 	Cargo           *item.Inventory
+	Upgrades        *item.Inventory
 	IsDrilling      bool
 	DrillTimer      int
 	TargetDrillNode DrillableResource
@@ -45,6 +46,7 @@ func NewHeavyMech(x, y float64) *HeavyMech {
 		Battery:    100.0,
 		MaxBattery: 100.0,
 		Cargo:      item.NewInventory(8),
+		Upgrades:   item.NewInventory(2),
 	}
 }
 
@@ -56,7 +58,7 @@ func (m *HeavyMech) GetMaxHealth() float64        { return m.MaxHealth }
 func (m *HeavyMech) GetOxygen() float64           { return 100.0 }
 func (m *HeavyMech) GetDepthLimit() float64       { return 120.0 }
 func (m *HeavyMech) GetCargo() *item.Inventory    { return m.Cargo }
-func (m *HeavyMech) GetUpgrades() *item.Inventory { return nil }
+func (m *HeavyMech) GetUpgrades() *item.Inventory { return m.Upgrades }
 func (m *HeavyMech) GetPerspective() string       { return "cave" }
 func (m *HeavyMech) GetName() string              { return "Heavy Mech" }
 func (m *HeavyMech) GetBattery() float64          { return m.Battery }
@@ -208,6 +210,36 @@ func (m *HeavyMech) Update(runtime Runtime) {
 				}
 			}
 			m.TargetDrillNode = nil
+		}
+	}
+
+	if hasPower && input.IsKeyJustPressed(ebiten.KeySpace) {
+		hasDecoyLauncher := item.HasItem[*item.DecoyLauncher](m.Upgrades, 1)
+
+		if hasDecoyLauncher {
+			var decoyAmmo item.SonicDecoy
+			if m.Cargo.Has(&decoyAmmo, 1) && m.Battery >= 5.0 {
+				m.Cargo.Remove(&decoyAmmo, 1)
+				m.Battery -= 5.0
+
+				cosF := math.Cos(m.Facing)
+				sinF := math.Sin(m.Facing)
+
+				spawnX := m.Pos.X + m.Dimensions.X/2.0 + cosF*(m.Dimensions.X/2.0+10.0)
+				spawnY := m.Pos.Y + m.Dimensions.Y/2.0 + sinF*(m.Dimensions.Y/2.0+10.0)
+				launchVel := gvec.Vec2{X: cosF * 6.0, Y: sinF * 6.0}
+
+				runtime.Emit(SpawnDecoyCmd{
+					Pos: gvec.Vec2{X: spawnX, Y: spawnY},
+					Vel: launchVel,
+				})
+			} else {
+				runtime.Emit(SetWarningCmd{
+					Message:  "COUNTERMEASURE DEPLETED / LOW POWER",
+					Duration: 90,
+					Level:    2,
+				})
+			}
 		}
 	}
 }
