@@ -12,6 +12,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
@@ -65,6 +66,7 @@ type CaveContext interface {
 	GetParticles() []*particle.Particle
 	GetCaveVehicles(key string) []vehicle.Vehicle
 	GetActiveTrenchKey() string
+	ActivatePlayerItem(it item.Item)
 }
 
 // DiverDrawWidth defines the targeted width of the diver sprite on screen.

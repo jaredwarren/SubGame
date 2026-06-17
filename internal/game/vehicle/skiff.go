@@ -81,7 +81,26 @@ func (s *Skiff) GetFacing() float64           { return s.Facing }
 func (s *Skiff) ApplyForce(force gvec.Vec2) {
 	s.Vel = s.Vel.Add(force)
 }
-func (s *Skiff) GetKit() item.Item { return nil }
+func (s *Skiff) GetKit() item.Item { return &SkiffKit{} }
+
+// SkiffKit represents the deployable kit for the Skiff.
+type SkiffKit struct{}
+
+func (k *SkiffKit) GetName() string       { return "Skiff Kit" }
+func (k *SkiffKit) GetMaxStack() int      { return 1 }
+func (k *SkiffKit) GetColor() color.Color { return color.RGBA{235, 100, 30, 255} }
+func (k *SkiffKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
+	if item.DrawItemIconSprite(screen, k.GetName(), cx, cy, size) {
+		return
+	}
+	// Vector fallback for Skiff Kit (small orange boat silhouette)
+	vector.FillRect(screen, cx-size/2.0, cy-size/8.0, size, size/4.0, k.GetColor(), false)
+	vector.FillCircle(screen, cx, cy-size/8.0, size/4.0, color.RGBA{40, 80, 110, 255}, false)
+}
+func (k *SkiffKit) IsPlayerUpgrade() bool { return false }
+func (k *SkiffKit) Deploy(x, y float64) Vehicle {
+	return NewSkiff(x, y)
+}
 
 
 func (s *Skiff) TakeDamage(amount float64) {

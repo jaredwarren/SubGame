@@ -107,6 +107,9 @@ type Game struct {
 	pdaPriorState      State
 	menuOpenedAnywhere bool
 	craftingRecipes    []scene.Recipe
+
+	// Tutorial
+	TutorialActive bool
 }
 
 // NewGame creates a fully initialized Game ready to run.
@@ -197,6 +200,9 @@ func (g *Game) Respawn() {
 	g.player.CurrentOxygen = g.player.MaxOxygen
 	g.player.CurrentStamina = g.player.MaxStamina
 	g.player.Inventory.Clear()
+	if g.TutorialActive {
+		g.player.Inventory.AddItem(&item.Titanium{}, 9)
+	}
 	g.ActiveVehicle = nil
 	g.deathReason = ""
 	g.Shake.Duration = 0
@@ -242,4 +248,16 @@ func (g *Game) SpawnPlankton(x, y float64) {
 // SpawnDebris adds debris particles at the given world position.
 func (g *Game) SpawnDebris(x, y float64, clr color.RGBA) {
 	g.Particles = append(g.Particles, particle.NewDebrisParticles(x, y, clr)...)
+}
+
+func (g *Game) hasSkiffInWorld() bool {
+	if _, ok := g.ActiveVehicle.(*vehicle.Skiff); ok {
+		return true
+	}
+	for _, v := range g.OverworldVehicles {
+		if _, ok := v.(*vehicle.Skiff); ok {
+			return true
+		}
+	}
+	return false
 }

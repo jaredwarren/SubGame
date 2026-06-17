@@ -9,6 +9,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -67,6 +68,17 @@ func (o *OverworldScene) update(g OverworldContext) error {
 
 	p := g.GetPlayer()
 	inp := g.GetInput()
+
+	// Deploy active item if left-clicked in overworld
+	if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		activeItem := p.GetActiveItem()
+		if activeItem != nil {
+			if _, isDeployable := activeItem.(vehicle.Deployable); isDeployable {
+				g.ActivatePlayerItem(activeItem)
+				return nil
+			}
+		}
+	}
 
 	// Calculate and apply whirlpool force to player velocity
 	pCenter := gvec.Vec2{

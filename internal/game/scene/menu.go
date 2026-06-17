@@ -74,6 +74,14 @@ var CraftingRecipes = []Recipe{
 		Unlocked: true,
 	},
 	{
+		NewResult: func() item.Item { return &vehicle.SkiffKit{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 10},
+		},
+		Tier:     0,
+		Unlocked: true,
+	},
+	{
 		NewResult: func() item.Item { return &vehicle.ScoutSubKit{} },
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 6},

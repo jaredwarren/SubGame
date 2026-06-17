@@ -60,6 +60,13 @@ func (g *Game) Update() error {
 	if g.player.CurrentHealth <= 0 {
 		g.TransitionTo(g.gameOverState)
 	}
+
+	if g.TutorialActive {
+		if g.hasSkiffInWorld() {
+			g.TutorialActive = false
+			g.SetMineWarning("TUTORIAL COMPLETE!", 180, 1)
+		}
+	}
 	return nil
 }
 
@@ -242,14 +249,20 @@ func (g *Game) ActivatePlayerItem(it item.Item) {
 		g.SetMineWarning("Ate "+consumable.GetName()+"!", 90, 1)
 		return
 	}
-	if g.currentState != StateCave {
+	if g.currentState != StateCave && g.currentState != StateOverworld {
 		return
 	}
 
 	if deployable, ok := it.(vehicle.Deployable); ok {
 		veh := deployable.Deploy(g.player.Pos.X, g.player.Pos.Y)
-		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], veh)
-		g.player.Inventory.Remove(it, 1)
+		if g.currentState == StateOverworld {
+			g.OverworldVehicles = append(g.OverworldVehicles, veh)
+		} else {
+			g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], veh)
+		}
+		if !g.player.Inventory.Remove(it, 1) {
+			g.player.Hotbar.Remove(it, 1)
+		}
 		g.player.RecalculateUpgrades()
 		g.showInventory = false
 	}

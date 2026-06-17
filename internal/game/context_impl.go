@@ -6,6 +6,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
@@ -28,18 +29,19 @@ func (g *Game) StartGame(seed int64) {
 	spawnX, spawnY := findWaterSpawn(w)
 
 	g.player = player.NewPlayer(spawnX, spawnY)
+	g.player.Inventory.AddItem(&item.Titanium{}, 9)
 	g.camera = camera.NewCamera(spawnX, spawnY)
 	g.camera.CenterOn(spawnX, spawnY, g.player.Width, g.player.Height)
 
 	g.baseStation = base.NewBaseStation(spawnX+96.0, spawnY-64.0)
-	skiff := vehicle.NewSkiff(spawnX, spawnY)
 
-	g.ActiveVehicle = skiff
-	g.OverworldVehicles = []vehicle.Vehicle{skiff}
+	g.ActiveVehicle = nil
+	g.OverworldVehicles = nil
 	g.CaveVehicles = make(map[string][]vehicle.Vehicle)
 	g.caveNodes = make(map[string][]resource.Resource)
 	g.caveEntities = make(map[string][]entity.CaveEntity)
 	g.Sonar = sonar.NewSonar()
+	g.TutorialActive = true
 
 	// Reset navigation and progression state
 	g.lastOverworldX = 0

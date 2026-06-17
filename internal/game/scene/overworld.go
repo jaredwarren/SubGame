@@ -14,6 +14,7 @@ import (
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -44,6 +45,7 @@ type OverworldContext interface {
 	GetDeathReason() string
 	SetDeathReason(reason string)
 	DestroyOverworldVehicle(v vehicle.Vehicle)
+	ActivatePlayerItem(it item.Item)
 }
 
 // OverworldScene manages the top-down surface sailing view.

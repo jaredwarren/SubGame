@@ -212,6 +212,10 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 
 	activeItem := p.GetActiveItem()
 	if activeItem != nil {
+		if _, isDeployable := activeItem.(vehicle.Deployable); isDeployable {
+			g.ActivatePlayerItem(activeItem)
+			return
+		}
 		if usable, ok := activeItem.(item.UsableItem); ok {
 			ctx := &caveUsableContext{
 				scene: c,

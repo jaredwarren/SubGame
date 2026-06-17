@@ -9,6 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -31,6 +32,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	if g.currentState == StateOverworld || g.currentState == StateCave {
 		g.hud.Draw(screen, g)
+	}
+
+	if g.TutorialActive {
+		g.drawTutorialBanner(screen)
 	}
 
 	g.drawWarningBanner(screen)
@@ -282,4 +287,66 @@ func (g *Game) drawWaypointMarker(screen *ebiten.Image) {
 		vector.StrokeRect(screen, float32(textX-4), float32(textY-2), float32(textWidth+8), 16, 1.0, borderOutlineColor, false)
 		ebitenutil.DebugPrintAt(screen, textStr, textX, textY)
 	}
+}
+
+func (g *Game) getTutorialInstruction() string {
+	if g.hasSkiffInWorld() {
+		return ""
+	}
+
+	// Have SkiffKit, need to deploy it
+	if g.player.Inventory.Has(&vehicle.SkiffKit{}, 1) {
+		return "Tutorial: Press [TAB] for inventory, click Skiff Kit to deploy it"
+	}
+
+	titaniumCount := g.player.Inventory.Count(&item.Titanium{})
+	if titaniumCount < 10 {
+		if g.currentState == StateCave {
+			return fmt.Sprintf("Tutorial: Mine 1 Titanium from the cave wall (%d/10)", titaniumCount)
+		}
+		// Overworld
+		dist := g.baseStation.DistanceToPlayer(g.player)
+		if dist < 150 {
+			return fmt.Sprintf("Tutorial: Swim away from Lifepod and press [E] to dive (%d/10)", titaniumCount)
+		}
+		return fmt.Sprintf("Tutorial: Press [E] to dive and find Titanium (%d/10)", titaniumCount)
+	}
+
+	// Have >= 10 titanium, need to craft Skiff
+	if g.currentState == StateCave {
+		return "Tutorial: Swim to top of cave (Y < 0) and press [E] to surface"
+	}
+	// Overworld
+	dist := g.baseStation.DistanceToPlayer(g.player)
+	if dist >= 100 {
+		return "Tutorial: Return to the Lifepod (follow the HUD marker)"
+	}
+	return "Tutorial: Press [E] at the Lifepod terminal to craft a Skiff"
+}
+
+func (g *Game) drawTutorialBanner(screen *ebiten.Image) {
+	msg := g.getTutorialInstruction()
+	if msg == "" {
+		return
+	}
+
+	textWidth := len(msg) * 6
+	w := float32(textWidth + 32)
+	h := float32(28)
+	wx := float32(config.ScreenWidth)/2.0 - w/2.0
+	wy := float32(20.0)
+
+	borderColor := color.RGBA{R: 0, G: 180, B: 220, A: 255}
+	bgColor := color.RGBA{R: 8, G: 16, B: 28, A: 210}
+	glowColor := color.RGBA{R: 0, G: 180, B: 220, A: 40}
+
+	// Draw dark background
+	vector.FillRect(screen, wx, wy, w, h, bgColor, false)
+	// Draw glow
+	vector.StrokeRect(screen, wx-1.0, wy-1.0, w+2.0, h+2.0, 2.0, glowColor, false)
+	// Draw inner border
+	vector.StrokeRect(screen, wx, wy, w, h, 1.0, borderColor, false)
+
+	// Print text
+	ebitenutil.DebugPrintAt(screen, msg, int(wx)+16, int(wy)+6)
 }

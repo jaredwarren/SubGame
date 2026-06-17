@@ -12,6 +12,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -540,6 +541,11 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 				g.ActivatePlayerItem(slot.Item)
 				return
 			}
+			// Deployable vehicle kits should also deploy directly!
+			if _, isDeployable := slot.Item.(vehicle.Deployable); isDeployable {
+				g.ActivatePlayerItem(slot.Item)
+				return
+			}
 			// Other items try to go to Hotbar
 			if p.Hotbar.AddItem(slot.Item, 1) {
 				p.Inventory.Remove(slot.Item, 1)
@@ -557,6 +563,10 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 	if hoveredHotbarIdx != -1 {
 		slot := &p.Hotbar.Slots[hoveredHotbarIdx]
 		if slot.Item != nil {
+			if _, isDeployable := slot.Item.(vehicle.Deployable); isDeployable {
+				g.ActivatePlayerItem(slot.Item)
+				return
+			}
 			// Move item from hotbar back to main inventory
 			if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
 				p.Hotbar.Remove(slot.Item, 1)
