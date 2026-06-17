@@ -483,18 +483,4 @@ func (s *Skiff) applyLight(c color.RGBA) color.RGBA {
 	}
 }
 
-func drawArc(screen *ebiten.Image, cx, cy, radius float64, centerAngle, halfSweep float64, thickness float32, clr color.Color) {
-	const segments = 8
-	step := (halfSweep * 2.0) / float64(segments)
-	startAngle := centerAngle - halfSweep
-	var lastX, lastY float32
-	for i := 0; i <= segments; i++ {
-		angle := startAngle + float64(i)*step
-		px := float32(cx + math.Cos(angle)*radius)
-		py := float32(cy + math.Sin(angle)*radius)
-		if i > 0 {
-			vector.StrokeLine(screen, lastX, lastY, px, py, thickness, clr, true)
-		}
-		lastX, lastY = px, py
-	}
-}
+
