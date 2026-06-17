@@ -179,7 +179,7 @@ func (o *OverworldScene) drawBaseTiles(target *ebiten.Image, startTileX, endTile
 					} else if ty >= o.World.Height {
 						dy = float64(ty - o.World.Height + 1)
 					}
-					distFromBorder = math.Max(dx, dy)
+					distFromBorder = max(dx, dy)
 				} else {
 					dxInside := float64(tx)
 					if float64(o.World.Width-1-tx) < dxInside {
@@ -189,7 +189,7 @@ func (o *OverworldScene) drawBaseTiles(target *ebiten.Image, startTileX, endTile
 					if float64(o.World.Height-1-ty) < dyInside {
 						dyInside = float64(o.World.Height - 1 - ty)
 					}
-					distFromBorder = -math.Min(dxInside, dyInside)
+					distFromBorder = -min(dxInside, dyInside)
 				}
 
 				t := (distFromBorder + 1.0) / 4.0
@@ -532,7 +532,7 @@ func ComputeTileColors(tx, ty int, tileType world.TileType, landDist, waterDist 
 		} else if ty >= worldHeight {
 			dy = float64(ty - worldHeight + 1)
 		}
-		distFromBorder = math.Max(dx, dy)
+		distFromBorder = max(dx, dy)
 	} else {
 		dxInside := float64(tx)
 		if float64(worldWidth-1-tx) < dxInside {
@@ -542,7 +542,7 @@ func ComputeTileColors(tx, ty int, tileType world.TileType, landDist, waterDist 
 		if float64(worldHeight-1-ty) < dyInside {
 			dyInside = float64(worldHeight - 1 - ty)
 		}
-		distFromBorder = -math.Min(dxInside, dyInside)
+		distFromBorder = -min(dxInside, dyInside)
 	}
 
 	t := (distFromBorder + 1.0) / 4.0

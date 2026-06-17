@@ -40,19 +40,19 @@ func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 				if ty < 40 {
 					// Biome 1: Mid-Depth (Cyan/Teal) - Luminous Pneumatophore Grotto
 					bandRatio := float64(ty) / 40.0
-					r := uint8(math.Max(8, 22-14*bandRatio))
-					g := uint8(math.Max(24, 64-40*bandRatio))
-					b := uint8(math.Max(32, 78-46*bandRatio))
+					r := uint8(max(8, 22-14*bandRatio))
+					g := uint8(max(24, 64-40*bandRatio))
+					b := uint8(max(32, 78-46*bandRatio))
 					rockColor = color.RGBA{r, g, b, 255}
 					strokeColor = color.RGBA{r + 20, g + 40, b + 48, 255}
 				} else if ty < 80 {
 					// Biome 2: Deep (Dark Grey/Orange) - Silicate Smoker Trenches
 					bandRatio := float64(ty-40) / 40.0
-					r := uint8(math.Max(25, 45-20*bandRatio))
-					g := uint8(math.Max(20, 32-12*bandRatio))
-					b := uint8(math.Max(18, 26-8*bandRatio))
+					r := uint8(max(25, 45-20*bandRatio))
+					g := uint8(max(20, 32-12*bandRatio))
+					b := uint8(max(18, 26-8*bandRatio))
 					rockColor = color.RGBA{r, g, b, 255}
-					strokeColor = color.RGBA{uint8(math.Max(80, 150-70*bandRatio)), 65, 40, 255}
+					strokeColor = color.RGBA{uint8(max(80, 150-70*bandRatio)), 65, 40, 255}
 				} else {
 					// Biome 3: Abyssal (Vantablack/White) - Benthic Brine-Falls
 					rockColor = color.RGBA{5, 5, 8, 255}
@@ -204,10 +204,10 @@ func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			if len(coralAttachments) > 0 && r.Float64() < 0.12 {
 				attach := coralAttachments[r.Intn(len(coralAttachments))]
 				variant := r.Intn(2) // 2 variants for trench
-				
+
 				cx := float64(tx * config.TileSize)
 				cy := float64(ty * config.TileSize)
-				
+
 				switch attach {
 				case "floor":
 					cx += float64(config.TileSize-24) / 2.0
@@ -220,7 +220,7 @@ func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
 					cx += float64(config.TileSize - 24)
 					cy += float64(config.TileSize-24) / 2.0
 				}
-				
+
 				entities = append(entities, entity.NewCoral(cx, cy, entity.CoralBiomeTrench, attach, variant, r))
 			}
 		}

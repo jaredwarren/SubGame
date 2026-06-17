@@ -241,8 +241,8 @@ func (a *entityRuntimeAdapter) CheckDeterrentSlowing(x, y, w, h float64) bool {
 				radius = 96.0
 			}
 
-			px := math.Max(x, math.Min(cloudCenter.X, x+w))
-			py := math.Max(y, math.Min(cloudCenter.Y, y+h))
+			px := max(x, min(cloudCenter.X, x+w))
+			py := max(y, min(cloudCenter.Y, y+h))
 
 			dist := math.Hypot(px-cloudCenter.X, py-cloudCenter.Y)
 			if dist <= radius {
@@ -270,7 +270,7 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 				g.ActiveVehicle.ApplyForce(c.Force)
 			}
 		case entity.RestoreOxygenCmd:
-			g.player.CurrentOxygen = math.Min(g.player.MaxOxygen, g.player.CurrentOxygen+c.Amount)
+			g.player.CurrentOxygen = min(g.player.MaxOxygen, g.player.CurrentOxygen+c.Amount)
 		case entity.TriggerSoundWaveCmd:
 			g.SoundWave.Timer = 60
 			g.SoundWave.Radius = 0.0
@@ -283,7 +283,7 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 			g.MineWarning.Timer = c.Duration
 			g.MineWarning.Level = c.Level
 		case entity.UpdateWeaverTrackingTimerCmd:
-			g.WeaverTrackingTimer = math.Max(g.WeaverTrackingTimer, c.Value)
+			g.WeaverTrackingTimer = max(g.WeaverTrackingTimer, c.Value)
 		case entity.StunPlayerCmd:
 			g.player.StunTimer = c.Duration
 		case entity.TriggerShakeCmd:

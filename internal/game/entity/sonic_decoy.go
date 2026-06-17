@@ -85,12 +85,12 @@ func (d *SonicDecoy) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay
 	// Draw concentric pulse circles
 	waveProgress := float32((360 - d.LifeTimer) % 60)
 	r1 := waveProgress * 1.5
-	alpha1 := uint8(math.Max(0, float64(255-waveProgress*4.25)))
+	alpha1 := uint8(max(0, 255-waveProgress*4.25))
 	vector.StrokeCircle(screen, cx, cy, r1, 1.0, color.RGBA{180, 210, 50, alpha1}, false)
 
 	waveProgress2 := float32((360 - d.LifeTimer + 30) % 60)
 	r2 := waveProgress2 * 1.5
-	alpha2 := uint8(math.Max(0, float64(255-waveProgress2*4.25)))
+	alpha2 := uint8(max(0, 255-waveProgress2*4.25))
 	vector.StrokeCircle(screen, cx, cy, r2, 1.0, color.RGBA{180, 210, 50, alpha2}, false)
 
 	// Spark details

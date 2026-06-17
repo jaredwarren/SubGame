@@ -23,7 +23,6 @@ type VentContext interface {
 	DamageTarget(damage float64)
 }
 
-
 type VentState int
 
 const (
@@ -122,7 +121,7 @@ func (v *ThermalVent) Update(g VentContext) {
 	if v.State == VentErupting && dist < v.Radius {
 		// Calculate outward push force (stronger closer to center, scaled by intensity)
 		ratio := 1.0 - (dist / v.Radius)
-		intensityScale := math.Max(0.0, math.Min(1.0, v.Intensity))
+		intensityScale := max(0.0, min(1.0, v.Intensity))
 		pushStrength := 1.8 * ratio * intensityScale
 
 		var pushX, pushY float64
@@ -168,7 +167,7 @@ func (v *ThermalVent) Draw(screen *ebiten.Image, camX, camY float64, ticks float
 	}
 
 	// Clamp drawIntensity to [0, 1] for color/size interpolations
-	t := math.Max(0.0, math.Min(1.0, drawIntensity))
+	t := max(0.0, min(1.0, drawIntensity))
 
 	// Interpolate pulse speed and amplitude based on state
 	var pulseSpeed, pulseAmp float64

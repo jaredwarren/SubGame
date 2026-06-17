@@ -13,7 +13,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
-	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
@@ -323,16 +322,16 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 				g.SpawnDebris(nx, ny, nodeColor)
 
 				if node.GetHitsToMine() <= 0 {
-					if bpNode, ok := node.(*resource.BlueprintNode); ok {
+					if resName := node.GetRecipeResultName(); resName != "" {
 						recipes := g.GetCraftingRecipes()
 						for idx := range recipes {
-							if recipes[idx].NewResult().GetName() == bpNode.RecipeResultName {
+							if recipes[idx].NewResult().GetName() == resName {
 								recipes[idx].Unlocked = true
-								g.SetMineWarning("Unlocked: "+bpNode.RecipeResultName+"!", 120, 1)
+								g.SetMineWarning("Unlocked: "+resName+"!", 120, 1)
 								break
 							}
 						}
-						unlocked := g.GetStoryManager().TriggerEvent("mine", bpNode.GetName())
+						unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
 						if unlocked != nil {
 							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
 						}

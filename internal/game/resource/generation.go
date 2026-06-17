@@ -2,6 +2,8 @@ package resource
 
 import (
 	"math/rand"
+
+	"github.com/jaredwarren/SubGame/internal/sliceutil"
 )
 
 // ResourceTier defines configuration for resource spawning at a specific depth range.
@@ -73,17 +75,6 @@ var DefaultGenConfig = ResourceGenConfig{
 // It can be adjusted at runtime to easily change spawning behavior.
 var GenConfig = DefaultGenConfig
 
-// Helper to shuffle a slice of strings using r rand.Rand
-func shuffleRecipes(slice []string, r *rand.Rand) []string {
-	shuffled := make([]string, len(slice))
-	copy(shuffled, slice)
-	for i := len(shuffled) - 1; i > 0; i-- {
-		j := r.Intn(i + 1)
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	}
-	return shuffled
-}
-
 // GenerateWreckageResources spawns scrap metal and electronic waste nodes on room floors in wreckage caves,
 // and also spawns appropriate recipe blueprints depending on the shipIndex (0, 1, or 2).
 func GenerateWreckageResources(grid [][]bool, seed int64, shipIndex int) []Resource {
@@ -153,7 +144,7 @@ func GenerateWreckageResources(grid [][]bool, seed int64, shipIndex int) []Resou
 
 	var selected []string
 	if shipIndex == 0 {
-		shuffled := shuffleRecipes(t1Recipes, r)
+		shuffled := sliceutil.Shuffle(t1Recipes, r)
 		numToSpawn := 3 + r.Intn(2) // 3 or 4
 		if numToSpawn > len(shuffled) {
 			numToSpawn = len(shuffled)
@@ -162,7 +153,7 @@ func GenerateWreckageResources(grid [][]bool, seed int64, shipIndex int) []Resou
 	} else if shipIndex == 1 {
 		allRecipes := append([]string{}, t1Recipes...)
 		allRecipes = append(allRecipes, t2Recipes...)
-		shuffled := shuffleRecipes(allRecipes, r)
+		shuffled := sliceutil.Shuffle(allRecipes, r)
 		numToSpawn := 4 + r.Intn(2) // 4 or 5
 		if numToSpawn > len(shuffled) {
 			numToSpawn = len(shuffled)
