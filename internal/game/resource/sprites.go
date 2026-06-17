@@ -210,6 +210,73 @@ func drawQuartzNeedles(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]
 	}
 }
 
+func drawCubicCrystal(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, size float32, mineralColor, shadowColor, highlightColor color.Color) {
+	s := size
+
+	// Top face points in local space
+	ptTopX, ptTopY := localToScreen(cx, cy, 0, 1.0*s, dirVec, perpVec)
+	ptRightX, ptRightY := localToScreen(cx, cy, 0.8*s, 0.6*s, dirVec, perpVec)
+	ptBottomX, ptBottomY := localToScreen(cx, cy, 0, 0.2*s, dirVec, perpVec)
+	ptLeftX, ptLeftY := localToScreen(cx, cy, -0.8*s, 0.6*s, dirVec, perpVec)
+
+	// Bottom points (extruded down by 0.8*s in growth direction - i.e., -0.8*s along dirVec)
+	ptBotLeftX, ptBotLeftY := localToScreen(cx, cy, -0.8*s, -0.2*s, dirVec, perpVec)
+	ptBotMidX, ptBotMidY := localToScreen(cx, cy, 0, -0.6*s, dirVec, perpVec)
+	ptBotRightX, ptBotRightY := localToScreen(cx, cy, 0.8*s, -0.2*s, dirVec, perpVec)
+
+	// Draw Top Face (Highlight)
+	gPath.Reset()
+	gPath.MoveTo(ptTopX, ptTopY)
+	gPath.LineTo(ptRightX, ptRightY)
+	gPath.LineTo(ptBottomX, ptBottomY)
+	gPath.LineTo(ptLeftX, ptLeftY)
+	gPath.Close()
+	var topOpts vector.DrawPathOptions
+	topOpts.ColorScale.ScaleWithColor(highlightColor)
+	vector.FillPath(screen, &gPath, nil, &topOpts)
+
+	// Draw Left Face (Shadow)
+	gPath.Reset()
+	gPath.MoveTo(ptLeftX, ptLeftY)
+	gPath.LineTo(ptBottomX, ptBottomY)
+	gPath.LineTo(ptBotMidX, ptBotMidY)
+	gPath.LineTo(ptBotLeftX, ptBotLeftY)
+	gPath.Close()
+	var leftOpts vector.DrawPathOptions
+	leftOpts.ColorScale.ScaleWithColor(shadowColor)
+	vector.FillPath(screen, &gPath, nil, &leftOpts)
+
+	// Draw Right Face (Midtone / base mineralColor)
+	gPath.Reset()
+	gPath.MoveTo(ptBottomX, ptBottomY)
+	gPath.LineTo(ptRightX, ptRightY)
+	gPath.LineTo(ptBotRightX, ptBotRightY)
+	gPath.LineTo(ptBotMidX, ptBotMidY)
+	gPath.Close()
+	var rightOpts vector.DrawPathOptions
+	rightOpts.ColorScale.ScaleWithColor(mineralColor)
+	vector.FillPath(screen, &gPath, nil, &rightOpts)
+}
+
+func drawCubicCluster(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, mineralColor, shadowColor, highlightColor color.Color) {
+	baseSize := float32(16.0) * scale
+
+	// Draw left cube (rotated slightly left, smaller)
+	leftDir := rotateVec(dirVec, -0.5)
+	leftPerp := rotateVec(perpVec, -0.5)
+	lcx, lcy := localToScreen(cx, cy, -baseSize*0.3, -baseSize*0.1, dirVec, perpVec)
+	drawCubicCrystal(screen, lcx, lcy, leftDir, leftPerp, baseSize*0.7, mineralColor, shadowColor, highlightColor)
+
+	// Draw right cube (rotated slightly right, smaller)
+	rightDir := rotateVec(dirVec, 0.5)
+	rightPerp := rotateVec(perpVec, 0.5)
+	rcx, rcy := localToScreen(cx, cy, baseSize*0.3, -baseSize*0.1, dirVec, perpVec)
+	drawCubicCrystal(screen, rcx, rcy, rightDir, rightPerp, baseSize*0.7, mineralColor, shadowColor, highlightColor)
+
+	// Draw center cube (straight, full size, in front)
+	drawCubicCrystal(screen, cx, cy, dirVec, perpVec, baseSize, mineralColor, shadowColor, highlightColor)
+}
+
 // drawMineral renders the mineral based on its type and attachment direction
 func drawMineral(screen *ebiten.Image, tx, ty int, camX, camY float64, hitsToMine int, mineralColor, coreColor color.Color, attachDir AttachDirection, mineralName string) {
 	sx := float32(tx*TileSize - int(camX))
@@ -265,6 +332,8 @@ func drawMineral(screen *ebiten.Image, tx, ty int, camX, camY float64, hitsToMin
 		// Glowing purple crystal shards
 		drawSpikyCrystal := true
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
+	case "Nickel":
+		drawCubicCluster(screen, cx, cy, dirVec, perpVec, scale, mineralColor, shadowColor, highlightColor)
 	default: // Titanium / default
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
 	}
@@ -291,6 +360,8 @@ func drawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, c
 	case "Abyssal Ore":
 		drawSpikyCrystal := true
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
+	case "Nickel":
+		drawCubicCluster(screen, cx, cy, dirVec, perpVec, scale, mineralColor, shadowColor, highlightColor)
 	default: // Titanium / default
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
 	}

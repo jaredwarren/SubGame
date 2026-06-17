@@ -196,6 +196,12 @@ func TestMiningAndCraftingCompatibility(t *testing.T) {
 	if !g.player.Inventory.Has(&item.Titanium{}, 1) {
 		t.Error("game-breaking bug: inventory does not recognize TitaniumNode as item.Titanium")
 	}
+
+	nickelNode := resource.NewNickelNode(0, 0)
+	g.player.Inventory.AddItem(nickelNode, 1)
+	if !g.player.Inventory.Has(&item.Nickel{}, 1) {
+		t.Error("game-breaking bug: inventory does not recognize NickelNode as item.Nickel")
+	}
 }
 
 func TestWreckageCaveGeneration(t *testing.T) {

@@ -48,6 +48,7 @@ func TestGenerateResourceNodesWithConfig(t *testing.T) {
 				TitaniumWeight:   1.0,
 				CopperWeight:     0.0,
 				QuartzWeight:     0.0,
+				NickelWeight:     0.0,
 				AbyssalOreWeight: 0.0,
 			},
 		},

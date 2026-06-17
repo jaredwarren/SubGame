@@ -315,4 +315,3 @@ func (inv *Inventory) IsEmpty() bool {
 	}
 	return true
 }
-

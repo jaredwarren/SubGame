@@ -13,6 +13,7 @@ type ResourceTier struct {
 	TitaniumWeight   float64 // Relative weight for Titanium spawning
 	CopperWeight     float64 // Relative weight for Copper spawning
 	QuartzWeight     float64 // Relative weight for Quartz spawning
+	NickelWeight     float64 // Relative weight for Nickel spawning
 	AbyssalOreWeight float64 // Relative weight for Abyssal Ore spawning
 }
 
@@ -39,30 +40,34 @@ var DefaultGenConfig = ResourceGenConfig{
 			TitaniumWeight:   70.0,
 			CopperWeight:     30.0,
 			QuartzWeight:     0.0,
+			NickelWeight:     0.0,
 			AbyssalOreWeight: 0.0,
 		},
 		{
 			MaxDepth:         60,
 			SpawnChance:      0.055,
-			TitaniumWeight:   40.0,
-			CopperWeight:     40.0,
+			TitaniumWeight:   30.0,
+			CopperWeight:     35.0,
 			QuartzWeight:     20.0,
+			NickelWeight:     15.0,
 			AbyssalOreWeight: 0.0,
 		},
 		{
 			MaxDepth:         90,
 			SpawnChance:      0.07,
-			TitaniumWeight:   30.0,
-			CopperWeight:     30.0,
-			QuartzWeight:     30.0,
+			TitaniumWeight:   25.0,
+			CopperWeight:     25.0,
+			QuartzWeight:     25.0,
+			NickelWeight:     15.0,
 			AbyssalOreWeight: 10.0,
 		},
 		{
 			MaxDepth:         999999, // Catch-all for super deep zones
 			SpawnChance:      0.085,
-			TitaniumWeight:   20.0,
-			CopperWeight:     20.0,
-			QuartzWeight:     35.0,
+			TitaniumWeight:   15.0,
+			CopperWeight:     15.0,
+			QuartzWeight:     30.0,
+			NickelWeight:     15.0,
 			AbyssalOreWeight: 25.0,
 		},
 	},
@@ -233,6 +238,7 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 		kindTitanium nodeKind = iota
 		kindCopper
 		kindQuartz
+		kindNickel
 		kindAbyssalOre
 	)
 
@@ -271,7 +277,7 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 
 					if activeTier != nil {
 						spawnChance = activeTier.SpawnChance
-						totalWeight := activeTier.TitaniumWeight + activeTier.CopperWeight + activeTier.QuartzWeight + activeTier.AbyssalOreWeight
+						totalWeight := activeTier.TitaniumWeight + activeTier.CopperWeight + activeTier.QuartzWeight + activeTier.NickelWeight + activeTier.AbyssalOreWeight
 						if totalWeight > 0 {
 							roll := r.Float64() * totalWeight
 							if roll < activeTier.TitaniumWeight {
@@ -280,6 +286,8 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 								kind = kindCopper
 							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight+activeTier.QuartzWeight {
 								kind = kindQuartz
+							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight+activeTier.QuartzWeight+activeTier.NickelWeight {
+								kind = kindNickel
 							} else {
 								kind = kindAbyssalOre
 							}
@@ -297,6 +305,8 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 							node = NewCopperNode(tx, ty)
 						case kindQuartz:
 							node = NewQuartzNode(tx, ty)
+						case kindNickel:
+							node = NewNickelNode(tx, ty)
 						case kindAbyssalOre:
 							node = NewAbyssalOreNode(tx, ty)
 						}

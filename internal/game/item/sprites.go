@@ -37,34 +37,34 @@ func LoadAssets() {
 	}
 
 	itemCoords := map[string][2]int{
-		"Titanium":                   {0, 0},
-		"Copper":                     {1, 0},
-		"Quartz":                     {2, 0},
-		"Abyssal Ore":                {3, 0},
-		"Scrap Metal":                {4, 0},
-		"Electronic Waste":           {5, 0},
-		"High Capacity O2 Tank":      {0, 1},
-		"Ultra High Capacity O2 Tank":{1, 1},
-		"Propulsion Fins":            {2, 1},
-		"Scanner Tool":               {3, 1},
-		"Solar Array Module":         {4, 1},
-		"Solar Array MKII Module":    {5, 1},
-		"Storage Vault Module":       {0, 2},
-		"Storage Vault MKII Module":  {1, 2},
-		"Scout Sub Kit":              {2, 2},
-		"Heavy Mech Kit":             {3, 2},
-		"Sonar Amplifier":            {4, 2},
-		"Power Cell":                 {5, 2},
-		"Thermal Generator":          {0, 4},
-		"Escape Rocket":              {1, 4},
-		"Raw Fish":                   {2, 4},
-		"Cooked Fish":                {3, 4},
-		"Raw Crab":                   {4, 4},
-		"Cooked Crab":                {5, 4},
-		"Sonic Decoy":                {0, 3},
-		"Chemical Deterrent":         {1, 3},
-		"Decoy Launcher Module":      {2, 3},
-		"Chemical Discharger Module": {3, 3},
+		"Titanium":                    {0, 0},
+		"Copper":                      {1, 0},
+		"Quartz":                      {2, 0},
+		"Abyssal Ore":                 {3, 0},
+		"Scrap Metal":                 {4, 0},
+		"Electronic Waste":            {5, 0},
+		"High Capacity O2 Tank":       {0, 1},
+		"Ultra High Capacity O2 Tank": {1, 1},
+		"Propulsion Fins":             {2, 1},
+		"Scanner Tool":                {3, 1},
+		"Solar Array Module":          {4, 1},
+		"Solar Array MKII Module":     {5, 1},
+		"Storage Vault Module":        {0, 2},
+		"Storage Vault MKII Module":   {1, 2},
+		"Scout Sub Kit":               {2, 2},
+		"Heavy Mech Kit":              {3, 2},
+		"Sonar Amplifier":             {4, 2},
+		"Power Cell":                  {5, 2},
+		"Thermal Generator":           {0, 4},
+		"Escape Rocket":               {1, 4},
+		"Raw Fish":                    {2, 4},
+		"Cooked Fish":                 {3, 4},
+		"Raw Crab":                    {4, 4},
+		"Cooked Crab":                 {5, 4},
+		"Sonic Decoy":                 {0, 3},
+		"Chemical Deterrent":          {1, 3},
+		"Decoy Launcher Module":       {2, 3},
+		"Chemical Discharger Module":  {3, 3},
 	}
 
 	for name, coord := range itemCoords {
@@ -241,6 +241,73 @@ func drawQuartzNeedles(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]
 	}
 }
 
+func drawCubicCrystal(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, size float32, mineralColor, shadowColor, highlightColor color.Color) {
+	s := size
+
+	// Top face points in local space
+	ptTopX, ptTopY := localToScreen(cx, cy, 0, 1.0*s, dirVec, perpVec)
+	ptRightX, ptRightY := localToScreen(cx, cy, 0.8*s, 0.6*s, dirVec, perpVec)
+	ptBottomX, ptBottomY := localToScreen(cx, cy, 0, 0.2*s, dirVec, perpVec)
+	ptLeftX, ptLeftY := localToScreen(cx, cy, -0.8*s, 0.6*s, dirVec, perpVec)
+
+	// Bottom points (extruded down by 0.8*s in growth direction - i.e., -0.8*s along dirVec)
+	ptBotLeftX, ptBotLeftY := localToScreen(cx, cy, -0.8*s, -0.2*s, dirVec, perpVec)
+	ptBotMidX, ptBotMidY := localToScreen(cx, cy, 0, -0.6*s, dirVec, perpVec)
+	ptBotRightX, ptBotRightY := localToScreen(cx, cy, 0.8*s, -0.2*s, dirVec, perpVec)
+
+	// Draw Top Face (Highlight)
+	gPath.Reset()
+	gPath.MoveTo(ptTopX, ptTopY)
+	gPath.LineTo(ptRightX, ptRightY)
+	gPath.LineTo(ptBottomX, ptBottomY)
+	gPath.LineTo(ptLeftX, ptLeftY)
+	gPath.Close()
+	var topOpts vector.DrawPathOptions
+	topOpts.ColorScale.ScaleWithColor(highlightColor)
+	vector.FillPath(screen, &gPath, nil, &topOpts)
+
+	// Draw Left Face (Shadow)
+	gPath.Reset()
+	gPath.MoveTo(ptLeftX, ptLeftY)
+	gPath.LineTo(ptBottomX, ptBottomY)
+	gPath.LineTo(ptBotMidX, ptBotMidY)
+	gPath.LineTo(ptBotLeftX, ptBotLeftY)
+	gPath.Close()
+	var leftOpts vector.DrawPathOptions
+	leftOpts.ColorScale.ScaleWithColor(shadowColor)
+	vector.FillPath(screen, &gPath, nil, &leftOpts)
+
+	// Draw Right Face (Midtone / base mineralColor)
+	gPath.Reset()
+	gPath.MoveTo(ptBottomX, ptBottomY)
+	gPath.LineTo(ptRightX, ptRightY)
+	gPath.LineTo(ptBotRightX, ptBotRightY)
+	gPath.LineTo(ptBotMidX, ptBotMidY)
+	gPath.Close()
+	var rightOpts vector.DrawPathOptions
+	rightOpts.ColorScale.ScaleWithColor(mineralColor)
+	vector.FillPath(screen, &gPath, nil, &rightOpts)
+}
+
+func drawCubicCluster(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, mineralColor, shadowColor, highlightColor color.Color) {
+	baseSize := float32(16.0) * scale
+
+	// Draw left cube (rotated slightly left, smaller)
+	leftDir := rotateVec(dirVec, -0.5)
+	leftPerp := rotateVec(perpVec, -0.5)
+	lcx, lcy := localToScreen(cx, cy, -baseSize*0.3, -baseSize*0.1, dirVec, perpVec)
+	drawCubicCrystal(screen, lcx, lcy, leftDir, leftPerp, baseSize*0.7, mineralColor, shadowColor, highlightColor)
+
+	// Draw right cube (rotated slightly right, smaller)
+	rightDir := rotateVec(dirVec, 0.5)
+	rightPerp := rotateVec(perpVec, 0.5)
+	rcx, rcy := localToScreen(cx, cy, baseSize*0.3, -baseSize*0.1, dirVec, perpVec)
+	drawCubicCrystal(screen, rcx, rcy, rightDir, rightPerp, baseSize*0.7, mineralColor, shadowColor, highlightColor)
+
+	// Draw center cube (straight, full size, in front)
+	drawCubicCrystal(screen, cx, cy, dirVec, perpVec, baseSize, mineralColor, shadowColor, highlightColor)
+}
+
 func drawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, coreColor color.Color, mineralName string) {
 	scale := size / 40.0
 	if scale < 0.2 {
@@ -261,6 +328,8 @@ func drawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, c
 	case "Abyssal Ore":
 		drawSpikyCrystal := true
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
+	case "Nickel":
+		drawCubicCluster(screen, cx, cy, dirVec, perpVec, scale, mineralColor, shadowColor, highlightColor)
 	default:
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
 	}

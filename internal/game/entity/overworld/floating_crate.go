@@ -80,7 +80,7 @@ func (c *FloatingCrate) Update(g CrateContext) {
 
 	// Proximity check for collection
 	dist := math.Hypot(targetCenter.X-c.Pos.X, targetCenter.Y-c.Pos.Y)
-	colRadius := 16.0 + math.Max(targetDims.X, targetDims.Y)/2.0
+	colRadius := 16.0 + max(targetDims.X, targetDims.Y)/2.0
 	if dist < colRadius {
 		// Loot generation
 		loot := c.GenerateLoot()

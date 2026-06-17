@@ -15,6 +15,7 @@ const (
 	NodeCopper
 	NodeQuartz
 	NodeAbyssalOre
+	NodeNickel
 	NodeScrapMetal
 	NodeElectronicWaste
 	NodeBlueprint
@@ -93,6 +94,22 @@ var nodeRegistry = map[NodeType]*NodeTypeInfo{
 			mineralColor := color.RGBA{140, 40, 210, 255} // Glowing purple abyssal ore
 			coreColor := color.RGBA{230, 180, 255, 255}
 			drawMineral(screen, node.Tx, node.Ty, camX, camY, node.HitsToMine, mineralColor, coreColor, node.AttachDir, "Abyssal Ore")
+		},
+	},
+	NodeNickel: {
+		Name:         "Nickel",
+		MaxStack:     10,
+		RequiresMech: false,
+		BaseItem:     func() item.Item { return &item.Nickel{} },
+		Color:        color.RGBA{162, 175, 148, 255},
+		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
+			coreColor := color.RGBA{222, 235, 208, 255}
+			drawMineralIcon(screen, cx, cy, size, color.RGBA{162, 175, 148, 255}, coreColor, "Nickel")
+		},
+		Draw: func(screen *ebiten.Image, node *ResourceNode, camX, camY float64) {
+			mineralColor := color.RGBA{150, 165, 140, 255} // Warm greenish-silver
+			coreColor := color.RGBA{222, 235, 208, 255}
+			drawMineral(screen, node.Tx, node.Ty, camX, camY, node.HitsToMine, mineralColor, coreColor, node.AttachDir, "Nickel")
 		},
 	},
 	NodeScrapMetal: {
@@ -230,6 +247,8 @@ func (n *ResourceNode) GetRecipeResultName() string {
 
 type TitaniumNode struct{ ResourceNode }
 
+func (n *TitaniumNode) GetBaseItem() item.Item { return &item.Titanium{} }
+
 func NewTitaniumNode(tx, ty int) *TitaniumNode {
 	return &TitaniumNode{ResourceNode{
 		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
@@ -238,6 +257,8 @@ func NewTitaniumNode(tx, ty int) *TitaniumNode {
 }
 
 type CopperNode struct{ ResourceNode }
+
+func (n *CopperNode) GetBaseItem() item.Item { return &item.Copper{} }
 
 func NewCopperNode(tx, ty int) *CopperNode {
 	return &CopperNode{ResourceNode{
@@ -248,6 +269,8 @@ func NewCopperNode(tx, ty int) *CopperNode {
 
 type QuartzNode struct{ ResourceNode }
 
+func (n *QuartzNode) GetBaseItem() item.Item { return &item.Quartz{} }
+
 func NewQuartzNode(tx, ty int) *QuartzNode {
 	return &QuartzNode{ResourceNode{
 		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
@@ -257,6 +280,8 @@ func NewQuartzNode(tx, ty int) *QuartzNode {
 
 type AbyssalOreNode struct{ ResourceNode }
 
+func (n *AbyssalOreNode) GetBaseItem() item.Item { return &item.AbyssalOre{} }
+
 func NewAbyssalOreNode(tx, ty int) *AbyssalOreNode {
 	return &AbyssalOreNode{ResourceNode{
 		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
@@ -264,7 +289,20 @@ func NewAbyssalOreNode(tx, ty int) *AbyssalOreNode {
 	}}
 }
 
+type NickelNode struct{ ResourceNode }
+
+func (n *NickelNode) GetBaseItem() item.Item { return &item.Nickel{} }
+
+func NewNickelNode(tx, ty int) *NickelNode {
+	return &NickelNode{ResourceNode{
+		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
+		Type:             NodeNickel,
+	}}
+}
+
 type ScrapMetalNode struct{ ResourceNode }
+
+func (n *ScrapMetalNode) GetBaseItem() item.Item { return &item.ScrapMetal{} }
 
 func NewScrapMetalNode(tx, ty int) *ScrapMetalNode {
 	return &ScrapMetalNode{ResourceNode{
@@ -275,6 +313,8 @@ func NewScrapMetalNode(tx, ty int) *ScrapMetalNode {
 
 type ElectronicWasteNode struct{ ResourceNode }
 
+func (n *ElectronicWasteNode) GetBaseItem() item.Item { return &item.ElectronicWaste{} }
+
 func NewElectronicWasteNode(tx, ty int) *ElectronicWasteNode {
 	return &ElectronicWasteNode{ResourceNode{
 		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
@@ -283,6 +323,8 @@ func NewElectronicWasteNode(tx, ty int) *ElectronicWasteNode {
 }
 
 type BlueprintNode struct{ ResourceNode }
+
+func (n *BlueprintNode) GetBaseItem() item.Item { return nil }
 
 func NewBlueprintNode(tx, ty int, recipeResultName string) *BlueprintNode {
 	return &BlueprintNode{ResourceNode{

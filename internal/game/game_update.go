@@ -170,6 +170,7 @@ func (g *Game) handleDebugInput() {
 		g.player.Inventory.AddItem(&item.Titanium{}, 10)
 		g.player.Inventory.AddItem(&item.Copper{}, 10)
 		g.player.Inventory.AddItem(&item.Quartz{}, 10)
+		g.player.Inventory.AddItem(&item.Nickel{}, 10)
 		g.player.Inventory.AddItem(&item.AbyssalOre{}, 10)
 		g.player.RecalculateUpgrades()
 	case ctrlPressed && g.Input.IsKeyJustPressed(ebiten.Key5):
