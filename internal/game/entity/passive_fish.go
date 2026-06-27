@@ -3,6 +3,7 @@ package entity
 import (
 	"image/color"
 	"math"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -17,9 +18,56 @@ type PassiveFish struct {
 	FacingRight bool
 	SwimPhase   float64
 	FleeTimer   int
+	BodyColor   color.RGBA
+	TailColor   color.RGBA
+	StripeColor color.RGBA
+}
+
+var fishPresets = []struct {
+	body   color.RGBA
+	tail   color.RGBA
+	stripe color.RGBA
+}{
+	// Electric Cyan/Blue (Original)
+	{
+		body:   color.RGBA{60, 160, 200, 255},
+		tail:   color.RGBA{40, 130, 180, 200},
+		stripe: color.RGBA{80, 200, 240, 180},
+	},
+	// Radiant Coral/Orange
+	{
+		body:   color.RGBA{240, 110, 80, 255},
+		tail:   color.RGBA{200, 80, 50, 200},
+		stripe: color.RGBA{255, 150, 120, 180},
+	},
+	// Bioluminescent Violet
+	{
+		body:   color.RGBA{160, 80, 220, 255},
+		tail:   color.RGBA{120, 50, 180, 200},
+		stripe: color.RGBA{200, 130, 255, 180},
+	},
+	// Golden Tangerine
+	{
+		body:   color.RGBA{240, 170, 50, 255},
+		tail:   color.RGBA{190, 120, 20, 200},
+		stripe: color.RGBA{255, 210, 90, 180},
+	},
+	// Emerald Sea-Green
+	{
+		body:   color.RGBA{40, 180, 110, 255},
+		tail:   color.RGBA{20, 140, 80, 200},
+		stripe: color.RGBA{90, 220, 160, 180},
+	},
+	// Sunset Magenta
+	{
+		body:   color.RGBA{230, 70, 130, 255},
+		tail:   color.RGBA{180, 40, 90, 200},
+		stripe: color.RGBA{255, 120, 180, 180},
+	},
 }
 
 func NewPassiveFish(x, y float64, facingRight bool, swimPhase float64) *PassiveFish {
+	preset := fishPresets[rand.Intn(len(fishPresets))]
 	return &PassiveFish{
 		BaseEntity: BaseEntity{
 			Pos:        gvec.Vec2{X: x, Y: y},
@@ -28,6 +76,9 @@ func NewPassiveFish(x, y float64, facingRight bool, swimPhase float64) *PassiveF
 		},
 		FacingRight: facingRight,
 		SwimPhase:   swimPhase,
+		BodyColor:   preset.body,
+		TailColor:   preset.tail,
+		StripeColor: preset.stripe,
 	}
 }
 
@@ -89,7 +140,7 @@ func (f *PassiveFish) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDa
 	cx := sx + sw/2
 	cy := sy + sh/2
 
-	vector.FillCircle(screen, cx, cy, 6.0, color.RGBA{60, 160, 200, 255}, false)
+	vector.FillCircle(screen, cx, cy, 6.0, f.BodyColor, false)
 
 	var tailX float32
 	if f.FacingRight {
@@ -104,7 +155,7 @@ func (f *PassiveFish) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDa
 	entityPath.LineTo(tailX-4+wiggle, cy+5)
 	entityPath.Close()
 	var opts vector.DrawPathOptions
-	opts.ColorScale.ScaleWithColor(color.RGBA{40, 130, 180, 200})
+	opts.ColorScale.ScaleWithColor(f.TailColor)
 	vector.FillPath(screen, entityPath, nil, &opts)
 
 	var eyeX float32
@@ -115,5 +166,5 @@ func (f *PassiveFish) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDa
 	}
 	vector.FillCircle(screen, eyeX, cy-1.5, 1.5, color.White, false)
 	vector.FillCircle(screen, eyeX, cy-1.5, 0.8, color.Black, false)
-	vector.StrokeLine(screen, cx-4, cy-3, cx+4, cy-3, 0.8, color.RGBA{80, 200, 240, 180}, false)
+	vector.StrokeLine(screen, cx-4, cy-3, cx+4, cy-3, 0.8, f.StripeColor, false)
 }
