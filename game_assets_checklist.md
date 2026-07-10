@@ -11,13 +11,13 @@ To replace Ebitengine's basic debug printer with high-quality, scalable interfac
   - **Type:** TrueType/OpenType (.ttf/.otf)
   - **Style:** Clean, futuristic, high-legibility sans-serif (e.g., *Outfit*, *Roboto*, or *Orbitron*).
   - **Purpose:** Used for all HUD meters, oxygen counts, battery levels, crafting item names, base schematic lists, and tooltips.
-  - **Loading Code:** [internal/game/hud.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/hud.go), [internal/game/menu.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/menu.go)
+  - **Loading Code:** [internal/game/scene/hud.go](file:///Users/jaredwarren/SubGame/internal/game/scene/hud.go), [internal/game/scene/menu.go](file:///Users/jaredwarren/SubGame/internal/game/scene/menu.go)
 
 - [ ] **Title & Cinematic Font** (`assets/fonts/title.ttf`)
   - **Type:** TrueType/OpenType (.ttf/.otf)
   - **Style:** Wide, spacing-optimized, stylized sci-fi font.
   - **Purpose:** Game logo on main title screen, win/loss scenes, biome transition texts ("ENTERING ABYSSAL ZONE"), and mission prompts.
-  - **Loading Code:** [internal/game/title_scene.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/title_scene.go), [internal/game/win_scene.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/win_scene.go), [internal/game/gameover_scene.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/gameover_scene.go)
+  - **Loading Code:** [internal/game/scene/title.go](file:///Users/jaredwarren/SubGame/internal/game/title.go), [internal/game/scene/win.go](file:///Users/jaredwarren/SubGame/internal/game/win.go), [internal/game/scene/gameover.go](file:///Users/jaredwarren/SubGame/internal/game/gameover.go)
 
 ---
 
@@ -29,7 +29,7 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
   - **Details:** 64x64px repeating textures for Coastal Water (light teal), Deep Water (dark navy), and Trench transition edges.
   - **AI Image Generation Prompt:**
     > `16-bit retro pixel art texture, tilesheet. Six repeating 64x64px seamless tile textures of ocean water: light turquoise coastal water, medium blue water, deep navy blue water, and matching transition borders. Flat shading, classic retro RPG style, seamless looping texture on all sides. No grids, clear details.`
-  - **Render Logic:** [internal/game/overworld.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/overworld.go)
+  - **Render Logic:** [internal/game/overworld.go](file:///Users/jaredwarren/subgame/internal/game/overworld.go)
 
 - [ ] **Land / Reef Tiles Sheet** (`assets/textures/overworld_land.png`)
   - **Details:** 64x64px sandy shore borders, green grassy reef tiles, and rocky blocks representing islands.
@@ -40,13 +40,25 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
   - **Details:** A 128x128px detailed capsule sprite floating in water with a solar array visible on top.
   - **AI Image Generation Prompt:**
     > `2D orthographic game sprite, 16-bit pixel art style. Industrial floating base capsule pod, metallic white and grey plating with high-contrast orange stripes, round blue dome glass hatches on top, solar array panel grids mounted on the hull. Floating on a clean, solid bright green chroma-key background, isolated game asset.`
-  - **Render Logic:** [internal/game/game.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/game.go) (Base Station rendering)
+  - **Render Logic:** [internal/game/game.go](file:///Users/jaredwarren/SubGame/internal/game/game.go) (Base Station rendering)
 
 - [x] **The Skiff Surface Boat Sprite** (`assets/textures/skiff.png`)
   - **Details:** A 56x24px top-down motorboat sprite with an orange trim and solar recharging cells on the back.
   - **AI Image Generation Prompt:**
     > `2D top-down game sprite, 16-bit retro pixel art. A small motorized exploration boat (skiff), sharp bow, flat deck with a blue solar panel on the back, industrial white hull, bright orange safety stripe trim. Centered on a flat, solid green chroma-key background.`
-  - **Render Logic:** [internal/game/vehicle/skiff.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/skiff.go)
+  - **Render Logic:** [internal/game/vehicle/skiff.go](file:///Users/jaredwarren/SubGame/internal/game/vehicle/skiff.go)
+
+- [x] **Trench Surface Sprite** (`assets/textures/trench_surface.png`)
+  - **Details:** Slate-grey rock tile texture used to demarcate trench entry zones on the overworld.
+  - **AI Image Generation Prompt:**
+    > `16-bit retro pixel art texture, tilesheet. Seamless tile textures of slate-grey volcanic ocean trench rock, dark deep cracks. Flat shading, classic retro RPG style, seamless looping texture. No grids, clear details.`
+  - **Render Logic:** [internal/game/scene/overworld.go](file:///Users/jaredwarren/SubGame/internal/game/scene/overworld.go)
+
+- [x] **Wreckage Surface Sprite** (`assets/textures/wreckage_surface.png`)
+  - **Details:** Rusted metal plates and hull wreckage block used to demarcate wreckage salvage zones on the overworld.
+  - **AI Image Generation Prompt:**
+    > `16-bit retro pixel art texture, tilesheet. Seamless tile textures of rusted iron/steel ship hull plates, rivets and corrosion. Flat shading, classic retro RPG style, seamless looping texture. No grids, clear details.`
+  - **Render Logic:** [internal/game/scene/overworld.go](file:///Users/jaredwarren/SubGame/internal/game/scene/overworld.go)
 
 
 ### Cave Environment (Side-Scroller Grid)
@@ -54,7 +66,7 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
   - **Details:** Sandy, coral-overgrown rock textures with border tiles for slopes.
   - **AI Image Generation Prompt:**
     > `16-bit retro pixel art tilesheet, side-view platformer style. Organic cave wall tiles of sandy yellow reef rock, overgrown with tiny colorful corals and seaweed. Includes inner fills, corner blocks, and slopes. Repeating tileable texture, clean grid lines.`
-  - **Render Logic:** [internal/game/cave.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/cave.go)
+  - **Render Logic:** [internal/game/cave.go](file:///Users/jaredwarren/SubGame/internal/game/cave.go)
 
 - [ ] **Mid-Depth Cave Tiles** (`assets/textures/cave_mid.png`)
   - **Details:** Dark teal, slime-covered basalt rock textures with bioluminescent moss streaks.
@@ -72,10 +84,10 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
     > `16-bit retro pixel art tilesheet, side-view abyssal crevices. Pitch-black stone tiles detailed with ash-white fossil shapes, pale calcified bones, and grey organic mats. Seamless tileable textures, dark atmospheric style.`
 
 - [ ] **Cave Flora Sprites**
-  - **Details:** Swaying Kelp / Sea Grass (animated), glowing bulb plants, volcanic chimneys, and purple nerve mats.
+  - **Details:** Swaying Kelp / Sea Grass (animated), glowing bulb plants, volcanic chimneys, and purple nerve mats. (Currently rendered procedurally in code)
   - **AI Image Generation Prompt:**
     > `16-bit retro pixel art game asset spritesheet. A set of side-scrolling underwater environmental details: 4 frames of swaying green kelp stalks, 3 varieties of glowing blue sea mushrooms, a hydrothermal vent volcano chimney venting orange dust, and a flat purple roots carpet. Clean bright green chroma-key background.`
-  - **Render Logic:** [internal/game/biome_entity.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/biome_entity.go)
+  - **Render Logic:** [internal/game/entity/kelp.go](file:///Users/jaredwarren/SubGame/internal/game/entity/kelp.go), [internal/game/entity/nerve_mat.go](file:///Users/jaredwarren/SubGame/internal/game/entity/nerve_mat.go), [internal/game/entity/coral.go](file:///Users/jaredwarren/SubGame/internal/game/entity/coral.go)
 
 
 ### Characters & Vehicles
@@ -88,13 +100,13 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
   - **Style Matching Colors:** Industrial orange wetsuit, yellow oxygen cylinder tank on the back, cyan/light-blue glass visor helmet.
   - **AI Image Generation Prompt:**
     > `2D side-scrolling video game asset, sprite sheet, 16-bit retro pixel art style. A deep-sea diver character wearing an industrial orange wetsuit with a yellow oxygen cylinder tank strapped to their back and a large round cyan glass visor helmet. Side-view profile perspective. The sheet must contain a clean grid sequence of animation frames: Row 1 has 4 frames of idle floating bobbing cycle; Row 2 has 8 frames of swimming/kicking cycle; Row 3 has 4 frames of swinging a handheld pickaxe/scanner tool forward; Row 4 has 1 frame of damage recoil. Crisp pixel outlines, flat clean shading, presented on a solid bright green background for easy transparency removal. No shadows on background, no water overlays.`
-  - **Render Logic:** [internal/game/cave.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/cave.go)
+  - **Render Logic:** [internal/game/scene/cave_draw.go](file:///Users/jaredwarren/SubGame/internal/game/scene/cave_draw.go), [internal/game/scene/cave.go](file:///Users/jaredwarren/SubGame/internal/game/scene/cave.go)
 
 - [x] **Scout Sub Sprite** (`assets/textures/scout_sub.png`)
-  - **Details:** A 48x32px mini-sub sprite with a glass bubble cockpit, a back propeller (2-frame rotation), and a front headlight lens.
+  - **Details:** A mini-sub sprite with a glass bubble cockpit, a back propeller (2-frame rotation), and a front headlight lens.
   - **AI Image Generation Prompt:**
     > `2D side-view mini-submarine game sprite, 16-bit retro pixel art. A small exploration sub with a circular glass cockpit displaying a cyan glow, a yellow and industrial teal hull, front glass searchlight lens, and back copper propellers. Side profile view, solid green chroma-key background.`
-  - **Render Logic:** [internal/game/vehicle/vehicle.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/vehicle.go)
+  - **Render Logic:** [internal/game/vehicle/rendering.go](file:///Users/jaredwarren/SubGame/internal/game/vehicle/rendering.go), [internal/game/vehicle/scoutsub.go](file:///Users/jaredwarren/SubGame/internal/game/vehicle/scoutsub.go)
 
 - [x] **Heavy Mech Spritesheet** (`assets/textures/heavy_mech.png`)
   - **Details:** A walker robot containing:
@@ -105,50 +117,90 @@ Sprites should be placed in `assets/textures/` and loaded as `ebiten.Image` spri
     - Thruster flame bursts (spark animation).
   - **AI Image Generation Prompt:**
     > `2D side-scrolling video game asset, sprite sheet, 16-bit retro pixel art style. An industrial walker mech suit, dark grey and orange iron plating. The sheet must contain a clean grid sequence of animations: Row 1 has 4 frames of leg walking cycle; Row 2 has 4 frames of drill arm rotation loop; Row 3 has 1 frame of thruster ignition sparks. Solid bright green background, clean pixels, no shadows. Centered on a flat, solid green chroma-key background.`
-  - **Render Logic:** [internal/game/vehicle/vehicle.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/vehicle.go)
+  - **Render Logic:** [internal/game/vehicle/rendering.go](file:///Users/jaredwarren/SubGame/internal/game/vehicle/rendering.go), [internal/game/vehicle/heavymech.go](file:///Users/jaredwarren/SubGame/internal/game/vehicle/heavymech.go)
 
 
-### Biome Creatures & Flora Entities
+#### Biome Creatures & Flora Entities
 - [ ] **Shatter-Bulb Sprite** (`assets/textures/shatter_bulb.png`)
-  - **Details:** 24x24px bulb attached to a dark stem with a bright glowing blue/cyan gas bladder.
+  - **Details:** 24x24px bulb attached to a dark stem with a bright glowing blue/cyan gas bladder. (Currently rendered procedurally in code)
   - **AI Image Generation Prompt:**
     > `2D game sprite, 16-bit retro pixel art. A small bioluminescent cave bulb plant, a glowing cyan gas bladder bulb sitting on a dark green stem. Clean solid green background, isolated asset.`
-  - **Render Logic:** [internal/game/biome_entity.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/biome_entity.go)
+  - **Render Logic:** [internal/game/entity/shatter_bulb.go](file:///Users/jaredwarren/SubGame/internal/game/entity/shatter_bulb.go)
 
 - [ ] **False-Bulb Snare Spritesheet** (`assets/textures/snare_sheet.png`)
-  - **Details:** Mimic state (resembles Shatter-Bulb), and Aggro state (bulb splits open to reveal a circular mouth and slithering tentacles).
+  - **Details:** Mimic state (resembles Shatter-Bulb), and Aggro state (bulb splits open to reveal a circular mouth and slithering tentacles). (Currently rendered procedurally in code)
   - **AI Image Generation Prompt:**
     > `2D side-view creature spritesheet, 16-bit retro pixel art. The False-Bulb Snare predator: 4 frames of it hanging from a ceiling mimicking a glowing blue Shatter-bulb plant; 4 frames of it waking up, opening a circular mouth with sharp teeth, showing a red eye pupil, and extending lunging tentacles. Flat green background.`
+  - **Render Logic:** [internal/game/entity/false_bulb_snare.go](file:///Users/jaredwarren/SubGame/internal/game/entity/false_bulb_snare.go)
 
 - [ ] **Thermocline Rammer Spritesheet** (`assets/textures/rammer_sheet.png`)
-  - **Details:** Armored dark orange predator fish. Includes a tail fin swim cycle and a charging pose.
+  - **Details:** Armored dark orange predator fish. Includes a tail fin swim cycle and a charging pose. (Currently rendered procedurally in code)
   - **AI Image Generation Prompt:**
     > `2D side-scrolling creature spritesheet, 16-bit retro pixel art. The Thermocline Rammer: an armored predator fish with a dark orange body, thick shovel-like grey iron head plate, and thrashing tail fin. Sheet contains: Row 1 with 4 frames of swimming tail-fin wiggle; Row 2 with 1 frame of charging sprint. Solid green background.`
+  - **Render Logic:** [internal/game/entity/thermocline_rammer.go](file:///Users/jaredwarren/SubGame/internal/game/entity/thermocline_rammer.go)
 
 - [ ] **Electro-Weaver Spritesheet** (`assets/textures/weaver_sheet.png`)
-  - **Details:** Serpentine ribbon monster. Transparent head sprite with glowing yellow nerve fibers, and segmented tail body parts that slither behind.
+  - **Details:** Serpentine ribbon monster. Transparent head sprite with glowing yellow nerve fibers, and segmented tail body parts that slither behind. (Currently rendered procedurally in code)
   - **AI Image Generation Prompt:**
     > `2D side-view serpent creature spritesheet, 16-bit retro pixel art. The Electro-Weaver: a long serpentine deep-sea ribbon monster with a transparent glowing head, glowing yellow eye dots, and multiple segment joint rings flowing behind. Includes 4 frames of slithering body waves and 2 frames of blue electric discharge sparks. Solid green background.`
+  - **Render Logic:** [internal/game/entity/electro_weaver.go](file:///Users/jaredwarren/SubGame/internal/game/entity/electro_weaver.go)
+
+- [ ] **Sand Viper Spritesheet** (`assets/textures/sand_viper.png`)
+  - **Details:** Sandy-gold/tan wiggling snake-like seabed predator. Patrolls, winds up, and lunges at player or active vehicle. (Currently rendered procedurally in code)
+  - **AI Image Generation Prompt:**
+    > `2D side-view snake creature spritesheet, 16-bit retro pixel art. The Sand Viper: a wiggling serpentine sand predator with sandy-gold and tan scales, glowing yellow eyes, and sharp fangs. Includes 6 frames of slithering body wave and 2 frames of lunging bite. Solid green background.`
+  - **Render Logic:** [internal/game/entity/sand_viper.go](file:///Users/jaredwarren/SubGame/internal/game/entity/sand_viper.go)
+
+- [ ] **Voltaic Lurker Spritesheet** (`assets/textures/voltaic_lurker.png`)
+  - **Details:** Glowing electric grabber anchored to cave walls, lunges/retracts, and triggers shock/stun on contact. (Currently rendered procedurally in code)
+  - **AI Image Generation Prompt:**
+    > `2D side-view creature spritesheet, 16-bit retro pixel art. The Voltaic Lurker: a segmented mechanical or organic tentacle anchored in a dark hole, with deep purple skin and glowing neon cyan eyes. Includes 4 frames of rapid lunging extension, and 3 frames of glowing blue electrical sparks discharge. Solid green background.`
+  - **Render Logic:** [internal/game/entity/voltaic_lurker.go](file:///Users/jaredwarren/SubGame/internal/game/entity/voltaic_lurker.go)
+
+- [ ] **Passive Crab Sprite** (`assets/textures/passive_crab.png`)
+  - **Details:** Small catchable floor crab that retreats into its shell when threatened. Yields Raw Crab when harvested. (Currently rendered procedurally in code)
+  - **AI Image Generation Prompt:**
+    > `2D side-view creature sprite, 16-bit retro pixel art. A small deep-sea crab with a bright red shell, tiny beady black eyes on stalks, and small walking legs. Clean green background, isolated asset.`
+  - **Render Logic:** [internal/game/entity/passive_crab.go](file:///Users/jaredwarren/SubGame/internal/game/entity/passive_crab.go)
+
+- [ ] **Passive Fish Sprite** (`assets/textures/passive_fish.png`)
+  - **Details:** Catchable swimming fish with color presets (cyan, orange, violet, gold, emerald). Yields Raw Fish when harvested. (Currently rendered procedurally in code)
+  - **AI Image Generation Prompt:**
+    > `2D side-view creature sprite, 16-bit retro pixel art. A small glowing neon-blue tropical fish with a wiggling tail. Clean green background, isolated asset.`
+  - **Render Logic:** [internal/game/entity/passive_fish.go](file:///Users/jaredwarren/SubGame/internal/game/entity/passive_fish.go)
+
+- [ ] **Brimstone Siphon Sprite** (`assets/textures/brimstone_siphon.png`)
+  - **Details:** Volcanic hydrothermal chimneys that fire damaging hot thermal jets. (Currently rendered procedurally in code)
+  - **AI Image Generation Prompt:**
+    > `2D game asset sprite, 16-bit retro pixel art. Hydrothermal vent volcano chimney venting black and orange mineral dust, jagged volcanic basalt rock structure. Clean green background, isolated asset.`
+  - **Render Logic:** [internal/game/entity/brimstone_siphon.go](file:///Users/jaredwarren/SubGame/internal/game/entity/brimstone_siphon.go)
 
 
 ### Mineable Minerals & Ore Nodes
-- [ ] **Ore Node Spritesheet** (`assets/textures/ore_sheet.png`)
-  - **Details:** A 256x64px horizontal spritesheet containing four 64x64px tile frames side-by-side (matching the game's `TileSize = 64` layout):
+- [x] **Ore Node Spritesheet** (`assets/textures/ore_sheet.png`)
+  - **Details:** A horizontal spritesheet containing 64x64px tile frames side-by-side:
     - Frame 0 (X: 0-63): **Titanium Node** (metallic silver-grey crystals embedded in dark stone block).
     - Frame 1 (X: 64-127): **Copper Node** (reddish-orange raw metal veins running through dark stone block).
     - Frame 2 (X: 128-191): **Quartz Node** (translucent glowing cyan crystal cluster embedded in dark volcanic rock).
     - Frame 3 (X: 192-255): **Abyssal Ore Node** (glowing radioactive violet-purple crystal shards embedded in dark black deep-sea stone).
+    - *Note:* **Nickel**, **Scrap Metal**, **Electronic Waste**, and **Blueprint** nodes are currently drawn procedurally in code.
   - **AI Image Generation Prompt:**
     > `16-bit retro pixel art horizontal spritesheet, 256x64px total size, containing four 64x64px tile frames side-by-side. Solid pure green background (#00FF00) for chroma-keying. From left to right: 1. Titanium node (raw metallic silver-grey crystals embedded in dark stone block), 2. Copper node (reddish-orange raw metal veins branching through dark stone block), 3. Quartz node (translucent glowing cyan crystal cluster in dark rock block), 4. Abyssal ore node (glowing radioactive violet-purple crystal shards embedded in dark black deep-sea rock block). Clear pixel-perfect edges, game asset sheet style. Centered on a flat, solid green chroma-key background.`
-  - **Render Logic:** [internal/game/resource/resource.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/resource/resource.go)
+  - **Render Logic:** [internal/game/resource/sprites.go](file:///Users/jaredwarren/SubGame/internal/game/resource/sprites.go), [internal/game/resource/nodes.go](file:///Users/jaredwarren/SubGame/internal/game/resource/nodes.go)
 
 
-### Inventory Items & Upgrade Icons
+#### Inventory Items & Upgrade Icons
 - [x] **Inventory Icons Sheet** (`assets/textures/item_icons.png`)
-  - **Details:** 48x48px grid cells containing icons for all craftable items.
+  - **Details:** Grid cells containing icons for all items.
   - **AI Image Generation Prompt:**
-    > `16-bit retro pixel art icon set, 48x48px square tiles on a solid green chroma-key background (#00FF00). Grid of inventory icons, each icon centered on a dark dark grey square panel backing with clean, pixel-perfect edges. The grid contains icons for: 1. Titanium (raw silver-grey metal chunk), 2. Copper (reddish-orange raw metal chunk), 3. Quartz (translucent glowing cyan crystal cluster), 4. Abyssal Ore (glowing radioactive violet-purple crystal shard), 5. Scrap Metal (rusty bent/angled iron plate), 6. Electronic Waste (green microchip circuit board with copper pins), 7. High Capacity O2 Tank (yellowish-green gas cylinder), 8. Ultra High Capacity O2 Tank (advanced oxygen tank with double cylinders), 9. Propulsion Fins (neon-green flippers/fins), 10. Scanner Tool (handheld scanner with small glowing screen), 11. Solar Array Module (solar panel cell block with yellowish grid lines), 12. Solar Array MKII Module (upgraded solar panel module with gold frames), 13. Storage Vault Module (metallic grey cargo box/vault), 14. Storage Vault MKII Module (advanced storage trunk with blue accents), 15. Scout Sub Kit (small blue submarine pod capsule silhouette), 16. Heavy Mech Kit (industrial orange walker mech torso unit), 17. Sonar Amplifier (circular radar dish with glowing cyan waves/concentric rings), 18. Power Cell (yellow cylindrical battery cell with grey tip), 19. Thermal Generator (diamond container with an inner glowing orange flame), 20. Escape Rocket (pointed red/white space rocket with orange thruster flame), 21. Raw Fish (blue ocean fish with tail and small eye), 22. Cooked Fish (golden-brown grilled fish with dark grill marks), 23. Raw Crab (red crab shell body with small claws), 24. Cooked Crab (orange-red cooked crab). Consistent art style, high contrast, clean retro game assets.`
-  - **Render Logic:** [internal/game/item/item.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/item/item.go)
+    > `16-bit retro pixel art icon set, 48x48px square tiles on a solid green chroma-key background (#00FF00). Grid of inventory icons, each icon centered on a dark dark grey square panel backing with clean, pixel-perfect edges. The grid contains icons for: 
+    > Row 0: 1. Titanium (raw silver-grey metal chunk), 2. Copper (reddish-orange raw metal chunk), 3. Quartz (translucent glowing cyan crystal cluster), 4. Abyssal Ore (glowing radioactive violet-purple crystal shard), 5. Scrap Metal (rusty bent/angled iron plate), 6. Electronic Waste (green microchip circuit board with copper pins).
+    > Row 1: 7. High Capacity O2 Tank (yellowish-green gas cylinder), 8. Ultra High Capacity O2 Tank (advanced oxygen tank with double cylinders), 9. Propulsion Fins (neon-green flippers/fins), 10. Scanner Tool (handheld scanner with small glowing screen), 11. Solar Array Module (solar panel cell block with yellowish grid lines), 12. Solar Array MKII Module (upgraded solar panel module with gold frames).
+    > Row 2: 13. Storage Vault Module (metallic grey cargo box/vault), 14. Storage Vault MKII Module (advanced storage trunk with blue accents), 15. Scout Sub Kit (small blue submarine pod capsule silhouette), 16. Heavy Mech Kit (industrial orange walker mech torso unit), 17. Sonar Amplifier (circular radar dish with glowing cyan waves/concentric rings), 18. Power Cell (yellow cylindrical battery cell with grey tip).
+    > Row 3: 19. Sonic Decoy (yellow capsule emitting circular green soundwaves), 20. Chemical Deterrent (canister releasing a thick purple/orange cloudy gas), 21. Decoy Launcher Module (gray launcher tube with a bright green status light), 22. Chemical Discharger Module (heavy dual-nozzle industrial gray module).
+    > Row 4: 23. Thermal Generator (diamond container with an inner glowing orange flame), 24. Escape Rocket (pointed red/white space rocket with orange thruster flame), 25. Raw Fish (blue ocean fish with tail and small eye), 26. Cooked Fish (golden-brown grilled fish with dark grill marks), 27. Raw Crab (red crab shell body with small claws), 28. Cooked Crab (orange-red cooked crab).
+    > *Note:* **Nickel** is drawn procedurally in code. Consistent art style, high contrast, clean retro game assets.`
+  - **Render Logic:** [internal/game/item/sprites.go](file:///Users/jaredwarren/SubGame/internal/game/item/sprites.go), [internal/game/item/item.go](file:///Users/jaredwarren/SubGame/internal/game/item/item.go)
 
 
 ### UI & Overlay Textures

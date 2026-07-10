@@ -744,13 +744,13 @@ func TestTitleScene_SeedInput(t *testing.T) {
 	// Seed input box is at X: 520, Y: 535, W: 240, H: 40
 	mockInput.CursorPos = gvec.Vec2{X: 640, Y: 555}
 	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
-	
+
 	// Update to process focus
 	err := g.Update()
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	// Verify focus is not transitioned to overworld yet
 	if g.currentState != StateTitle {
 		t.Fatalf("expected to remain in Title, transitioned to %s", g.currentState)
@@ -851,7 +851,7 @@ func TestTitleScene_SeedInputBackspace(t *testing.T) {
 
 func TestVehicle_PickUp(t *testing.T) {
 	g := NewGame()
-	
+
 	// Set state to Cave and prepare a trench key
 	g.currentState = StateCave
 	g.activeTrenchKey = "0_0"
@@ -888,7 +888,7 @@ func TestVehicle_PickUp(t *testing.T) {
 	// 3. Free up one slot -> should succeed.
 	g.player.Inventory.Slots[0] = item.ItemStack{}
 	g.PickUpActiveVehicle()
-	
+
 	if g.ActiveVehicle != nil {
 		t.Error("expected active vehicle to be nil after successful pickup")
 	}
@@ -947,7 +947,7 @@ func TestTutorial_Flow(t *testing.T) {
 	// 3. Add 1 titanium (bringing count to 10)
 	g.player.Inventory.AddItem(&item.Titanium{}, 1)
 	instr = g.getTutorialInstruction()
-	if instr != "Tutorial: Swim to top of cave (Y < 0) and press [E] to surface" {
+	if instr != "Tutorial: Swim to the surface" {
 		t.Errorf("unexpected cave return instruction: %q", instr)
 	}
 
@@ -1039,4 +1039,3 @@ func TestTutorial_Flow(t *testing.T) {
 		t.Error("expected tutorial to be completed after deploying the Skiff")
 	}
 }
-

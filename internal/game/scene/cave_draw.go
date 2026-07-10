@@ -149,8 +149,16 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 			baseFrameH = float64(c.diverIdleFrames[0].Bounds().Dy())
 		}
 		op.GeoM.Translate(-baseFrameW/2.0, -baseFrameH/2.0)
-		if math.Cos(facingAngle) < 0 {
+		facingLeft := math.Cos(facingAngle) < 0
+		if facingLeft {
 			op.GeoM.Scale(-1, 1)
+		}
+		if p.Vel.Y > 0.2 && p.Vel.Y > math.Abs(p.Vel.X)*0.8 {
+			if facingLeft {
+				op.GeoM.Rotate(-math.Pi / 2.0)
+			} else {
+				op.GeoM.Rotate(math.Pi / 2.0)
+			}
 		}
 		scale := DiverDrawWidth / baseFrameW
 		op.GeoM.Scale(scale, scale)

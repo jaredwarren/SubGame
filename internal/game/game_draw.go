@@ -314,7 +314,7 @@ func (g *Game) getTutorialInstruction() string {
 
 	// Have >= 10 titanium, need to craft Skiff
 	if g.currentState == StateCave {
-		return "Tutorial: Swim to top of cave (Y < 0) and press [E] to surface"
+		return "Tutorial: Swim to the surface"
 	}
 	// Overworld
 	dist := g.baseStation.DistanceToPlayer(g.player)
