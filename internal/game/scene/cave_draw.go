@@ -112,29 +112,28 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 	facingAngle := p.Facing
 
 	var activeFrame *ebiten.Image
-	if c.diverSheet != nil {
-		if p.IsDamaged {
-			activeFrame = c.diverDamageFrame
-		} else if p.IsMining {
+	if c.diverSheet != nil || len(c.diverSwimFrames) > 0 {
+		if p.IsMining {
 			elapsed := 24 - p.MiningAnimTimer
-			frameIdx := elapsed / 6
-			if frameIdx < 0 {
-				frameIdx = 0
-			}
-			if frameIdx > 3 {
-				frameIdx = 3
-			}
-			if frameIdx < len(c.diverMineFrames) {
+			numMineFrames := len(c.diverMineFrames)
+			if numMineFrames > 0 {
+				frameIdx := elapsed * numMineFrames / 24
+				if frameIdx < 0 {
+					frameIdx = 0
+				}
+				if frameIdx >= numMineFrames {
+					frameIdx = numMineFrames - 1
+				}
 				activeFrame = c.diverMineFrames[frameIdx]
 			}
 		} else if math.Hypot(p.Vel.X, p.Vel.Y) > 0.2 {
-			frameIdx := (p.AnimTick / 5) % 8
-			if frameIdx < len(c.diverSwimFrames) {
+			if len(c.diverSwimFrames) > 0 {
+				frameIdx := (p.AnimTick / 5) % len(c.diverSwimFrames)
 				activeFrame = c.diverSwimFrames[frameIdx]
 			}
 		} else {
-			frameIdx := (p.AnimTick / 10) % 4
-			if frameIdx < len(c.diverIdleFrames) {
+			if len(c.diverIdleFrames) > 0 {
+				frameIdx := (p.AnimTick / 15) % len(c.diverIdleFrames)
 				activeFrame = c.diverIdleFrames[frameIdx]
 			}
 		}
@@ -142,13 +141,13 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 
 	if activeFrame != nil {
 		op := &ebiten.DrawImageOptions{}
-		baseFrameW := float64(activeFrame.Bounds().Dx())
-		baseFrameH := float64(activeFrame.Bounds().Dy())
-		if len(c.diverIdleFrames) > 0 {
-			baseFrameW = float64(c.diverIdleFrames[0].Bounds().Dx())
-			baseFrameH = float64(c.diverIdleFrames[0].Bounds().Dy())
-		}
-		op.GeoM.Translate(-baseFrameW/2.0, -baseFrameH/2.0)
+		b := activeFrame.Bounds()
+		baseFrameW := float64(b.Dx())
+		baseFrameH := float64(b.Dy())
+		minX := float64(b.Min.X)
+		minY := float64(b.Min.Y)
+
+		op.GeoM.Translate(-minX-baseFrameW/2.0, -minY-baseFrameH/2.0)
 		facingLeft := math.Cos(facingAngle) < 0
 		if facingLeft {
 			op.GeoM.Scale(-1, 1)
@@ -163,6 +162,13 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 		scale := DiverDrawWidth / baseFrameW
 		op.GeoM.Scale(scale, scale)
 		op.GeoM.Translate(float64(pX), float64(pY))
+
+		if p.IsDamaged {
+			if (p.DamageAnimTimer/4)%2 == 0 {
+				op.ColorScale.Scale(2.5, 0.4, 0.4, 1.0)
+			}
+		}
+
 		screen.DrawImage(activeFrame, op)
 	} else {
 		tankAngle := facingAngle + math.Pi

@@ -36,6 +36,12 @@ func LoadChromaKeyedImage(name string, opts ...Option) (*ebiten.Image, error) {
 		data = rawassets.SkiffPNG
 	case "diver_sheet":
 		data = rawassets.DiverSheetPNG
+	case "diver_swim_sheet":
+		data = rawassets.DiverSwimSheetPNG
+	case "diver_mine_sheet":
+		data = rawassets.DiverMineSheetPNG
+	case "diver_topdown_sheet":
+		data = rawassets.DiverTopdownSheetPNG
 	case "item_icons":
 		data = rawassets.ItemIconsPNG
 	case "lifepod_surface":
@@ -74,7 +80,7 @@ func LoadChromaKeyedImage(name string, opts ...Option) (*ebiten.Image, error) {
 		gu := rgba.Pix[i+1]
 		bu := rgba.Pix[i+2]
 
-		if gu > 140 && ru < 100 && bu < 100 {
+		if (gu > 140 && ru < 100 && bu < 100) || (gu > 140 && int(gu)-int(ru) > 50 && int(gu)-int(bu) > 50) {
 			rgba.Pix[i] = 0
 			rgba.Pix[i+1] = 0
 			rgba.Pix[i+2] = 0

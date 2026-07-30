@@ -14,6 +14,15 @@ var SkiffPNG []byte
 //go:embed textures/diver_sheet.png
 var DiverSheetPNG []byte
 
+//go:embed textures/16_bit_retro_pixel_a...-1246101042-1.png
+var DiverSwimSheetPNG []byte
+
+//go:embed textures/16_bit_retro_pixel_axe.png
+var DiverMineSheetPNG []byte
+
+//go:embed textures/diver_topdown_sheet.png
+var DiverTopdownSheetPNG []byte
+
 //go:embed textures/item_icons.png
 var ItemIconsPNG []byte
 

@@ -175,10 +175,60 @@ func (c *CaveScene) loadDiverSheet() {
 		rect := image.Rect(DiverXOffset+col*frameW, DiverYOffset+frameH, DiverXOffset+(col+1)*frameW, DiverYOffset+frameH*2)
 		c.diverSwimFrames = append(c.diverSwimFrames, sheet.SubImage(rect).(*ebiten.Image))
 	}
-	mineFrameW := bounds.Dx() / DiverMineGridCols
-	for _, col := range DiverMineCols {
-		rect := image.Rect(DiverXOffset+col*mineFrameW, DiverYOffset+frameH*2, DiverXOffset+(col+1)*mineFrameW, DiverYOffset+frameH*3)
-		c.diverMineFrames = append(c.diverMineFrames, sheet.SubImage(rect).(*ebiten.Image))
+
+	swimSheet, err := assets.LoadChromaKeyedImage("diver_swim_sheet")
+	if err == nil {
+		colRanges := [][2]int{
+			{10, 244},
+			{266, 500},
+			{522, 756},
+			{779, 1013},
+		}
+		rowRanges := [][2]int{
+			{10, 250},
+			{260, 500},
+		}
+		c.diverSwimFrames = nil
+		c.diverIdleFrames = nil
+		for _, rRange := range rowRanges {
+			for _, cRange := range colRanges {
+				rect := image.Rect(cRange[0], rRange[0], cRange[1], rRange[1])
+				frame := ebiten.NewImageFromImage(swimSheet.SubImage(rect))
+				c.diverSwimFrames = append(c.diverSwimFrames, frame)
+				c.diverIdleFrames = append(c.diverIdleFrames, frame)
+			}
+		}
+	} else {
+		log.Printf("Warning: Failed to load new diver swim sheet: %v", err)
+	}
+
+	mineSheet, err := assets.LoadChromaKeyedImage("diver_mine_sheet")
+	if err == nil {
+		colRanges := [][2]int{
+			{0, 255},
+			{256, 511},
+			{512, 767},
+			{768, 1023},
+		}
+		rowRanges := [][2]int{
+			{0, 255},
+			{256, 511},
+		}
+		c.diverMineFrames = nil
+		for _, rRange := range rowRanges {
+			for _, cRange := range colRanges {
+				rect := image.Rect(cRange[0], rRange[0], cRange[1], rRange[1])
+				frame := ebiten.NewImageFromImage(mineSheet.SubImage(rect))
+				c.diverMineFrames = append(c.diverMineFrames, frame)
+			}
+		}
+	} else {
+		log.Printf("Warning: Failed to load diver mine sheet: %v", err)
+		mineFrameW := bounds.Dx() / DiverMineGridCols
+		for _, col := range DiverMineCols {
+			rect := image.Rect(DiverXOffset+col*mineFrameW, DiverYOffset+frameH*2, DiverXOffset+(col+1)*mineFrameW, DiverYOffset+frameH*3)
+			c.diverMineFrames = append(c.diverMineFrames, sheet.SubImage(rect).(*ebiten.Image))
+		}
 	}
 	if len(DiverDamageCols) > 0 {
 		col := DiverDamageCols[0]

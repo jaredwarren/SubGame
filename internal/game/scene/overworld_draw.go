@@ -116,10 +116,48 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 
 		pX := float32(p.CenterX())
 		pY := float32(p.CenterY())
-		vector.FillCircle(screen, pX, pY, 8.0, color.RGBA{220, 95, 45, 255}, false)
-		vx := pX + float32(math.Cos(p.Facing))*5
-		vy := pY + float32(math.Sin(p.Facing))*5
-		vector.FillCircle(screen, vx, vy, 4.0, color.RGBA{80, 200, 255, 200}, false)
+
+		o.loadTopdownSwimFrames()
+
+		if len(o.topdownSwimFrames) > 0 {
+			var activeFrame *ebiten.Image
+			speed := math.Hypot(p.Vel.X, p.Vel.Y)
+			if speed > 0.2 {
+				frameIdx := (int(p.AnimTick) / 6) % len(o.topdownSwimFrames)
+				activeFrame = o.topdownSwimFrames[frameIdx]
+			} else {
+				frameIdx := (int(p.AnimTick) / 16) % len(o.topdownSwimFrames)
+				activeFrame = o.topdownSwimFrames[frameIdx]
+			}
+
+			if activeFrame != nil {
+				op := &ebiten.DrawImageOptions{}
+				b := activeFrame.Bounds()
+				frameW := float64(b.Dx())
+				frameH := float64(b.Dy())
+				minX := float64(b.Min.X)
+				minY := float64(b.Min.Y)
+
+				op.GeoM.Translate(-minX-frameW/2.0, -minY-frameH/2.0)
+				rotAngle := p.Facing + math.Pi/2.0
+				op.GeoM.Rotate(rotAngle)
+
+				targetW := 32.0
+				scale := targetW / frameW
+				op.GeoM.Scale(scale, scale)
+				op.GeoM.Translate(float64(pX), float64(pY))
+
+				mult := float32(GetOverworldLightMultiplier(g.GetTimeOfDay()))
+				op.ColorScale.Scale(mult, mult, mult, 1.0)
+
+				screen.DrawImage(activeFrame, op)
+			}
+		} else {
+			vector.FillCircle(screen, pX, pY, 8.0, color.RGBA{220, 95, 45, 255}, false)
+			vx := pX + float32(math.Cos(p.Facing))*5
+			vy := pY + float32(math.Sin(p.Facing))*5
+			vector.FillCircle(screen, vx, vy, 4.0, color.RGBA{80, 200, 255, 200}, false)
+		}
 	}
 }
 

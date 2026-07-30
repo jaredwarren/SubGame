@@ -1,6 +1,7 @@
 package scene
 
 import (
+	"image"
 	"image/color"
 	_ "image/png"
 	"log"
@@ -63,6 +64,26 @@ type OverworldScene struct {
 	cachedChunkX      int
 	cachedChunkY      int
 	hasCache          bool
+
+	topdownSwimFrames []*ebiten.Image
+}
+
+func (o *OverworldScene) loadTopdownSwimFrames() {
+	if len(o.topdownSwimFrames) > 0 {
+		return
+	}
+	sheet, err := assets.LoadChromaKeyedImage("diver_topdown_sheet")
+	if err != nil {
+		log.Printf("Warning: Failed to load diver topdown sheet: %v", err)
+		return
+	}
+	w := sheet.Bounds().Dx() / 4
+	h := sheet.Bounds().Dy()
+	for i := 0; i < 4; i++ {
+		rect := image.Rect(i*w, 0, (i+1)*w, h)
+		frame := ebiten.NewImageFromImage(sheet.SubImage(rect))
+		o.topdownSwimFrames = append(o.topdownSwimFrames, frame)
+	}
 }
 
 // NewOverworldScene creates a new OverworldScene.
