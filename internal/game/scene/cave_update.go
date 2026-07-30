@@ -451,7 +451,12 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 			c.newTrenchX, c.newTrenchY = newTx, ty
 			c.newTrenchKey = fmt.Sprintf("%d_%d", newTx, ty)
 			c.newCaveGrid = wld.GetCave(newTx, ty)
-			c.newCave = cave.NewShallowSeabedCave(c.newCaveGrid)
+			newSpec := world.GetBiomeInfo(wld.BiomeMap[newTx][ty])
+			var caveSpec *cave.CaveBiomeSpec
+			if newSpec != nil {
+				caveSpec = &newSpec.CaveSpec
+			}
+			c.newCave = cave.NewShallowSeabedCaveWithBiome(c.newCaveGrid, caveSpec)
 			c.newNodes = g.GetCaveNodes(c.newTrenchKey)
 			if c.newNodes == nil {
 				c.newNodes = c.newCave.GenerateResources(int64(newTx*97 + ty*41))
@@ -485,7 +490,12 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 			c.newTrenchX, c.newTrenchY = newTx, ty
 			c.newTrenchKey = fmt.Sprintf("%d_%d", newTx, ty)
 			c.newCaveGrid = wld.GetCave(newTx, ty)
-			c.newCave = cave.NewShallowSeabedCave(c.newCaveGrid)
+			newSpec := world.GetBiomeInfo(wld.BiomeMap[newTx][ty])
+			var caveSpec *cave.CaveBiomeSpec
+			if newSpec != nil {
+				caveSpec = &newSpec.CaveSpec
+			}
+			c.newCave = cave.NewShallowSeabedCaveWithBiome(c.newCaveGrid, caveSpec)
 			c.newNodes = g.GetCaveNodes(c.newTrenchKey)
 			if c.newNodes == nil {
 				c.newNodes = c.newCave.GenerateResources(int64(newTx*97 + ty*41))

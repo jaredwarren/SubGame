@@ -23,6 +23,7 @@ const (
 // World orchestrates procedural generation of overworld and caves.
 type World struct {
 	OverworldMap  [][]TileType
+	BiomeMap      [][]BiomeID
 	LandDist      [][]int             // Precomputed BFS distance from each tile to nearest land
 	WaterDist     [][]int             // Precomputed BFS distance from each tile to nearest water
 	Caves         map[string][][]bool // Key: "trenchX_trenchY" -> Cave grid
@@ -86,6 +87,7 @@ func (w *World) generateOverworld() {
 	// Precompute BFS distance maps for fast per-tile lookups
 	w.buildLandDistMap()
 	w.buildWaterDistMap()
+	w.generateBiomes()
 }
 
 // isOceanArea checks if a 5x5 area centered at (tx, ty) consists entirely of TileWater.
@@ -206,4 +208,96 @@ func (w *World) GetCave(tx, ty int) [][]bool {
 
 	w.Caves[key] = caveGrid
 	return caveGrid
+}
+
+// generateBiomes initializes the biome map across the overworld.
+func (w *World) generateBiomes() {
+	w.BiomeMap = make([][]BiomeID, w.Width)
+	for x := 0; x < w.Width; x++ {
+		w.BiomeMap[x] = make([]BiomeID, w.Height)
+	}
+
+	biomeNoise := NewNoise2D(w.Seed + 27)
+
+	for x := 0; x < w.Width; x++ {
+		for y := 0; y < w.Height; y++ {
+			tt := w.OverworldMap[x][y]
+
+			// Explicit feature overrides
+			if tt == TileThermoCave {
+				w.BiomeMap[x][y] = BiomeThermalBarrens
+				continue
+			}
+			if tt == TileShockKelpCave {
+				w.BiomeMap[x][y] = BiomeKelpForest
+				continue
+			}
+			if tt == TileTrench {
+				w.BiomeMap[x][y] = BiomeAbyssalBlue
+				continue
+			}
+
+			// Noise-based biome assignment
+			nx := float64(x) / 25.0
+			ny := float64(y) / 25.0
+			val1 := biomeNoise.FBM(nx, ny, 2)
+
+			nx2 := float64(x+50) / 20.0
+			ny2 := float64(y+50) / 20.0
+			val2 := biomeNoise.FBM(nx2, ny2, 2)
+
+			if val1 < 0.40 {
+				w.BiomeMap[x][y] = BiomeShallowReef
+			} else if val1 < 0.65 {
+				if val2 > 0.50 {
+					w.BiomeMap[x][y] = BiomeKelpForest
+				} else {
+					w.BiomeMap[x][y] = BiomeThermalBarrens
+				}
+			} else {
+				w.BiomeMap[x][y] = BiomeAbyssalBlue
+			}
+		}
+	}
+}
+
+// GetSmoothedWaterOffset calculates the 5x5 neighborhood averaged water color offset for tile (tx, ty).
+func (w *World) GetSmoothedWaterOffset(tx, ty int) ColorOffset {
+	var totalR, totalG, totalB float64
+	var count float64
+
+	const radius = 2 // 5x5 kernel
+	for dx := -radius; dx <= radius; dx++ {
+		for dy := -radius; dy <= radius; dy++ {
+			nx := tx + dx
+			ny := ty + dy
+
+			if nx < 0 {
+				nx = 0
+			} else if nx >= w.Width {
+				nx = w.Width - 1
+			}
+			if ny < 0 {
+				ny = 0
+			} else if ny >= w.Height {
+				ny = w.Height - 1
+			}
+
+			bID := w.BiomeMap[nx][ny]
+			spec := GetBiomeInfo(bID)
+			totalR += spec.WaterColorOffset.R
+			totalG += spec.WaterColorOffset.G
+			totalB += spec.WaterColorOffset.B
+			count++
+		}
+	}
+
+	if count == 0 {
+		return ColorOffset{}
+	}
+	return ColorOffset{
+		R: totalR / count,
+		G: totalG / count,
+		B: totalB / count,
+	}
 }

@@ -148,7 +148,11 @@ func (o *OverworldScene) drawBaseTiles(target *ebiten.Image, startTileX, endTile
 			landDist := o.World.LandDist[clampedTx][clampedTy]
 			waterDist := o.World.WaterDist[clampedTx][clampedTy]
 
-			tileClr, strokeClr := ComputeTileColors(tx, ty, tileType, landDist, waterDist, o.World.Width, o.World.Height, mult)
+			var offset world.ColorOffset
+			if o.World != nil {
+				offset = o.World.GetSmoothedWaterOffset(clampedTx, clampedTy)
+			}
+			tileClr, strokeClr := ComputeTileColorsWithOffset(tx, ty, tileType, landDist, waterDist, o.World.Width, o.World.Height, mult, offset)
 
 			// Always draw the base background tile (e.g. water color) first
 			vector.FillRect(target, sx, sy, config.TileSize, config.TileSize, tileClr, false)
@@ -518,6 +522,11 @@ func drawWaveCurve(screen *ebiten.Image, camX, camY float64, targetWcx, targetWc
 
 // ComputeTileColors calculates fill and stroke colors for a tile, applying the void-border fade and light multiplier.
 func ComputeTileColors(tx, ty int, tileType world.TileType, landDist, waterDist int, worldWidth, worldHeight int, mult float64) (color.RGBA, color.RGBA) {
+	return ComputeTileColorsWithOffset(tx, ty, tileType, landDist, waterDist, worldWidth, worldHeight, mult, world.ColorOffset{})
+}
+
+// ComputeTileColorsWithOffset calculates fill and stroke colors for a tile, incorporating biome water color offset.
+func ComputeTileColorsWithOffset(tx, ty int, tileType world.TileType, landDist, waterDist int, worldWidth, worldHeight int, mult float64, offset world.ColorOffset) (color.RGBA, color.RGBA) {
 	var distFromBorder float64
 	if tx < 0 || tx >= worldWidth || ty < 0 || ty >= worldHeight {
 		dx := 0.0
@@ -564,11 +573,19 @@ func ComputeTileColors(tx, ty int, tileType world.TileType, landDist, waterDist 
 		if lerpT > 1.0 {
 			lerpT = 1.0
 		}
-		r := uint8(28 - lerpT*20)
-		gr := uint8(85 - lerpT*53)
-		b := uint8(165 - lerpT*83)
+		baseR := float64(28-lerpT*20) + offset.R
+		baseG := float64(85-lerpT*53) + offset.G
+		baseB := float64(165-lerpT*83) + offset.B
+
+		r := uint8(max(0, min(255, baseR)))
+		gr := uint8(max(0, min(255, baseG)))
+		b := uint8(max(0, min(255, baseB)))
 		baseClr = color.RGBA{r, gr, b, 255}
-		baseStrokeClr = color.RGBA{r + 8, gr + 10, b + 15, 255}
+
+		sr := uint8(max(0, min(255, float64(r)+8)))
+		sg := uint8(max(0, min(255, float64(gr)+10)))
+		sb := uint8(max(0, min(255, float64(b)+15)))
+		baseStrokeClr = color.RGBA{sr, sg, sb, 255}
 	} else if tileType == world.TileLand {
 		dist := waterDist
 		isSand := dist == 1 // exactly adjacent to water

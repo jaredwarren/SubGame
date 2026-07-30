@@ -6,6 +6,34 @@ import (
 	"github.com/jaredwarren/SubGame/internal/sliceutil"
 )
 
+// ResourceSpawnEntry holds weighted resource spawning properties.
+type ResourceSpawnEntry struct {
+	Type   string
+	Weight float64
+}
+
+func selectWeightedResource(entries []ResourceSpawnEntry, roll float64) string {
+	if len(entries) == 0 {
+		return ""
+	}
+	var total float64
+	for _, e := range entries {
+		total += e.Weight
+	}
+	if total <= 0 {
+		return entries[0].Type
+	}
+	target := roll * total
+	var current float64
+	for _, e := range entries {
+		current += e.Weight
+		if target <= current {
+			return e.Type
+		}
+	}
+	return entries[len(entries)-1].Type
+}
+
 // ResourceTier defines configuration for resource spawning at a specific depth range.
 type ResourceTier struct {
 	MaxDepth         int     // The maximum depth (exclusive threshold, e.g. ty < MaxDepth)
@@ -224,6 +252,11 @@ func GenerateWreckageResources(grid [][]bool, seed int64, shipIndex int) []Resou
 
 // GenerateResourceNodes scans the cave tile grid and generates mineral nodes on exposed wall surfaces.
 func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
+	return GenerateResourceNodesWithBiome(grid, seed, nil)
+}
+
+// GenerateResourceNodesWithBiome scans the cave tile grid and generates mineral nodes using optional biome spawn weights.
+func GenerateResourceNodesWithBiome(grid [][]bool, seed int64, mineralSpawns []ResourceSpawnEntry) []Resource {
 	nodes := []Resource{}
 	if grid == nil {
 		return nodes
@@ -274,9 +307,27 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 							break
 						}
 					}
-
 					if activeTier != nil {
 						spawnChance = activeTier.SpawnChance
+					}
+
+					if len(mineralSpawns) > 0 {
+						chosenType := selectWeightedResource(mineralSpawns, r.Float64())
+						switch chosenType {
+						case "titanium":
+							kind = kindTitanium
+						case "copper":
+							kind = kindCopper
+						case "quartz":
+							kind = kindQuartz
+						case "nickel":
+							kind = kindNickel
+						case "abyssal_ore":
+							kind = kindAbyssalOre
+						default:
+							kind = kindTitanium
+						}
+					} else if activeTier != nil {
 						totalWeight := activeTier.TitaniumWeight + activeTier.CopperWeight + activeTier.QuartzWeight + activeTier.NickelWeight + activeTier.AbyssalOreWeight
 						if totalWeight > 0 {
 							roll := r.Float64() * totalWeight

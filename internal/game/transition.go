@@ -35,7 +35,12 @@ func (g *Game) EnterCave(tx, ty int) {
 			activeCave = info.CaveFactory(grid, g.world, tx, ty)
 			g.caveState.IsShallow = info.IsShallow
 		} else {
-			activeCave = cave.NewShallowSeabedCave(grid)
+			spec := world.GetBiomeInfo(g.world.BiomeMap[tx][ty])
+			var caveSpec *cave.CaveBiomeSpec
+			if spec != nil {
+				caveSpec = &spec.CaveSpec
+			}
+			activeCave = cave.NewShallowSeabedCaveWithBiome(grid, caveSpec)
 			g.caveState.IsShallow = true
 		}
 	}

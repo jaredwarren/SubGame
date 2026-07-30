@@ -38,10 +38,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 	telX := float32(20) + jx
 	telY := float32(20) + jy
 	telW := float32(240)
-	telH := float32(95)
-	if g.GetCurrentState() == StateOverworld {
-		telH = 115
-	}
+	telH := float32(115)
 
 	vector.FillRect(screen, telX, telY, telW, telH, color.RGBA{18, 24, 38, 200}, false)
 	vector.StrokeRect(screen, telX, telY, telW, telH, 1.5, color.RGBA{70, 90, 120, 255}, false)
@@ -85,14 +82,17 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 		ty := int(p.Pos.Y+p.Height/2) / config.TileSize
 		outOfBounds := tx < 0 || tx >= w.Width || ty < 0 || ty >= w.Height
 
-		var posText, zoneText, depthText string
+		var posText, biomeText, depthText string
 		if outOfBounds {
 			posText = "Pos: X:??? Y:???"
-			zoneText = "Zone: Ecological Void"
+			biomeText = "Biome: Ecological Void"
 			depthText = "Est. Dive Depth: ???"
 		} else {
 			posText = fmt.Sprintf("Pos: X:%.0f Y:%.0f", p.Pos.X, p.Pos.Y)
-			zoneText = "Zone: Surface Ocean"
+
+			bID := w.BiomeMap[tx][ty]
+			bSpec := world.GetBiomeInfo(bID)
+			biomeText = fmt.Sprintf("Biome: %s", bSpec.Name)
 
 			info := world.GetTileInfo(w.OverworldMap[tx][ty])
 			if info != nil && info.EstDiveDepth != "" {
@@ -112,7 +112,7 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 
 		ebitenutil.DebugPrintAt(screen, timeText, int(telX)+15, int(telY)+28)
 		ebitenutil.DebugPrintAt(screen, posText, int(telX)+15, int(telY)+48)
-		ebitenutil.DebugPrintAt(screen, zoneText, int(telX)+15, int(telY)+68)
+		ebitenutil.DebugPrintAt(screen, biomeText, int(telX)+15, int(telY)+68)
 		ebitenutil.DebugPrintAt(screen, depthText, int(telX)+15, int(telY)+88)
 
 	} else if g.GetCurrentState() == StateCave {
@@ -124,17 +124,27 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 		pressText := fmt.Sprintf("Pressure: %.2f atm", pressure)
 
 		trenchX, trenchY := g.GetActiveTrenchCoords()
-		var trenchText string
+		var trenchText, biomeText string
 		activeCave := g.GetActiveCave()
 		if activeCave != nil && activeCave.GetCaveType() == cave.CaveVoid {
 			trenchText = "Trench Origin: ???"
+			biomeText = "Biome: Ecological Void"
 		} else {
 			trenchText = fmt.Sprintf("Trench Origin: (%d, %d)", trenchX, trenchY)
+			w := g.GetWorld()
+			if w != nil && trenchX >= 0 && trenchX < w.Width && trenchY >= 0 && trenchY < w.Height {
+				bID := w.BiomeMap[trenchX][trenchY]
+				bSpec := world.GetBiomeInfo(bID)
+				biomeText = fmt.Sprintf("Biome: %s", bSpec.Name)
+			} else {
+				biomeText = "Biome: Shallow Coral Reef"
+			}
 		}
 
 		ebitenutil.DebugPrintAt(screen, depthText, int(telX)+15, int(telY)+28)
 		ebitenutil.DebugPrintAt(screen, pressText, int(telX)+15, int(telY)+48)
 		ebitenutil.DebugPrintAt(screen, trenchText, int(telX)+15, int(telY)+68)
+		ebitenutil.DebugPrintAt(screen, biomeText, int(telX)+15, int(telY)+88)
 
 		if activeVehicle != nil {
 			limit := activeVehicle.GetDepthLimit()

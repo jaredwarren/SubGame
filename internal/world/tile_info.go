@@ -45,6 +45,16 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 		IsWater:    true,
 		IsDiveable: true,
 		IsShallow:  true,
+		CaveFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
+			var caveSpec *cave.CaveBiomeSpec
+			if w != nil && tx >= 0 && tx < w.Width && ty >= 0 && ty < w.Height {
+				spec := GetBiomeInfo(w.BiomeMap[tx][ty])
+				if spec != nil {
+					caveSpec = &spec.CaveSpec
+				}
+			}
+			return cave.NewShallowSeabedCaveWithBiome(grid, caveSpec)
+		},
 	},
 	TileLand: {
 		IsWater:    false,

@@ -15,12 +15,21 @@ import (
 
 type ShallowSeabedCave struct {
 	Grid       [][]bool
+	Biome      *CaveBiomeSpec
 	tileImages []*ebiten.Image
 }
 
 func NewShallowSeabedCave(grid [][]bool) *ShallowSeabedCave {
+	return NewShallowSeabedCaveWithBiome(grid, nil)
+}
+
+func NewShallowSeabedCaveWithBiome(grid [][]bool, spec *CaveBiomeSpec) *ShallowSeabedCave {
+	if spec == nil {
+		spec = DefaultShallowReefBiome
+	}
 	c := &ShallowSeabedCave{
 		Grid:       grid,
+		Biome:      spec,
 		tileImages: make([]*ebiten.Image, 8),
 	}
 	c.preRenderTiles()
@@ -28,10 +37,10 @@ func NewShallowSeabedCave(grid [][]bool) *ShallowSeabedCave {
 }
 
 func (c *ShallowSeabedCave) preRenderTiles() {
-	rockColor := color.RGBA{180, 155, 100, 255}
-	strokeColor := color.RGBA{210, 185, 120, 255}
-	darkSandColor := color.RGBA{150, 130, 80, 255}
-	lightSandColor := color.RGBA{215, 190, 125, 255}
+	rockColor := c.Biome.CaveRockColor
+	strokeColor := c.Biome.CaveStrokeColor
+	darkSandColor := c.Biome.CaveSandDarkColor
+	lightSandColor := c.Biome.CaveSandLightColor
 
 	for idx := range c.tileImages {
 		img := ebiten.NewImage(config.TileSize, config.TileSize)
@@ -78,10 +87,19 @@ func (c *ShallowSeabedCave) GetCaveType() CaveType { return CaveOrganicShallow }
 func (c *ShallowSeabedCave) GetGrid() [][]bool     { return c.Grid }
 
 func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64) {
-	// Surface base color
-	baseR := float64(10) + float64(30)*lightMult  // 10 (night) → 40 (day)
-	baseG := float64(40) + float64(80)*lightMult  // 40 (night) → 120 (day)
-	baseB := float64(100) + float64(80)*lightMult // 100 (night) → 180 (day)
+	// Surface base color tinted by Biome Ambient Tint
+	tintR := float64(10)
+	tintG := float64(40)
+	tintB := float64(100)
+	if c.Biome != nil {
+		tintR = float64(c.Biome.CaveAmbientTint.R) * 0.5
+		tintG = float64(c.Biome.CaveAmbientTint.G) * 0.5
+		tintB = float64(c.Biome.CaveAmbientTint.B) * 0.5
+	}
+
+	baseR := tintR + float64(30)*lightMult
+	baseG := tintG + float64(80)*lightMult
+	baseB := tintB + float64(80)*lightMult
 
 	maxDarken := 0.45 + (1.0-lightMult)*0.45
 
@@ -97,9 +115,9 @@ func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camY float64, m
 		}
 		darkFactor := 1.0 - depthFrac*maxDarken
 		sc := color.RGBA{
-			R: uint8(baseR * darkFactor),
-			G: uint8(baseG * darkFactor),
-			B: uint8(baseB * darkFactor),
+			R: uint8(max(0, min(255, baseR*darkFactor))),
+			G: uint8(max(0, min(255, baseG*darkFactor))),
+			B: uint8(max(0, min(255, baseB*darkFactor))),
 			A: 255,
 		}
 		vector.FillRect(screen, 0, sy, float32(config.ScreenWidth), stripH, sc, false)
@@ -160,31 +178,49 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 					r.Float64()*math.Pi*2,
 				))
 			}
-			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.015 {
-				entities = append(entities, &entity.PassiveCrab{
-					BaseEntity: entity.BaseEntity{
-						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-10)},
-						Dimensions: gvec.Vec2{X: 16, Y: 10},
-						Active:     true,
-					},
-					FacingRight: r.Float64() < 0.5,
-				})
-			}
-			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.015 {
-				entities = append(entities, entity.NewSandViper(
-					float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
-					float64(ty*config.TileSize)+float64(config.TileSize-12),
-				))
+			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.03 {
+				faunaType := "passive_fish"
+				if c.Biome != nil && len(c.Biome.FaunaSpawns) > 0 {
+					faunaType = SelectWeightedEntry(c.Biome.FaunaSpawns, r.Float64())
+				}
+				switch faunaType {
+				case "passive_crab":
+					entities = append(entities, &entity.PassiveCrab{
+						BaseEntity: entity.BaseEntity{
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-10)},
+							Dimensions: gvec.Vec2{X: 16, Y: 10},
+							Active:     true,
+						},
+						FacingRight: r.Float64() < 0.5,
+					})
+				case "sand_viper":
+					entities = append(entities, entity.NewSandViper(
+						float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
+						float64(ty*config.TileSize)+float64(config.TileSize-12),
+					))
+				}
 			}
 			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.28 {
 				height := 32.0 + r.Float64()*48.0
-				if r.Float64() < 0.20 {
+				floraType := "kelp"
+				if c.Biome != nil && len(c.Biome.FloraSpawns) > 0 {
+					floraType = SelectWeightedEntry(c.Biome.FloraSpawns, r.Float64())
+				}
+				if floraType == "shock_kelp" {
 					entities = append(entities, entity.NewShockKelp(
 						float64(tx*config.TileSize)+float64(config.TileSize-16)/2.0,
 						float64(ty*config.TileSize)+float64(config.TileSize)-height,
 						height,
 						"floor",
 					))
+				} else if floraType == "shatter_bulb" {
+					entities = append(entities, &entity.ShatterBulb{
+						BaseEntity: entity.BaseEntity{
+							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
+							Dimensions: gvec.Vec2{X: 24, Y: 24},
+							Active:     true,
+						},
+					})
 				} else {
 					entities = append(entities, &entity.Kelp{
 						BaseEntity: entity.BaseEntity{
@@ -241,7 +277,13 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 }
 
 func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
-	// Standard depth generation delegate (depth tier 0)
+	if c.Biome != nil && len(c.Biome.MineralSpawns) > 0 {
+		spawns := make([]resource.ResourceSpawnEntry, len(c.Biome.MineralSpawns))
+		for i, s := range c.Biome.MineralSpawns {
+			spawns[i] = resource.ResourceSpawnEntry{Type: s.Type, Weight: s.Weight}
+		}
+		return resource.GenerateResourceNodesWithBiome(c.Grid, seed, spawns)
+	}
 	return resource.GenerateResourceNodes(c.Grid, seed)
 }
 
