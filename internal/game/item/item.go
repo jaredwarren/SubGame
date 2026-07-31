@@ -148,57 +148,18 @@ func getMeta(t reflect.Type) *ItemMetadata {
 
 // itemRegistry is a compile-time static lookup of item metadata keyed by concrete type.
 var itemRegistry = map[reflect.Type]*ItemMetadata{
-	reflect.TypeOf(Titanium{}): &ItemMetadata{
-		Name:     "Titanium",
-		MaxStack: 10,
-		Color:    color.RGBA{168, 178, 188, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{220, 230, 240, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{168, 178, 188, 255}, coreColor, "Titanium")
-		},
-	},
-	reflect.TypeOf(Copper{}): &ItemMetadata{
-		Name:     "Copper",
-		MaxStack: 10,
-		Color:    color.RGBA{218, 118, 48, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{240, 160, 80, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{218, 118, 48, 255}, coreColor, "Copper")
-		},
-	},
-	reflect.TypeOf(Quartz{}): &ItemMetadata{
-		Name:     "Quartz",
-		MaxStack: 10,
-		Color:    color.RGBA{48, 218, 245, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{220, 250, 255, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{48, 218, 245, 255}, coreColor, "Quartz")
-		},
-	},
-	reflect.TypeOf(AbyssalOre{}): &ItemMetadata{
-		Name:     "Abyssal Ore",
-		MaxStack: 10,
-		Color:    color.RGBA{148, 48, 218, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{230, 180, 255, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{148, 48, 218, 255}, coreColor, "Abyssal Ore")
-		},
-	},
-	reflect.TypeOf(Nickel{}): &ItemMetadata{
-		Name:     "Nickel",
-		MaxStack: 10,
-		Color:    color.RGBA{162, 175, 148, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{222, 235, 208, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{162, 175, 148, 255}, coreColor, "Nickel")
-		},
-	},
+	reflect.TypeOf(Titanium{}):   mineralMetadata(MaterialTitanium),
+	reflect.TypeOf(Copper{}):     mineralMetadata(MaterialCopper),
+	reflect.TypeOf(Quartz{}):     mineralMetadata(MaterialQuartz),
+	reflect.TypeOf(AbyssalOre{}): mineralMetadata(MaterialAbyssalOre),
+	reflect.TypeOf(Nickel{}):     mineralMetadata(MaterialNickel),
 	reflect.TypeOf(ScrapMetal{}): &ItemMetadata{
-		Name:     "Scrap Metal",
-		MaxStack: 10,
-		Color:    color.RGBA{140, 110, 95, 255},
+		Name:     MaterialScrapMetal.Name,
+		MaxStack: MaterialScrapMetal.MaxStack,
+		Color:    MaterialScrapMetal.Color,
 		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			if drawItemIconSprite(screen, "Scrap Metal", cx, cy, size) {
+			m := MaterialScrapMetal
+			if drawItemIconSprite(screen, m.Name, cx, cy, size) {
 				return
 			}
 			var path vector.Path
@@ -208,20 +169,21 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			path.LineTo(cx-size/3.0, cy+size/4.0)
 			path.Close()
 			var opts vector.DrawPathOptions
-			opts.ColorScale.ScaleWithColor(color.RGBA{140, 110, 95, 255})
+			opts.ColorScale.ScaleWithColor(m.Color)
 			vector.FillPath(screen, &path, nil, &opts)
 			vector.StrokeLine(screen, cx-size/3.0, cy, cx+size/3.0, cy-size/10.0, 1.5, color.RGBA{180, 150, 130, 255}, false)
 		},
 	},
 	reflect.TypeOf(ElectronicWaste{}): &ItemMetadata{
-		Name:     "Electronic Waste",
-		MaxStack: 10,
-		Color:    color.RGBA{70, 130, 90, 255},
+		Name:     MaterialElectronicWaste.Name,
+		MaxStack: MaterialElectronicWaste.MaxStack,
+		Color:    MaterialElectronicWaste.Color,
 		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			if drawItemIconSprite(screen, "Electronic Waste", cx, cy, size) {
+			m := MaterialElectronicWaste
+			if drawItemIconSprite(screen, m.Name, cx, cy, size) {
 				return
 			}
-			vector.FillRect(screen, cx-size/2.2, cy-size/3.0, size/1.1, size/1.5, color.RGBA{70, 130, 90, 255}, false)
+			vector.FillRect(screen, cx-size/2.2, cy-size/3.0, size/1.1, size/1.5, m.Color, false)
 			vector.StrokeRect(screen, cx-size/2.2, cy-size/3.0, size/1.1, size/1.5, 1.0, color.RGBA{120, 200, 140, 255}, false)
 			vector.FillRect(screen, cx-size/6.0, cy-size/6.0, size/3.0, size/3.0, color.RGBA{40, 40, 40, 255}, false)
 			vector.FillRect(screen, cx-size/3.0, cy-size/2.5, size/15.0, size/10.0, color.RGBA{220, 150, 50, 255}, false)

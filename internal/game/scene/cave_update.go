@@ -454,7 +454,7 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 			newSpec := world.GetBiomeInfo(wld.BiomeMap[newTx][ty])
 			var caveSpec *cave.CaveBiomeSpec
 			if newSpec != nil {
-				caveSpec = &newSpec.CaveSpec
+				caveSpec = newSpec.CaveSpec
 			}
 			c.newCave = cave.NewShallowSeabedCaveWithBiome(c.newCaveGrid, caveSpec)
 			c.newNodes = g.GetCaveNodes(c.newTrenchKey)
@@ -493,7 +493,7 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 			newSpec := world.GetBiomeInfo(wld.BiomeMap[newTx][ty])
 			var caveSpec *cave.CaveBiomeSpec
 			if newSpec != nil {
-				caveSpec = &newSpec.CaveSpec
+				caveSpec = newSpec.CaveSpec
 			}
 			c.newCave = cave.NewShallowSeabedCaveWithBiome(c.newCaveGrid, caveSpec)
 			c.newNodes = g.GetCaveNodes(c.newTrenchKey)

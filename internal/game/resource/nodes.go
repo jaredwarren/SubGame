@@ -22,102 +22,38 @@ const (
 )
 
 type NodeTypeInfo struct {
-	Name         string
-	MaxStack     int
-	RequiresMech bool
+	Material     *item.MaterialDef // nil for Blueprint
+	Name         string            // used when Material is nil
+	MaxStack     int               // used when Material is nil
+	RequiresMech bool              // used when Material is nil; otherwise derived from Material
 	BaseItem     func() item.Item
-	Color        color.Color
+	Color        color.Color // used when Material is nil
 	DrawIcon     func(screen *ebiten.Image, cx, cy, size float32)
 	Draw         func(screen *ebiten.Image, node *ResourceNode, camX, camY float64)
 }
 
+func oreNodeInfo(m *item.MaterialDef, baseItem func() item.Item) *NodeTypeInfo {
+	return &NodeTypeInfo{
+		Material: m,
+		BaseItem: baseItem,
+		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
+			drawMineralIcon(screen, cx, cy, size, m.Color, m.CoreColor, m.Name)
+		},
+		Draw: func(screen *ebiten.Image, node *ResourceNode, camX, camY float64) {
+			drawMineral(screen, node.Tx, node.Ty, camX, camY, node.HitsToMine, m.WorldColor, m.WorldCoreColor, node.AttachDir, m.Name)
+		},
+	}
+}
+
 var nodeRegistry = map[NodeType]*NodeTypeInfo{
-	NodeTitanium: {
-		Name:         "Titanium",
-		MaxStack:     10,
-		RequiresMech: false,
-		BaseItem:     func() item.Item { return &item.Titanium{} },
-		Color:        color.RGBA{168, 178, 188, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{220, 230, 240, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{168, 178, 188, 255}, coreColor, "Titanium")
-		},
-		Draw: func(screen *ebiten.Image, node *ResourceNode, camX, camY float64) {
-			mineralColor := color.RGBA{160, 175, 185, 255} // Metallic silver
-			coreColor := color.RGBA{220, 230, 240, 255}
-			drawMineral(screen, node.Tx, node.Ty, camX, camY, node.HitsToMine, mineralColor, coreColor, node.AttachDir, "Titanium")
-		},
-	},
-	NodeCopper: {
-		Name:         "Copper",
-		MaxStack:     10,
-		RequiresMech: false,
-		BaseItem:     func() item.Item { return &item.Copper{} },
-		Color:        color.RGBA{218, 118, 48, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{240, 160, 80, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{218, 118, 48, 255}, coreColor, "Copper")
-		},
-		Draw: func(screen *ebiten.Image, node *ResourceNode, camX, camY float64) {
-			mineralColor := color.RGBA{210, 110, 45, 255} // Copper orange
-			coreColor := color.RGBA{240, 160, 80, 255}
-			drawMineral(screen, node.Tx, node.Ty, camX, camY, node.HitsToMine, mineralColor, coreColor, node.AttachDir, "Copper")
-		},
-	},
-	NodeQuartz: {
-		Name:         "Quartz",
-		MaxStack:     10,
-		RequiresMech: false,
-		BaseItem:     func() item.Item { return &item.Quartz{} },
-		Color:        color.RGBA{48, 218, 245, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{220, 250, 255, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{48, 218, 245, 255}, coreColor, "Quartz")
-		},
-		Draw: func(screen *ebiten.Image, node *ResourceNode, camX, camY float64) {
-			mineralColor := color.RGBA{40, 210, 245, 200} // Cyan bioluminescent quartz
-			coreColor := color.RGBA{220, 250, 255, 255}
-			drawMineral(screen, node.Tx, node.Ty, camX, camY, node.HitsToMine, mineralColor, coreColor, node.AttachDir, "Quartz")
-		},
-	},
-	NodeAbyssalOre: {
-		Name:         "Abyssal Ore",
-		MaxStack:     10,
-		RequiresMech: true,
-		BaseItem:     func() item.Item { return &item.AbyssalOre{} },
-		Color:        color.RGBA{148, 48, 218, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{230, 180, 255, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{148, 48, 218, 255}, coreColor, "Abyssal Ore")
-		},
-		Draw: func(screen *ebiten.Image, node *ResourceNode, camX, camY float64) {
-			mineralColor := color.RGBA{140, 40, 210, 255} // Glowing purple abyssal ore
-			coreColor := color.RGBA{230, 180, 255, 255}
-			drawMineral(screen, node.Tx, node.Ty, camX, camY, node.HitsToMine, mineralColor, coreColor, node.AttachDir, "Abyssal Ore")
-		},
-	},
-	NodeNickel: {
-		Name:         "Nickel",
-		MaxStack:     10,
-		RequiresMech: false,
-		BaseItem:     func() item.Item { return &item.Nickel{} },
-		Color:        color.RGBA{162, 175, 148, 255},
-		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
-			coreColor := color.RGBA{222, 235, 208, 255}
-			drawMineralIcon(screen, cx, cy, size, color.RGBA{162, 175, 148, 255}, coreColor, "Nickel")
-		},
-		Draw: func(screen *ebiten.Image, node *ResourceNode, camX, camY float64) {
-			mineralColor := color.RGBA{150, 165, 140, 255} // Warm greenish-silver
-			coreColor := color.RGBA{222, 235, 208, 255}
-			drawMineral(screen, node.Tx, node.Ty, camX, camY, node.HitsToMine, mineralColor, coreColor, node.AttachDir, "Nickel")
-		},
-	},
+	NodeTitanium:   oreNodeInfo(item.MaterialTitanium, func() item.Item { return &item.Titanium{} }),
+	NodeCopper:     oreNodeInfo(item.MaterialCopper, func() item.Item { return &item.Copper{} }),
+	NodeQuartz:     oreNodeInfo(item.MaterialQuartz, func() item.Item { return &item.Quartz{} }),
+	NodeAbyssalOre: oreNodeInfo(item.MaterialAbyssalOre, func() item.Item { return &item.AbyssalOre{} }),
+	NodeNickel:     oreNodeInfo(item.MaterialNickel, func() item.Item { return &item.Nickel{} }),
 	NodeScrapMetal: {
-		Name:         "Scrap Metal",
-		MaxStack:     10,
-		RequiresMech: false,
-		BaseItem:     func() item.Item { return &item.ScrapMetal{} },
-		Color:        color.RGBA{140, 110, 95, 255},
+		Material: item.MaterialScrapMetal,
+		BaseItem: func() item.Item { return &item.ScrapMetal{} },
 		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
 			(&item.ScrapMetal{}).DrawIcon(screen, cx, cy, size)
 		},
@@ -138,11 +74,8 @@ var nodeRegistry = map[NodeType]*NodeTypeInfo{
 		},
 	},
 	NodeElectronicWaste: {
-		Name:         "Electronic Waste",
-		MaxStack:     10,
-		RequiresMech: false,
-		BaseItem:     func() item.Item { return &item.ElectronicWaste{} },
-		Color:        color.RGBA{70, 130, 90, 255},
+		Material: item.MaterialElectronicWaste,
+		BaseItem: func() item.Item { return &item.ElectronicWaste{} },
 		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
 			(&item.ElectronicWaste{}).DrawIcon(screen, cx, cy, size)
 		},
@@ -203,35 +136,55 @@ type ResourceNode struct {
 	RecipeResultName string
 }
 
+func (n *ResourceNode) info() *NodeTypeInfo {
+	return nodeRegistry[n.Type]
+}
+
 func (n *ResourceNode) GetName() string {
 	if n.Type == NodeBlueprint {
 		return "Blueprint: " + n.RecipeResultName
 	}
-	return nodeRegistry[n.Type].Name
+	info := n.info()
+	if info.Material != nil {
+		return info.Material.Name
+	}
+	return info.Name
 }
 
 func (n *ResourceNode) GetMaxStack() int {
-	return nodeRegistry[n.Type].MaxStack
+	info := n.info()
+	if info.Material != nil {
+		return info.Material.MaxStack
+	}
+	return info.MaxStack
 }
 
 func (n *ResourceNode) RequiresMech() bool {
-	return nodeRegistry[n.Type].RequiresMech
+	info := n.info()
+	if info.Material != nil {
+		return info.Material.RequiresMech
+	}
+	return info.RequiresMech
 }
 
 func (n *ResourceNode) GetBaseItem() item.Item {
-	return nodeRegistry[n.Type].BaseItem()
+	return n.info().BaseItem()
 }
 
 func (n *ResourceNode) GetColor() color.Color {
-	return nodeRegistry[n.Type].Color
+	info := n.info()
+	if info.Material != nil {
+		return info.Material.Color
+	}
+	return info.Color
 }
 
 func (n *ResourceNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	nodeRegistry[n.Type].DrawIcon(screen, cx, cy, size)
+	n.info().DrawIcon(screen, cx, cy, size)
 }
 
 func (n *ResourceNode) Draw(screen *ebiten.Image, camX, camY float64) {
-	nodeRegistry[n.Type].Draw(screen, n, camX, camY)
+	n.info().Draw(screen, n, camX, camY)
 }
 
 func (n *ResourceNode) GetRecipeResultName() string {

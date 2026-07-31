@@ -50,7 +50,7 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 			if w != nil && tx >= 0 && tx < w.Width && ty >= 0 && ty < w.Height {
 				spec := GetBiomeInfo(w.BiomeMap[tx][ty])
 				if spec != nil {
-					caveSpec = &spec.CaveSpec
+					caveSpec = spec.CaveSpec
 				}
 			}
 			return cave.NewShallowSeabedCaveWithBiome(grid, caveSpec)

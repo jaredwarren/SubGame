@@ -38,7 +38,7 @@ func (g *Game) EnterCave(tx, ty int) {
 			spec := world.GetBiomeInfo(g.world.BiomeMap[tx][ty])
 			var caveSpec *cave.CaveBiomeSpec
 			if spec != nil {
-				caveSpec = &spec.CaveSpec
+				caveSpec = spec.CaveSpec
 			}
 			activeCave = cave.NewShallowSeabedCaveWithBiome(grid, caveSpec)
 			g.caveState.IsShallow = true

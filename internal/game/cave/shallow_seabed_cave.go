@@ -148,6 +148,7 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 	grid := c.Grid
 	r := rand.New(rand.NewSource(seed))
 	var entities []entity.CaveEntity
+	rules := c.Biome.SpawnRulesOrDefault()
 
 	gridW := len(grid)
 	gridH := len(grid[0])
@@ -159,14 +160,14 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			}
 
 			hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
-			if hasAdjacentWall && r.Float64() < 0.08 {
+			if hasAdjacentWall && r.Float64() < rules.ShatterBulbChance {
 				entities = append(entities, entity.NewShatterBulb(
 					float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
 					float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
 				))
 			}
 			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-			if isOpenWater && r.Float64() < 0.012 {
+			if isOpenWater && r.Float64() < rules.OpenWaterFishChance {
 				entities = append(entities, entity.NewPassiveFish(
 					float64(tx*config.TileSize)+float64(config.TileSize-20)/2.0,
 					float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
@@ -174,7 +175,7 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 					r.Float64()*math.Pi*2,
 				))
 			}
-			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.03 {
+			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < rules.FaunaChance {
 				faunaType := FaunaPassiveFish
 				if c.Biome != nil && len(c.Biome.FaunaSpawns) > 0 {
 					faunaType = SelectWeightedEntry(c.Biome.FaunaSpawns, r.Float64())
@@ -183,7 +184,7 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 					entities = append(entities, ent)
 				}
 			}
-			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.28 {
+			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < rules.FloraChance {
 				height := 32.0 + r.Float64()*48.0
 				floraType := FloraKelp
 				if c.Biome != nil && len(c.Biome.FloraSpawns) > 0 {
@@ -194,7 +195,7 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 				}
 			}
 
-			// Spawn decorative corals (10% chance near any solid face)
+			// Spawn decorative corals near any solid face
 			var coralAttachments []string
 			if grid[tx][ty+1] {
 				coralAttachments = append(coralAttachments, "floor")
@@ -209,7 +210,7 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 				coralAttachments = append(coralAttachments, "right")
 			}
 
-			if len(coralAttachments) > 0 && r.Float64() < 0.10 {
+			if len(coralAttachments) > 0 && r.Float64() < rules.CoralChance {
 				attach := coralAttachments[r.Intn(len(coralAttachments))]
 				variant := r.Intn(3) // 3 variants for shallow seabed
 				
