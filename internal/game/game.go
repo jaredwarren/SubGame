@@ -131,7 +131,6 @@ func NewGame() *Game {
 	skiff := vehicle.NewSkiff(spawnX, spawnY)
 
 	sm := story.NewStoryManager()
-	_ = sm.Load(story.LoreJSONBytes)
 
 	g := &Game{
 		currentState:      StateTitle,

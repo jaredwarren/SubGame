@@ -8,13 +8,13 @@ import (
 
 // ResourceSpawnEntry holds weighted resource spawning properties.
 type ResourceSpawnEntry struct {
-	Type   string
+	Type   NodeType
 	Weight float64
 }
 
-func selectWeightedResource(entries []ResourceSpawnEntry, roll float64) string {
+func selectWeightedResource(entries []ResourceSpawnEntry, roll float64) NodeType {
 	if len(entries) == 0 {
-		return ""
+		return NodeTitanium
 	}
 	var total float64
 	for _, e := range entries {
@@ -266,15 +266,6 @@ func GenerateResourceNodesWithBiome(grid [][]bool, seed int64, mineralSpawns []R
 
 	r := rand.New(rand.NewSource(seed))
 
-	type nodeKind int
-	const (
-		kindTitanium nodeKind = iota
-		kindCopper
-		kindQuartz
-		kindNickel
-		kindAbyssalOre
-	)
-
 	for tx := 1; tx < gridW-1; tx++ {
 		for ty := 1; ty < gridH-1; ty++ {
 			// Place nodes in open (water) tiles that are adjacent to solid walls
@@ -296,7 +287,7 @@ func GenerateResourceNodesWithBiome(grid [][]bool, seed int64, mineralSpawns []R
 
 				if len(possibleDirs) > 0 {
 					spawnRoll := r.Float64()
-					kind := kindTitanium
+					kind := NodeTitanium
 					var spawnChance = GenConfig.FallbackSpawnChance
 
 					// Find the matching tier based on depth ty
@@ -312,35 +303,21 @@ func GenerateResourceNodesWithBiome(grid [][]bool, seed int64, mineralSpawns []R
 					}
 
 					if len(mineralSpawns) > 0 {
-						chosenType := selectWeightedResource(mineralSpawns, r.Float64())
-						switch chosenType {
-						case "titanium":
-							kind = kindTitanium
-						case "copper":
-							kind = kindCopper
-						case "quartz":
-							kind = kindQuartz
-						case "nickel":
-							kind = kindNickel
-						case "abyssal_ore":
-							kind = kindAbyssalOre
-						default:
-							kind = kindTitanium
-						}
+						kind = selectWeightedResource(mineralSpawns, r.Float64())
 					} else if activeTier != nil {
 						totalWeight := activeTier.TitaniumWeight + activeTier.CopperWeight + activeTier.QuartzWeight + activeTier.NickelWeight + activeTier.AbyssalOreWeight
 						if totalWeight > 0 {
 							roll := r.Float64() * totalWeight
 							if roll < activeTier.TitaniumWeight {
-								kind = kindTitanium
+								kind = NodeTitanium
 							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight {
-								kind = kindCopper
+								kind = NodeCopper
 							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight+activeTier.QuartzWeight {
-								kind = kindQuartz
+								kind = NodeQuartz
 							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight+activeTier.QuartzWeight+activeTier.NickelWeight {
-								kind = kindNickel
+								kind = NodeNickel
 							} else {
-								kind = kindAbyssalOre
+								kind = NodeAbyssalOre
 							}
 						}
 					}
@@ -350,16 +327,18 @@ func GenerateResourceNodesWithBiome(grid [][]bool, seed int64, mineralSpawns []R
 						attachDir := possibleDirs[r.Intn(len(possibleDirs))]
 						var node Resource
 						switch kind {
-						case kindTitanium:
+						case NodeTitanium:
 							node = NewTitaniumNode(tx, ty)
-						case kindCopper:
+						case NodeCopper:
 							node = NewCopperNode(tx, ty)
-						case kindQuartz:
+						case NodeQuartz:
 							node = NewQuartzNode(tx, ty)
-						case kindNickel:
+						case NodeNickel:
 							node = NewNickelNode(tx, ty)
-						case kindAbyssalOre:
+						case NodeAbyssalOre:
 							node = NewAbyssalOreNode(tx, ty)
+						default:
+							node = NewTitaniumNode(tx, ty)
 						}
 						node.SetAttachDir(attachDir)
 						// Scale node hits (health) with depth: base + depth / scale

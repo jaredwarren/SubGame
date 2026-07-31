@@ -65,9 +65,7 @@ func (g *Game) StartGame(seed int64) {
 	// Reset progression and PDA state
 	g.craftingRecipes = scene.DefaultCraftingRecipes()
 
-	sm := story.NewStoryManager()
-	_ = sm.Load(story.LoreJSONBytes)
-	g.storyManager = sm
+	g.storyManager = story.NewStoryManager()
 
 	if g.baseMenu != nil {
 		g.baseMenu.ActiveTab = 0

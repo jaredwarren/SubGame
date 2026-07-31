@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	"github.com/jaredwarren/SubGame/internal/game/cave"
+	"github.com/jaredwarren/SubGame/internal/game/resource"
 )
 
 // BiomeID identifies a specific biome.
@@ -46,20 +47,20 @@ var biomeRegistry = map[BiomeID]*BiomeSpec{
 			CaveSandDarkColor:  color.RGBA{150, 130, 80, 255},
 			CaveStrokeColor:    color.RGBA{210, 185, 120, 255},
 			CaveAmbientTint:    color.RGBA{10, 50, 110, 255},
-			FloraSpawns: []cave.SpawnEntry{
-				{Type: "coral", Weight: 50},
-				{Type: "kelp", Weight: 40},
-				{Type: "shock_kelp", Weight: 10},
+			FloraSpawns: []cave.SpawnEntry[cave.FloraID]{
+				{Type: cave.FloraCoral, Weight: 50},
+				{Type: cave.FloraKelp, Weight: 40},
+				{Type: cave.FloraShockKelp, Weight: 10},
 			},
-			FaunaSpawns: []cave.SpawnEntry{
-				{Type: "passive_fish", Weight: 60},
-				{Type: "passive_crab", Weight: 30},
-				{Type: "sand_viper", Weight: 10},
+			FaunaSpawns: []cave.SpawnEntry[cave.FaunaID]{
+				{Type: cave.FaunaPassiveFish, Weight: 60},
+				{Type: cave.FaunaPassiveCrab, Weight: 30},
+				{Type: cave.FaunaSandViper, Weight: 10},
 			},
-			MineralSpawns: []cave.SpawnEntry{
-				{Type: "titanium", Weight: 50},
-				{Type: "copper", Weight: 40},
-				{Type: "quartz", Weight: 10},
+			MineralSpawns: []cave.SpawnEntry[resource.NodeType]{
+				{Type: resource.NodeTitanium, Weight: 50},
+				{Type: resource.NodeCopper, Weight: 40},
+				{Type: resource.NodeQuartz, Weight: 10},
 			},
 		},
 	},
@@ -75,20 +76,20 @@ var biomeRegistry = map[BiomeID]*BiomeSpec{
 			CaveSandDarkColor:  color.RGBA{90, 115, 70, 255},
 			CaveStrokeColor:    color.RGBA{140, 165, 110, 255},
 			CaveAmbientTint:    color.RGBA{10, 70, 60, 255},
-			FloraSpawns: []cave.SpawnEntry{
-				{Type: "kelp", Weight: 60},
-				{Type: "shock_kelp", Weight: 30},
-				{Type: "coral", Weight: 10},
+			FloraSpawns: []cave.SpawnEntry[cave.FloraID]{
+				{Type: cave.FloraKelp, Weight: 60},
+				{Type: cave.FloraShockKelp, Weight: 30},
+				{Type: cave.FloraCoral, Weight: 10},
 			},
-			FaunaSpawns: []cave.SpawnEntry{
-				{Type: "passive_fish", Weight: 45},
-				{Type: "passive_crab", Weight: 45},
-				{Type: "sand_viper", Weight: 10},
+			FaunaSpawns: []cave.SpawnEntry[cave.FaunaID]{
+				{Type: cave.FaunaPassiveFish, Weight: 45},
+				{Type: cave.FaunaPassiveCrab, Weight: 45},
+				{Type: cave.FaunaSandViper, Weight: 10},
 			},
-			MineralSpawns: []cave.SpawnEntry{
-				{Type: "quartz", Weight: 50},
-				{Type: "copper", Weight: 35},
-				{Type: "titanium", Weight: 15},
+			MineralSpawns: []cave.SpawnEntry[resource.NodeType]{
+				{Type: resource.NodeQuartz, Weight: 50},
+				{Type: resource.NodeCopper, Weight: 35},
+				{Type: resource.NodeTitanium, Weight: 15},
 			},
 		},
 	},
@@ -104,20 +105,20 @@ var biomeRegistry = map[BiomeID]*BiomeSpec{
 			CaveSandDarkColor:  color.RGBA{80, 60, 50, 255},
 			CaveStrokeColor:    color.RGBA{130, 95, 80, 255},
 			CaveAmbientTint:    color.RGBA{80, 30, 30, 255},
-			FloraSpawns: []cave.SpawnEntry{
-				{Type: "shatter_bulb", Weight: 50},
-				{Type: "shock_kelp", Weight: 35},
-				{Type: "coral", Weight: 15},
+			FloraSpawns: []cave.SpawnEntry[cave.FloraID]{
+				{Type: cave.FloraShatterBulb, Weight: 50},
+				{Type: cave.FloraShockKelp, Weight: 35},
+				{Type: cave.FloraCoral, Weight: 15},
 			},
-			FaunaSpawns: []cave.SpawnEntry{
-				{Type: "sand_viper", Weight: 50},
-				{Type: "passive_crab", Weight: 30},
-				{Type: "passive_fish", Weight: 20},
+			FaunaSpawns: []cave.SpawnEntry[cave.FaunaID]{
+				{Type: cave.FaunaSandViper, Weight: 50},
+				{Type: cave.FaunaPassiveCrab, Weight: 30},
+				{Type: cave.FaunaPassiveFish, Weight: 20},
 			},
-			MineralSpawns: []cave.SpawnEntry{
-				{Type: "quartz", Weight: 40},
-				{Type: "abyssal_ore", Weight: 30},
-				{Type: "copper", Weight: 30},
+			MineralSpawns: []cave.SpawnEntry[resource.NodeType]{
+				{Type: resource.NodeQuartz, Weight: 40},
+				{Type: resource.NodeAbyssalOre, Weight: 30},
+				{Type: resource.NodeCopper, Weight: 30},
 			},
 		},
 	},
@@ -133,20 +134,20 @@ var biomeRegistry = map[BiomeID]*BiomeSpec{
 			CaveSandDarkColor:  color.RGBA{55, 65, 85, 255},
 			CaveStrokeColor:    color.RGBA{95, 110, 135, 255},
 			CaveAmbientTint:    color.RGBA{15, 20, 60, 255},
-			FloraSpawns: []cave.SpawnEntry{
-				{Type: "shatter_bulb", Weight: 60},
-				{Type: "shock_kelp", Weight: 30},
-				{Type: "coral", Weight: 10},
+			FloraSpawns: []cave.SpawnEntry[cave.FloraID]{
+				{Type: cave.FloraShatterBulb, Weight: 60},
+				{Type: cave.FloraShockKelp, Weight: 30},
+				{Type: cave.FloraCoral, Weight: 10},
 			},
-			FaunaSpawns: []cave.SpawnEntry{
-				{Type: "sand_viper", Weight: 55},
-				{Type: "passive_fish", Weight: 30},
-				{Type: "passive_crab", Weight: 15},
+			FaunaSpawns: []cave.SpawnEntry[cave.FaunaID]{
+				{Type: cave.FaunaSandViper, Weight: 55},
+				{Type: cave.FaunaPassiveFish, Weight: 30},
+				{Type: cave.FaunaPassiveCrab, Weight: 15},
 			},
-			MineralSpawns: []cave.SpawnEntry{
-				{Type: "nickel", Weight: 45},
-				{Type: "abyssal_ore", Weight: 35},
-				{Type: "titanium", Weight: 20},
+			MineralSpawns: []cave.SpawnEntry[resource.NodeType]{
+				{Type: resource.NodeNickel, Weight: 45},
+				{Type: resource.NodeAbyssalOre, Weight: 35},
+				{Type: resource.NodeTitanium, Weight: 20},
 			},
 		},
 	},

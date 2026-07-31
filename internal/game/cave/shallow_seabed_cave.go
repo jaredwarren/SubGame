@@ -179,57 +179,22 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 				))
 			}
 			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.03 {
-				faunaType := "passive_fish"
+				faunaType := FaunaPassiveFish
 				if c.Biome != nil && len(c.Biome.FaunaSpawns) > 0 {
 					faunaType = SelectWeightedEntry(c.Biome.FaunaSpawns, r.Float64())
 				}
-				switch faunaType {
-				case "passive_crab":
-					entities = append(entities, &entity.PassiveCrab{
-						BaseEntity: entity.BaseEntity{
-							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-10)},
-							Dimensions: gvec.Vec2{X: 16, Y: 10},
-							Active:     true,
-						},
-						FacingRight: r.Float64() < 0.5,
-					})
-				case "sand_viper":
-					entities = append(entities, entity.NewSandViper(
-						float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
-						float64(ty*config.TileSize)+float64(config.TileSize-12),
-					))
+				if ent := SpawnFauna(faunaType, tx, ty, r); ent != nil {
+					entities = append(entities, ent)
 				}
 			}
 			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.28 {
 				height := 32.0 + r.Float64()*48.0
-				floraType := "kelp"
+				floraType := FloraKelp
 				if c.Biome != nil && len(c.Biome.FloraSpawns) > 0 {
 					floraType = SelectWeightedEntry(c.Biome.FloraSpawns, r.Float64())
 				}
-				if floraType == "shock_kelp" {
-					entities = append(entities, entity.NewShockKelp(
-						float64(tx*config.TileSize)+float64(config.TileSize-16)/2.0,
-						float64(ty*config.TileSize)+float64(config.TileSize)-height,
-						height,
-						"floor",
-					))
-				} else if floraType == "shatter_bulb" {
-					entities = append(entities, &entity.ShatterBulb{
-						BaseEntity: entity.BaseEntity{
-							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
-							Dimensions: gvec.Vec2{X: 24, Y: 24},
-							Active:     true,
-						},
-					})
-				} else {
-					entities = append(entities, &entity.Kelp{
-						BaseEntity: entity.BaseEntity{
-							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-16)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize) - height},
-							Dimensions: gvec.Vec2{X: 16, Y: height},
-							Active:     true,
-						},
-						SwayPhase: r.Float64() * math.Pi * 2,
-					})
+				if ent := SpawnFlora(floraType, tx, ty, height, r); ent != nil {
+					entities = append(entities, ent)
 				}
 			}
 
@@ -286,6 +251,7 @@ func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
 	}
 	return resource.GenerateResourceNodes(c.Grid, seed)
 }
+
 
 func (c *ShallowSeabedCave) GetAmbientColor(lightMult float64) []float32 {
 	alpha := float32(0.75 - (lightMult-0.2)/0.8*0.60)

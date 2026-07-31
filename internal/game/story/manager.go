@@ -1,7 +1,6 @@
 package story
 
 import (
-	"encoding/json"
 	"strings"
 )
 
@@ -10,25 +9,27 @@ type StoryManager struct {
 	entries []*LoreEntry
 }
 
-// NewStoryManager creates and returns a new empty StoryManager.
+// NewStoryManager creates a StoryManager seeded with DefaultLoreEntries.
+// Each call clones the default table so unlock state does not leak across games.
 func NewStoryManager() *StoryManager {
 	return &StoryManager{
-		entries: make([]*LoreEntry, 0),
+		entries: cloneLoreEntries(DefaultLoreEntries),
 	}
 }
 
-// Load parses the JSON configuration data containing the narrative entries.
-func (sm *StoryManager) Load(jsonData []byte) error {
-	var config struct {
-		Entries []*LoreEntry `json:"entries"`
+// cloneLoreEntries deep-copies lore entries so runtime Unlocked flags are independent.
+func cloneLoreEntries(src []*LoreEntry) []*LoreEntry {
+	out := make([]*LoreEntry, len(src))
+	for i, e := range src {
+		cp := *e
+		if len(e.Paragraphs) > 0 {
+			cp.Paragraphs = make([]Paragraph, len(e.Paragraphs))
+			copy(cp.Paragraphs, e.Paragraphs)
+		}
+		cp.Unlocked = false
+		out[i] = &cp
 	}
-
-	if err := json.Unmarshal(jsonData, &config); err != nil {
-		return err
-	}
-
-	sm.entries = config.Entries
-	return nil
+	return out
 }
 
 // TriggerEvent checks if any locked story entry matches the trigger type and target.
@@ -68,7 +69,7 @@ func (sm *StoryManager) GetEntries() []*LoreEntry {
 	return sm.entries
 }
 
-// SerializeState returns a list of IDs of unlocked entries, suitable for json saving.
+// SerializeState returns a list of IDs of unlocked entries, suitable for save data.
 func (sm *StoryManager) SerializeState() []string {
 	var ids []string
 	for _, entry := range sm.entries {
@@ -81,7 +82,7 @@ func (sm *StoryManager) SerializeState() []string {
 
 // DeserializeState marks the entries in the list as unlocked, resetting others.
 func (sm *StoryManager) DeserializeState(unlockedIDs []string) {
-	idMap := make(map[string]bool)
+	idMap := make(map[string]bool, len(unlockedIDs))
 	for _, id := range unlockedIDs {
 		idMap[id] = true
 	}
