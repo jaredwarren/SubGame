@@ -15,12 +15,20 @@ import (
 // PassiveFish is a catchable swimming creature that flees from the player.
 type PassiveFish struct {
 	BaseEntity
+	def         *PassiveFishDef
 	FacingRight bool
 	SwimPhase   float64
 	FleeTimer   int
 	BodyColor   color.RGBA
 	TailColor   color.RGBA
 	StripeColor color.RGBA
+}
+
+func (f *PassiveFish) stats() *PassiveFishDef {
+	if f.def != nil {
+		return f.def
+	}
+	return PassiveFishArchetype
 }
 
 var fishPresets = []struct {
@@ -67,13 +75,15 @@ var fishPresets = []struct {
 }
 
 func NewPassiveFish(x, y float64, facingRight bool, swimPhase float64) *PassiveFish {
+	d := PassiveFishArchetype
 	preset := fishPresets[rand.Intn(len(fishPresets))]
 	return &PassiveFish{
 		BaseEntity: BaseEntity{
 			Pos:        gvec.Vec2{X: x, Y: y},
-			Dimensions: gvec.Vec2{X: 20, Y: 12},
+			Dimensions: d.Dims,
 			Active:     true,
 		},
+		def:         d,
 		FacingRight: facingRight,
 		SwimPhase:   swimPhase,
 		BodyColor:   preset.body,
@@ -85,34 +95,36 @@ func NewPassiveFish(x, y float64, facingRight bool, swimPhase float64) *PassiveF
 func (f *PassiveFish) GetHarvestedItem() item.Item { return &item.RawFish{} }
 
 func (f *PassiveFish) CanCatch(playerPos gvec.Vec2) bool {
+	d := f.stats()
 	cx := f.Pos.X + f.Dimensions.X/2
 	cy := f.Pos.Y + f.Dimensions.Y/2
-	return math.Hypot(playerPos.X-cx, playerPos.Y-cy) <= 80.0
+	return math.Hypot(playerPos.X-cx, playerPos.Y-cy) <= d.CatchRange
 }
 
 func (f *PassiveFish) Update(gr Runtime) {
+	d := f.stats()
 	px := gr.PlayerPos().X + gr.PlayerDims().X/2
 	py := gr.PlayerPos().Y + gr.PlayerDims().Y/2
 	fx := f.Pos.X + f.Dimensions.X/2
 	fy := f.Pos.Y + f.Dimensions.Y/2
 	dist := math.Hypot(px-fx, py-fy)
 
-	f.SwimPhase += 0.04
+	f.SwimPhase += d.SwimPhaseSpeed
 
 	if f.FleeTimer > 0 {
 		f.FleeTimer--
-		speed := 3.5
+		speed := d.FleeSpeed
 		if f.FacingRight {
 			f.Vel.X = speed
 		} else {
 			f.Vel.X = -speed
 		}
 		f.Vel.Y = math.Sin(f.SwimPhase*2) * 1.0
-	} else if dist < 120 {
-		f.FleeTimer = 60
+	} else if dist < d.FleeRange {
+		f.FleeTimer = d.FleeFrames
 		f.FacingRight = px < fx
 	} else {
-		speed := 0.6
+		speed := d.CruiseSpeed
 		if f.FacingRight {
 			f.Vel.X = speed
 		} else {

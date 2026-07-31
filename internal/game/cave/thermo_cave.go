@@ -207,14 +207,9 @@ func (c *ThermoCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			rammerCandidates[i], rammerCandidates[j] = rammerCandidates[j], rammerCandidates[i]
 		})
 		for i := 0; i < numRammers; i++ {
-			entities = append(entities, &entity.ThermoclineRammer{
-				BaseEntity: entity.BaseEntity{
-					Pos:        rammerCandidates[i],
-					Dimensions: gvec.Vec2{X: 36, Y: 24},
-					Active:     true,
-				},
-				Facing: r.Float64() * math.Pi * 2,
-			})
+			rammer := entity.NewThermoclineRammer(rammerCandidates[i].X, rammerCandidates[i].Y)
+			rammer.Facing = r.Float64() * math.Pi * 2
+			entities = append(entities, rammer)
 		}
 	}
 
@@ -229,15 +224,9 @@ func (c *ThermoCave) GenerateEntities(seed int64) []entity.CaveEntity {
 		})
 		for i := 0; i < numSiphons; i++ {
 			cand := siphonCandidates[i]
-			entities = append(entities, &entity.BrimstoneSiphon{
-				BaseEntity: entity.BaseEntity{
-					Pos:        cand.pos,
-					Dimensions: gvec.Vec2{X: 32, Y: 32},
-					Active:     true,
-				},
-				Direction: cand.dir,
-				Timer:     r.Intn(120),
-			})
+			siphon := entity.NewBrimstoneSiphon(cand.pos.X, cand.pos.Y, cand.dir)
+			siphon.Timer = r.Intn(entity.BrimstoneSiphonArchetype.CycleFrames)
+			entities = append(entities, siphon)
 		}
 	}
 

@@ -14,17 +14,26 @@ import (
 // ShockKelp is a purple kelp variant that shocks the player on contact.
 type ShockKelp struct {
 	BaseEntity
+	def           *ShockKelpDef
 	SwayPhase     float64
 	ShockCooldown int
 	HasOrb        bool
 	AnchorSide    string // "floor", "left", "right"
 }
 
+func (k *ShockKelp) stats() *ShockKelpDef {
+	if k.def != nil {
+		return k.def
+	}
+	return ShockKelpArchetype
+}
+
 // NewShockKelp creates a new ShockKelp with randomized sway phase, orb presence, and specified anchor side.
 func NewShockKelp(x, y, height float64, anchor string) *ShockKelp {
-	width := 16.0
+	d := ShockKelpArchetype
+	width := d.FloorWidth
 	if anchor == "left" || anchor == "right" {
-		width = 28.0
+		width = d.WallWidth
 	}
 
 	return &ShockKelp{
@@ -33,14 +42,16 @@ func NewShockKelp(x, y, height float64, anchor string) *ShockKelp {
 			Dimensions: gvec.Vec2{X: width, Y: height},
 			Active:     true,
 		},
+		def:        d,
 		SwayPhase:  rand.Float64() * math.Pi * 2,
-		HasOrb:     rand.Float64() < 0.5,
+		HasOrb:     rand.Float64() < d.OrbChance,
 		AnchorSide: anchor,
 	}
 }
 
 func (k *ShockKelp) Update(gr Runtime) {
-	k.SwayPhase += 0.035 // Sway slightly faster/more erratically than regular kelp
+	d := k.stats()
+	k.SwayPhase += d.SwayPhaseSpeed
 
 	if k.ShockCooldown > 0 {
 		k.ShockCooldown--
@@ -58,7 +69,7 @@ func (k *ShockKelp) Update(gr Runtime) {
 		}
 
 		if rectsOverlap(k.Pos.X, k.Pos.Y, k.Dimensions.X, k.Dimensions.Y, targetX, targetY, vWidth, vHeight) {
-			k.ShockCooldown = 80 // Cooldown in frames
+			k.ShockCooldown = d.ShockCooldownFrames
 
 			// Push away from the kelp stalk horizontally
 			kelpCenterX := k.Pos.X + k.Dimensions.X/2.0
@@ -68,22 +79,22 @@ func (k *ShockKelp) Update(gr Runtime) {
 				dirX = -1.0
 			}
 
-			forceVec := gvec.Vec2{X: dirX * 4.5, Y: -2.5}
+			forceVec := gvec.Vec2{X: dirX * d.KnockbackX, Y: d.KnockbackY}
 
 			if hasVehicle {
-				gr.Emit(DamageActiveVehicleCmd{Amount: 12.0})
+				gr.Emit(DamageActiveVehicleCmd{Amount: d.VehicleDamage})
 				gr.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
 				gr.Emit(SetMineWarningCmd{
 					Message:  "VEHICLE SHOCKED BY PURPLE KELP!",
-					Duration: 90,
+					Duration: d.WarningDuration,
 					Level:    2,
 				})
 			} else {
-				gr.Emit(DamagePlayerCmd{Amount: 8.0})
+				gr.Emit(DamagePlayerCmd{Amount: d.PlayerDamage})
 				gr.Emit(KnockbackPlayerCmd{Force: forceVec})
 				gr.Emit(SetMineWarningCmd{
 					Message:  "SHOCKED BY PURPLE KELP!",
-					Duration: 90,
+					Duration: d.WarningDuration,
 					Level:    2,
 				})
 			}

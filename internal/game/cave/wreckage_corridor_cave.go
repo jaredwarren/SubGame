@@ -98,13 +98,10 @@ func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity 
 			// Wreckage caves only spawn static Shatter-bulb plants (emergency lighting bulbs) on walls
 			hasAdjacentWall := c.Grid[tx-1][ty] || c.Grid[tx+1][ty] || c.Grid[tx][ty-1] || c.Grid[tx][ty+1]
 			if hasAdjacentWall && r.Float64() < 0.05 {
-				entities = append(entities, &entity.ShatterBulb{
-					BaseEntity: entity.BaseEntity{
-						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
-						Dimensions: gvec.Vec2{X: 24, Y: 24},
-						Active:     true,
-					},
-				})
+				entities = append(entities, entity.NewShatterBulb(
+					float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
+					float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
+				))
 			}
 
 			// Spawn decorative wreckage barnacles/growths (8% chance near any solid face)
@@ -168,13 +165,10 @@ func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity 
 
 		idx1 := r.Intn(len(candidates))
 		c1 := candidates[idx1]
-		entities = append(entities, &entity.ElectroWeaver{
-			BaseEntity: entity.BaseEntity{
-				Pos:        gvec.Vec2{X: c1.X*float64(config.TileSize) + (float64(config.TileSize)-40)/2.0, Y: c1.Y*float64(config.TileSize) + (float64(config.TileSize)-20)/2.0},
-				Dimensions: gvec.Vec2{X: 40, Y: 20},
-				Active:     true,
-			},
-		})
+		entities = append(entities, entity.NewElectroWeaver(
+			c1.X*float64(config.TileSize)+(float64(config.TileSize)-40)/2.0,
+			c1.Y*float64(config.TileSize)+(float64(config.TileSize)-20)/2.0,
+		))
 
 		if numToSpawn == 2 && len(candidates) > 1 {
 			idx2 := idx1
@@ -191,13 +185,10 @@ func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity 
 			}
 			if idx2 != idx1 {
 				c2 := candidates[idx2]
-				entities = append(entities, &entity.ElectroWeaver{
-					BaseEntity: entity.BaseEntity{
-						Pos:        gvec.Vec2{X: c2.X*float64(config.TileSize) + (float64(config.TileSize)-40)/2.0, Y: c2.Y*float64(config.TileSize) + (float64(config.TileSize)-20)/2.0},
-						Dimensions: gvec.Vec2{X: 40, Y: 20},
-						Active:     true,
-					},
-				})
+				entities = append(entities, entity.NewElectroWeaver(
+					c2.X*float64(config.TileSize)+(float64(config.TileSize)-40)/2.0,
+					c2.Y*float64(config.TileSize)+(float64(config.TileSize)-20)/2.0,
+				))
 			}
 		}
 	}

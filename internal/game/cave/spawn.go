@@ -15,25 +15,24 @@ func SpawnFauna(id FaunaID, tx, ty int, r *rand.Rand) entity.CaveEntity {
 	ts := config.TileSize
 	switch id {
 	case FaunaPassiveFish:
+		d := entity.PassiveFishArchetype.Dims
 		return entity.NewPassiveFish(
-			float64(tx*ts)+float64(ts-20)/2.0,
-			float64(ty*ts)+float64(ts-12)/2.0,
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
 			r.Float64() < 0.5,
 			r.Float64()*math.Pi*2,
 		)
 	case FaunaPassiveCrab:
-		return &entity.PassiveCrab{
-			BaseEntity: entity.BaseEntity{
-				Pos:        gvec.Vec2{X: float64(tx*ts) + float64(ts-16)/2.0, Y: float64(ty*ts) + float64(ts-10)},
-				Dimensions: gvec.Vec2{X: 16, Y: 10},
-				Active:     true,
-			},
-			FacingRight: r.Float64() < 0.5,
-		}
+		d := entity.PassiveCrabArchetype.Dims
+		return entity.NewPassiveCrab(
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y)),
+		)
 	case FaunaSandViper:
+		d := entity.SandViperArchetype.Dims
 		return entity.NewSandViper(
-			float64(tx*ts)+float64(ts-24)/2.0,
-			float64(ty*ts)+float64(ts-12),
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y)),
 		)
 	default:
 		return nil
@@ -46,20 +45,19 @@ func SpawnFlora(id FloraID, tx, ty int, height float64, r *rand.Rand) entity.Cav
 	ts := config.TileSize
 	switch id {
 	case FloraShockKelp:
+		w := entity.ShockKelpArchetype.FloorWidth
 		return entity.NewShockKelp(
-			float64(tx*ts)+float64(ts-16)/2.0,
+			float64(tx*ts)+float64(ts-int(w))/2.0,
 			float64(ty*ts)+float64(ts)-height,
 			height,
 			"floor",
 		)
 	case FloraShatterBulb:
-		return &entity.ShatterBulb{
-			BaseEntity: entity.BaseEntity{
-				Pos:        gvec.Vec2{X: float64(tx*ts) + float64(ts-24)/2.0, Y: float64(ty*ts) + float64(ts-24)/2.0},
-				Dimensions: gvec.Vec2{X: 24, Y: 24},
-				Active:     true,
-			},
-		}
+		d := entity.ShatterBulbArchetype.Dims
+		return entity.NewShatterBulb(
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
+		)
 	case FloraKelp, FloraCoral:
 		// FloraCoral historically fell through to kelp in the floor-flora path.
 		return &entity.Kelp{

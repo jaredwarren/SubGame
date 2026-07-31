@@ -40,20 +40,21 @@ type ScoutSub struct {
 
 // NewScoutSub creates a ScoutSub at the given world position.
 func NewScoutSub(x, y float64) *ScoutSub {
-	upg := item.NewInventory(2)
+	d := ScoutSubArchetype
+	upg := item.NewInventory(d.UpgradeSlots)
 	upg.AddItem(&item.SonarAmplifier{}, 1)
 	return &ScoutSub{
 		Pos:        gvec.Vec2{X: x, Y: y},
-		Dimensions: gvec.Vec2{X: 48, Y: 32},
-		Health:     100.0,
-		MaxHealth:  100.0,
-		Battery:    100.0,
-		MaxBattery: 100.0,
-		Cargo:      item.NewInventory(12),
+		Dimensions: d.Dims,
+		Health:     d.MaxHealth,
+		MaxHealth:  d.MaxHealth,
+		Battery:    d.MaxBattery,
+		MaxBattery: d.MaxBattery,
+		Cargo:      item.NewInventory(d.CargoSlots),
 		Upgrades:   upg,
 		Sonar: SonarSettings{
-			BatteryCost: 10.0,
-			Pulse:       SonarPulse{DurationTicks: 180, RadiusStep: 6.5},
+			BatteryCost: d.SonarBatteryCost,
+			Pulse:       SonarPulse{DurationTicks: d.SonarDurationTicks, RadiusStep: d.SonarRadiusStep},
 		},
 	}
 }
@@ -64,7 +65,7 @@ func (sub *ScoutSub) GetDimensions() gvec.Vec2     { return sub.Dimensions }
 func (sub *ScoutSub) GetHealth() float64           { return sub.Health }
 func (sub *ScoutSub) GetMaxHealth() float64        { return sub.MaxHealth }
 func (sub *ScoutSub) GetOxygen() float64           { return 100.0 }
-func (sub *ScoutSub) GetDepthLimit() float64       { return 60.0 }
+func (sub *ScoutSub) GetDepthLimit() float64       { return ScoutSubArchetype.DepthLimit }
 func (sub *ScoutSub) GetCargo() *item.Inventory    { return sub.Cargo }
 func (sub *ScoutSub) GetUpgrades() *item.Inventory { return sub.Upgrades }
 func (sub *ScoutSub) GetPerspective() string       { return "cave" }
@@ -97,8 +98,9 @@ func (sub *ScoutSub) hasUpgrade() bool {
 }
 
 func (sub *ScoutSub) Update(runtime Runtime) {
+	d := ScoutSubArchetype
 	if item.HasItem[*item.ThermalGenerator](sub.Upgrades, 1) {
-		sub.Battery += 0.02
+		sub.Battery += d.ThermalRecharge
 		if sub.Battery > sub.MaxBattery {
 			sub.Battery = sub.MaxBattery
 		}
@@ -119,21 +121,20 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 	center := runtime.PlayerScreenCenter()
 	sub.Facing = math.Atan2(cursor.Y-center.Y, cursor.X-center.X)
 
-	var force = 0.20
-	var maxSpeed = 4.5
-	const drag = 0.94
+	force := d.Force
+	maxSpeed := d.MaxSpeed
 
 	hasPower := sub.Battery > 0
 	if !hasPower {
-		force = 0.04
-		maxSpeed = 1.0
+		force = d.NoPowerForce
+		maxSpeed = d.NoPowerMaxSpeed
 	}
 	if runtime.PlayerSlowed() {
 		force *= 0.5
 		maxSpeed *= 0.5
 	}
 
-	const waterline = -8.0
+	waterline := d.Waterline
 	moving := false
 	if input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) {
 		if sub.Pos.Y > waterline {
@@ -155,7 +156,7 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 	}
 
 	if moving && hasPower {
-		sub.Battery -= 0.03
+		sub.Battery -= d.BatteryDrain
 		if sub.Battery < 0 {
 			sub.Battery = 0
 		}
@@ -168,7 +169,7 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 		}
 	}
 
-	sub.Vel = sub.Vel.Scale(drag)
+	sub.Vel = sub.Vel.Scale(d.Drag)
 	speed := sub.Vel.Length()
 	if speed > maxSpeed {
 		sub.Vel = sub.Vel.Scale(maxSpeed / speed)

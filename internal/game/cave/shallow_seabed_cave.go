@@ -10,7 +10,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
-	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 type ShallowSeabedCave struct {
@@ -161,13 +160,10 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 
 			hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
 			if hasAdjacentWall && r.Float64() < 0.08 {
-				entities = append(entities, &entity.ShatterBulb{
-					BaseEntity: entity.BaseEntity{
-						Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
-						Dimensions: gvec.Vec2{X: 24, Y: 24},
-						Active:     true,
-					},
-				})
+				entities = append(entities, entity.NewShatterBulb(
+					float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
+					float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
+				))
 			}
 			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
 			if isOpenWater && r.Float64() < 0.012 {

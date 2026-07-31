@@ -224,16 +224,10 @@ func (c *ShockKelpCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			c1 := weaverCandidates[idx]
 			weaverCandidates = append(weaverCandidates[:idx], weaverCandidates[idx+1:]...)
 
-			entities = append(entities, &entity.ElectroWeaver{
-				BaseEntity: entity.BaseEntity{
-					Pos: gvec.Vec2{
-						X: c1.X*float64(config.TileSize) + (float64(config.TileSize)-40.0)/2.0,
-						Y: c1.Y*float64(config.TileSize) + (float64(config.TileSize)-20.0)/2.0,
-					},
-					Dimensions: gvec.Vec2{X: 40, Y: 20},
-					Active:     true,
-				},
-			})
+			entities = append(entities, entity.NewElectroWeaver(
+				c1.X*float64(config.TileSize)+(float64(config.TileSize)-40.0)/2.0,
+				c1.Y*float64(config.TileSize)+(float64(config.TileSize)-20.0)/2.0,
+			))
 		}
 	}
 

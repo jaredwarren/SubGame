@@ -38,15 +38,16 @@ type HeavyMech struct {
 
 // NewHeavyMech creates a HeavyMech at the given world position.
 func NewHeavyMech(x, y float64) *HeavyMech {
+	d := HeavyMechArchetype
 	return &HeavyMech{
 		Pos:        gvec.Vec2{X: x, Y: y},
-		Dimensions: gvec.Vec2{X: 48, Y: 48},
-		Health:     200.0,
-		MaxHealth:  200.0,
-		Battery:    100.0,
-		MaxBattery: 100.0,
-		Cargo:      item.NewInventory(8),
-		Upgrades:   item.NewInventory(2),
+		Dimensions: d.Dims,
+		Health:     d.MaxHealth,
+		MaxHealth:  d.MaxHealth,
+		Battery:    d.MaxBattery,
+		MaxBattery: d.MaxBattery,
+		Cargo:      item.NewInventory(d.CargoSlots),
+		Upgrades:   item.NewInventory(d.UpgradeSlots),
 	}
 }
 
@@ -56,7 +57,7 @@ func (m *HeavyMech) GetDimensions() gvec.Vec2     { return m.Dimensions }
 func (m *HeavyMech) GetHealth() float64           { return m.Health }
 func (m *HeavyMech) GetMaxHealth() float64        { return m.MaxHealth }
 func (m *HeavyMech) GetOxygen() float64           { return 100.0 }
-func (m *HeavyMech) GetDepthLimit() float64       { return 120.0 }
+func (m *HeavyMech) GetDepthLimit() float64       { return HeavyMechArchetype.DepthLimit }
 func (m *HeavyMech) GetCargo() *item.Inventory    { return m.Cargo }
 func (m *HeavyMech) GetUpgrades() *item.Inventory { return m.Upgrades }
 func (m *HeavyMech) GetPerspective() string       { return "cave" }
@@ -71,7 +72,7 @@ func (m *HeavyMech) GetKit() item.Item { return &HeavyMechKit{} }
 
 
 func (m *HeavyMech) TakeDamage(amount float64) {
-	m.Health -= amount * 0.6 // 40% damage reduction
+	m.Health -= amount * HeavyMechArchetype.DamageReduction
 	if m.Health < 0 {
 		m.Health = 0
 	}
@@ -85,10 +86,11 @@ func (m *HeavyMech) RechargeBattery(amount float64) {
 }
 
 func (m *HeavyMech) Update(runtime Runtime) {
+	d := HeavyMechArchetype
 	m.AnimTick++
 	if !runtime.IsActiveVehicle(m) {
-		m.Vel.Y += 0.12
-		m.Vel.Y *= 0.95
+		m.Vel.Y += d.Gravity
+		m.Vel.Y *= d.DragV
 		m.Vel.X = 0
 		m.checkCollisions(runtime)
 		return
@@ -104,16 +106,13 @@ func (m *HeavyMech) Update(runtime Runtime) {
 	center := runtime.PlayerScreenCenter()
 	m.Facing = math.Atan2(cursor.Y-center.Y, cursor.X-center.X)
 
-	const gravity = 0.12
-	const dragH = 0.88
-	const dragV = 0.95
-	var walkForce = 0.35
-	var maxSpeedH = 2.0
+	walkForce := d.WalkForce
+	maxSpeedH := d.MaxSpeedH
 
 	hasPower := m.Battery > 0
 	if !hasPower {
-		walkForce = 0.08
-		maxSpeedH = 0.6
+		walkForce = d.NoPowerWalkForce
+		maxSpeedH = d.NoPowerMaxSpeedH
 	}
 	if runtime.PlayerSlowed() {
 		walkForce *= 0.5
@@ -130,14 +129,14 @@ func (m *HeavyMech) Update(runtime Runtime) {
 		moving = true
 	}
 
-	m.Vel.Y += gravity
+	m.Vel.Y += d.Gravity
 
-	const waterline = -12.0
+	waterline := d.Waterline
 	m.ThrustersActive = false
 	if hasPower && (input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) || input.IsKeyPressed(ebiten.KeySpace)) {
 		if m.Pos.Y > waterline {
-			m.Vel.Y -= 0.28
-			m.Battery -= 0.08
+			m.Vel.Y -= d.ThrustForce
+			m.Battery -= d.ThrustDrain
 			if m.Battery < 0 {
 				m.Battery = 0
 			}
@@ -150,21 +149,21 @@ func (m *HeavyMech) Update(runtime Runtime) {
 	}
 
 	if moving && hasPower {
-		m.Battery -= 0.01
+		m.Battery -= d.WalkDrain
 		if m.Battery < 0 {
 			m.Battery = 0
 		}
 	}
 
-	m.Vel.X *= dragH
-	m.Vel.Y *= dragV
+	m.Vel.X *= d.DragH
+	m.Vel.Y *= d.DragV
 
 	if math.Abs(m.Vel.X) > maxSpeedH {
 		m.Vel.X = math.Copysign(maxSpeedH, m.Vel.X)
 	}
 
 	if m.Pos.Y < waterline {
-		m.Vel.Y += 0.20
+		m.Vel.Y += d.SurfaceBuoyancy
 	} else if m.ThrustersActive && m.Pos.Y < waterline+16.0 {
 		bobY := waterline + 4.0 + math.Sin(float64(runtime.TimeOfDay())*0.05)*2.0
 		m.Vel.Y += (bobY - m.Pos.Y) * 0.05

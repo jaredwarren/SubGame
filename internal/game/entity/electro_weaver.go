@@ -15,8 +15,29 @@ import (
 // ElectroWeaver is a serpentine predator that tracks electrical sources and strikes.
 type ElectroWeaver struct {
 	BaseEntity
+	def    *ElectroWeaverDef
 	Timer  int
 	Facing float64
+}
+
+func (ent *ElectroWeaver) stats() *ElectroWeaverDef {
+	if ent.def != nil {
+		return ent.def
+	}
+	return ElectroWeaverArchetype
+}
+
+// NewElectroWeaver creates an ElectroWeaver at the given position.
+func NewElectroWeaver(x, y float64) *ElectroWeaver {
+	d := ElectroWeaverArchetype
+	return &ElectroWeaver{
+		BaseEntity: BaseEntity{
+			Pos:        gvec.Vec2{X: x, Y: y},
+			Dimensions: gvec.Vec2{X: 40, Y: 20},
+			Active:     true,
+		},
+		def: d,
+	}
 }
 
 // WeaverContext defines the context interface needed by ElectroWeaver.
@@ -39,6 +60,7 @@ func (ent *ElectroWeaver) Update(gr Runtime) {
 }
 
 func (ent *ElectroWeaver) update(g WeaverContext) {
+	d := ent.stats()
 	px := g.PlayerPos().X + g.PlayerDims().X/2.0
 	py := g.PlayerPos().Y + g.PlayerDims().Y/2.0
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
@@ -47,7 +69,7 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 	var targetX, targetY float64
 	var isDecoy bool
 
-	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, 500.0)
+	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, d.DecoyRange)
 	if decoyFound {
 		targetX = decoyPos.X
 		targetY = decoyPos.Y
@@ -58,7 +80,7 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 	}
 	dist := math.Hypot(targetX-ex, targetY-ey)
 
-	inAbyssal := (py/config.TileSize) >= 80 || g.IsShockKelpCave()
+	inAbyssal := (py/config.TileSize) >= d.AbyssalDepthTiles || g.IsShockKelpCave()
 	if !inAbyssal {
 		ent.Timer = 0
 		return
@@ -72,22 +94,22 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 		ent.Timer = 0
 	}
 
-	if isElectricity && dist < 500.0 {
+	if isElectricity && dist < d.TrackRange {
 		ent.Timer++
 		g.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
-		if ent.Timer >= 300 {
+		if ent.Timer >= d.StrikeTimerFrames {
 			if isDecoy {
 				g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
-				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKES DECOY!", Duration: 120, Level: 1})
+				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKES DECOY!", Duration: d.DecoyWarningDuration, Level: 1})
 
-				// Teleport back to cooldown (random angle, 350px away)
+				// Teleport back to cooldown (random angle, away from player)
 				angle := rand.Float64() * 2.0 * math.Pi
-				ent.Pos.X = px + math.Cos(angle)*350.0
-				ent.Pos.Y = py + math.Sin(angle)*350.0
+				ent.Pos.X = px + math.Cos(angle)*d.TeleportAwayDist
+				ent.Pos.Y = py + math.Sin(angle)*d.TeleportAwayDist
 				ent.Timer = 0
 			} else {
-				g.Emit(DamagePlayerCmd{Amount: 45.0})
-				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: 180, Level: 3})
+				g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage})
+				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: d.WarningDuration, Level: 3})
 				ent.Pos.X = g.PlayerPos().X + float64(rand.Intn(120)-60)
 				ent.Pos.Y = g.PlayerPos().Y + float64(rand.Intn(120)-60)
 				ent.Timer = 0
@@ -95,27 +117,27 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 		}
 	} else {
 		if ent.Timer > 0 {
-			ent.Timer -= 2
+			ent.Timer -= d.TimerDecay
 			if ent.Timer < 0 {
 				ent.Timer = 0
 			}
 		}
 	}
 
-	if ent.Timer > 60 {
+	if ent.Timer > d.MoveStartTimer {
 		dx := targetX - ex
 		dy := targetY - ey
 		dDist := math.Hypot(dx, dy)
-		if dDist > 100 {
-			ent.Vel.X = (dx / dDist) * 1.5
-			ent.Vel.Y = (dy / dDist) * 1.5
+		if dDist > d.ApproachDist {
+			ent.Vel.X = (dx / dDist) * d.ApproachSpeed
+			ent.Vel.Y = (dy / dDist) * d.ApproachSpeed
 		} else {
-			ent.Vel.X = math.Cos(g.TimeOfDay()/30.0) * 1.2
-			ent.Vel.Y = math.Sin(g.TimeOfDay()/30.0) * 1.2
+			ent.Vel.X = math.Cos(g.TimeOfDay()/30.0) * d.OrbitSpeedClose
+			ent.Vel.Y = math.Sin(g.TimeOfDay()/30.0) * d.OrbitSpeedClose
 		}
 	} else {
-		ent.Vel.X = math.Cos(g.TimeOfDay()/40.0) * 0.8
-		ent.Vel.Y = math.Sin(g.TimeOfDay()/40.0) * 0.8
+		ent.Vel.X = math.Cos(g.TimeOfDay()/40.0) * d.IdleSpeed
+		ent.Vel.Y = math.Sin(g.TimeOfDay()/40.0) * d.IdleSpeed
 	}
 
 	if !g.IsSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
@@ -124,6 +146,7 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 }
 
 func (ent *ElectroWeaver) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
+	d := ent.stats()
 	sx := float32(ent.Pos.X - camera.Pos.X)
 	sy := float32(ent.Pos.Y - camera.Pos.Y)
 	sw := float32(ent.Dimensions.X)
@@ -146,7 +169,7 @@ func (ent *ElectroWeaver) Draw(screen *ebiten.Image, camera *camera.Camera, time
 	}
 
 	if ent.Timer > 0 {
-		sparkRatio := float64(ent.Timer) / 300.0
+		sparkRatio := float64(ent.Timer) / float64(d.StrikeTimerFrames)
 		for s := 0; s < int(sparkRatio*5); s++ {
 			spx := cx + float32(rand.Intn(40)-20)
 			spy := cy + float32(rand.Intn(40)-20)

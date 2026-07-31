@@ -53,45 +53,33 @@ type Player struct {
 
 // NewPlayer initializes a player with default stats and empty inventory.
 func NewPlayer(x, y float64) *Player {
+	d := PlayerArchetype
 	p := &Player{
 		Pos:              gvec.Vec2{X: x, Y: y},
-		Width:            20,
-		Height:           20,
-		MaxHealth:        100,
-		CurrentHealth:    100,
-		MaxOxygen:        100, // 100 seconds of O2 initially
-		CurrentOxygen:    100,
-		MaxStamina:       100,
-		CurrentStamina:   100,
-		MaxEnergy:        100,
-		CurrentEnergy:    100,
-		O2DrainRate:      1.0,
-		StaminaDrainRate: 1.5,
-		StaminaRegenRate: 1.0,
-		DrownDamageRate:  30.0,
-		Inventory:        item.NewInventory(24),
-		Upgrades:         item.NewInventory(4),
-		Hotbar:           item.NewInventory(5),
+		Width:            d.Width,
+		Height:           d.Height,
+		MaxHealth:        d.MaxHealth,
+		CurrentHealth:    d.MaxHealth,
+		MaxOxygen:        d.MaxOxygen,
+		CurrentOxygen:    d.MaxOxygen,
+		MaxStamina:       d.MaxStamina,
+		CurrentStamina:   d.MaxStamina,
+		MaxEnergy:        d.MaxEnergy,
+		CurrentEnergy:    d.MaxEnergy,
+		O2DrainRate:      d.O2DrainRate,
+		StaminaDrainRate: d.StaminaDrainRate,
+		StaminaRegenRate: d.StaminaRegenRate,
+		DrownDamageRate:  d.DrownDamageRate,
+		Inventory:        item.NewInventory(d.InventorySlots),
+		Upgrades:         item.NewInventory(d.UpgradeSlots),
+		Hotbar:           item.NewInventory(d.HotbarSlots),
 		ActiveSlot:       0,
-		LastHealth:       100.0,
-		Speed:            DefaultSpeed,
-		Buoyancy:         -0.04,
+		LastHealth:       d.MaxHealth,
+		Speed:            d.Speed,
+		Buoyancy:         d.Buoyancy,
 	}
 	p.RecalculateUpgrades()
 	return p
-}
-
-var DefaultSpeed = map[string]item.Speed{
-	"overworld": {
-		Drag:         0.88,
-		Acceleration: 0.08,
-		TopSpeed:     1.6,
-	},
-	"cave": {
-		Drag:         0.92,
-		Acceleration: 0.15,
-		TopSpeed:     3.5,
-	},
 }
 
 // UpdateStats handles core stat loops (depleting/regenerating O2, stamina, etc.)

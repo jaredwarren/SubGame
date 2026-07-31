@@ -51,14 +51,15 @@ type Skiff struct {
 
 // NewSkiff creates a Skiff at the given world position.
 func NewSkiff(x, y float64) *Skiff {
+	d := SkiffArchetype
 	return &Skiff{
 		Pos:        gvec.Vec2{X: x, Y: y},
-		Dimensions: gvec.Vec2{X: 56, Y: 24},
-		Health:     150.0,
-		MaxHealth:  150.0,
-		Battery:    100.0,
-		MaxBattery: 100.0,
-		Cargo:      item.NewInventory(24),
+		Dimensions: d.Dims,
+		Health:     d.MaxHealth,
+		MaxHealth:  d.MaxHealth,
+		Battery:    d.MaxBattery,
+		MaxBattery: d.MaxBattery,
+		Cargo:      item.NewInventory(d.CargoSlots),
 		spawnTimer: 0,
 		lightMult:  1.0,
 	}
@@ -154,22 +155,22 @@ func (s *Skiff) Update(runtime Runtime) {
 		return
 	}
 
-	const turnSpeed = 0.04
+	d := SkiffArchetype
 	input := runtime.Input()
 	if input.IsKeyPressed(ebiten.KeyA) || input.IsKeyPressed(ebiten.KeyArrowLeft) {
-		s.Facing -= turnSpeed
+		s.Facing -= d.TurnSpeed
 	}
 	if input.IsKeyPressed(ebiten.KeyD) || input.IsKeyPressed(ebiten.KeyArrowRight) {
-		s.Facing += turnSpeed
+		s.Facing += d.TurnSpeed
 	}
 
-	var accel = 0.20
-	var maxSpeed = 6.0
+	accel := d.Accel
+	maxSpeed := d.MaxSpeed
 
 	hasPower := s.Battery > 0
 	if !hasPower {
-		accel = 0.04
-		maxSpeed = 1.5
+		accel = d.NoPowerAccel
+		maxSpeed = d.NoPowerMaxSpeed
 	}
 
 	moving := false
@@ -178,20 +179,19 @@ func (s *Skiff) Update(runtime Runtime) {
 		s.Vel.Y += math.Sin(s.Facing) * accel
 		moving = true
 	} else if input.IsKeyPressed(ebiten.KeyS) || input.IsKeyPressed(ebiten.KeyArrowDown) {
-		s.Vel.X -= math.Cos(s.Facing) * (accel * 0.4)
-		s.Vel.Y -= math.Sin(s.Facing) * (accel * 0.4)
+		s.Vel.X -= math.Cos(s.Facing) * (accel * d.ReverseAccelScale)
+		s.Vel.Y -= math.Sin(s.Facing) * (accel * d.ReverseAccelScale)
 		moving = true
 	}
 
 	if moving && hasPower {
-		s.Battery -= 0.02
+		s.Battery -= d.BatteryDrain
 		if s.Battery < 0 {
 			s.Battery = 0
 		}
 	}
 
-	const drag = 0.94
-	s.Vel = s.Vel.Scale(drag)
+	s.Vel = s.Vel.Scale(d.Drag)
 
 	speed := s.Vel.Length()
 	if speed > maxSpeed {
@@ -201,7 +201,7 @@ func (s *Skiff) Update(runtime Runtime) {
 	s.checkCollisions(runtime)
 
 	// Spawn new wake point when moving
-	if moving && speed > 0.4 {
+	if moving && speed > d.WakeSpeedThresh {
 		spawnInterval := 1
 		if activeWakeStyle == WakeStyleArcs || activeWakeStyle == WakeStyleVSegments {
 			spawnInterval = 4

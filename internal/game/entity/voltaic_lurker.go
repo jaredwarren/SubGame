@@ -22,6 +22,7 @@ const (
 
 type VoltaicLurker struct {
 	BaseEntity
+	def           *VoltaicLurkerDef
 	AnchorFace    string // "left", "right", "top", "bottom"
 	State         LurkerState
 	Extension     float64 // Current extension in pixels from the wall
@@ -29,14 +30,23 @@ type VoltaicLurker struct {
 	SwayPhase     float64
 }
 
+func (v *VoltaicLurker) stats() *VoltaicLurkerDef {
+	if v.def != nil {
+		return v.def
+	}
+	return VoltaicLurkerArchetype
+}
+
 // NewVoltaicLurker creates a new VoltaicLurker anchored to a specific tile face.
 func NewVoltaicLurker(x, y float64, anchorFace string) *VoltaicLurker {
+	d := VoltaicLurkerArchetype
 	return &VoltaicLurker{
 		BaseEntity: BaseEntity{
 			Pos:        gvec.Vec2{X: x, Y: y},
-			Dimensions: gvec.Vec2{X: 64, Y: 64},
+			Dimensions: d.Dims,
 			Active:     true,
 		},
+		def:           d,
 		AnchorFace:    anchorFace,
 		State:         StateIdle,
 		Extension:     0.0,
@@ -46,17 +56,18 @@ func NewVoltaicLurker(x, y float64, anchorFace string) *VoltaicLurker {
 }
 
 func (v *VoltaicLurker) getAnchorPoint() gvec.Vec2 {
-	cx := v.Pos.X + 32.0
-	cy := v.Pos.Y + 32.0
+	d := v.stats()
+	cx := v.Pos.X + d.Dims.X/2.0
+	cy := v.Pos.Y + d.Dims.Y/2.0
 	switch v.AnchorFace {
 	case "left":
 		return gvec.Vec2{X: v.Pos.X, Y: cy}
 	case "right":
-		return gvec.Vec2{X: v.Pos.X + 64.0, Y: cy}
+		return gvec.Vec2{X: v.Pos.X + d.Dims.X, Y: cy}
 	case "top":
 		return gvec.Vec2{X: cx, Y: v.Pos.Y}
 	case "bottom":
-		return gvec.Vec2{X: cx, Y: v.Pos.Y + 64.0}
+		return gvec.Vec2{X: cx, Y: v.Pos.Y + d.Dims.Y}
 	default:
 		return gvec.Vec2{X: cx, Y: cy}
 	}
@@ -75,19 +86,22 @@ func (v *VoltaicLurker) isTargetInSight(gr Runtime) bool {
 		return false
 	}
 
-	cx := v.Pos.X + 32.0
-	cy := v.Pos.Y + 32.0
+	d := v.stats()
+	cx := v.Pos.X + d.Dims.X/2.0
+	cy := v.Pos.Y + d.Dims.Y/2.0
+	halfW := d.SightHalfWidth
+	sightH := halfW * 2.0
 
 	var bx, by, bw, bh float64
 	switch v.AnchorFace {
 	case "left":
-		bx, by, bw, bh = v.Pos.X, cy-12.0, 130.0, 24.0
+		bx, by, bw, bh = v.Pos.X, cy-halfW, d.SightRange, sightH
 	case "right":
-		bx, by, bw, bh = v.Pos.X+64.0-130.0, cy-12.0, 130.0, 24.0
+		bx, by, bw, bh = v.Pos.X+d.Dims.X-d.SightRange, cy-halfW, d.SightRange, sightH
 	case "top":
-		bx, by, bw, bh = cx-12.0, v.Pos.Y, 24.0, 130.0
+		bx, by, bw, bh = cx-halfW, v.Pos.Y, sightH, d.SightRange
 	case "bottom":
-		bx, by, bw, bh = cx-12.0, v.Pos.Y+64.0-130.0, 24.0, 130.0
+		bx, by, bw, bh = cx-halfW, v.Pos.Y+d.Dims.Y-d.SightRange, sightH, d.SightRange
 	default:
 		return false
 	}
@@ -96,7 +110,8 @@ func (v *VoltaicLurker) isTargetInSight(gr Runtime) bool {
 }
 
 func (v *VoltaicLurker) Update(gr Runtime) {
-	v.SwayPhase += 0.05
+	d := v.stats()
+	v.SwayPhase += d.SwayPhaseSpeed
 
 	switch v.State {
 	case StateIdle:
@@ -104,9 +119,9 @@ func (v *VoltaicLurker) Update(gr Runtime) {
 			v.State = StateLunging
 		}
 	case StateLunging:
-		v.Extension += 6.0
-		if v.Extension >= 80.0 {
-			v.Extension = 80.0
+		v.Extension += d.LungeSpeed
+		if v.Extension >= d.MaxExtension {
+			v.Extension = d.MaxExtension
 			v.State = StateRetracting
 		}
 
@@ -126,39 +141,39 @@ func (v *VoltaicLurker) Update(gr Runtime) {
 		headX = anchor.X + dirX*v.Extension
 		headY = anchor.Y + dirY*v.Extension
 
-		hSize := 16.0
+		hSize := d.HeadSize
 		hx := headX - hSize/2.0
 		hy := headY - hSize/2.0
 
 		tPos, tDims, ok := v.getTarget(gr)
 		if ok && rectsOverlap(hx, hy, hSize, hSize, tPos.X, tPos.Y, tDims.X, tDims.Y) {
 			if gr.HasActiveVehicle() {
-				gr.Emit(DamageActiveVehicleCmd{Amount: 15.0})
+				gr.Emit(DamageActiveVehicleCmd{Amount: d.Damage})
 				gr.Emit(SetMineWarningCmd{
 					Message:  "VEHICLE GRABBED AND SHOCKED!",
-					Duration: 90,
+					Duration: d.WarningDuration,
 					Level:    2,
 				})
 			} else {
-				gr.Emit(DamagePlayerCmd{Amount: 15.0})
+				gr.Emit(DamagePlayerCmd{Amount: d.Damage})
 				gr.Emit(SetMineWarningCmd{
 					Message:  "GRABBED AND SHOCKED BY VOLTAIC LURKER!",
-					Duration: 90,
+					Duration: d.WarningDuration,
 					Level:    2,
 				})
 			}
-			gr.Emit(StunPlayerCmd{Duration: 90})
-			gr.Emit(TriggerShakeCmd{Duration: 20, Intensity: 4.0})
+			gr.Emit(StunPlayerCmd{Duration: d.StunDuration})
+			gr.Emit(TriggerShakeCmd{Duration: d.ShakeDuration, Intensity: d.ShakeIntensity})
 
 			v.State = StateRetracting
 		}
 
 	case StateRetracting:
-		v.Extension -= 3.0
+		v.Extension -= d.RetractSpeed
 		if v.Extension <= 0.0 {
 			v.Extension = 0.0
 			v.State = StateCooldown
-			v.CooldownTimer = 480
+			v.CooldownTimer = d.CooldownFrames
 		}
 
 	case StateCooldown:
@@ -170,6 +185,7 @@ func (v *VoltaicLurker) Update(gr Runtime) {
 }
 
 func (v *VoltaicLurker) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
+	d := v.stats()
 	anchor := v.getAnchorPoint()
 
 	// Draw hole background
@@ -199,7 +215,7 @@ func (v *VoltaicLurker) Draw(screen *ebiten.Image, camera *camera.Camera, timeOf
 	for i := 0; i < 7; i++ {
 		t := float64(i) / 6.0
 		dist := v.Extension * t
-		swayVal := math.Sin(v.SwayPhase+float64(i)*0.8) * 3.0 * (v.Extension / 80.0) * t
+		swayVal := math.Sin(v.SwayPhase+float64(i)*0.8) * 3.0 * (v.Extension / d.MaxExtension) * t
 		segX := anchor.X + dirX*dist + swayX*swayVal
 		segY := anchor.Y + dirY*dist + swayY*swayVal
 

@@ -6,20 +6,44 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 // BrimstoneSiphon is a volcanic vent that fires damaging thermal jets.
 type BrimstoneSiphon struct {
 	BaseEntity
+	def       *BrimstoneSiphonDef
 	Timer     int
 	Direction string // "up", "down", "left", "right"
 }
 
+func (ent *BrimstoneSiphon) stats() *BrimstoneSiphonDef {
+	if ent.def != nil {
+		return ent.def
+	}
+	return BrimstoneSiphonArchetype
+}
+
+// NewBrimstoneSiphon creates a BrimstoneSiphon at the given position facing direction.
+func NewBrimstoneSiphon(x, y float64, direction string) *BrimstoneSiphon {
+	d := BrimstoneSiphonArchetype
+	return &BrimstoneSiphon{
+		BaseEntity: BaseEntity{
+			Pos:        gvec.Vec2{X: x, Y: y},
+			Dimensions: gvec.Vec2{X: 32, Y: 32},
+			Active:     true,
+		},
+		def:       d,
+		Direction: direction,
+	}
+}
+
 func (ent *BrimstoneSiphon) Update(gr Runtime) {
-	ent.Timer = (ent.Timer + 1) % 120
-	if ent.Timer >= 60 {
+	d := ent.stats()
+	ent.Timer = (ent.Timer + 1) % d.CycleFrames
+	if ent.Timer >= d.ActiveStartFrame {
 		var jx, jy, jw, jh float64
-		const jetRange = 160.0
+		jetRange := d.JetRange
 
 		switch ent.Direction {
 		case "up":
@@ -43,15 +67,16 @@ func (ent *BrimstoneSiphon) Update(gr Runtime) {
 
 		if rectsOverlap(jx, jy, jw, jh, targetX, targetY, vWidth, vHeight) {
 			if gr.HasActiveVehicle() {
-				gr.Emit(DamageActiveVehicleCmd{Amount: 0.4})
+				gr.Emit(DamageActiveVehicleCmd{Amount: d.VehicleDPS})
 			} else {
-				gr.Emit(DamagePlayerCmd{Amount: 0.6})
+				gr.Emit(DamagePlayerCmd{Amount: d.PlayerDPS})
 			}
 		}
 	}
 }
 
 func (ent *BrimstoneSiphon) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay float64) {
+	d := ent.stats()
 	sx := float32(ent.Pos.X - camera.Pos.X)
 	sy := float32(ent.Pos.Y - camera.Pos.Y)
 	sw := float32(ent.Dimensions.X)
@@ -66,7 +91,7 @@ func (ent *BrimstoneSiphon) Draw(screen *ebiten.Image, camera *camera.Camera, ti
 	entityPath.Close()
 
 	var ventColor color.RGBA
-	if ent.Timer >= 60 {
+	if ent.Timer >= d.ActiveStartFrame {
 		ventColor = color.RGBA{185, 85, 45, 255}
 	} else {
 		ventColor = color.RGBA{65, 55, 50, 255}
@@ -75,8 +100,8 @@ func (ent *BrimstoneSiphon) Draw(screen *ebiten.Image, camera *camera.Camera, ti
 	opts.ColorScale.ScaleWithColor(ventColor)
 	vector.FillPath(screen, entityPath, nil, &opts)
 
-	if ent.Timer >= 60 {
-		jetLen := float32(120.0)
+	if ent.Timer >= d.ActiveStartFrame {
+		jetLen := float32(d.JetDrawLen)
 		switch ent.Direction {
 		case "up":
 			vector.FillRect(screen, cx-8, sy-jetLen+float32(sh)/2, 16, jetLen, color.RGBA{245, 120, 20, 90}, false)

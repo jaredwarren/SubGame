@@ -13,7 +13,29 @@ import (
 // FalseBulbSnare mimics a ShatterBulb but lunges at and damages the player.
 type FalseBulbSnare struct {
 	BaseEntity
+	def   *FalseBulbSnareDef
 	State int
+}
+
+func (ent *FalseBulbSnare) stats() *FalseBulbSnareDef {
+	if ent.def != nil {
+		return ent.def
+	}
+	return FalseBulbSnareArchetype
+}
+
+// NewFalseBulbSnare creates a FalseBulbSnare at the given position.
+func NewFalseBulbSnare(x, y float64) *FalseBulbSnare {
+	d := FalseBulbSnareArchetype
+	return &FalseBulbSnare{
+		BaseEntity: BaseEntity{
+			Pos:        gvec.Vec2{X: x, Y: y},
+			Dimensions: gvec.Vec2{X: 24, Y: 32},
+			Active:     true,
+		},
+		def:   d,
+		State: 0,
+	}
 }
 
 // SnareContext defines the context interface needed by FalseBulbSnare.
@@ -40,6 +62,7 @@ func (ent *FalseBulbSnare) Update(gr Runtime) {
 }
 
 func (ent *FalseBulbSnare) update(g SnareContext) {
+	d := ent.stats()
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 
@@ -47,11 +70,11 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 	var targetW, targetH float64
 	var isDecoy bool
 
-	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, 280.0)
+	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, d.DecoyRange)
 	if decoyFound {
 		targetX = decoyPos.X
 		targetY = decoyPos.Y
-		targetW, targetH = 16.0, 16.0
+		targetW, targetH = d.DecoyTargetSize, d.DecoyTargetSize
 		isDecoy = true
 	} else {
 		if g.HasActiveVehicle() {
@@ -70,7 +93,7 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 	}
 	dist := math.Hypot(targetX-ex, targetY-ey)
 
-	if dist > 360.0 {
+	if dist > d.LeashRange {
 		ent.State = 0
 		return
 	}
@@ -105,12 +128,12 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 		for diff < -math.Pi {
 			diff += 2 * math.Pi
 		}
-		if math.Abs(diff) < 0.42 {
+		if math.Abs(diff) < d.FlashlightConeHalfAngle {
 			isLit = true
 		}
 	}
 
-	soundAlerted := !isDecoy && g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < 280.0
+	soundAlerted := !isDecoy && g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < d.SoundAlertRange
 	if soundAlerted || isDecoy {
 		ent.State = 1
 	}
@@ -118,14 +141,14 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 	if isLit {
 		ent.Vel = gvec.Vec2{}
 	} else {
-		if dist < 180.0 || ent.State == 1 {
+		if dist < d.ChaseRange || ent.State == 1 {
 			ent.State = 1
 			dx := targetX - ex
 			dy := targetY - ey
 			dDist := math.Hypot(dx, dy)
 			if dDist > 0 {
-				ent.Vel.X = (dx / dDist) * 3.5
-				ent.Vel.Y = (dy / dDist) * 3.5
+				ent.Vel.X = (dx / dDist) * d.ChaseSpeed
+				ent.Vel.Y = (dy / dDist) * d.ChaseSpeed
 			}
 			ent.Pos = ent.Pos.Add(ent.Vel)
 		} else {
@@ -149,11 +172,11 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 			ent.Active = false
 		} else {
 			if g.HasActiveVehicle() {
-				g.Emit(DamageActiveVehicleCmd{Amount: 20.0})
-				g.Emit(SetMineWarningCmd{Message: "VEHICLE ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+				g.Emit(DamageActiveVehicleCmd{Amount: d.Damage})
+				g.Emit(SetMineWarningCmd{Message: "VEHICLE ATTACKED BY FALSE-BULB SNARE!", Duration: d.WarningDuration, Level: 2})
 			} else {
-				g.Emit(DamagePlayerCmd{Amount: 20.0})
-				g.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: 120, Level: 2})
+				g.Emit(DamagePlayerCmd{Amount: d.Damage})
+				g.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: d.WarningDuration, Level: 2})
 			}
 			ent.Active = false
 		}

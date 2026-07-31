@@ -13,6 +13,27 @@ import (
 // ShatterBulb is a static oxygen plant that pops when touched, restoring O2.
 type ShatterBulb struct {
 	BaseEntity
+	def *ShatterBulbDef
+}
+
+func (s *ShatterBulb) stats() *ShatterBulbDef {
+	if s.def != nil {
+		return s.def
+	}
+	return ShatterBulbArchetype
+}
+
+// NewShatterBulb creates a ShatterBulb at the given position.
+func NewShatterBulb(x, y float64) *ShatterBulb {
+	d := ShatterBulbArchetype
+	return &ShatterBulb{
+		BaseEntity: BaseEntity{
+			Pos:        gvec.Vec2{X: x, Y: y},
+			Dimensions: d.Dims,
+			Active:     true,
+		},
+		def: d,
+	}
 }
 
 func (s *ShatterBulb) Update(gr Runtime) {

@@ -13,11 +13,32 @@ import (
 // ThermoclineRammer is a fast-charging aquatic predator that rams the player.
 type ThermoclineRammer struct {
 	BaseEntity
+	def          *ThermoclineRammerDef
 	State        int
 	Timer        int
 	Facing       float64
 	StunTimer    int
 	ChargeOrigin gvec.Vec2
+}
+
+func (ent *ThermoclineRammer) stats() *ThermoclineRammerDef {
+	if ent.def != nil {
+		return ent.def
+	}
+	return ThermoclineRammerArchetype
+}
+
+// NewThermoclineRammer creates a ThermoclineRammer at the given position.
+func NewThermoclineRammer(x, y float64) *ThermoclineRammer {
+	d := ThermoclineRammerArchetype
+	return &ThermoclineRammer{
+		BaseEntity: BaseEntity{
+			Pos:        gvec.Vec2{X: x, Y: y},
+			Dimensions: gvec.Vec2{X: 36, Y: 24},
+			Active:     true,
+		},
+		def: d,
+	}
 }
 
 // RammerContext defines the context interface needed by ThermoclineRammer.
@@ -44,6 +65,7 @@ func (ent *ThermoclineRammer) Update(gr Runtime) {
 }
 
 func (ent *ThermoclineRammer) update(g RammerContext) {
+	d := ent.stats()
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 
@@ -51,11 +73,11 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 	var targetW, targetH float64
 	var isDecoy bool
 
-	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, 350.0)
+	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, d.DecoyRange)
 	if decoyFound {
 		targetX = decoyPos.X
 		targetY = decoyPos.Y
-		targetW, targetH = 16.0, 16.0
+		targetW, targetH = d.DecoyTargetSize, d.DecoyTargetSize
 		isDecoy = true
 	} else {
 		if g.HasActiveVehicle() {
@@ -85,15 +107,15 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 	isAggroTrigger := false
 	if decoyFound {
 		isAggroTrigger = true
-	} else if dist < 250.0 {
-		if !g.HasActiveVehicle() && g.IsPlayerSprinting() && (math.Abs(g.PlayerVel().X) > 1.2 || math.Abs(g.PlayerVel().Y) > 1.2) {
+	} else if dist < d.AggroRange {
+		if !g.HasActiveVehicle() && g.IsPlayerSprinting() && (math.Abs(g.PlayerVel().X) > d.SprintVelThreshold || math.Abs(g.PlayerVel().Y) > d.SprintVelThreshold) {
 			isAggroTrigger = true
 		}
 		if g.HasActiveVehicle() && g.ActiveVehicleMoving() {
 			isAggroTrigger = true
 		}
 	}
-	if !decoyFound && g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < 250.0 {
+	if !decoyFound && g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < d.SoundAlertRange {
 		isAggroTrigger = true
 	}
 
@@ -108,25 +130,25 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 			if math.Abs(dx) > math.Abs(dy) {
 				ent.Vel.Y = 0
 				if dx > 0 {
-					ent.Vel.X, ent.Facing = 6.2, 0.0
+					ent.Vel.X, ent.Facing = d.ChargeSpeed, 0.0
 				} else {
-					ent.Vel.X, ent.Facing = -6.2, math.Pi
+					ent.Vel.X, ent.Facing = -d.ChargeSpeed, math.Pi
 				}
 			} else {
 				ent.Vel.X = 0
 				if dy > 0 {
-					ent.Vel.Y, ent.Facing = 6.2, math.Pi/2.0
+					ent.Vel.Y, ent.Facing = d.ChargeSpeed, math.Pi/2.0
 				} else {
-					ent.Vel.Y, ent.Facing = -6.2, -math.Pi/2.0
+					ent.Vel.Y, ent.Facing = -d.ChargeSpeed, -math.Pi/2.0
 				}
 			}
 		} else {
 			ent.Timer++
-			if ent.Timer%120 == 0 {
+			if ent.Timer%d.PatrolTurnInterval == 0 {
 				ent.Facing += math.Pi
 			}
-			ent.Vel.X = math.Cos(ent.Facing) * 0.8
-			ent.Vel.Y = math.Sin(ent.Facing) * 0.4
+			ent.Vel.X = math.Cos(ent.Facing) * d.PatrolSpeedX
+			ent.Vel.Y = math.Sin(ent.Facing) * d.PatrolSpeedY
 			if !g.IsSolid(ent.Pos.X+ent.Vel.X, ent.Pos.Y+ent.Vel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
 				ent.Pos = ent.Pos.Add(ent.Vel)
 			} else {
@@ -136,23 +158,23 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 	case 1: // charging
 		ent.Timer++
 		displacement := math.Hypot(ent.Pos.X-ent.ChargeOrigin.X, ent.Pos.Y-ent.ChargeOrigin.Y)
-		if ent.Timer >= 90 || displacement > 350.0 {
+		if ent.Timer >= d.ChargeMaxFrames || displacement > d.ChargeMaxDist {
 			ent.State = 2
-			ent.StunTimer = 180
+			ent.StunTimer = d.StunFrames
 			ent.Vel = gvec.Vec2{}
 			break
 		}
 
 		currentVel := ent.Vel
 		if g.CheckDeterrentSlowing(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y) {
-			currentVel = currentVel.Scale(0.5)
+			currentVel = currentVel.Scale(d.DeterrentSlowScale)
 		}
 
 		nextX := ent.Pos.X + currentVel.X
 		nextY := ent.Pos.Y + currentVel.Y
 		if g.IsSolid(nextX, nextY, ent.Dimensions.X, ent.Dimensions.Y) {
 			ent.State = 2
-			ent.StunTimer = 180
+			ent.StunTimer = d.StunFrames
 			ent.Vel = gvec.Vec2{}
 		} else {
 			ent.Pos.X = nextX
@@ -175,7 +197,7 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 				g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
 				ent.Vel = gvec.Vec2{}
 				ent.State = 2
-				ent.StunTimer = 180
+				ent.StunTimer = d.StunFrames
 			} else {
 				dirX, dirY := 0.0, 0.0
 				speed := math.Hypot(ent.Vel.X, ent.Vel.Y)
@@ -194,26 +216,24 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 					}
 				}
 
-				kbForce := 6.5
-				forceVec := gvec.Vec2{X: dirX * kbForce, Y: dirY * kbForce}
+				forceVec := gvec.Vec2{X: dirX * d.Knockback, Y: dirY * d.Knockback}
 
 				if g.HasActiveVehicle() {
-					g.Emit(DamageActiveVehicleCmd{Amount: 30.0})
+					g.Emit(DamageActiveVehicleCmd{Amount: d.VehicleDamage})
 					g.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
-					g.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
+					g.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: d.WarningDuration, Level: 2})
 				} else {
-					g.Emit(DamagePlayerCmd{Amount: 25.0})
+					g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage})
 					g.Emit(KnockbackPlayerCmd{Force: forceVec})
-					g.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: 120, Level: 2})
+					g.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: d.WarningDuration, Level: 2})
 				}
 
 				// Push rammer back in opposite direction to prevent continuous overlap
-				pushBackDistance := 40.0
-				ent.Pos.X -= dirX * pushBackDistance
-				ent.Pos.Y -= dirY * pushBackDistance
+				ent.Pos.X -= dirX * d.PushBack
+				ent.Pos.Y -= dirY * d.PushBack
 				ent.Vel = gvec.Vec2{}
 				ent.State = 2
-				ent.StunTimer = 180
+				ent.StunTimer = d.StunFrames
 			}
 		}
 	}

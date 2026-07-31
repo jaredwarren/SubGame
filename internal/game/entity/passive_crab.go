@@ -3,6 +3,7 @@ package entity
 import (
 	"image/color"
 	"math"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -14,18 +15,41 @@ import (
 // PassiveCrab is a catchable floor creature that retreats into its shell when threatened.
 type PassiveCrab struct {
 	BaseEntity
+	def         *PassiveCrabDef
 	FacingRight bool
 	InShell     bool
 	ShellTimer  int
 	WalkTimer   int
 }
 
+func (c *PassiveCrab) stats() *PassiveCrabDef {
+	if c.def != nil {
+		return c.def
+	}
+	return PassiveCrabArchetype
+}
+
+// NewPassiveCrab creates a PassiveCrab at the given position.
+func NewPassiveCrab(x, y float64) *PassiveCrab {
+	d := PassiveCrabArchetype
+	return &PassiveCrab{
+		BaseEntity: BaseEntity{
+			Pos:        gvec.Vec2{X: x, Y: y},
+			Dimensions: d.Dims,
+			Active:     true,
+		},
+		def:         d,
+		FacingRight: rand.Float64() < 0.5,
+	}
+}
+
 func (c *PassiveCrab) GetHarvestedItem() item.Item { return &item.RawCrab{} }
 
 func (c *PassiveCrab) CanCatch(playerPos gvec.Vec2) bool {
+	d := c.stats()
 	cx := c.Pos.X + c.Dimensions.X/2
 	cy := c.Pos.Y + c.Dimensions.Y/2
-	return math.Hypot(playerPos.X-cx, playerPos.Y-cy) <= 64.0
+	return math.Hypot(playerPos.X-cx, playerPos.Y-cy) <= d.CatchRange
 }
 
 // CrabContext defines the context interface needed by PassiveCrab.
@@ -42,6 +66,7 @@ func (c *PassiveCrab) Update(gr Runtime) {
 }
 
 func (c *PassiveCrab) update(g CrabContext) {
+	d := c.stats()
 	px := g.PlayerPos().X + g.PlayerDims().X/2
 	py := g.PlayerPos().Y + g.PlayerDims().Y/2
 	cx := c.Pos.X + c.Dimensions.X/2
@@ -49,7 +74,7 @@ func (c *PassiveCrab) update(g CrabContext) {
 	dist := math.Hypot(px-cx, py-cy)
 
 	isLit := false
-	if g.FlashlightOn() && dist < 300 {
+	if g.FlashlightOn() && dist < d.LightRange {
 		facingAngle := g.PlayerFacing()
 		dx := cx - px
 		dy := cy - py
@@ -61,14 +86,14 @@ func (c *PassiveCrab) update(g CrabContext) {
 		for diff < -math.Pi {
 			diff += 2 * math.Pi
 		}
-		if math.Abs(diff) < 0.42 {
+		if math.Abs(diff) < d.FlashlightConeHalfAngle {
 			isLit = true
 		}
 	}
 
-	if dist < 100 || isLit {
+	if dist < d.ThreatRange || isLit {
 		c.InShell = true
-		c.ShellTimer = 90
+		c.ShellTimer = d.ShellFrames
 		c.Vel.X = 0
 	} else if c.ShellTimer > 0 {
 		c.ShellTimer--
@@ -79,10 +104,10 @@ func (c *PassiveCrab) update(g CrabContext) {
 
 	if !c.InShell {
 		c.WalkTimer++
-		if c.WalkTimer%180 == 0 {
+		if c.WalkTimer%d.WalkTurnInterval == 0 {
 			c.FacingRight = !c.FacingRight
 		}
-		speed := 0.35
+		speed := d.WalkSpeed
 		if c.FacingRight {
 			c.Vel.X = speed
 		} else {
@@ -90,9 +115,9 @@ func (c *PassiveCrab) update(g CrabContext) {
 		}
 	}
 
-	c.Vel.Y += 0.3
-	if c.Vel.Y > 4.0 {
-		c.Vel.Y = 4.0
+	c.Vel.Y += d.Gravity
+	if c.Vel.Y > d.MaxFallSpeed {
+		c.Vel.Y = d.MaxFallSpeed
 	}
 
 	nextX := c.Pos.X + c.Vel.X

@@ -22,6 +22,7 @@ const (
 
 type SandViper struct {
 	BaseEntity
+	def         *SandViperDef
 	State       ViperState
 	Timer       int // general timer for state duration (e.g. windup, cooldown, lunge)
 	SwayPhase   float64
@@ -29,13 +30,22 @@ type SandViper struct {
 	LungeDir    gvec.Vec2
 }
 
+func (sv *SandViper) stats() *SandViperDef {
+	if sv.def != nil {
+		return sv.def
+	}
+	return SandViperArchetype
+}
+
 func NewSandViper(x, y float64) *SandViper {
+	d := SandViperArchetype
 	return &SandViper{
 		BaseEntity: BaseEntity{
 			Pos:        gvec.Vec2{X: x, Y: y},
-			Dimensions: gvec.Vec2{X: 24, Y: 12},
+			Dimensions: d.Dims,
 			Active:     true,
 		},
+		def:         d,
 		State:       StateViperPatrol,
 		SwayPhase:   rand.Float64() * math.Pi * 2,
 		FacingRight: rand.Float64() < 0.5,
@@ -43,8 +53,9 @@ func NewSandViper(x, y float64) *SandViper {
 }
 
 func (sv *SandViper) Update(gr Runtime) {
+	d := sv.stats()
 	// Increment sway phase for swimming animation
-	sv.SwayPhase += 0.08
+	sv.SwayPhase += d.SwayPhaseSpeed
 
 	// Find target (player or active vehicle)
 	targetPos := gr.PlayerPos()
@@ -63,14 +74,14 @@ func (sv *SandViper) Update(gr Runtime) {
 	case StateViperPatrol:
 		// Patrol slowly near the sea floor (moving left and right)
 		sv.Timer++
-		speed := 0.5
+		speed := d.PatrolSpeed
 		if sv.FacingRight {
 			sv.Vel.X = speed
 		} else {
 			sv.Vel.X = -speed
 		}
 		// Gently bob up and down
-		sv.Vel.Y = math.Sin(sv.SwayPhase) * 0.2
+		sv.Vel.Y = math.Sin(sv.SwayPhase) * d.BobAmplitude
 
 		nextPos := sv.Pos.Add(sv.Vel)
 		if !gr.IsSolid(nextPos.X, nextPos.Y, sv.Dimensions.X, sv.Dimensions.Y) {
@@ -80,7 +91,7 @@ func (sv *SandViper) Update(gr Runtime) {
 		}
 
 		// Proximity check for aggro
-		if dist < 100.0 {
+		if dist < d.AggroRange {
 			sv.State = StateViperWindup
 			sv.Timer = 0
 			sv.Vel = gvec.Vec2{} // Stop moving during windup
@@ -96,7 +107,7 @@ func (sv *SandViper) Update(gr Runtime) {
 		// Turn to face the player/vehicle
 		sv.FacingRight = targetCenter.X > svCenter.X
 
-		if sv.Timer >= 30 { // 0.5s at 60 FPS
+		if sv.Timer >= d.WindupFrames {
 			sv.State = StateViperLunge
 			sv.Timer = 0
 			// Calculate straight line vector towards target center
@@ -113,7 +124,7 @@ func (sv *SandViper) Update(gr Runtime) {
 				}
 			}
 			// Set lunge speed
-			sv.Vel = sv.LungeDir.Scale(4.5)
+			sv.Vel = sv.LungeDir.Scale(d.LungeSpeed)
 		}
 
 	case StateViperLunge:
@@ -139,28 +150,27 @@ func (sv *SandViper) Update(gr Runtime) {
 
 		if rectsOverlap(sv.Pos.X, sv.Pos.Y, sv.Dimensions.X, sv.Dimensions.Y, pPos.X, pPos.Y, pDims.X, pDims.Y) {
 			// Calculate knockback force (in direction of lunge)
-			kbForce := 3.5
-			forceVec := sv.LungeDir.Scale(kbForce)
+			forceVec := sv.LungeDir.Scale(d.Knockback)
 
 			if gr.HasActiveVehicle() {
-				gr.Emit(DamageActiveVehicleCmd{Amount: 10.0})
+				gr.Emit(DamageActiveVehicleCmd{Amount: d.Damage})
 				gr.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{Message: "VEHICLE NIPPED BY SAND-VIPER!", Duration: 90, Level: 1})
+				gr.Emit(SetMineWarningCmd{Message: "VEHICLE NIPPED BY SAND-VIPER!", Duration: d.WarningDuration, Level: 1})
 			} else {
-				gr.Emit(DamagePlayerCmd{Amount: 10.0})
+				gr.Emit(DamagePlayerCmd{Amount: d.Damage})
 				gr.Emit(KnockbackPlayerCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{Message: "NIPPED BY SAND-VIPER!", Duration: 90, Level: 1})
+				gr.Emit(SetMineWarningCmd{Message: "NIPPED BY SAND-VIPER!", Duration: d.WarningDuration, Level: 1})
 			}
 
 			// Push back slightly to avoid double hits
 			sv.Pos = gvec.Vec2{
-				X: sv.Pos.X - sv.LungeDir.X*15.0,
-				Y: sv.Pos.Y - sv.LungeDir.Y*15.0,
+				X: sv.Pos.X - sv.LungeDir.X*d.PushBack,
+				Y: sv.Pos.Y - sv.LungeDir.Y*d.PushBack,
 			}
 			sv.State = StateViperCooldown
 			sv.Timer = 0
 			sv.Vel = gvec.Vec2{}
-		} else if sv.Timer >= 20 { // Lunge lasts 20 frames max
+		} else if sv.Timer >= d.LungeFrames {
 			sv.State = StateViperCooldown
 			sv.Timer = 0
 			sv.Vel = gvec.Vec2{}
@@ -169,13 +179,13 @@ func (sv *SandViper) Update(gr Runtime) {
 	case StateViperCooldown:
 		sv.Timer++
 		// Drift slowly downwards, simulating settling back down to seabed
-		sv.Vel = gvec.Vec2{X: 0, Y: 0.25}
+		sv.Vel = gvec.Vec2{X: 0, Y: d.CooldownDriftY}
 		nextPos := sv.Pos.Add(sv.Vel)
 		if !gr.IsSolid(nextPos.X, nextPos.Y, sv.Dimensions.X, sv.Dimensions.Y) {
 			sv.Pos = nextPos
 		}
 
-		if sv.Timer >= 120 { // 2 seconds cooldown
+		if sv.Timer >= d.CooldownFrames {
 			sv.State = StateViperPatrol
 			sv.Timer = 0
 		}

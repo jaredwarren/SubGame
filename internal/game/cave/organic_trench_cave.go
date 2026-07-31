@@ -84,23 +84,16 @@ func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			if ty >= 4 && ty < 40 {
 				hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
 				if hasAdjacentWall && r.Float64() < 0.08 {
-					entities = append(entities, &entity.ShatterBulb{
-						BaseEntity: entity.BaseEntity{
-							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
-							Dimensions: gvec.Vec2{X: 24, Y: 24},
-							Active:     true,
-						},
-					})
+					entities = append(entities, entity.NewShatterBulb(
+						float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
+						float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
+					))
 				}
 				if grid[tx][ty-1] && r.Float64() < 0.04 {
-					entities = append(entities, &entity.FalseBulbSnare{
-						BaseEntity: entity.BaseEntity{
-							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-24)/2.0, Y: float64(ty*config.TileSize) + 4},
-							Dimensions: gvec.Vec2{X: 24, Y: 32},
-							Active:     true,
-						},
-						State: 0,
-					})
+					entities = append(entities, entity.NewFalseBulbSnare(
+						float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
+						float64(ty*config.TileSize)+4,
+					))
 				}
 			}
 
@@ -118,27 +111,23 @@ func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
 						dir = "left"
 					}
 					if dir != "" {
-						entities = append(entities, &entity.BrimstoneSiphon{
-							BaseEntity: entity.BaseEntity{
-								Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-32)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-32)/2.0},
-								Dimensions: gvec.Vec2{X: 32, Y: 32},
-								Active:     true,
-							},
-							Direction: dir,
-							Timer:     r.Intn(120),
-						})
+						siphon := entity.NewBrimstoneSiphon(
+							float64(tx*config.TileSize)+float64(config.TileSize-32)/2.0,
+							float64(ty*config.TileSize)+float64(config.TileSize-32)/2.0,
+							dir,
+						)
+						siphon.Timer = r.Intn(entity.BrimstoneSiphonArchetype.CycleFrames)
+						entities = append(entities, siphon)
 					}
 				}
 				isOpenSpace := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
 				if isOpenSpace && r.Float64() < 0.015 {
-					entities = append(entities, &entity.ThermoclineRammer{
-						BaseEntity: entity.BaseEntity{
-							Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-36)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0},
-							Dimensions: gvec.Vec2{X: 36, Y: 24},
-							Active:     true,
-						},
-						Facing: r.Float64() * math.Pi * 2,
-					})
+					rammer := entity.NewThermoclineRammer(
+						float64(tx*config.TileSize)+float64(config.TileSize-36)/2.0,
+						float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
+					)
+					rammer.Facing = r.Float64() * math.Pi * 2
+					entities = append(entities, rammer)
 				}
 			}
 
@@ -175,13 +164,10 @@ func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
 						}
 					}
 					if !hasWeaverNearby {
-						entities = append(entities, &entity.ElectroWeaver{
-							BaseEntity: entity.BaseEntity{
-								Pos:        gvec.Vec2{X: float64(tx*config.TileSize) + float64(config.TileSize-40)/2.0, Y: float64(ty*config.TileSize) + float64(config.TileSize-20)/2.0},
-								Dimensions: gvec.Vec2{X: 40, Y: 20},
-								Active:     true,
-							},
-						})
+						entities = append(entities, entity.NewElectroWeaver(
+							float64(tx*config.TileSize)+float64(config.TileSize-40)/2.0,
+							float64(ty*config.TileSize)+float64(config.TileSize-20)/2.0,
+						))
 					}
 				}
 			}

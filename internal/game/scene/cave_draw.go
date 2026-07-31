@@ -293,7 +293,7 @@ func (c *CaveScene) applyWaterDisplacement(g CaveContext, finalScreen *ebiten.Im
 		var ventPositions [16]float32
 		var ventCount float32 = 0
 		for _, ent := range c.Entities {
-			if siphon, ok := ent.(*entity.BrimstoneSiphon); ok && siphon.IsActive() && siphon.Timer >= 60 && ventCount < 8 {
+			if siphon, ok := ent.(*entity.BrimstoneSiphon); ok && siphon.IsActive() && siphon.Timer >= entity.BrimstoneSiphonArchetype.ActiveStartFrame && ventCount < 8 {
 				idx := int(ventCount) * 2
 				ventPositions[idx] = float32(siphon.Pos.X - cam.Pos.X + siphon.Dimensions.X/2.0)
 				ventPositions[idx+1] = float32(siphon.Pos.Y - cam.Pos.Y + siphon.Dimensions.Y/2.0)
