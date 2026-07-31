@@ -148,12 +148,12 @@ func getMeta(t reflect.Type) *ItemMetadata {
 
 // itemRegistry is a compile-time static lookup of item metadata keyed by concrete type.
 var itemRegistry = map[reflect.Type]*ItemMetadata{
-	reflect.TypeOf(Titanium{}):   mineralMetadata(MaterialTitanium),
-	reflect.TypeOf(Copper{}):     mineralMetadata(MaterialCopper),
-	reflect.TypeOf(Quartz{}):     mineralMetadata(MaterialQuartz),
-	reflect.TypeOf(AbyssalOre{}): mineralMetadata(MaterialAbyssalOre),
-	reflect.TypeOf(Nickel{}):     mineralMetadata(MaterialNickel),
-	reflect.TypeOf(ScrapMetal{}): &ItemMetadata{
+	reflect.TypeFor[Titanium]():   mineralMetadata(MaterialTitanium),
+	reflect.TypeFor[Copper]():     mineralMetadata(MaterialCopper),
+	reflect.TypeFor[Quartz]():     mineralMetadata(MaterialQuartz),
+	reflect.TypeFor[AbyssalOre](): mineralMetadata(MaterialAbyssalOre),
+	reflect.TypeFor[Nickel]():     mineralMetadata(MaterialNickel),
+	reflect.TypeFor[ScrapMetal](): &ItemMetadata{
 		Name:     MaterialScrapMetal.Name,
 		MaxStack: MaterialScrapMetal.MaxStack,
 		Color:    MaterialScrapMetal.Color,
@@ -174,7 +174,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeLine(screen, cx-size/3.0, cy, cx+size/3.0, cy-size/10.0, 1.5, color.RGBA{180, 150, 130, 255}, false)
 		},
 	},
-	reflect.TypeOf(ElectronicWaste{}): &ItemMetadata{
+	reflect.TypeFor[ElectronicWaste](): &ItemMetadata{
 		Name:     MaterialElectronicWaste.Name,
 		MaxStack: MaterialElectronicWaste.MaxStack,
 		Color:    MaterialElectronicWaste.Color,
@@ -191,7 +191,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillRect(screen, cx+size/4.0, cy-size/2.5, size/15.0, size/10.0, color.RGBA{220, 150, 50, 255}, false)
 		},
 	},
-	reflect.TypeOf(RawFish{}): &ItemMetadata{
+	reflect.TypeFor[RawFish](): &ItemMetadata{
 		Name:           "Raw Fish",
 		MaxStack:       5,
 		Color:          color.RGBA{70, 140, 180, 255},
@@ -215,7 +215,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx+size/6.0, cy-size/10.0, 2.0, color.White, false)
 		},
 	},
-	reflect.TypeOf(CookedFish{}): &ItemMetadata{
+	reflect.TypeFor[CookedFish](): &ItemMetadata{
 		Name:           "Cooked Fish",
 		MaxStack:       5,
 		Color:          color.RGBA{170, 110, 60, 255},
@@ -240,7 +240,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeLine(screen, cx+size/8.0, cy-size/6.0, cx-size/12.0, cy+size/6.0, 1.5, color.RGBA{100, 60, 30, 255}, false)
 		},
 	},
-	reflect.TypeOf(RawCrab{}): &ItemMetadata{
+	reflect.TypeFor[RawCrab](): &ItemMetadata{
 		Name:           "Raw Crab",
 		MaxStack:       5,
 		Color:          color.RGBA{180, 50, 50, 255},
@@ -259,7 +259,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.White, false)
 		},
 	},
-	reflect.TypeOf(CookedCrab{}): &ItemMetadata{
+	reflect.TypeFor[CookedCrab](): &ItemMetadata{
 		Name:           "Cooked Crab",
 		MaxStack:       5,
 		Color:          color.RGBA{240, 90, 50, 255},
@@ -278,7 +278,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.RGBA{255, 230, 200, 255}, false)
 		},
 	},
-	reflect.TypeOf(O2TankHC{}): &ItemMetadata{
+	reflect.TypeFor[O2TankHC](): &ItemMetadata{
 		Name:          "High Capacity O2 Tank",
 		MaxStack:      1,
 		Color:         color.RGBA{98, 198, 148, 255},
@@ -292,7 +292,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
-	reflect.TypeOf(O2TankUHC{}): &ItemMetadata{
+	reflect.TypeFor[O2TankUHC](): &ItemMetadata{
 		Name:          "Ultra High Capacity O2 Tank",
 		MaxStack:      1,
 		Color:         color.RGBA{98, 198, 148, 255},
@@ -306,7 +306,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
-	reflect.TypeOf(Fins{}): &ItemMetadata{
+	reflect.TypeFor[Fins](): &ItemMetadata{
 		Name:     "Propulsion Fins",
 		MaxStack: 1,
 		Color:    color.RGBA{98, 198, 148, 255},
@@ -323,7 +323,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
-	reflect.TypeOf(Scanner{}): &ItemMetadata{
+	reflect.TypeFor[Scanner](): &ItemMetadata{
 		Name:     "Scanner Tool",
 		MaxStack: 1,
 		Color:    color.RGBA{98, 198, 148, 255},
@@ -336,7 +336,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
-	reflect.TypeOf(UpgradeSolar{}): &ItemMetadata{
+	reflect.TypeFor[UpgradeSolar](): &ItemMetadata{
 		Name:          "Solar Array Module",
 		MaxStack:      1,
 		Color:         color.RGBA{220, 200, 30, 255},
@@ -352,7 +352,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.0, color.RGBA{255, 255, 255, 128}, false)
 		},
 	},
-	reflect.TypeOf(UpgradeSolarMKII{}): &ItemMetadata{
+	reflect.TypeFor[UpgradeSolarMKII](): &ItemMetadata{
 		Name:          "Solar Array MKII Module",
 		MaxStack:      1,
 		Color:         color.RGBA{240, 220, 50, 255},
@@ -368,7 +368,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 2.0, color.RGBA{255, 255, 255, 200}, false)
 		},
 	},
-	reflect.TypeOf(UpgradeStorage{}): &ItemMetadata{
+	reflect.TypeFor[UpgradeStorage](): &ItemMetadata{
 		Name:         "Storage Vault Module",
 		MaxStack:     1,
 		Color:        color.RGBA{130, 150, 180, 255},
@@ -384,7 +384,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.0, color.RGBA{255, 255, 255, 128}, false)
 		},
 	},
-	reflect.TypeOf(UpgradeStorageMKII{}): &ItemMetadata{
+	reflect.TypeFor[UpgradeStorageMKII](): &ItemMetadata{
 		Name:         "Storage Vault MKII Module",
 		MaxStack:     1,
 		Color:        color.RGBA{150, 180, 220, 255},
@@ -400,7 +400,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 2.0, color.RGBA{255, 255, 255, 200}, false)
 		},
 	},
-	reflect.TypeOf(DecoyLauncher{}): &ItemMetadata{
+	reflect.TypeFor[DecoyLauncher](): &ItemMetadata{
 		Name:     "Decoy Launcher Module",
 		MaxStack: 1,
 		Color:    color.RGBA{110, 120, 130, 255},
@@ -415,7 +415,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy-size/4.0, 3, color.RGBA{50, 240, 100, 255}, false)
 		},
 	},
-	reflect.TypeOf(ChemicalDischarger{}): &ItemMetadata{
+	reflect.TypeFor[ChemicalDischarger](): &ItemMetadata{
 		Name:     "Chemical Discharger Module",
 		MaxStack: 1,
 		Color:    color.RGBA{130, 80, 180, 255},
@@ -430,7 +430,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillRect(screen, cx+size/12.0, cy-size/1.8, size/6.0, size/4.0, color.RGBA{80, 80, 90, 255}, false)
 		},
 	},
-	reflect.TypeOf(SonarAmplifier{}): &ItemMetadata{
+	reflect.TypeFor[SonarAmplifier](): &ItemMetadata{
 		Name:     "Sonar Amplifier",
 		MaxStack: 1,
 		Color:    color.RGBA{0, 240, 255, 255},
@@ -445,7 +445,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, 3, clr, false)
 		},
 	},
-	reflect.TypeOf(PowerCell{}): &ItemMetadata{
+	reflect.TypeFor[PowerCell](): &ItemMetadata{
 		Name:     "Power Cell",
 		MaxStack: 5,
 		Color:    color.RGBA{220, 180, 40, 255},
@@ -459,7 +459,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillRect(screen, cx-size/8.0, cy-size/2.0, size/4.0, size/6.0, color.RGBA{180, 190, 200, 255}, false)
 		},
 	},
-	reflect.TypeOf(ThermalGenerator{}): &ItemMetadata{
+	reflect.TypeFor[ThermalGenerator](): &ItemMetadata{
 		Name:     "Thermal Generator",
 		MaxStack: 1,
 		Color:    color.RGBA{235, 100, 50, 255},
@@ -473,7 +473,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/4.0, color.RGBA{255, 120, 0, 255}, false)
 		},
 	},
-	reflect.TypeOf(EscapeRocket{}): &ItemMetadata{
+	reflect.TypeFor[EscapeRocket](): &ItemMetadata{
 		Name:     "Escape Rocket",
 		MaxStack: 1,
 		Color:    color.RGBA{255, 100, 50, 255},
@@ -510,7 +510,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillPath(screen, &flamePath, nil, &flameOpts)
 		},
 	},
-	reflect.TypeOf(SonicDecoy{}): &ItemMetadata{
+	reflect.TypeFor[SonicDecoy](): &ItemMetadata{
 		Name:     "Sonic Decoy",
 		MaxStack: 5,
 		Color:    color.RGBA{180, 210, 50, 255},
@@ -544,7 +544,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			return true
 		},
 	},
-	reflect.TypeOf(ChemicalDeterrent{}): &ItemMetadata{
+	reflect.TypeFor[ChemicalDeterrent](): &ItemMetadata{
 		Name:     "Chemical Deterrent",
 		MaxStack: 5,
 		Color:    color.RGBA{40, 25, 60, 255},
@@ -574,23 +574,19 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 type BaseItem[T any] struct{}
 
 func (b BaseItem[T]) GetName() string {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).Name
+	return getMeta(reflect.TypeFor[T]()).Name
 }
 
 func (b BaseItem[T]) GetMaxStack() int {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).MaxStack
+	return getMeta(reflect.TypeFor[T]()).MaxStack
 }
 
 func (b BaseItem[T]) GetColor() color.Color {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).Color
+	return getMeta(reflect.TypeFor[T]()).Color
 }
 
 func (b BaseItem[T]) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
-	var zero T
-	getMeta(reflect.TypeOf(zero)).DrawIcon(screen, cx, cy, size)
+	getMeta(reflect.TypeFor[T]()).DrawIcon(screen, cx, cy, size)
 }
 
 type ConsumableNode[T any] struct {
@@ -598,13 +594,11 @@ type ConsumableNode[T any] struct {
 }
 
 func (c ConsumableNode[T]) GetHealthRestore() float64 {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).HealthRestore
+	return getMeta(reflect.TypeFor[T]()).HealthRestore
 }
 
 func (c ConsumableNode[T]) GetStaminaRestore() float64 {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).StaminaRestore
+	return getMeta(reflect.TypeFor[T]()).StaminaRestore
 }
 
 type PlayerUpgradeNode[T any] struct {
@@ -620,8 +614,7 @@ type O2UpgradeNode[T any] struct {
 }
 
 func (o O2UpgradeNode[T]) GetMaxO2Capacity() float64 {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).MaxO2Capacity
+	return getMeta(reflect.TypeFor[T]()).MaxO2Capacity
 }
 
 type SpeedUpgradeNode[T any] struct {
@@ -629,8 +622,7 @@ type SpeedUpgradeNode[T any] struct {
 }
 
 func (s SpeedUpgradeNode[T]) GetSpeedUpgrade() map[string]Speed {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).SpeedUpgrade
+	return getMeta(reflect.TypeFor[T]()).SpeedUpgrade
 }
 
 type VehicleUpgradeNode[T any] struct {
@@ -646,18 +638,15 @@ type BaseUpgradeNode[T any] struct {
 }
 
 func (u BaseUpgradeNode[T]) GetModuleType() BaseModule {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).ModuleType
+	return getMeta(reflect.TypeFor[T]()).ModuleType
 }
 
 func (u BaseUpgradeNode[T]) GetStorageSlots() int {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).StorageSlots
+	return getMeta(reflect.TypeFor[T]()).StorageSlots
 }
 
 func (u BaseUpgradeNode[T]) GetSolarRecharge() float64 {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).SolarRecharge
+	return getMeta(reflect.TypeFor[T]()).SolarRecharge
 }
 
 type UsableNode[T any] struct {
@@ -665,6 +654,5 @@ type UsableNode[T any] struct {
 }
 
 func (u UsableNode[T]) Use(ctx UsableContext) bool {
-	var zero T
-	return getMeta(reflect.TypeOf(zero)).Use(ctx)
+	return getMeta(reflect.TypeFor[T]()).Use(ctx)
 }

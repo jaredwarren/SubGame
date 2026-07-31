@@ -1,4 +1,4 @@
-package story
+package data
 
 // DefaultLoreEntries is the compile-time lore database.
 // Unlock state is stored on each entry's Unlocked field at runtime.

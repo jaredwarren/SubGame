@@ -26,6 +26,15 @@ func (o *OverworldScene) update(g OverworldContext) error {
 	o.whirlpool.Update(whirlpoolContext{scene: o, g: g})
 	o.UpdateExtras(g)
 
+	if !o.hasShownDivePrompt {
+		if o.divePromptTimer > 0 {
+			o.divePromptTimer--
+			if o.divePromptTimer == 0 {
+				o.hasShownDivePrompt = true
+			}
+		}
+	}
+
 	// If piloting a vehicle, apply forces to the vehicle and handle death.
 	if v := g.GetActiveVehicle(); v != nil {
 		vPos := v.GetPos()

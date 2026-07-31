@@ -66,6 +66,9 @@ type OverworldScene struct {
 	hasCache          bool
 
 	topdownSwimFrames []*ebiten.Image
+
+	divePromptTimer    int
+	hasShownDivePrompt bool
 }
 
 func (o *OverworldScene) loadTopdownSwimFrames() {
@@ -88,7 +91,7 @@ func (o *OverworldScene) loadTopdownSwimFrames() {
 
 // NewOverworldScene creates a new OverworldScene.
 func NewOverworldScene(w *world.World) *OverworldScene {
-	return &OverworldScene{World: w}
+	return &OverworldScene{World: w, divePromptTimer: 180}
 }
 
 func (o *OverworldScene) getTileTexture(tileType world.TileType) *ebiten.Image {

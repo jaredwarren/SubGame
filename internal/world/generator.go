@@ -34,8 +34,8 @@ type World struct {
 // NewWorld creates and procedurally initializes a new World.
 func NewWorld(seed int64) *World {
 	w := &World{
-		Width:  100,
-		Height: 100,
+		Width:  500,
+		Height: 500,
 		Caves:  make(map[string][][]bool),
 		Seed:   seed,
 	}
