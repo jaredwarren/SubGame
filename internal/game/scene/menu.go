@@ -460,14 +460,24 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 				vector.FillRect(clippedScreen, float32(startX), ry, 740, 52, color.RGBA{18, 24, 38, 255}, false)
 				vector.StrokeRect(clippedScreen, float32(startX), ry, 740, 52, 0.8, color.RGBA{45, 58, 78, 255}, false)
 
-				resultName := rcp.NewResult().GetName()
+				result := rcp.NewResult()
+				// Same DrawIcon path inventory uses — one source of truth for craftable icons.
+				const iconSize float32 = 36
+				iconCX := float32(startX) + 10 + iconSize/2
+				iconCY := ry + 26
+				vector.FillRect(clippedScreen, float32(startX)+6, ry+8, iconSize+4, iconSize+4, color.RGBA{12, 16, 26, 255}, false)
+				vector.StrokeRect(clippedScreen, float32(startX)+6, ry+8, iconSize+4, iconSize+4, 0.8, color.RGBA{55, 70, 95, 255}, false)
+				result.DrawIcon(clippedScreen, iconCX, iconCY, iconSize)
+
+				textX := int(startX) + 56
+				resultName := result.GetName()
 				resQty := rcp.ResultQuantity
 				if resQty > 1 {
 					resultName = fmt.Sprintf("%s x%d", resultName, resQty)
 				}
-				ebitenutil.DebugPrintAt(clippedScreen, resultName, int(startX)+15, int(ry)+6)
+				ebitenutil.DebugPrintAt(clippedScreen, resultName, textX, int(ry)+6)
 
-				currentX := int(startX) + 15
+				currentX := textX
 				drawColoredDebugText(clippedScreen, "Ingredients:", currentX, int(ry)+28, color.RGBA{180, 190, 200, 255})
 				currentX += len("Ingredients:") * 6
 

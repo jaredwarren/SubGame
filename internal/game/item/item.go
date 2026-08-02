@@ -153,7 +153,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 	reflect.TypeFor[Quartz]():     mineralMetadata(MaterialQuartz),
 	reflect.TypeFor[AbyssalOre](): mineralMetadata(MaterialAbyssalOre),
 	reflect.TypeFor[Nickel]():     mineralMetadata(MaterialNickel),
-	reflect.TypeFor[ScrapMetal](): &ItemMetadata{
+	reflect.TypeFor[ScrapMetal](): {
 		Name:     MaterialScrapMetal.Name,
 		MaxStack: MaterialScrapMetal.MaxStack,
 		Color:    MaterialScrapMetal.Color,
@@ -174,7 +174,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeLine(screen, cx-size/3.0, cy, cx+size/3.0, cy-size/10.0, 1.5, color.RGBA{180, 150, 130, 255}, false)
 		},
 	},
-	reflect.TypeFor[ElectronicWaste](): &ItemMetadata{
+	reflect.TypeFor[ElectronicWaste](): {
 		Name:     MaterialElectronicWaste.Name,
 		MaxStack: MaterialElectronicWaste.MaxStack,
 		Color:    MaterialElectronicWaste.Color,
@@ -191,7 +191,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillRect(screen, cx+size/4.0, cy-size/2.5, size/15.0, size/10.0, color.RGBA{220, 150, 50, 255}, false)
 		},
 	},
-	reflect.TypeFor[RawFish](): &ItemMetadata{
+	reflect.TypeFor[RawFish](): {
 		Name:           "Raw Fish",
 		MaxStack:       5,
 		Color:          color.RGBA{70, 140, 180, 255},
@@ -215,7 +215,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx+size/6.0, cy-size/10.0, 2.0, color.White, false)
 		},
 	},
-	reflect.TypeFor[CookedFish](): &ItemMetadata{
+	reflect.TypeFor[CookedFish](): {
 		Name:           "Cooked Fish",
 		MaxStack:       5,
 		Color:          color.RGBA{170, 110, 60, 255},
@@ -240,7 +240,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeLine(screen, cx+size/8.0, cy-size/6.0, cx-size/12.0, cy+size/6.0, 1.5, color.RGBA{100, 60, 30, 255}, false)
 		},
 	},
-	reflect.TypeFor[RawCrab](): &ItemMetadata{
+	reflect.TypeFor[RawCrab](): {
 		Name:           "Raw Crab",
 		MaxStack:       5,
 		Color:          color.RGBA{180, 50, 50, 255},
@@ -259,7 +259,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.White, false)
 		},
 	},
-	reflect.TypeFor[CookedCrab](): &ItemMetadata{
+	reflect.TypeFor[CookedCrab](): {
 		Name:           "Cooked Crab",
 		MaxStack:       5,
 		Color:          color.RGBA{240, 90, 50, 255},
@@ -278,7 +278,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx+size/10.0, cy-size/4.0, 1.5, color.RGBA{255, 230, 200, 255}, false)
 		},
 	},
-	reflect.TypeFor[O2TankHC](): &ItemMetadata{
+	reflect.TypeFor[O2TankHC](): {
 		Name:          "High Capacity O2 Tank",
 		MaxStack:      1,
 		Color:         color.RGBA{98, 198, 148, 255},
@@ -292,7 +292,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
-	reflect.TypeFor[O2TankUHC](): &ItemMetadata{
+	reflect.TypeFor[O2TankUHC](): {
 		Name:          "Ultra High Capacity O2 Tank",
 		MaxStack:      1,
 		Color:         color.RGBA{98, 198, 148, 255},
@@ -306,7 +306,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
-	reflect.TypeFor[Fins](): &ItemMetadata{
+	reflect.TypeFor[Fins](): {
 		Name:     "Propulsion Fins",
 		MaxStack: 1,
 		Color:    color.RGBA{98, 198, 148, 255},
@@ -323,7 +323,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
-	reflect.TypeFor[Scanner](): &ItemMetadata{
+	reflect.TypeFor[Scanner](): {
 		Name:     "Scanner Tool",
 		MaxStack: 1,
 		Color:    color.RGBA{98, 198, 148, 255},
@@ -336,7 +336,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
-	reflect.TypeFor[UpgradeSolar](): &ItemMetadata{
+	reflect.TypeFor[UpgradeSolar](): {
 		Name:          "Solar Array Module",
 		MaxStack:      1,
 		Color:         color.RGBA{220, 200, 30, 255},
@@ -352,7 +352,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.0, color.RGBA{255, 255, 255, 128}, false)
 		},
 	},
-	reflect.TypeFor[UpgradeSolarMKII](): &ItemMetadata{
+	reflect.TypeFor[UpgradeSolarMKII](): {
 		Name:          "Solar Array MKII Module",
 		MaxStack:      1,
 		Color:         color.RGBA{240, 220, 50, 255},
@@ -368,7 +368,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 2.0, color.RGBA{255, 255, 255, 200}, false)
 		},
 	},
-	reflect.TypeFor[UpgradeStorage](): &ItemMetadata{
+	reflect.TypeFor[UpgradeStorage](): {
 		Name:         "Storage Vault Module",
 		MaxStack:     1,
 		Color:        color.RGBA{130, 150, 180, 255},
@@ -384,7 +384,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.0, color.RGBA{255, 255, 255, 128}, false)
 		},
 	},
-	reflect.TypeFor[UpgradeStorageMKII](): &ItemMetadata{
+	reflect.TypeFor[UpgradeStorageMKII](): {
 		Name:         "Storage Vault MKII Module",
 		MaxStack:     1,
 		Color:        color.RGBA{150, 180, 220, 255},
@@ -400,7 +400,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 2.0, color.RGBA{255, 255, 255, 200}, false)
 		},
 	},
-	reflect.TypeFor[DecoyLauncher](): &ItemMetadata{
+	reflect.TypeFor[DecoyLauncher](): {
 		Name:     "Decoy Launcher Module",
 		MaxStack: 1,
 		Color:    color.RGBA{110, 120, 130, 255},
@@ -415,7 +415,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy-size/4.0, 3, color.RGBA{50, 240, 100, 255}, false)
 		},
 	},
-	reflect.TypeFor[ChemicalDischarger](): &ItemMetadata{
+	reflect.TypeFor[ChemicalDischarger](): {
 		Name:     "Chemical Discharger Module",
 		MaxStack: 1,
 		Color:    color.RGBA{130, 80, 180, 255},
@@ -430,7 +430,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillRect(screen, cx+size/12.0, cy-size/1.8, size/6.0, size/4.0, color.RGBA{80, 80, 90, 255}, false)
 		},
 	},
-	reflect.TypeFor[SonarAmplifier](): &ItemMetadata{
+	reflect.TypeFor[SonarAmplifier](): {
 		Name:     "Sonar Amplifier",
 		MaxStack: 1,
 		Color:    color.RGBA{0, 240, 255, 255},
@@ -445,7 +445,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, 3, clr, false)
 		},
 	},
-	reflect.TypeFor[PowerCell](): &ItemMetadata{
+	reflect.TypeFor[PowerCell](): {
 		Name:     "Power Cell",
 		MaxStack: 5,
 		Color:    color.RGBA{220, 180, 40, 255},
@@ -459,7 +459,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillRect(screen, cx-size/8.0, cy-size/2.0, size/4.0, size/6.0, color.RGBA{180, 190, 200, 255}, false)
 		},
 	},
-	reflect.TypeFor[ThermalGenerator](): &ItemMetadata{
+	reflect.TypeFor[ThermalGenerator](): {
 		Name:     "Thermal Generator",
 		MaxStack: 1,
 		Color:    color.RGBA{235, 100, 50, 255},
@@ -473,7 +473,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/4.0, color.RGBA{255, 120, 0, 255}, false)
 		},
 	},
-	reflect.TypeFor[EscapeRocket](): &ItemMetadata{
+	reflect.TypeFor[EscapeRocket](): {
 		Name:     "Escape Rocket",
 		MaxStack: 1,
 		Color:    color.RGBA{255, 100, 50, 255},
@@ -510,7 +510,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillPath(screen, &flamePath, nil, &flameOpts)
 		},
 	},
-	reflect.TypeFor[SonicDecoy](): &ItemMetadata{
+	reflect.TypeFor[SonicDecoy](): {
 		Name:     "Sonic Decoy",
 		MaxStack: 5,
 		Color:    color.RGBA{180, 210, 50, 255},
@@ -544,7 +544,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			return true
 		},
 	},
-	reflect.TypeFor[ChemicalDeterrent](): &ItemMetadata{
+	reflect.TypeFor[ChemicalDeterrent](): {
 		Name:     "Chemical Deterrent",
 		MaxStack: 5,
 		Color:    color.RGBA{40, 25, 60, 255},

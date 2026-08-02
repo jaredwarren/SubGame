@@ -63,6 +63,11 @@ func (g *Game) drawOverworldLayer(screen *ebiten.Image) {
 	}
 
 	g.drawWaypointMarker(screen)
+
+	// Fog last so unexplored tiles hide terrain, extras, and vehicles alike.
+	if g.overworldState != nil {
+		g.overworldState.DrawFogOverlay(g, screen)
+	}
 }
 
 // drawCaveLayer renders cave vehicles, the sonar ring, and interaction prompts.

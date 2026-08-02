@@ -255,8 +255,11 @@ func (g *Game) ActivatePlayerItem(it item.Item) {
 	}
 
 	if deployable, ok := it.(vehicle.Deployable); ok {
-		veh := deployable.Deploy(g.player.Pos.X, g.player.Pos.Y)
+		deployX, deployY := g.player.Pos.X, g.player.Pos.Y
+		veh := deployable.Deploy(deployX, deployY)
 		if g.currentState == StateOverworld {
+			// Surface vehicles (e.g. Skiff) must land on clear water, not land/lifepod.
+			veh.SetPos(g.findNearestClearWaterDeployPos(g.player.Pos, veh.GetDimensions()))
 			g.OverworldVehicles = append(g.OverworldVehicles, veh)
 		} else {
 			g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], veh)

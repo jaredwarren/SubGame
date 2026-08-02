@@ -2,11 +2,13 @@ package game
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
@@ -108,6 +110,9 @@ type Game struct {
 	menuOpenedAnywhere bool
 	craftingRecipes    []scene.Recipe
 
+	// Exploration / fog-of-war
+	explorationTracker *exploration.Tracker
+
 	// Tutorial
 	TutorialActive bool
 }
@@ -131,24 +136,29 @@ func NewGame() *Game {
 	skiff := vehicle.NewSkiff(spawnX, spawnY)
 
 	sm := story.NewStoryManager()
+	tracker := exploration.NewTracker(w.Width, w.Height)
+	spawnTX := int(math.Floor((spawnX + p.Width/2.0) / float64(config.TileSize)))
+	spawnTY := int(math.Floor((spawnY + p.Height/2.0) / float64(config.TileSize)))
+	tracker.Reveal(spawnTX, spawnTY, exploration.RevealRadius)
 
 	g := &Game{
-		currentState:      StateTitle,
-		player:            p,
-		hud:               NewHUD(),
-		world:             w,
-		camera:            cam,
-		Input:             NewEbitenInput(),
-		caveNodes:         make(map[string][]resource.Resource),
-		baseStation:       baseStation,
-		ActiveVehicle:     skiff,
-		OverworldVehicles: []vehicle.Vehicle{skiff},
-		CaveVehicles:      make(map[string][]vehicle.Vehicle),
-		Sonar:             sonar.NewSonar(),
-		caveEntities:      make(map[string][]entity.CaveEntity),
-		FlashlightOn:      true,
-		storyManager:      sm,
-		craftingRecipes:   scene.DefaultCraftingRecipes(),
+		currentState:         StateTitle,
+		player:               p,
+		hud:                  NewHUD(),
+		world:                w,
+		camera:               cam,
+		Input:                NewEbitenInput(),
+		caveNodes:            make(map[string][]resource.Resource),
+		baseStation:          baseStation,
+		ActiveVehicle:        skiff,
+		OverworldVehicles:    []vehicle.Vehicle{skiff},
+		CaveVehicles:         make(map[string][]vehicle.Vehicle),
+		Sonar:                sonar.NewSonar(),
+		caveEntities:         make(map[string][]entity.CaveEntity),
+		FlashlightOn:         true,
+		storyManager:         sm,
+		craftingRecipes:      scene.DefaultCraftingRecipes(),
+		explorationTracker:   tracker,
 	}
 
 	g.titleState = NewTitleScene()
@@ -176,6 +186,79 @@ func findWaterSpawn(w *world.World) (x, y float64) {
 		}
 	}
 	return x, y
+}
+
+// findNearestClearWaterDeployPos returns a top-left vehicle position centered on the
+// nearest overworld tile where dims fit entirely on water and clear of the lifepod.
+func (g *Game) findNearestClearWaterDeployPos(near gvec.Vec2, dims gvec.Vec2) gvec.Vec2 {
+	w := g.world
+	if w == nil || w.Width == 0 || w.Height == 0 {
+		return near
+	}
+
+	ts := float64(config.TileSize)
+	startTX := int(math.Floor((near.X + dims.X/2) / ts))
+	startTY := int(math.Floor((near.Y + dims.Y/2) / ts))
+	startTX = max(0, min(startTX, w.Width-1))
+	startTY = max(0, min(startTY, w.Height-1))
+
+	type tilePos struct{ x, y int }
+	visited := make([][]bool, w.Width)
+	for x := range visited {
+		visited[x] = make([]bool, w.Height)
+	}
+	queue := []tilePos{{startTX, startTY}}
+	visited[startTX][startTY] = true
+	dirs := []tilePos{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+
+		pos := gvec.Vec2{
+			X: float64(cur.x)*ts + ts/2 - dims.X/2,
+			Y: float64(cur.y)*ts + ts/2 - dims.Y/2,
+		}
+		if g.isClearOverworldDeploy(pos, dims) {
+			return pos
+		}
+
+		for _, d := range dirs {
+			nx, ny := cur.x+d.x, cur.y+d.y
+			if nx < 0 || ny < 0 || nx >= w.Width || ny >= w.Height || visited[nx][ny] {
+				continue
+			}
+			visited[nx][ny] = true
+			queue = append(queue, tilePos{nx, ny})
+		}
+	}
+	return near
+}
+
+// isClearOverworldDeploy reports whether a vehicle bbox at pos is fully on water
+// and does not overlap the lifepod collision box.
+func (g *Game) isClearOverworldDeploy(pos, dims gvec.Vec2) bool {
+	w := g.world
+	x1, x2, y1, y2 := gvec.TileRange(pos, dims, config.TileSize)
+	for tx := x1; tx <= x2; tx++ {
+		for ty := y1; ty <= y2; ty++ {
+			if tx < 0 || ty < 0 || tx >= w.Width || ty >= w.Height {
+				return false
+			}
+			info := world.GetTileInfo(w.OverworldMap[tx][ty])
+			if info == nil || !info.IsWater {
+				return false
+			}
+		}
+	}
+	if g.baseStation != nil {
+		bPos, bSize := g.baseStation.Pos, g.baseStation.Size
+		if pos.X < bPos.X+bSize.X && pos.X+dims.X > bPos.X &&
+			pos.Y < bPos.Y+bSize.Y && pos.Y+dims.Y > bPos.Y {
+			return false
+		}
+	}
+	return true
 }
 
 // TransitionTo switches the active scene, calling lifecycle hooks on the old and new scenes.

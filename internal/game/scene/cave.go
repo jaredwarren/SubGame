@@ -106,6 +106,8 @@ type CaveScene struct {
 	entranceLight []float32
 
 	offscreen *ebiten.Image
+	// Intermediate buffer for chaining water displace → edge blur.
+	postFX *ebiten.Image
 
 	diverSheet       *ebiten.Image
 	diverIdleFrames  []*ebiten.Image

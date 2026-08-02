@@ -8,6 +8,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
+	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -72,6 +73,7 @@ func (o *OverworldScene) update(g OverworldContext) error {
 				p.Pos.Y = newPos.Y + (vDims.Y-p.Height)/2.0
 			}
 		}
+		revealExploration(g)
 		return nil
 	}
 
@@ -156,6 +158,7 @@ func (o *OverworldScene) update(g OverworldContext) error {
 	}
 
 	o.CheckCollisions(p, g.GetBaseStation())
+	revealExploration(g)
 
 	isMoving := speed > 0.1
 	p.UpdateStats(false, isSprinting && isMoving && moving)
@@ -199,6 +202,18 @@ func (o *OverworldScene) update(g OverworldContext) error {
 	}
 
 	return nil
+}
+
+// revealExploration charts fog-of-war around the player's current tile.
+func revealExploration(g OverworldContext) {
+	tracker := g.GetExploration()
+	if tracker == nil {
+		return
+	}
+	p := g.GetPlayer()
+	tx := tileAt(p.Pos.X+p.Width/2.0, config.TileSize)
+	ty := tileAt(p.Pos.Y+p.Height/2.0, config.TileSize)
+	tracker.Reveal(tx, ty, exploration.RevealRadius)
 }
 
 // CheckCollisions resolves player collisions against solid land tiles and the base station.

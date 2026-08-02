@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
+	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -165,6 +166,114 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 			vector.FillCircle(screen, vx, vy, 4.0, color.RGBA{80, 200, 255, 200}, false)
 		}
 	}
+}
+
+// DrawFogOverlay paints fog over unexplored tiles, with a soft alpha falloff
+// across the explored frontier. Called after vehicles/base so unexplored
+// content stays hidden.
+func (o *OverworldScene) DrawFogOverlay(g OverworldContext, screen *ebiten.Image) {
+	tracker := g.GetExploration()
+	if tracker == nil {
+		return
+	}
+
+	cam := g.GetCamera()
+	camX := cam.Pos.X
+	camY := cam.Pos.Y
+
+	startTileX := tileAt(camX, config.TileSize)
+	endTileX := tileAt(camX+float64(config.ScreenWidth), config.TileSize) + 1
+	startTileY := tileAt(camY, config.TileSize)
+	endTileY := tileAt(camY+float64(config.ScreenHeight), config.TileSize) + 1
+
+	const sub = 4 // sub-cells per tile for a smoother gradient
+	cell := float32(config.TileSize) / sub
+	falloff := exploration.FogFalloffTiles
+	search := int(math.Ceil(falloff)) + 1
+
+	for tx := startTileX; tx < endTileX; tx++ {
+		for ty := startTileY; ty < endTileY; ty++ {
+			if tracker.IsExplored(tx, ty) {
+				continue
+			}
+
+			// Fully opaque far from the frontier — one fill, no subdivision.
+			if fogDistToExplored(tracker, float64(tx)+0.5, float64(ty)+0.5, search) >= falloff {
+				sx := float32(tx*config.TileSize) - float32(camX)
+				sy := float32(ty*config.TileSize) - float32(camY)
+				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, fogRGBA(255), false)
+				continue
+			}
+
+			baseX := float32(tx*config.TileSize) - float32(camX)
+			baseY := float32(ty*config.TileSize) - float32(camY)
+			for sy := 0; sy < sub; sy++ {
+				for sx := 0; sx < sub; sx++ {
+					cx := float64(tx) + (float64(sx)+0.5)/sub
+					cy := float64(ty) + (float64(sy)+0.5)/sub
+					dist := fogDistToExplored(tracker, cx, cy, search)
+					alpha := fogAlphaFromDist(dist, falloff)
+					if alpha == 0 {
+						continue
+					}
+					vector.FillRect(screen, baseX+float32(sx)*cell, baseY+float32(sy)*cell, cell+0.5, cell+0.5, fogRGBA(alpha), false)
+				}
+			}
+		}
+	}
+}
+
+func fogRGBA(alpha uint8) color.RGBA {
+	return color.RGBA{
+		R: exploration.FogColor[0],
+		G: exploration.FogColor[1],
+		B: exploration.FogColor[2],
+		A: alpha,
+	}
+}
+
+// fogAlphaFromDist maps distance-from-explored (tiles) to fog opacity.
+func fogAlphaFromDist(dist, falloff float64) uint8 {
+	if dist <= 0 {
+		return 0
+	}
+	if dist >= falloff {
+		return 255
+	}
+	t := dist / falloff
+	// Smoothstep for a gentler edge than a linear ramp.
+	t = t * t * (3.0 - 2.0*t)
+	return uint8(t * 255.0)
+}
+
+// fogDistToExplored returns the distance in tile-space from (px,py) to the
+// nearest explored tile square. Unexplored/out-of-range returns a large value.
+func fogDistToExplored(tracker *exploration.Tracker, px, py float64, search int) float64 {
+	tx0 := int(math.Floor(px))
+	ty0 := int(math.Floor(py))
+	best := math.MaxFloat64
+	found := false
+
+	for dy := -search; dy <= search; dy++ {
+		for dx := -search; dx <= search; dx++ {
+			ex, ey := tx0+dx, ty0+dy
+			if !tracker.IsExplored(ex, ey) {
+				continue
+			}
+			found = true
+			// Distance to the unit square [ex, ex+1] × [ey, ey+1].
+			cx := math.Min(math.Max(px, float64(ex)), float64(ex+1))
+			cy := math.Min(math.Max(py, float64(ey)), float64(ey+1))
+			d := math.Hypot(px-cx, py-cy)
+			if d < best {
+				best = d
+			}
+		}
+	}
+	if !found {
+		return exploration.FogFalloffTiles + 1
+	}
+	return best
 }
 
 func (o *OverworldScene) drawBaseTiles(target *ebiten.Image, startTileX, endTileX, startTileY, endTileY int, offsetX, offsetY float64, mult float64) {

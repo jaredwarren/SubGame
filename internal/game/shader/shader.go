@@ -135,6 +135,9 @@ var LightShader *ebiten.Shader
 // WaterDisplacementShader is the compiled screen water ripple shader.
 var WaterDisplacementShader *ebiten.Shader
 
+// EdgeBlurShader is the compiled soft screen-edge defocus shader (cave only).
+var EdgeBlurShader *ebiten.Shader
+
 // WaterDisplacementShaderCode contains the Kage fragment shader for screen water shimmer and localized volcanic heat waves.
 const WaterDisplacementShaderCode = `
 //kage:unit pixels
@@ -193,6 +196,78 @@ func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
 }
 `
 
+// EdgeBlurShaderCode soft-blurs pixels near the frame so the cave view reads
+// slightly unfocused at the edges (visor / pressure feel). Center stays sharp.
+// This is real sample blur of the scene, not a dark geometric overlay.
+const EdgeBlurShaderCode = `
+//kage:unit pixels
+package main
+
+var FalloffPx float // how far inward the soft edge reaches
+var MaxBlurPx float // peak sample radius at the absolute border
+var Strength float  // 0..1 overall mix (depth-driven)
+
+func sampleClamped(uv vec2) vec4 {
+	origin := imageSrc0Origin()
+	size := imageSrc0Size()
+	uv = clamp(uv, origin+vec2(0.5), origin+size-vec2(0.5))
+	return imageSrc0At(uv)
+}
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	origin := imageSrc0Origin()
+	size := imageSrc0Size()
+
+	// Distance (px) to nearest screen edge.
+	p := dstPos.xy - origin
+	edgeDist := min(min(p.x, p.y), min(size.x-p.x, size.y-p.y))
+
+	center := imageSrc0At(srcPos)
+
+	falloff := FalloffPx
+	if falloff < 1.0 {
+		falloff = 1.0
+	}
+	if edgeDist >= falloff || Strength <= 0.001 {
+		return center
+	}
+
+	// 0 deep inside, 1 at the border — smooth so no hard ring/box contour.
+	t := 1.0 - edgeDist/falloff
+	t = t * t * (3.0 - 2.0*t)
+	t = t * Strength
+
+	r := MaxBlurPx * t
+	if r < 0.25 {
+		return center
+	}
+
+	// Dual-ring 17-tap blur: inner ring at r/2 fills the disc; outer at r
+	// pushes the soft edge out. Stronger than a single 9-tap ring.
+	sum := center
+	rHalf := r * 0.5
+	sum += sampleClamped(srcPos + vec2(rHalf, 0.0))
+	sum += sampleClamped(srcPos + vec2(-rHalf, 0.0))
+	sum += sampleClamped(srcPos + vec2(0.0, rHalf))
+	sum += sampleClamped(srcPos + vec2(0.0, -rHalf))
+	sum += sampleClamped(srcPos + vec2(rHalf, rHalf)*0.707)
+	sum += sampleClamped(srcPos + vec2(rHalf, -rHalf)*0.707)
+	sum += sampleClamped(srcPos + vec2(-rHalf, rHalf)*0.707)
+	sum += sampleClamped(srcPos + vec2(-rHalf, -rHalf)*0.707)
+	sum += sampleClamped(srcPos + vec2(r, 0.0))
+	sum += sampleClamped(srcPos + vec2(-r, 0.0))
+	sum += sampleClamped(srcPos + vec2(0.0, r))
+	sum += sampleClamped(srcPos + vec2(0.0, -r))
+	sum += sampleClamped(srcPos + vec2(r, r)*0.707)
+	sum += sampleClamped(srcPos + vec2(r, -r)*0.707)
+	sum += sampleClamped(srcPos + vec2(-r, r)*0.707)
+	sum += sampleClamped(srcPos + vec2(-r, -r)*0.707)
+	blurred := sum / 17.0
+
+	return mix(center, blurred, t)
+}
+`
+
 func init() {
 	var err error
 	LightShader, err = ebiten.NewShader([]byte(LightConeShaderCode))
@@ -203,5 +278,10 @@ func init() {
 	WaterDisplacementShader, err = ebiten.NewShader([]byte(WaterDisplacementShaderCode))
 	if err != nil {
 		panic("failed to compile Kage water displacement shader: " + err.Error())
+	}
+
+	EdgeBlurShader, err = ebiten.NewShader([]byte(EdgeBlurShaderCode))
+	if err != nil {
+		panic("failed to compile Kage edge blur shader: " + err.Error())
 	}
 }

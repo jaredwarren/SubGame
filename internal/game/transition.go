@@ -30,7 +30,12 @@ func (g *Game) EnterCave(tx, ty int) {
 		grid := g.world.GetCave(tx, ty)
 		g.caveState.CaveGrid = grid
 
-		info := world.GetTileInfo(g.world.OverworldMap[tx][ty])
+		tileType := g.world.OverworldMap[tx][ty]
+		if g.explorationTracker != nil {
+			g.explorationTracker.MarkVisited(tx, ty, tileType)
+		}
+
+		info := world.GetTileInfo(tileType)
 		if info != nil && info.CaveFactory != nil {
 			activeCave = info.CaveFactory(grid, g.world, tx, ty)
 			g.caveState.IsShallow = info.IsShallow

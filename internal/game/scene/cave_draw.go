@@ -36,7 +36,92 @@ func (c *CaveScene) draw(g CaveContext, finalScreen *ebiten.Image) {
 		}
 	}
 
-	c.applyWaterDisplacement(g, finalScreen)
+	c.applyPostFX(g, finalScreen)
+}
+
+// Edge-blur strength vs depth (0 = surface, 1 = cave floor).
+// This is mix amount for real scene defocus near the frame — not a dark mask.
+const (
+	caveEdgeBlurNear      = 0.45 // stronger soft focus near the surface
+	caveEdgeBlurDeep      = 1.0  // full mix deep
+	caveEdgeBlurDepthSat  = 0.40 // full strength a bit earlier
+	caveEdgeBlurFalloffPx = 280.0
+	caveEdgeBlurMaxRadius = 11.0 // wider sample radius = more obvious blur
+)
+
+// applyPostFX runs water displacement then soft edge defocus into finalScreen.
+func (c *CaveScene) applyPostFX(g CaveContext, finalScreen *ebiten.Image) {
+	src := c.offscreen
+	useEdgeBlur := shader.EdgeBlurShader != nil
+
+	// If we need edge blur after water, water must land in an intermediate.
+	waterTarget := finalScreen
+	if useEdgeBlur {
+		if c.postFX == nil {
+			c.postFX = ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
+		}
+		c.postFX.Clear()
+		waterTarget = c.postFX
+	}
+
+	cam := g.GetCamera()
+	if shader.WaterDisplacementShader != nil && !g.IsDebugWaterShaderDisabled() {
+		var ventPositions [16]float32
+		var ventCount float32 = 0
+		for _, ent := range c.Entities {
+			if siphon, ok := ent.(*entity.BrimstoneSiphon); ok && siphon.IsActive() && siphon.Timer >= entity.BrimstoneSiphonArchetype.ActiveStartFrame && ventCount < 8 {
+				idx := int(ventCount) * 2
+				ventPositions[idx] = float32(siphon.Pos.X - cam.Pos.X + siphon.Dimensions.X/2.0)
+				ventPositions[idx+1] = float32(siphon.Pos.Y - cam.Pos.Y + siphon.Dimensions.Y/2.0)
+				ventCount++
+			}
+		}
+
+		op := &ebiten.DrawRectShaderOptions{}
+		op.Images[0] = src
+		op.Uniforms = map[string]any{
+			"Time":          float32(g.GetTicks()),
+			"VentPositions": ventPositions,
+			"VentCount":     ventCount,
+			"SurfaceY":      float32(-cam.Pos.Y),
+		}
+		waterTarget.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.WaterDisplacementShader, op)
+	} else {
+		waterTarget.DrawImage(src, nil)
+	}
+
+	if !useEdgeBlur {
+		return
+	}
+
+	// Depth-driven strength: soft near surface, more locked-in deep.
+	maxDepth := 6000.0
+	if len(c.CaveGrid) > 0 && len(c.CaveGrid[0]) > 0 {
+		maxDepth = float64(len(c.CaveGrid[0]) * config.TileSize)
+	}
+	depth := g.GetPlayer().Pos.Y
+	if depth < 0 {
+		depth = 0
+	}
+	depthFrac := depth / maxDepth
+	if depthFrac > 1 {
+		depthFrac = 1
+	}
+	d := depthFrac / caveEdgeBlurDepthSat
+	if d > 1 {
+		d = 1
+	}
+	d = math.Sqrt(d)
+	strength := caveEdgeBlurNear + d*(caveEdgeBlurDeep-caveEdgeBlurNear)
+
+	op := &ebiten.DrawRectShaderOptions{}
+	op.Images[0] = c.postFX
+	op.Uniforms = map[string]any{
+		"FalloffPx": float32(caveEdgeBlurFalloffPx),
+		"MaxBlurPx": float32(caveEdgeBlurMaxRadius),
+		"Strength":  float32(strength),
+	}
+	finalScreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.EdgeBlurShader, op)
 }
 
 func (c *CaveScene) drawScrollTransition(g CaveContext) {
@@ -285,34 +370,6 @@ func (c *CaveScene) applyLighting(g CaveContext) {
 	c.Uniforms["LavaCount"] = lavaCount
 
 	c.offscreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.LightShader, &c.shaderOpts)
-}
-
-func (c *CaveScene) applyWaterDisplacement(g CaveContext, finalScreen *ebiten.Image) {
-	cam := g.GetCamera()
-	if shader.WaterDisplacementShader != nil && !g.IsDebugWaterShaderDisabled() {
-		var ventPositions [16]float32
-		var ventCount float32 = 0
-		for _, ent := range c.Entities {
-			if siphon, ok := ent.(*entity.BrimstoneSiphon); ok && siphon.IsActive() && siphon.Timer >= entity.BrimstoneSiphonArchetype.ActiveStartFrame && ventCount < 8 {
-				idx := int(ventCount) * 2
-				ventPositions[idx] = float32(siphon.Pos.X - cam.Pos.X + siphon.Dimensions.X/2.0)
-				ventPositions[idx+1] = float32(siphon.Pos.Y - cam.Pos.Y + siphon.Dimensions.Y/2.0)
-				ventCount++
-			}
-		}
-
-		op := &ebiten.DrawRectShaderOptions{}
-		op.Images[0] = c.offscreen
-		op.Uniforms = map[string]any{
-			"Time":          float32(g.GetTicks()),
-			"VentPositions": ventPositions,
-			"VentCount":     ventCount,
-			"SurfaceY":      float32(-cam.Pos.Y),
-		}
-		finalScreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.WaterDisplacementShader, op)
-	} else {
-		finalScreen.DrawImage(c.offscreen, nil)
-	}
 }
 
 func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave cave.Cave, caveGrid [][]bool, nodes []resource.Resource, entities []entity.CaveEntity, trenchKey string, camX, camY float64, hidePlayer bool) {

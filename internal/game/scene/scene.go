@@ -9,6 +9,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
@@ -60,6 +61,7 @@ type WorldAccess interface {
 	GetWorld() *world.World
 	GetBaseStation() *base.BaseStation
 	GetCamera() *camera.Camera
+	GetExploration() *exploration.Tracker
 }
 
 type CaveStateAccess interface {

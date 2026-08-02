@@ -1,11 +1,14 @@
 package game
 
 import (
+	"math"
+
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
@@ -66,6 +69,11 @@ func (g *Game) StartGame(seed int64) {
 	g.craftingRecipes = scene.DefaultCraftingRecipes()
 
 	g.storyManager = story.NewStoryManager()
+
+	g.explorationTracker = exploration.NewTracker(w.Width, w.Height)
+	spawnTX := int(math.Floor((spawnX + g.player.Width/2.0) / float64(config.TileSize)))
+	spawnTY := int(math.Floor((spawnY + g.player.Height/2.0) / float64(config.TileSize)))
+	g.explorationTracker.Reveal(spawnTX, spawnTY, exploration.RevealRadius)
 
 	if g.baseMenu != nil {
 		g.baseMenu.ActiveTab = 0
@@ -251,6 +259,8 @@ func (g *Game) IsDebugWaterShaderDisabled() bool { return g.DebugDisableWaterSha
 // --- Story and Lore ---
 
 func (g *Game) GetStoryManager() *story.StoryManager { return g.storyManager }
+
+func (g *Game) GetExploration() *exploration.Tracker { return g.explorationTracker }
 
 func (g *Game) GetCraftingRecipes() []scene.Recipe {
 	return g.craftingRecipes

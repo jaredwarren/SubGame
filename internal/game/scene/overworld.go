@@ -13,6 +13,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
+	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/item"
@@ -26,6 +27,7 @@ type OverworldContext interface {
 	GetPlayer() *player.Player
 	GetCamera() *camera.Camera
 	GetWorld() *world.World
+	GetExploration() *exploration.Tracker
 	GetBaseStation() *base.BaseStation
 	GetTimeOfDay() float64
 	GetTicks() float64
