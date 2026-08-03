@@ -315,3 +315,62 @@ func (inv *Inventory) IsEmpty() bool {
 	}
 	return true
 }
+
+// SavedItemStack represents serialized stack data for JSON save/load.
+type SavedItemStack struct {
+	ItemName string `json:"itemName"`
+	Quantity int    `json:"quantity"`
+}
+
+// SavedInventory represents a serialized snapshot of an Inventory.
+type SavedInventory struct {
+	Size  int              `json:"size"`
+	Slots []SavedItemStack `json:"slots"`
+}
+
+// SerializeState converts an Inventory into a JSON-ready SavedInventory snapshot.
+func (inv *Inventory) SerializeState() SavedInventory {
+	if inv == nil {
+		return SavedInventory{}
+	}
+	saved := SavedInventory{
+		Size:  len(inv.Slots),
+		Slots: make([]SavedItemStack, len(inv.Slots)),
+	}
+	for i, slot := range inv.Slots {
+		if slot.Item != nil {
+			saved.Slots[i] = SavedItemStack{
+				ItemName: slot.Item.GetName(),
+				Quantity: slot.Quantity,
+			}
+		}
+	}
+	return saved
+}
+
+// DeserializeInventory restores an Inventory from a SavedInventory snapshot.
+func DeserializeInventory(saved SavedInventory) *Inventory {
+	size := saved.Size
+	if size <= 0 {
+		size = len(saved.Slots)
+	}
+	if size <= 0 {
+		size = 1
+	}
+	inv := NewInventory(size)
+	for i, slotData := range saved.Slots {
+		if i >= len(inv.Slots) {
+			break
+		}
+		if slotData.ItemName != "" && slotData.Quantity > 0 {
+			it := NewItemByName(slotData.ItemName)
+			if it != nil {
+				inv.Slots[i] = ItemStack{
+					Item:     it,
+					Quantity: slotData.Quantity,
+				}
+			}
+		}
+	}
+	return inv
+}

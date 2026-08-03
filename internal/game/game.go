@@ -13,6 +13,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/game/save"
 	"github.com/jaredwarren/SubGame/internal/game/scene"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
 	"github.com/jaredwarren/SubGame/internal/game/story"
@@ -54,6 +55,7 @@ type Game struct {
 	baseMenu              *BaseMenuScene
 	gameOverState         *GameOverScene
 	gameWonState          *GameWonScene
+	pauseState            *scene.PauseScene
 
 	// Core objects
 	player *player.Player
@@ -168,6 +170,7 @@ func NewGame() *Game {
 	g.baseMenu = NewBaseMenuScene()
 	g.gameOverState = NewGameOverScene()
 	g.gameWonState = NewGameWonScene()
+	g.pauseState = scene.NewPauseScene()
 
 	g.TransitionTo(g.titleState)
 	return g
@@ -342,4 +345,267 @@ func (g *Game) hasSkiffInWorld() bool {
 		}
 	}
 	return false
+}
+
+// HasSaveFile returns true if a save file exists on disk.
+func (g *Game) HasSaveFile() bool {
+	return save.HasSaveFile()
+}
+
+// effectivePlayState returns the gameplay scene that should be recorded in a
+// save, resolving the state that was active underneath the pause overlay.
+func (g *Game) effectivePlayState() State {
+	if g.currentState == StatePause && g.pauseState != nil {
+		return g.pauseState.PriorState
+	}
+	return g.currentState
+}
+
+// SaveGame serializes and saves current game state to disk.
+func (g *Game) SaveGame() error {
+	sceneName := "Overworld"
+	if g.effectivePlayState() == StateCave {
+		sceneName = "Cave"
+	}
+
+	var savedVehicles []save.SavedVehicle
+	for _, v := range g.OverworldVehicles {
+		if v == nil {
+			continue
+		}
+		var cargo, upg item.SavedInventory
+		if v.GetCargo() != nil {
+			cargo = v.GetCargo().SerializeState()
+		}
+		if v.GetUpgrades() != nil {
+			upg = v.GetUpgrades().SerializeState()
+		}
+		savedVehicles = append(savedVehicles, save.SavedVehicle{
+			Type:       v.GetName(),
+			PosX:       v.GetPos().X,
+			PosY:       v.GetPos().Y,
+			Facing:     v.GetFacing(),
+			Health:     v.GetHealth(),
+			MaxHealth:  v.GetMaxHealth(),
+			Battery:    v.GetBattery(),
+			MaxBattery: v.GetMaxBattery(),
+			Cargo:      cargo,
+			Upgrades:   upg,
+			IsActive:   (v == g.ActiveVehicle),
+			Location:   "overworld",
+		})
+	}
+	for trenchKey, vList := range g.CaveVehicles {
+		for _, v := range vList {
+			if v == nil {
+				continue
+			}
+			var cargo, upg item.SavedInventory
+			if v.GetCargo() != nil {
+				cargo = v.GetCargo().SerializeState()
+			}
+			if v.GetUpgrades() != nil {
+				upg = v.GetUpgrades().SerializeState()
+			}
+			savedVehicles = append(savedVehicles, save.SavedVehicle{
+				Type:       v.GetName(),
+				PosX:       v.GetPos().X,
+				PosY:       v.GetPos().Y,
+				Facing:     v.GetFacing(),
+				Health:     v.GetHealth(),
+				MaxHealth:  v.GetMaxHealth(),
+				Battery:    v.GetBattery(),
+				MaxBattery: v.GetMaxBattery(),
+				Cargo:      cargo,
+				Upgrades:   upg,
+				IsActive:   (v == g.ActiveVehicle),
+				Location:   trenchKey,
+			})
+		}
+	}
+
+	var unlockedRecipes []int
+	for i, rcp := range g.craftingRecipes {
+		if rcp.Unlocked {
+			unlockedRecipes = append(unlockedRecipes, i)
+		}
+	}
+
+	data := &save.SaveData{
+		WorldSeed:       int64(g.world.Seed),
+		TimeOfDay:       g.TimeOfDay,
+		Ticks:           g.Ticks,
+		TutorialActive:  g.TutorialActive,
+		SceneState:      sceneName,
+		LastOverworldX:  g.lastOverworldX,
+		LastOverworldY:  g.lastOverworldY,
+		ActiveTrenchX:   g.activeTrenchX,
+		ActiveTrenchY:   g.activeTrenchY,
+		ActiveTrenchKey: g.activeTrenchKey,
+		Player: save.SavedPlayer{
+			PosX:       g.player.Pos.X,
+			PosY:       g.player.Pos.Y,
+			Facing:     g.player.Facing,
+			Health:     g.player.CurrentHealth,
+			MaxHealth:  g.player.MaxHealth,
+			Oxygen:     g.player.CurrentOxygen,
+			MaxOxygen:  g.player.MaxOxygen,
+			Stamina:    g.player.CurrentStamina,
+			MaxStamina: g.player.MaxStamina,
+			Energy:     g.player.CurrentEnergy,
+			MaxEnergy:  g.player.MaxEnergy,
+			ActiveSlot: g.player.ActiveSlot,
+			Inventory:  g.player.Inventory.SerializeState(),
+			Upgrades:   g.player.Upgrades.SerializeState(),
+			Hotbar:     g.player.Hotbar.SerializeState(),
+		},
+		BaseStation: save.SavedBaseStation{
+			PosX:     g.baseStation.Pos.X,
+			PosY:     g.baseStation.Pos.Y,
+			Storage:  g.baseStation.Storage.SerializeState(),
+			Upgrades: g.baseStation.Upgrades.SerializeState(),
+		},
+		Vehicles:        savedVehicles,
+		Story:           g.storyManager.SerializeState(),
+		Exploration:     g.explorationTracker.SerializeState(),
+		UnlockedRecipes: unlockedRecipes,
+	}
+
+	return save.SaveToFile(save.GetSavePath(), data)
+}
+
+// LoadSaveGame deserializes and restores game state from disk.
+func (g *Game) LoadSaveGame() error {
+	data, err := save.LoadFromFile(save.GetSavePath())
+	if err != nil {
+		return err
+	}
+
+	w := world.NewWorld(data.WorldSeed)
+	g.world = w
+
+	p := player.NewPlayer(data.Player.PosX, data.Player.PosY)
+	p.Facing = data.Player.Facing
+	if data.Player.MaxHealth > 0 {
+		p.MaxHealth = data.Player.MaxHealth
+	}
+	p.CurrentHealth = data.Player.Health
+	if data.Player.MaxOxygen > 0 {
+		p.MaxOxygen = data.Player.MaxOxygen
+	}
+	p.CurrentOxygen = data.Player.Oxygen
+	if data.Player.MaxStamina > 0 {
+		p.MaxStamina = data.Player.MaxStamina
+	}
+	p.CurrentStamina = data.Player.Stamina
+	if data.Player.MaxEnergy > 0 {
+		p.MaxEnergy = data.Player.MaxEnergy
+	}
+	p.CurrentEnergy = data.Player.Energy
+	p.ActiveSlot = data.Player.ActiveSlot
+
+	p.Inventory = item.DeserializeInventory(data.Player.Inventory)
+	p.Upgrades = item.DeserializeInventory(data.Player.Upgrades)
+	p.Hotbar = item.DeserializeInventory(data.Player.Hotbar)
+	p.RecalculateUpgrades()
+	g.player = p
+
+	baseStation := base.NewBaseStation(data.BaseStation.PosX, data.BaseStation.PosY)
+	if data.BaseStation.Storage.Size > 0 || len(data.BaseStation.Storage.Slots) > 0 {
+		baseStation.Storage = item.DeserializeInventory(data.BaseStation.Storage)
+	}
+	if data.BaseStation.Upgrades.Size > 0 || len(data.BaseStation.Upgrades.Slots) > 0 {
+		baseStation.Upgrades = item.DeserializeInventory(data.BaseStation.Upgrades)
+	}
+	baseStation.RecalculateProperties()
+	g.baseStation = baseStation
+
+	g.ActiveVehicle = nil
+	g.OverworldVehicles = nil
+	g.CaveVehicles = make(map[string][]vehicle.Vehicle)
+
+	for _, vData := range data.Vehicles {
+		v := vehicle.NewVehicleByName(vData.Type, vData.PosX, vData.PosY)
+		if v != nil {
+			if vData.MaxHealth > 0 && vData.Health < vData.MaxHealth {
+				v.TakeDamage(vData.MaxHealth - vData.Health)
+			}
+			if vData.MaxBattery > 0 && vData.Battery < vData.MaxBattery {
+				v.RechargeBattery(vData.Battery - v.GetBattery())
+			}
+			if v.GetCargo() != nil && (vData.Cargo.Size > 0 || len(vData.Cargo.Slots) > 0) {
+				*v.GetCargo() = *item.DeserializeInventory(vData.Cargo)
+			}
+			if v.GetUpgrades() != nil && (vData.Upgrades.Size > 0 || len(vData.Upgrades.Slots) > 0) {
+				*v.GetUpgrades() = *item.DeserializeInventory(vData.Upgrades)
+			}
+
+			if vData.Location == "overworld" || vData.Location == "" {
+				g.OverworldVehicles = append(g.OverworldVehicles, v)
+			} else {
+				g.CaveVehicles[vData.Location] = append(g.CaveVehicles[vData.Location], v)
+			}
+
+			if vData.IsActive {
+				g.ActiveVehicle = v
+			}
+		}
+	}
+
+	if g.storyManager == nil {
+		g.storyManager = story.NewStoryManager()
+	}
+	g.storyManager.DeserializeState(data.Story)
+
+	g.craftingRecipes = scene.DefaultCraftingRecipes()
+	for _, idx := range data.UnlockedRecipes {
+		if idx >= 0 && idx < len(g.craftingRecipes) {
+			g.craftingRecipes[idx].Unlocked = true
+		}
+	}
+
+	// Always reset per-world cave caches so a prior session cannot leak in.
+	g.caveNodes = make(map[string][]resource.Resource)
+	g.caveEntities = make(map[string][]entity.CaveEntity)
+	g.showInventory = false
+	g.menuOpenedAnywhere = false
+
+	g.explorationTracker = exploration.NewTracker(w.Width, w.Height)
+	g.explorationTracker.DeserializeState(data.Exploration)
+
+	g.TimeOfDay = data.TimeOfDay
+	g.Ticks = data.Ticks
+	g.TutorialActive = data.TutorialActive
+
+	g.lastOverworldX = data.LastOverworldX
+	g.lastOverworldY = data.LastOverworldY
+	g.activeTrenchX = data.ActiveTrenchX
+	g.activeTrenchY = data.ActiveTrenchY
+	g.activeTrenchKey = data.ActiveTrenchKey
+
+	g.camera = camera.NewCamera(p.Pos.X, p.Pos.Y)
+	g.camera.CenterOn(p.Pos.X, p.Pos.Y, p.Width, p.Height)
+
+	g.overworldState = NewOverworldScene(w)
+
+	if data.SceneState == "Cave" {
+		// Rebuild the cave under the player, keeping their saved position.
+		savedX, savedY := p.Pos.X, p.Pos.Y
+		savedFacing := p.Facing
+		g.hydrateCave(data.ActiveTrenchX, data.ActiveTrenchY)
+		if data.ActiveTrenchKey != "" {
+			g.activeTrenchKey = data.ActiveTrenchKey
+		}
+		p.Pos.X = savedX
+		p.Pos.Y = savedY
+		p.Facing = savedFacing
+		p.Vel = gvec.Vec2{}
+		g.camera.CenterOn(p.Pos.X, p.Pos.Y, p.Width, p.Height)
+		g.TransitionTo(g.caveState)
+	} else {
+		g.TransitionTo(g.overworldState)
+	}
+
+	g.SetMineWarning("GAME LOADED", 120, 1)
+	return nil
 }

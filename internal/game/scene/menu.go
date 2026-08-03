@@ -39,6 +39,7 @@ type MenuContext interface {
 	TransitionToGameWon()
 	SetCurrentState(s State)
 	SetMineWarning(msg string, duration, level int)
+	SaveGame() error
 }
 
 // BaseMenuScene manages tab selections and base management interactions.
@@ -66,6 +67,9 @@ func (m *BaseMenuScene) OnEnter(g GameContext) {
 func (m *BaseMenuScene) onEnter(g MenuContext) {
 	g.SetCurrentState(StateBaseMenu)
 	m.ScrollY = 0
+	if !g.IsMenuOpenedAnywhere() {
+		_ = g.SaveGame()
+	}
 }
 
 func (m *BaseMenuScene) OnExit(g GameContext) {

@@ -94,10 +94,21 @@ func (g *Game) updateEffects() {
 
 // handleInput processes all keyboard input that applies regardless of open panels.
 func (g *Game) handleInput() {
+	if g.Input.IsKeyJustPressed(ebiten.KeyEscape) {
+		if g.showInventory {
+			g.showInventory = false
+			return
+		}
+		if g.currentState == StateOverworld || g.currentState == StateCave {
+			g.pauseState.PriorState = g.currentState
+			g.TransitionTo(g.pauseState)
+			return
+		}
+	}
 	if g.Input.IsKeyJustPressed(ebiten.KeyT) {
 		g.FlashlightOn = !g.FlashlightOn
 	}
-	if g.Input.IsKeyJustPressed(ebiten.KeyTab) && (g.currentState == StateOverworld || g.currentState == StateCave) {
+	if (g.Input.IsKeyJustPressed(ebiten.KeyTab) || g.Input.IsKeyJustPressed(ebiten.KeyI)) && (g.currentState == StateOverworld || g.currentState == StateCave) {
 		g.showInventory = !g.showInventory
 	}
 	if g.currentState == StateOverworld && g.baseStation.DistanceToPlayer(g.player) < 100.0 && g.Input.IsKeyJustPressed(ebiten.KeyE) {

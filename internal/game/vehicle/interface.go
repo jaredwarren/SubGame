@@ -54,3 +54,24 @@ func solidAt(query func(tx, ty int) bool, pos, dims gvec.Vec2) bool {
 	}
 	return false
 }
+
+// NewVehicleByName creates a new Vehicle instance by its display or type name.
+func NewVehicleByName(name string, x, y float64) Vehicle {
+	switch name {
+	case "Skiff", "Skiff Boat", "Surface Skiff", "The Skiff":
+		return NewSkiff(x, y)
+	case "Scout Submarine", "ScoutSub", "Scout Sub":
+		return NewScoutSub(x, y)
+	case "Heavy Mech", "HeavyMech", "Heavy Mech Walker":
+		return NewHeavyMech(x, y)
+	default:
+		return NewSkiff(x, y)
+	}
+}
+
+func init() {
+	// Vehicle kits live outside the item registry; register them for inventory save/load.
+	item.RegisterItemByName("Skiff Kit", func() item.Item { return &SkiffKit{} })
+	item.RegisterItemByName("Scout Sub Kit", func() item.Item { return &ScoutSubKit{} })
+	item.RegisterItemByName("Heavy Mech Kit", func() item.Item { return &HeavyMechKit{} })
+}

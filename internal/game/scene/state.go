@@ -11,6 +11,7 @@ const (
 	StateBaseMenu
 	StateGameOver
 	StateGameWon
+	StatePause
 )
 
 // String returns the string representation of the State.
@@ -30,6 +31,8 @@ func (s State) String() string {
 		return "Game Over"
 	case StateGameWon:
 		return "Game Won"
+	case StatePause:
+		return "Pause"
 	default:
 		return "Unknown"
 	}

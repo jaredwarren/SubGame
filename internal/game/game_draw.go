@@ -17,21 +17,35 @@ import (
 
 // Draw renders one frame: scene → particles → overlays → HUD → warnings.
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.currentScene.Draw(g, screen)
-
-	if g.currentState == StateOverworld || g.currentState == StateCave {
-		particle.DrawParticles(screen, g.Particles, g.camera.Pos.X, g.camera.Pos.Y)
-	}
-
-	switch g.currentState {
-	case StateOverworld:
-		g.drawOverworldLayer(screen)
-	case StateCave:
-		g.drawCaveLayer(screen)
-	}
-
-	if g.currentState == StateOverworld || g.currentState == StateCave {
+	if g.currentState == StatePause {
+		if g.pauseState != nil && g.pauseState.PriorState == StateCave {
+			g.caveState.Draw(g, screen)
+			particle.DrawParticles(screen, g.Particles, g.camera.Pos.X, g.camera.Pos.Y)
+			g.drawCaveLayer(screen)
+		} else if g.overworldState != nil {
+			g.overworldState.Draw(g, screen)
+			particle.DrawParticles(screen, g.Particles, g.camera.Pos.X, g.camera.Pos.Y)
+			g.drawOverworldLayer(screen)
+		}
 		g.hud.Draw(screen, g)
+		g.pauseState.Draw(g, screen)
+	} else {
+		g.currentScene.Draw(g, screen)
+
+		if g.currentState == StateOverworld || g.currentState == StateCave {
+			particle.DrawParticles(screen, g.Particles, g.camera.Pos.X, g.camera.Pos.Y)
+		}
+
+		switch g.currentState {
+		case StateOverworld:
+			g.drawOverworldLayer(screen)
+		case StateCave:
+			g.drawCaveLayer(screen)
+		}
+
+		if g.currentState == StateOverworld || g.currentState == StateCave {
+			g.hud.Draw(screen, g)
+		}
 	}
 
 	if g.TutorialActive {

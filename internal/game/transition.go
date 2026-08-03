@@ -5,20 +5,21 @@ import (
 
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
+	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
-// EnterCave handles the transition from Overworld to Cave at trench coordinate tx, ty.
-func (g *Game) EnterCave(tx, ty int) {
-	g.ActiveVehicle = nil // Ensure player is on foot in cave to prevent carrying over overworld vehicles
-	g.lastOverworldX = g.player.Pos.X
-	g.lastOverworldY = g.player.Pos.Y
+// hydrateCave builds ActiveCave / grid / nodes / entities for trench (tx, ty)
+// without moving the player or changing the active scene.
+func (g *Game) hydrateCave(tx, ty int) {
 	g.activeTrenchX = tx
 	g.activeTrenchY = ty
 
 	var activeCave cave.Cave
-	outOfBounds := tx < 0 || tx >= g.world.Width || ty < 0 || ty >= g.world.Height
+	outOfBounds := g.world == nil || tx < 0 || ty < 0 ||
+		tx >= g.world.Width || ty >= g.world.Height
 
 	if outOfBounds {
 		g.activeTrenchKey = "void_dive"
@@ -51,6 +52,13 @@ func (g *Game) EnterCave(tx, ty int) {
 	}
 	g.caveState.ActiveCave = activeCave
 
+	if g.caveNodes == nil {
+		g.caveNodes = make(map[string][]resource.Resource)
+	}
+	if g.caveEntities == nil {
+		g.caveEntities = make(map[string][]entity.CaveEntity)
+	}
+
 	if _, exists := g.caveNodes[g.activeTrenchKey]; !exists {
 		g.caveNodes[g.activeTrenchKey] = activeCave.GenerateResources(int64(tx*97 + ty*41))
 	}
@@ -60,7 +68,18 @@ func (g *Game) EnterCave(tx, ty int) {
 		g.caveEntities[g.activeTrenchKey] = activeCave.GenerateEntities(int64(tx*97 + ty*41))
 	}
 	g.caveState.Entities = g.caveEntities[g.activeTrenchKey]
+}
 
+// EnterCave handles the transition from Overworld to Cave at trench coordinate tx, ty.
+func (g *Game) EnterCave(tx, ty int) {
+	g.ActiveVehicle = nil // Ensure player is on foot in cave to prevent carrying over overworld vehicles
+	g.lastOverworldX = g.player.Pos.X
+	g.lastOverworldY = g.player.Pos.Y
+
+	g.hydrateCave(tx, ty)
+
+	outOfBounds := g.world == nil || tx < 0 || ty < 0 ||
+		tx >= g.world.Width || ty >= g.world.Height
 	if outOfBounds {
 		g.player.Pos.X = float64(30 * config.TileSize)
 	} else {
@@ -71,6 +90,7 @@ func (g *Game) EnterCave(tx, ty int) {
 
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	g.TransitionTo(g.caveState)
+	_ = g.SaveGame()
 }
 
 // ExitCave handles the transition from Cave to Overworld.
@@ -99,4 +119,5 @@ func (g *Game) ExitCave() {
 
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	g.TransitionTo(g.overworldState)
+	_ = g.SaveGame()
 }

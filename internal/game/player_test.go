@@ -1039,3 +1039,41 @@ func TestTutorial_Flow(t *testing.T) {
 		t.Error("expected tutorial to be completed after deploying the Skiff")
 	}
 }
+
+func TestSaveLoad_CraftingAndInventoryHotkeys(t *testing.T) {
+	g := NewGame()
+	g.TransitionTo(g.overworldState)
+
+	// Save game
+	if err := g.SaveGame(); err != nil {
+		t.Fatalf("Failed to save game: %v", err)
+	}
+
+	// Load save game
+	if err := g.LoadSaveGame(); err != nil {
+		t.Fatalf("Failed to load save game: %v", err)
+	}
+
+	// Verify crafting recipes are non-empty after loading save game
+	recipes := g.GetCraftingRecipes()
+	if len(recipes) == 0 {
+		t.Fatal("expected crafting recipes to be present after loading save game")
+	}
+
+	// Verify tab/inventory hotkey toggles showInventory in overworld
+	mockInput := NewMockInput()
+	g.Input = mockInput
+
+	mockInput.JustPressedKeys[ebiten.KeyTab] = true
+	g.Update()
+	if !g.IsInventoryOpen() {
+		t.Error("expected inventory to open when Tab is pressed")
+	}
+
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	mockInput.JustPressedKeys[ebiten.KeyEscape] = true
+	g.Update()
+	if g.IsInventoryOpen() {
+		t.Error("expected inventory to close when Escape is pressed while inventory is open")
+	}
+}

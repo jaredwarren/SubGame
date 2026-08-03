@@ -32,6 +32,8 @@ type Scene interface {
 type Navigator interface {
 	StartGame(seed int64)
 	TransitionToOverworld()
+	TransitionToCave()
+	TransitionToTitle()
 	TransitionToGameWon()
 	Respawn()
 	EnterCave(tx, ty int)
@@ -116,6 +118,12 @@ type DebugAccess interface {
 	IsDebugWaterShaderDisabled() bool
 }
 
+type SaveAccess interface {
+	SaveGame() error
+	LoadSaveGame() error
+	HasSaveFile() bool
+}
+
 // GameContext is the interface through which scenes interact with the game.
 // game.Game implements this; scenes depend on the interface rather than the concrete type,
 // breaking the circular import that would result from scenes importing the game package.
@@ -130,6 +138,7 @@ type GameContext interface {
 	TimeAccess
 	UIAccess
 	DebugAccess
+	SaveAccess
 
 	GetDeathReason() string
 	SetDeathReason(reason string)

@@ -14,4 +14,5 @@ const (
 	StateBaseMenu  State = scene.StateBaseMenu
 	StateGameOver  State = scene.StateGameOver
 	StateGameWon   State = scene.StateGameWon
+	StatePause     State = scene.StatePause
 )

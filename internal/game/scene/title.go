@@ -18,6 +18,7 @@ type TitleScene struct {
 	backgroundLoadErr          error
 	titleText                  string
 	btnX, btnY, btnW, btnH     float64
+	contBtnX, contBtnY         float64
 	seedText                   string
 	seedX, seedY, seedW, seedH float64
 	seedFocused                bool
@@ -26,6 +27,7 @@ type TitleScene struct {
 	fallbackBackground *ebiten.Image
 	titleImg           *ebiten.Image
 	btnTextImg         *ebiten.Image
+	contBtnTextImg     *ebiten.Image
 	seedTextImg        *ebiten.Image
 	lastDisplayText    string
 }
@@ -35,16 +37,18 @@ func NewTitleScene() *TitleScene {
 	s := &TitleScene{
 		titleText: "S U B G A M E",
 		btnW:      240,
-		btnH:      60,
+		btnH:      50,
 		seedText:  "12345",
 		seedW:     240,
 		seedH:     40,
 	}
 	s.btnX = (float64(config.ScreenWidth) - s.btnW) / 2.0
 	s.btnY = 460.0
+	s.contBtnX = s.btnX
+	s.contBtnY = 395.0
 
 	s.seedX = (float64(config.ScreenWidth) - s.seedW) / 2.0
-	s.seedY = 535.0
+	s.seedY = 525.0
 
 	// Pre-render fallback background gradient
 	s.fallbackBackground = ebiten.NewImage(config.ScreenWidth, config.ScreenHeight)
@@ -62,6 +66,9 @@ func NewTitleScene() *TitleScene {
 
 	s.btnTextImg = ebiten.NewImage(80, 16)
 	ebitenutil.DebugPrintAt(s.btnTextImg, "D I V E", 20, 0)
+
+	s.contBtnTextImg = ebiten.NewImage(120, 16)
+	ebitenutil.DebugPrintAt(s.contBtnTextImg, "CONTINUE", 28, 0)
 
 	// Pre-allocate dynamic seed text image
 	s.seedTextImg = ebiten.NewImage(int(s.seedW), 20)
@@ -96,6 +103,8 @@ type TitleContext interface {
 	TransitionToIntro(seed int64)
 	GetTicks() float64
 	SetCurrentState(s State)
+	HasSaveFile() bool
+	LoadSaveGame() error
 }
 
 func (s *TitleScene) OnEnter(g GameContext) {
@@ -114,10 +123,25 @@ func (s *TitleScene) Update(g GameContext) error {
 
 func (s *TitleScene) update(g TitleContext) error {
 	inp := g.GetInput()
+	hasSave := g.HasSaveFile()
+
+	if hasSave {
+		s.contBtnY = 395.0
+		s.btnY = 455.0
+		s.seedY = 525.0
+	} else {
+		s.btnY = 460.0
+		s.seedY = 525.0
+	}
 
 	if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		cursor := inp.Cursor()
 		mx, my := cursor.X, cursor.Y
+
+		if hasSave && mx >= s.contBtnX && mx < s.contBtnX+s.btnW && my >= s.contBtnY && my < s.contBtnY+s.btnH {
+			return g.LoadSaveGame()
+		}
+
 		if mx >= s.seedX && mx < s.seedX+s.seedW && my >= s.seedY && my < s.seedY+s.seedH {
 			s.seedFocused = true
 		} else {
@@ -210,8 +234,37 @@ func (s *TitleScene) draw(g TitleContext, screen *ebiten.Image) {
 	inp := g.GetInput()
 	cursor := inp.Cursor()
 	mx, my := cursor.X, cursor.Y
-	isHovered := mx >= s.btnX && mx < s.btnX+s.btnW && my >= s.btnY && my < s.btnY+s.btnH
+	hasSave := g.HasSaveFile()
 
+	// Draw CONTINUE button if save file exists
+	if hasSave {
+		isContHovered := mx >= s.contBtnX && mx < s.contBtnX+s.btnW && my >= s.contBtnY && my < s.contBtnY+s.btnH
+		cBg := color.RGBA{R: 16, G: 60, B: 40, A: 220}
+		cBorder := color.RGBA{R: 50, G: 200, B: 120, A: 255}
+		if isContHovered {
+			cBg = color.RGBA{R: 24, G: 90, B: 60, A: 255}
+			cBorder = color.RGBA{R: 80, G: 240, B: 150, A: 255}
+			vector.StrokeRect(screen, float32(s.contBtnX-2), float32(s.contBtnY-2), float32(s.btnW+4), float32(s.btnH+4), 1.0, color.RGBA{R: 80, G: 240, B: 150, A: 100}, false)
+		}
+
+		vector.FillRect(screen, float32(s.contBtnX), float32(s.contBtnY), float32(s.btnW), float32(s.btnH), cBg, false)
+		vector.StrokeRect(screen, float32(s.contBtnX), float32(s.contBtnY), float32(s.btnW), float32(s.btnH), 2.0, cBorder, false)
+
+		contTextOp := &ebiten.DrawImageOptions{}
+		contTextScale := 2.0
+		contTextW := 120.0 * contTextScale
+		contTextH := 16.0 * contTextScale
+		contTextX := s.contBtnX + (s.btnW-contTextW)/2.0
+		contTextY := s.contBtnY + (s.btnH-contTextH)/2.0
+		contTextOp.GeoM.Scale(contTextScale, contTextScale)
+		contTextOp.GeoM.Translate(contTextX, contTextY)
+		if s.contBtnTextImg != nil {
+			screen.DrawImage(s.contBtnTextImg, contTextOp)
+		}
+	}
+
+	// Draw DIVE / NEW GAME button
+	isHovered := mx >= s.btnX && mx < s.btnX+s.btnW && my >= s.btnY && my < s.btnY+s.btnH
 	btnBgColor := color.RGBA{R: 12, G: 28, B: 48, A: 200}
 	btnBorderColor := color.RGBA{R: 45, G: 130, B: 200, A: 255}
 
@@ -281,7 +334,10 @@ func (s *TitleScene) draw(g TitleContext, screen *ebiten.Image) {
 		screen.DrawImage(s.seedTextImg, seedTextOp)
 	}
 
-	instText := "Press ENTER or Click DIVE to begin your descent"
+	instText := "Press ENTER or Click DIVE to begin a new run"
+	if hasSave {
+		instText = "Click CONTINUE to resume, or DIVE for new run"
+	}
 	instX := (config.ScreenWidth - len(instText)*6) / 2
-	ebitenutil.DebugPrintAt(screen, instText, instX, int(s.seedY+s.seedH+25))
+	ebitenutil.DebugPrintAt(screen, instText, instX, int(s.seedY+s.seedH+18))
 }

@@ -98,8 +98,56 @@ type UpgradeItem interface {
 }
 
 // NewItemFromType instantiates a new concrete Item struct using reflect.New.
+var nameToType = make(map[string]reflect.Type)
+
+// externalItemFactories lets other packages (e.g. vehicle kits) register
+// deserialization factories without importing those packages from item.
+var externalItemFactories = make(map[string]func() Item)
+
+func initItemRegistryLookup() {
+	for t, meta := range itemRegistry {
+		structType := t
+		if t.Kind() == reflect.Pointer {
+			structType = t.Elem()
+		}
+		if meta != nil && meta.Name != "" {
+			nameToType[meta.Name] = structType
+		}
+		nameToType[structType.Name()] = structType
+	}
+}
+
+// RegisterItemByName registers a factory for an item display/type name used by save/load.
+// Safe to call from package init; later registrations overwrite earlier ones for the same name.
+func RegisterItemByName(name string, factory func() Item) {
+	if name == "" || factory == nil {
+		return
+	}
+	externalItemFactories[name] = factory
+}
+
 func NewItemFromType(t reflect.Type) Item {
-	return reflect.New(t.Elem()).Interface().(Item)
+	if t == nil {
+		return nil
+	}
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	return reflect.New(t).Interface().(Item)
+}
+
+// NewItemByName instantiates a new concrete Item using the item's display name or type name.
+func NewItemByName(name string) Item {
+	if len(nameToType) == 0 {
+		initItemRegistryLookup()
+	}
+	if t, ok := nameToType[name]; ok {
+		return NewItemFromType(t)
+	}
+	if factory, ok := externalItemFactories[name]; ok {
+		return factory()
+	}
+	return nil
 }
 
 // Clone returns a new instance of the same concrete item type.

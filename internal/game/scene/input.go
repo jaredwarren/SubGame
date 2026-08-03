@@ -46,8 +46,8 @@ func (e *EbitenInput) Update() {
 	keys := []ebiten.Key{
 		ebiten.KeyW, ebiten.KeyS, ebiten.KeyA, ebiten.KeyD,
 		ebiten.KeyArrowUp, ebiten.KeyArrowDown, ebiten.KeyArrowLeft, ebiten.KeyArrowRight,
-		ebiten.KeyShift, ebiten.KeySpace, ebiten.KeyT, ebiten.KeyTab,
-		ebiten.KeyO, ebiten.KeyC, ebiten.KeyM, ebiten.KeyG, ebiten.KeyF, ebiten.KeyE,
+		ebiten.KeyShift, ebiten.KeySpace, ebiten.KeyT, ebiten.KeyTab, ebiten.KeyEscape,
+		ebiten.KeyO, ebiten.KeyC, ebiten.KeyM, ebiten.KeyG, ebiten.KeyF, ebiten.KeyE, ebiten.KeyI,
 		ebiten.KeyQ, ebiten.KeyEnter, ebiten.Key1, ebiten.Key2, ebiten.Key3, ebiten.Key4, ebiten.Key5,
 		ebiten.KeyY, ebiten.KeyU, ebiten.KeyP, ebiten.KeyBackspace, ebiten.KeyJ,
 		ebiten.KeyControl, ebiten.KeyMeta,

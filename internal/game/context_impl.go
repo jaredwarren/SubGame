@@ -90,6 +90,8 @@ func (g *Game) StartGame(seed int64) {
 }
 
 func (g *Game) TransitionToOverworld() { g.TransitionTo(g.overworldState) }
+func (g *Game) TransitionToCave()      { g.TransitionTo(g.caveState) }
+func (g *Game) TransitionToTitle()     { g.TransitionTo(g.titleState) }
 func (g *Game) TransitionToGameWon()   { g.TransitionTo(g.gameWonState) }
 
 // EnterCave and ExitCave are defined in transition.go.
