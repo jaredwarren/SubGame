@@ -106,9 +106,23 @@ func (g *Game) handleInput() {
 	if g.Input.IsKeyJustPressed(ebiten.KeyJ) {
 		switch g.currentState {
 		case StateBaseMenu:
-			g.ClosePDA()
+			if g.menuOpenedAnywhere {
+				g.ClosePDA()
+			}
 		case StateOverworld, StateCave:
 			g.TransitionToPDA()
+		}
+	}
+	if g.Input.IsKeyJustPressed(ebiten.KeyM) {
+		switch g.currentState {
+		case StateBaseMenu:
+			if g.menuOpenedAnywhere {
+				g.ClosePDA()
+			} else if g.baseMenu != nil {
+				g.baseMenu.ActiveTab = 5
+			}
+		case StateOverworld, StateCave:
+			g.TransitionToMap()
 		}
 	}
 	

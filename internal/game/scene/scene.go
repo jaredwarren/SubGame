@@ -38,10 +38,12 @@ type Navigator interface {
 	ExitCave()
 	HorizontalTransition(newTx, newTy int, newTrenchKey string, newCave cave.Cave, newGrid [][]bool, newNodes []resource.Resource, newEntities []entity.CaveEntity)
 	TransitionToPDA()
+	TransitionToMap()
 	ClosePDA()
 	TransitionToIntro(seed int64)
 	SetCurrentState(s State)
 	GetCurrentState() State
+	GetPDAPriorState() State
 }
 
 type InputAccess interface {

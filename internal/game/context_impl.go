@@ -79,6 +79,7 @@ func (g *Game) StartGame(seed int64) {
 		g.baseMenu.ActiveTab = 0
 		g.baseMenu.ScrollY = 0
 		g.baseMenu.SelectedLoreIndex = 0
+		g.baseMenu.ResetMapCache()
 	}
 	g.pdaPriorState = StateTitle
 	g.menuOpenedAnywhere = false
@@ -274,6 +275,17 @@ func (g *Game) TransitionToPDA() {
 	g.baseMenu.ActiveTab = 4
 	g.TransitionTo(g.baseMenu)
 }
+
+func (g *Game) TransitionToMap() {
+	if g.currentState == scene.StateOverworld || g.currentState == scene.StateCave {
+		g.pdaPriorState = g.currentState
+	}
+	g.menuOpenedAnywhere = true
+	g.baseMenu.ActiveTab = 5
+	g.TransitionTo(g.baseMenu)
+}
+
+func (g *Game) GetPDAPriorState() scene.State { return g.pdaPriorState }
 
 func (g *Game) ClosePDA() {
 	if g.pdaPriorState == scene.StateCave {
