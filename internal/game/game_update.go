@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
+	"github.com/jaredwarren/SubGame/internal/world"
 )
 
 // Update advances all game logic by one tick.
@@ -124,7 +126,8 @@ func (g *Game) handleInput() {
 			g.TransitionToPDA()
 		}
 	}
-	if g.Input.IsKeyJustPressed(ebiten.KeyM) {
+	ctrlPressed := g.Input.IsKeyPressed(ebiten.KeyControl) || g.Input.IsKeyPressed(ebiten.KeyMeta)
+	if !ctrlPressed && g.Input.IsKeyJustPressed(ebiten.KeyM) {
 		switch g.currentState {
 		case StateBaseMenu:
 			if g.menuOpenedAnywhere {
@@ -136,8 +139,7 @@ func (g *Game) handleInput() {
 			g.TransitionToMap()
 		}
 	}
-	
-	ctrlPressed := g.Input.IsKeyPressed(ebiten.KeyControl) || g.Input.IsKeyPressed(ebiten.KeyMeta)
+
 	if !ctrlPressed && (g.currentState == StateOverworld || g.currentState == StateCave) {
 		if g.Input.IsKeyJustPressed(ebiten.Key1) {
 			g.player.ActiveSlot = 0
@@ -179,11 +181,21 @@ func (g *Game) handleDebugInput() {
 		g.TransitionTo(g.gameOverState)
 	}
 
+	ctrlPressed := g.Input.IsKeyPressed(ebiten.KeyControl) || g.Input.IsKeyPressed(ebiten.KeyMeta)
+
+	// Reveal every map POI (trenches, wrecks, shock kelp, thermo) so icons show on the chart.
+	// Works from overworld, cave, or the PDA map itself.
+	if ctrlPressed && g.Input.IsKeyJustPressed(ebiten.KeyM) {
+		if g.currentState == StateOverworld || g.currentState == StateCave || g.currentState == StateBaseMenu {
+			g.debugRevealAllMapPOIs()
+		}
+		return
+	}
+
 	// Spawn vehicles / fill inventory
 	if g.currentState != StateOverworld && g.currentState != StateCave {
 		return
 	}
-	ctrlPressed := g.Input.IsKeyPressed(ebiten.KeyControl) || g.Input.IsKeyPressed(ebiten.KeyMeta)
 	switch {
 	case ctrlPressed && g.Input.IsKeyJustPressed(ebiten.Key1):
 		g.debugSpawnVehicle(vehicle.NewScoutSub(g.player.Pos.X, g.player.Pos.Y))
@@ -204,6 +216,55 @@ func (g *Game) handleDebugInput() {
 		g.player.CurrentStamina = g.player.MaxStamina
 	case g.Input.IsKeyJustPressed(ebiten.KeyC):
 		g.EnterCave(50, 50)
+	}
+}
+
+// debugRevealAllMapPOIs charts and marks every special overworld tile so typed PDA
+// map icons appear for debugging site placement.
+func (g *Game) debugRevealAllMapPOIs() {
+	if g.world == nil || g.explorationTracker == nil {
+		return
+	}
+
+	// Thermo vents are stamped onto the overworld map during extras init.
+	if g.overworldState != nil {
+		g.overworldState.InitializeExtras(g)
+	}
+
+	counts := map[world.TileType]int{}
+	total := 0
+	for tx := 0; tx < g.world.Width; tx++ {
+		for ty := 0; ty < g.world.Height; ty++ {
+			tt := g.world.OverworldMap[tx][ty]
+			switch tt {
+			case world.TileTrench, world.TileWreckage, world.TileShockKelpCave, world.TileThermoCave:
+				// Small charted blotch so icons aren't floating on pure fog.
+				g.explorationTracker.Reveal(tx, ty, 2)
+				g.explorationTracker.MarkVisited(tx, ty, tt)
+				counts[tt]++
+				total++
+			}
+		}
+	}
+
+	if g.baseMenu != nil {
+		g.baseMenu.ResetMapCache()
+	}
+
+	g.SetMineWarning(fmt.Sprintf(
+		"DEBUG MAP: %d POIs (T%d W%d K%d V%d) — open [M]",
+		total,
+		counts[world.TileTrench],
+		counts[world.TileWreckage],
+		counts[world.TileShockKelpCave],
+		counts[world.TileThermoCave],
+	), 240, 1)
+
+	// Jump straight to the chart so icons are visible immediately.
+	if g.currentState != StateBaseMenu || g.baseMenu == nil || g.baseMenu.ActiveTab != 5 {
+		g.TransitionToMap()
+	} else if g.baseMenu != nil {
+		g.baseMenu.ActiveTab = 5
 	}
 }
 

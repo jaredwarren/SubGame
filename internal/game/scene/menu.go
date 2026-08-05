@@ -94,7 +94,9 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 		}
 		return nil
 	}
-	if inp.IsKeyJustPressed(ebiten.KeyM) {
+	// Plain [M] closes PDA / switches to Map. Ctrl/Cmd+M is a debug reveal (handled by Game).
+	ctrlHeld := inp.IsKeyPressed(ebiten.KeyControl) || inp.IsKeyPressed(ebiten.KeyMeta)
+	if !ctrlHeld && inp.IsKeyJustPressed(ebiten.KeyM) {
 		if g.IsMenuOpenedAnywhere() {
 			g.ClosePDA()
 		} else {
