@@ -316,6 +316,105 @@ func (inv *Inventory) IsEmpty() bool {
 	return true
 }
 
+// ExtractAll removes every stack from the inventory and returns them.
+func (inv *Inventory) ExtractAll() []ItemStack {
+	if inv == nil {
+		return nil
+	}
+	var stacks []ItemStack
+	for i := range inv.Slots {
+		if inv.Slots[i].Item != nil && inv.Slots[i].Quantity > 0 {
+			stacks = append(stacks, inv.Slots[i])
+			inv.Slots[i] = ItemStack{}
+		}
+	}
+	return stacks
+}
+
+// InsertStacks packs stacks into empty/matching capacity. Returns leftovers that did not fit.
+func (inv *Inventory) InsertStacks(stacks []ItemStack) []ItemStack {
+	if inv == nil {
+		return stacks
+	}
+	var leftover []ItemStack
+	for _, stack := range stacks {
+		if stack.Item == nil || stack.Quantity <= 0 {
+			continue
+		}
+		remaining := stack.Quantity
+		// Prefer stacking onto existing stacks of the same type.
+		t := normalizeType(reflect.TypeOf(stack.Item))
+		maxStack := stack.Item.GetMaxStack()
+		for i := range inv.Slots {
+			if remaining <= 0 {
+				break
+			}
+			if inv.Slots[i].Item == nil {
+				continue
+			}
+			if normalizeType(reflect.TypeOf(inv.Slots[i].Item)) != t {
+				continue
+			}
+			space := maxStack - inv.Slots[i].Quantity
+			if space <= 0 {
+				continue
+			}
+			add := remaining
+			if add > space {
+				add = space
+			}
+			inv.Slots[i].Quantity += add
+			remaining -= add
+		}
+		for remaining > 0 {
+			emptyIdx := -1
+			for i := range inv.Slots {
+				if inv.Slots[i].Item == nil {
+					emptyIdx = i
+					break
+				}
+			}
+			if emptyIdx < 0 {
+				leftover = append(leftover, ItemStack{Item: stack.Item, Quantity: remaining})
+				break
+			}
+			add := remaining
+			if add > maxStack {
+				add = maxStack
+			}
+			inv.Slots[emptyIdx] = ItemStack{Item: stack.Item, Quantity: add}
+			remaining -= add
+		}
+	}
+	return leftover
+}
+
+// NewInventoryFromStacks builds an inventory large enough for the given stacks (one slot each).
+func NewInventoryFromStacks(stacks []ItemStack) *Inventory {
+	if len(stacks) == 0 {
+		return NewInventory(1)
+	}
+	inv := NewInventory(len(stacks))
+	for i, s := range stacks {
+		inv.Slots[i] = s
+	}
+	return inv
+}
+
+// TotalItemCount returns the sum of all stack quantities.
+func (inv *Inventory) TotalItemCount() int {
+	if inv == nil {
+		return 0
+	}
+	n := 0
+	for _, s := range inv.Slots {
+		if s.Item != nil {
+			n += s.Quantity
+		}
+	}
+	return n
+}
+
 // SavedItemStack represents serialized stack data for JSON save/load.
 type SavedItemStack struct {
 	ItemName string `json:"itemName"`

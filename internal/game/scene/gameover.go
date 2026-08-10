@@ -54,5 +54,5 @@ func (s *GameOverScene) draw(g GameOverContext, screen *ebiten.Image) {
 	if reason := g.GetDeathReason(); reason != "" {
 		msg = reason
 	}
-	ebitenutil.DebugPrint(screen, "GAME OVER\n\n"+msg+"\n\nPress ENTER to respawn.")
+	ebitenutil.DebugPrint(screen, "GAME OVER\n\n"+msg+"\n\nCargo crate left on the surface (upgrades kept).\nCheck the PDA map [M] for an orange marker.\nPress ENTER to respawn at Life Pod.")
 }

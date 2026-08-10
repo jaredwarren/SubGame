@@ -66,6 +66,7 @@ type WorldAccess interface {
 	GetBaseStation() *base.BaseStation
 	GetCamera() *camera.Camera
 	GetExploration() *exploration.Tracker
+	GetLostCargo() []*entity.LostCargoBeacon
 }
 
 type CaveStateAccess interface {

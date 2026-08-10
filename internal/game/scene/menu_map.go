@@ -9,6 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -83,6 +84,9 @@ func (m *BaseMenuScene) drawMapTab(g MenuContext, screen *ebiten.Image, panelX, 
 	legendRow("Life Pod (always)", func(cx, cy float32) {
 		vector.FillCircle(screen, cx, cy, 4, color.RGBA{80, 220, 120, 255}, false)
 		vector.StrokeCircle(screen, cx, cy, 6, 1.0, color.RGBA{40, 160, 80, 255}, false)
+	})
+	legendRow("Lost Cargo (always)", func(cx, cy float32) {
+		entity.DrawLostCargoMapIcon(screen, cx, cy, g.GetTicks())
 	})
 	legendRow("Unvisited site (?)", func(cx, cy float32) {
 		vector.FillCircle(screen, cx, cy, 3, color.RGBA{255, 255, 255, 255}, false)
@@ -251,6 +255,17 @@ func (m *BaseMenuScene) drawMapIcons(g MenuContext, screen *ebiten.Image, mapX, 
 		px, py := toScreen(tx, ty)
 		vector.FillCircle(screen, px, py, 4, color.RGBA{80, 220, 120, 255}, false)
 		vector.StrokeCircle(screen, px, py, 6, 1.2, color.RGBA{40, 160, 80, 255}, false)
+	}
+
+	// Lost cargo crates — always visible through fog (recovery expedition breadcrumb).
+	for _, b := range g.GetLostCargo() {
+		if b == nil || !b.Active() {
+			continue
+		}
+		tx := tileAt(b.Pos.X, config.TileSize)
+		ty := tileAt(b.Pos.Y, config.TileSize)
+		px, py := toScreen(tx, ty)
+		entity.DrawLostCargoMapIcon(screen, px, py, g.GetTicks())
 	}
 
 	// From a cave: highlight the dive site. Otherwise show the player marker.

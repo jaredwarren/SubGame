@@ -59,8 +59,14 @@ func (g *Game) Update() error {
 	}
 	g.player.UpdateAnimation()
 
+	g.updateLostCargo()
+
 	if g.player.CurrentHealth <= 0 {
-		g.TransitionTo(g.gameOverState)
+		// Drop cargo once at the moment of death; stay on GameOver without re-dropping.
+		if g.currentState == StateOverworld || g.currentState == StateCave {
+			g.dropLostCargo()
+			g.TransitionTo(g.gameOverState)
+		}
 	}
 
 	if g.TutorialActive {

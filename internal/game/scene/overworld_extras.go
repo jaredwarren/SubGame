@@ -78,33 +78,44 @@ func (o *OverworldScene) InitializeExtras(g OverworldContext) {
 		}
 	}
 
-	// Spawn random vents in open waters far from the base station
+	// Spawn vents only in Thermal Barrens water, far from the base station.
 	var candidates []gvec.Vec2
 	basePos := g.GetBaseStation().Pos
 	for tx := 0; tx < o.World.Width; tx++ {
 		for ty := 0; ty < o.World.Height; ty++ {
-			if o.World.OverworldMap[tx][ty] == world.TileWater && o.World.LandDist[tx][ty] >= 3 {
-				tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
-				tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
-				dist := math.Hypot(tileX-basePos.X, tileY-basePos.Y)
-				if dist >= 960.0 {
-					candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
-				}
+			if o.World.OverworldMap[tx][ty] != world.TileWater {
+				continue
+			}
+			if o.World.BiomeMap[tx][ty] != world.BiomeThermalBarrens {
+				continue
+			}
+			if o.World.LandDist[tx][ty] < 3 {
+				continue
+			}
+			tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
+			tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
+			dist := math.Hypot(tileX-basePos.X, tileY-basePos.Y)
+			if dist >= 960.0 {
+				candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
 			}
 		}
 	}
 
 	if len(candidates) < 6 {
-		// Fallback: check any water tile further than 400px from base station
+		// Fallback: still Thermal Barrens only, but closer to base / ignore land distance
 		for tx := 0; tx < o.World.Width; tx++ {
 			for ty := 0; ty < o.World.Height; ty++ {
-				if o.World.OverworldMap[tx][ty] == world.TileWater {
-					tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
-					tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
-					dist := math.Hypot(tileX-basePos.X, tileY-basePos.Y)
-					if dist >= 400.0 {
-						candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
-					}
+				if o.World.OverworldMap[tx][ty] != world.TileWater {
+					continue
+				}
+				if o.World.BiomeMap[tx][ty] != world.BiomeThermalBarrens {
+					continue
+				}
+				tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
+				tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
+				dist := math.Hypot(tileX-basePos.X, tileY-basePos.Y)
+				if dist >= 400.0 {
+					candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
 				}
 			}
 		}

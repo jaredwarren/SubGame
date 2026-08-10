@@ -82,6 +82,9 @@ func (g *Game) drawOverworldLayer(screen *ebiten.Image) {
 	if g.overworldState != nil {
 		g.overworldState.DrawFogOverlay(g, screen)
 	}
+
+	// Lost cargo pierces fog so the return expedition can find the death site.
+	g.drawLostCargo(screen)
 }
 
 // drawCaveLayer renders cave vehicles, the sonar ring, and interaction prompts.

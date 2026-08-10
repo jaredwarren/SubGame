@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
@@ -27,6 +28,7 @@ type MenuContext interface {
 	GetBaseStation() *base.BaseStation
 	GetWorld() *world.World
 	GetExploration() *exploration.Tracker
+	GetLostCargo() []*entity.LostCargoBeacon
 	GetCraftingRecipes() []Recipe
 	GetStoryManager() *story.StoryManager
 	GetTicks() float64

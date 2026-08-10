@@ -1,9 +1,11 @@
 package game
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/config"
@@ -114,6 +116,9 @@ type Game struct {
 
 	// Exploration / fog-of-war
 	explorationTracker *exploration.Tracker
+
+	// Death cargo beacons (inventory dropped at death site; upgrades stay equipped).
+	lostCargo []*entity.LostCargoBeacon
 
 	// Tutorial
 	TutorialActive bool
@@ -277,6 +282,8 @@ func (g *Game) TransitionTo(next Scene) {
 }
 
 // Respawn resets the player after death and returns to the overworld.
+// Equipped upgrades are kept. Inventory/hotbar cargo was already moved to a
+// lost-cargo beacon at the death site (see dropLostCargo).
 func (g *Game) Respawn() {
 	g.player.Pos = gvec.Vec2{X: g.baseStation.Pos.X - 96.0, Y: g.baseStation.Pos.Y + 64.0}
 	g.player.Vel = gvec.Vec2{}
@@ -284,7 +291,11 @@ func (g *Game) Respawn() {
 	g.player.LastHealth = g.player.MaxHealth
 	g.player.CurrentOxygen = g.player.MaxOxygen
 	g.player.CurrentStamina = g.player.MaxStamina
+	// Safety: cargo should already be empty after dropLostCargo; never wipe upgrades.
 	g.player.Inventory.Clear()
+	if g.player.Hotbar != nil {
+		g.player.Hotbar.Clear()
+	}
 	if g.TutorialActive {
 		g.player.Inventory.AddItem(&item.Titanium{}, 9)
 	}
@@ -295,6 +306,128 @@ func (g *Game) Respawn() {
 	g.showInventory = false
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	g.TransitionTo(g.overworldState)
+}
+
+// dropLostCargo deposits inventory + hotbar as a surface crate at the death area.
+// Cave deaths pin cargo to the dive-site overworld coords so the return trip is chartable.
+// Equipped upgrade slots are left untouched.
+func (g *Game) dropLostCargo() {
+	var stacks []item.ItemStack
+	if g.player.Inventory != nil {
+		stacks = append(stacks, g.player.Inventory.ExtractAll()...)
+	}
+	if g.player.Hotbar != nil {
+		stacks = append(stacks, g.player.Hotbar.ExtractAll()...)
+	}
+	if len(stacks) == 0 {
+		return
+	}
+
+	pos := g.lostCargoOverworldPos()
+	beacon := entity.NewLostCargoBeacon(pos, stacks)
+	g.lostCargo = append(g.lostCargo, beacon)
+	g.SetMineWarning("Cargo crate left on the surface — find it on the map!", 240, 2)
+}
+
+// lostCargoOverworldPos returns where a new death crate should sit on the overworld.
+// Always overworld so the recovery expedition is visible after life-pod respawn.
+func (g *Game) lostCargoOverworldPos() gvec.Vec2 {
+	// Cave death → pin to last surface position (dive site). Fall back to trench tile center.
+	if g.currentState == StateCave {
+		if g.lastOverworldX != 0 || g.lastOverworldY != 0 {
+			return gvec.Vec2{
+				X: g.lastOverworldX + g.player.Width/2.0,
+				Y: g.lastOverworldY + g.player.Height/2.0,
+			}
+		}
+		return gvec.Vec2{
+			X: float64(g.activeTrenchX*config.TileSize) + float64(config.TileSize)/2.0,
+			Y: float64(g.activeTrenchY*config.TileSize) + float64(config.TileSize)/2.0,
+		}
+	}
+
+	if g.ActiveVehicle != nil {
+		vPos := g.ActiveVehicle.GetPos()
+		vDims := g.ActiveVehicle.GetDimensions()
+		return gvec.Vec2{X: vPos.X + vDims.X/2.0, Y: vPos.Y + vDims.Y/2.0}
+	}
+	return gvec.Vec2{
+		X: g.player.Pos.X + g.player.Width/2.0,
+		Y: g.player.Pos.Y + g.player.Height/2.0,
+	}
+}
+
+// GetLostCargo returns active surface cargo beacons for map markers / debugging.
+func (g *Game) GetLostCargo() []*entity.LostCargoBeacon {
+	return g.lostCargo
+}
+
+// updateLostCargo ticks beacon lifetimes and handles recovery when the player is nearby.
+func (g *Game) updateLostCargo() {
+	if len(g.lostCargo) == 0 {
+		return
+	}
+	// Lifetime and recovery only while playing the overworld / cave (surface crates
+	// are recoverable only on the overworld).
+	if g.currentState != StateOverworld && g.currentState != StateCave {
+		return
+	}
+
+	// Lifetime still ticks in both states so 3-day clocks keep running while diving.
+	live := g.lostCargo[:0]
+	for _, b := range g.lostCargo {
+		if b == nil {
+			continue
+		}
+		if b.TickLifetime() {
+			g.SetMineWarning("A cargo crate sank into the deep…", 150, 2)
+			continue
+		}
+		// Recovery only on the surface (crate is always overworld-placed).
+		if g.currentState == StateOverworld {
+			pCenter := gvec.Vec2{
+				X: g.player.Pos.X + g.player.Width/2.0,
+				Y: g.player.Pos.Y + g.player.Height/2.0,
+			}
+			reach := 36.0
+			if g.ActiveVehicle != nil {
+				vPos := g.ActiveVehicle.GetPos()
+				vDims := g.ActiveVehicle.GetDimensions()
+				pCenter = gvec.Vec2{X: vPos.X + vDims.X/2.0, Y: vPos.Y + vDims.Y/2.0}
+				reach = 20.0 + math.Max(vDims.X, vDims.Y)/2.0
+			}
+			dist := math.Hypot(pCenter.X-b.Pos.X, pCenter.Y-b.Pos.Y)
+			if dist < reach {
+				n, empty := b.TryRecover(g.player.Inventory)
+				if n > 0 {
+					g.SetMineWarning(fmt.Sprintf("Recovered %d items from lost cargo!", n), 150, 1)
+				}
+				if empty {
+					continue
+				}
+				if n == 0 {
+					g.SetMineWarning("Inventory full — free space to recover cargo.", 90, 2)
+				}
+			}
+		}
+		live = append(live, b)
+	}
+	g.lostCargo = live
+}
+
+// drawLostCargo draws surface cargo crates. Overworld only.
+func (g *Game) drawLostCargo(screen *ebiten.Image) {
+	if g.currentState != StateOverworld || len(g.lostCargo) == 0 {
+		return
+	}
+	camX, camY := g.camera.Pos.X, g.camera.Pos.Y
+	mult := GetOverworldLightMultiplier(g.TimeOfDay)
+	for _, b := range g.lostCargo {
+		if b == nil || !b.Active() {
+			continue
+		}
+		b.Draw(screen, camX, camY, g.Ticks, mult)
+	}
 }
 
 // DestroyOverworldVehicle removes a vehicle from the overworld list and resets active vehicle.
