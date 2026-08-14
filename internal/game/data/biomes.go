@@ -8,11 +8,17 @@ import "github.com/jaredwarren/SubGame/internal/game/cave"
 type (
 	CaveBiomeSpec = cave.CaveBiomeSpec
 	SpawnRules    = cave.SpawnRules
+	FloorStyle    = cave.FloorStyle
 	FloraID       = cave.FloraID
 	FaunaID       = cave.FaunaID
 )
 
 const (
+	FloorStyleCoralSand   = cave.FloorStyleCoralSand
+	FloorStyleMoss        = cave.FloorStyleMoss
+	FloorStyleBasalt      = cave.FloorStyleBasalt
+	FloorStyleAbyssalSilt = cave.FloorStyleAbyssalSilt
+
 	FloraKelp        = cave.FloraKelp
 	FloraShockKelp   = cave.FloraShockKelp
 	FloraShatterBulb = cave.FloraShatterBulb

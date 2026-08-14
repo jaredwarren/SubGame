@@ -65,3 +65,51 @@ func TestDefaultBiomeMineralTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestBiomeFloorStyles(t *testing.T) {
+	tests := []struct {
+		name      string
+		biome     *CaveBiomeSpec
+		wantStyle FloorStyle
+	}{
+		{"ShallowReef", ShallowReefBiome, FloorStyleCoralSand},
+		{"KelpForest", KelpForestBiome, FloorStyleMoss},
+		{"ThermalBarrens", ThermalBarrensBiome, FloorStyleBasalt},
+		{"AbyssalBlue", AbyssalBlueBiome, FloorStyleAbyssalSilt},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.biome.FloorStyle != tt.wantStyle {
+				t.Errorf("%s: got FloorStyle %v, want %v", tt.name, tt.biome.FloorStyle, tt.wantStyle)
+			}
+		})
+	}
+}
+
+func TestShallowSeabedCaveFloorRendering(t *testing.T) {
+	grid := [][]bool{
+		{true, false, true},
+		{true, true, true},
+	}
+
+	biomes := []*CaveBiomeSpec{
+		ShallowReefBiome,
+		KelpForestBiome,
+		ThermalBarrensBiome,
+		AbyssalBlueBiome,
+		nil, // tests default fallback
+	}
+
+	for _, b := range biomes {
+		cave := NewShallowSeabedCaveWithBiome(grid, b)
+		if len(cave.tileImages) != 8 {
+			t.Fatalf("expected 8 tile images, got %d", len(cave.tileImages))
+		}
+		for i, img := range cave.tileImages {
+			if img == nil {
+				t.Fatalf("tileImage[%d] is nil for biome %+v", i, b)
+			}
+		}
+	}
+}

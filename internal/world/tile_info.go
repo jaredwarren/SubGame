@@ -63,7 +63,7 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 	TileTrench: {
 		IsWater:      true,
 		IsDiveable:   true,
-		ScatterCount: 6,
+		ScatterCount: 0,
 		EstDiveDepth: "Est. Dive Depth: Trench (120m)",
 		GenerateGrid: cave.GenerateOrganicTrenchGrid,
 		CaveFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
@@ -88,7 +88,7 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 		IsDiveable:   true,
 		DivePrompt:   "Press [E] to Enter Shock Kelp Cave",
 		EstDiveDepth: "Est. Dive Depth: Shock Kelp Cave (60m)",
-		ScatterCount: 4,
+		ScatterCount: 0,
 		GenerateGrid: cave.GenerateShockKelpCaveGrid,
 		CaveFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
 			return cave.NewShockKelpCave(grid)

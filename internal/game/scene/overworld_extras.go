@@ -78,70 +78,15 @@ func (o *OverworldScene) InitializeExtras(g OverworldContext) {
 		}
 	}
 
-	// Spawn vents only in Thermal Barrens water, far from the base station.
-	var candidates []gvec.Vec2
-	basePos := g.GetBaseStation().Pos
+	// Attach ThermalVent entities directly to all TileThermoCave tiles generated in the world.
+	ventIndex := 0
 	for tx := 0; tx < o.World.Width; tx++ {
 		for ty := 0; ty < o.World.Height; ty++ {
-			if o.World.OverworldMap[tx][ty] != world.TileWater {
-				continue
-			}
-			if o.World.BiomeMap[tx][ty] != world.BiomeThermalBarrens {
-				continue
-			}
-			if o.World.LandDist[tx][ty] < 3 {
-				continue
-			}
-			tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
-			tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
-			dist := math.Hypot(tileX-basePos.X, tileY-basePos.Y)
-			if dist >= 960.0 {
-				candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
-			}
-		}
-	}
-
-	if len(candidates) < 6 {
-		// Fallback: still Thermal Barrens only, but closer to base / ignore land distance
-		for tx := 0; tx < o.World.Width; tx++ {
-			for ty := 0; ty < o.World.Height; ty++ {
-				if o.World.OverworldMap[tx][ty] != world.TileWater {
-					continue
-				}
-				if o.World.BiomeMap[tx][ty] != world.BiomeThermalBarrens {
-					continue
-				}
-				tileX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
-				tileY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
-				dist := math.Hypot(tileX-basePos.X, tileY-basePos.Y)
-				if dist >= 400.0 {
-					candidates = append(candidates, gvec.Vec2{X: tileX, Y: tileY})
-				}
-			}
-		}
-	}
-
-	if len(candidates) > 0 {
-		// Shuffle candidates using deterministic local PRNG
-		r.Shuffle(len(candidates), func(i, j int) {
-			candidates[i], candidates[j] = candidates[j], candidates[i]
-		})
-
-		numVents := 6
-		if len(candidates) < numVents {
-			numVents = len(candidates)
-		}
-
-		for i := 0; i < numVents; i++ {
-			pos := candidates[i]
-			// Initialize with randomized state timer so they don't all erupt at once
-			o.vents = append(o.vents, oe.NewThermalVent(pos, int64(i*12345)))
-
-			// Set the map tile underneath the thermal vent to TileThermoCave
-			tx := int(pos.X) / config.TileSize
-			ty := int(pos.Y) / config.TileSize
-			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
-				o.World.OverworldMap[tx][ty] = world.TileThermoCave
+			if o.World.OverworldMap[tx][ty] == world.TileThermoCave {
+				tileCenterX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
+				tileCenterY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
+				o.vents = append(o.vents, oe.NewThermalVent(gvec.Vec2{X: tileCenterX, Y: tileCenterY}, int64(ventIndex*12345)))
+				ventIndex++
 			}
 		}
 	}

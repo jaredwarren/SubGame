@@ -24,10 +24,21 @@ var DefaultSpawnRules = SpawnRules{
 	CoralChance:         0.10,
 }
 
+// FloorStyle specifies the procedural texture and decorative style for the cave floor/rock.
+type FloorStyle int
+
+const (
+	FloorStyleCoralSand   FloorStyle = iota // Sandy grains and ripples (Shallow Reef)
+	FloorStyleMoss                          // Mossy patches, lichen spots, green fibrils (Kelp Forest)
+	FloorStyleBasalt                        // Basalt rock, cracked volcanic crust, ember flecks (Thermal Barrens)
+	FloorStyleAbyssalSilt                   // Dark abyssal silt, fine sediment, bioluminescent crystal flecks (Abyssal Trench)
+)
+
 // CaveBiomeSpec defines visual and spawn properties for cave views.
 type CaveBiomeSpec struct {
 	ID                 string
 	Name               string
+	FloorStyle         FloorStyle
 	CaveRockColor      color.RGBA
 	CaveSandLightColor color.RGBA
 	CaveSandDarkColor  color.RGBA
@@ -51,9 +62,10 @@ var (
 	ShallowReefBiome = &CaveBiomeSpec{
 		ID:                 "shallow_reef",
 		Name:               "Shallow Coral Reef",
+		FloorStyle:         FloorStyleCoralSand,
 		CaveRockColor:      color.RGBA{180, 155, 100, 255},
-		CaveSandLightColor: color.RGBA{215, 190, 125, 255},
-		CaveSandDarkColor:  color.RGBA{150, 130, 80, 255},
+		CaveSandLightColor: color.RGBA{225, 205, 140, 255},
+		CaveSandDarkColor:  color.RGBA{145, 120, 75, 255},
 		CaveStrokeColor:    color.RGBA{210, 185, 120, 255},
 		CaveAmbientTint:    color.RGBA{10, 50, 110, 255},
 		Rules:              DefaultSpawnRules,
@@ -77,10 +89,11 @@ var (
 	KelpForestBiome = &CaveBiomeSpec{
 		ID:                 "kelp_forest",
 		Name:               "Kelp Forest",
-		CaveRockColor:      color.RGBA{120, 145, 95, 255},
-		CaveSandLightColor: color.RGBA{160, 185, 120, 255},
-		CaveSandDarkColor:  color.RGBA{90, 115, 70, 255},
-		CaveStrokeColor:    color.RGBA{140, 165, 110, 255},
+		FloorStyle:         FloorStyleMoss,
+		CaveRockColor:      color.RGBA{65, 88, 55, 255},
+		CaveSandLightColor: color.RGBA{115, 185, 80, 255}, // Lush light green moss
+		CaveSandDarkColor:  color.RGBA{45, 80, 40, 255},   // Forest green moss clumps
+		CaveStrokeColor:    color.RGBA{95, 130, 75, 255},
 		CaveAmbientTint:    color.RGBA{10, 70, 60, 255},
 		Rules:              DefaultSpawnRules,
 		FloraSpawns: []SpawnEntry[FloraID]{
@@ -103,10 +116,11 @@ var (
 	ThermalBarrensBiome = &CaveBiomeSpec{
 		ID:                 "thermal_barrens",
 		Name:               "Thermal Barrens",
-		CaveRockColor:      color.RGBA{110, 85, 75, 255},
-		CaveSandLightColor: color.RGBA{150, 115, 95, 255},
-		CaveSandDarkColor:  color.RGBA{80, 60, 50, 255},
-		CaveStrokeColor:    color.RGBA{130, 95, 80, 255},
+		FloorStyle:         FloorStyleBasalt,
+		CaveRockColor:      color.RGBA{38, 32, 32, 255}, // Volcanic basalt stone
+		CaveSandLightColor: color.RGBA{85, 68, 65, 255}, // Ash & basalt highlights
+		CaveSandDarkColor:  color.RGBA{22, 18, 18, 255}, // Deep fracture charcoal
+		CaveStrokeColor:    color.RGBA{58, 48, 48, 255},
 		CaveAmbientTint:    color.RGBA{80, 30, 30, 255},
 		Rules:              DefaultSpawnRules,
 		FloraSpawns: []SpawnEntry[FloraID]{
@@ -129,10 +143,11 @@ var (
 	AbyssalBlueBiome = &CaveBiomeSpec{
 		ID:                 "abyssal_blue",
 		Name:               "Abyssal Trench",
-		CaveRockColor:      color.RGBA{80, 90, 115, 255},
-		CaveSandLightColor: color.RGBA{110, 125, 155, 255},
-		CaveSandDarkColor:  color.RGBA{55, 65, 85, 255},
-		CaveStrokeColor:    color.RGBA{95, 110, 135, 255},
+		FloorStyle:         FloorStyleAbyssalSilt,
+		CaveRockColor:      color.RGBA{42, 50, 72, 255}, // Deep abyssal slate
+		CaveSandLightColor: color.RGBA{85, 110, 155, 255},
+		CaveSandDarkColor:  color.RGBA{28, 34, 52, 255},
+		CaveStrokeColor:    color.RGBA{65, 78, 108, 255},
 		CaveAmbientTint:    color.RGBA{15, 20, 60, 255},
 		Rules:              DefaultSpawnRules,
 		FloraSpawns: []SpawnEntry[FloraID]{

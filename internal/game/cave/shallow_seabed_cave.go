@@ -38,8 +38,9 @@ func NewShallowSeabedCaveWithBiome(grid [][]bool, spec *CaveBiomeSpec) *ShallowS
 func (c *ShallowSeabedCave) preRenderTiles() {
 	rockColor := c.Biome.CaveRockColor
 	strokeColor := c.Biome.CaveStrokeColor
-	darkSandColor := c.Biome.CaveSandDarkColor
-	lightSandColor := c.Biome.CaveSandLightColor
+	darkColor := c.Biome.CaveSandDarkColor
+	lightColor := c.Biome.CaveSandLightColor
+	floorStyle := c.Biome.FloorStyle
 
 	for idx := range c.tileImages {
 		img := ebiten.NewImage(config.TileSize, config.TileSize)
@@ -49,20 +50,142 @@ func (c *ShallowSeabedCave) preRenderTiles() {
 		vector.StrokeRect(img, 0, 0, config.TileSize, config.TileSize, 0.5, strokeColor, false)
 
 		// Create a local RNG for this variant's generation
-		rng := rand.New(rand.NewSource(int64(idx * 997)))
+		rng := rand.New(rand.NewSource(int64(idx*997 + 17)))
 
-		// 3. Draw darker sand grains
-		for range 6 {
-			px := float32(rng.Intn(config.TileSize-4)) + 2
-			py := float32(rng.Intn(config.TileSize-4)) + 2
-			vector.FillRect(img, px, py, 2, 2, darkSandColor, false)
-		}
+		switch floorStyle {
+		case FloorStyleMoss:
+			// Moss carpet rendering (Kelp Forest)
+			// 1. Irregular rounded moss clumps / patches
+			numPatches := rng.Intn(3) + 3
+			for i := 0; i < numPatches; i++ {
+				mx := float32(rng.Intn(config.TileSize-18)) + 9
+				my := float32(rng.Intn(config.TileSize-18)) + 9
+				rad := float32(rng.Float64()*6.0 + 4.5)
+				vector.FillCircle(img, mx, my, rad, darkColor, false)
+				vector.FillCircle(img, mx+float32(rng.Float64()*2.4-1.2), my+float32(rng.Float64()*2.4-1.2), rad*0.65, lightColor, false)
+			}
 
-		// 4. Draw lighter sand grains
-		for range 6 {
-			px := float32(rng.Intn(config.TileSize-4)) + 2
-			py := float32(rng.Intn(config.TileSize-4)) + 2
-			vector.FillRect(img, px, py, 2, 2, lightSandColor, false)
+			// 2. Fine moss fibrils / blades
+			numTufts := rng.Intn(8) + 10
+			for i := 0; i < numTufts; i++ {
+				tx := float32(rng.Intn(config.TileSize-6)) + 3
+				ty := float32(rng.Intn(config.TileSize-6)) + 3
+				vector.FillRect(img, tx, ty, 2, 2, lightColor, false)
+				if rng.Float64() < 0.45 {
+					vector.StrokeLine(img, tx, ty, tx+float32(rng.Float64()*2-1), ty-float32(rng.Float64()*3+1), 1.0, lightColor, false)
+				}
+			}
+
+			// 3. Subtle pale chartreuse lichen specks
+			lichenColor := color.RGBA{160, 220, 115, 220}
+			for i := 0; i < 4; i++ {
+				lx := float32(rng.Intn(config.TileSize-8)) + 4
+				ly := float32(rng.Intn(config.TileSize-8)) + 4
+				vector.FillCircle(img, lx, ly, 1.2, lichenColor, false)
+			}
+
+		case FloorStyleBasalt:
+			// Basalt rock rendering (Thermal Barrens)
+			// 1. Fractured cooling plates & geometric cracks
+			numCracks := rng.Intn(3) + 2
+			for i := 0; i < numCracks; i++ {
+				cx1 := float32(rng.Intn(config.TileSize-12)) + 6
+				cy1 := float32(rng.Intn(config.TileSize-12)) + 6
+				cx2 := cx1 + float32(rng.Float64()*24.0-12.0)
+				cy2 := cy1 + float32(rng.Float64()*24.0-12.0)
+				vector.StrokeLine(img, cx1, cy1, cx2, cy2, 1.5, darkColor, false)
+
+				if rng.Float64() < 0.6 {
+					midX := (cx1 + cx2) * 0.5
+					midY := (cy1 + cy2) * 0.5
+					cx3 := midX + float32(rng.Float64()*12.0-6.0)
+					cy3 := midY + float32(rng.Float64()*12.0-6.0)
+					vector.StrokeLine(img, midX, midY, cx3, cy3, 1.0, darkColor, false)
+				}
+			}
+
+			// 2. Basalt rough stippling and ash grains
+			for range 10 {
+				px := float32(rng.Intn(config.TileSize-4)) + 2
+				py := float32(rng.Intn(config.TileSize-4)) + 2
+				vector.FillRect(img, px, py, 2, 2, lightColor, false)
+			}
+			for range 8 {
+				px := float32(rng.Intn(config.TileSize-4)) + 2
+				py := float32(rng.Intn(config.TileSize-4)) + 2
+				vector.FillRect(img, px, py, 2, 2, darkColor, false)
+			}
+
+			// 3. Subtle thermal mineral / ember flecks
+			if rng.Float64() < 0.55 {
+				ex := float32(rng.Intn(config.TileSize-10)) + 5
+				ey := float32(rng.Intn(config.TileSize-10)) + 5
+				emberColor := color.RGBA{235, 95, 30, 220}
+				vector.FillCircle(img, ex, ey, 1.5, emberColor, false)
+				vector.FillCircle(img, ex, ey, 0.7, color.RGBA{255, 200, 60, 255}, false)
+			}
+
+		case FloorStyleAbyssalSilt:
+			// Deep abyssal silt & sediment (Abyssal Trench)
+			// 1. Soft horizontal silt drift lines
+			numDrifts := rng.Intn(2) + 2
+			for i := 0; i < numDrifts; i++ {
+				dx1 := float32(rng.Intn(config.TileSize-16)) + 4
+				dy := float32(rng.Intn(config.TileSize-12)) + 6
+				dx2 := dx1 + float32(rng.Float64()*20.0+10.0)
+				vector.StrokeLine(img, dx1, dy, dx2, dy+float32(rng.Float64()*3-1.5), 1.2, darkColor, false)
+			}
+
+			// 2. Fine sediment grains
+			for range 8 {
+				px := float32(rng.Intn(config.TileSize-4)) + 2
+				py := float32(rng.Intn(config.TileSize-4)) + 2
+				vector.FillRect(img, px, py, 2, 2, darkColor, false)
+			}
+			for range 6 {
+				px := float32(rng.Intn(config.TileSize-4)) + 2
+				py := float32(rng.Intn(config.TileSize-4)) + 2
+				vector.FillRect(img, px, py, 2, 2, lightColor, false)
+			}
+
+			// 3. Subtle bioluminescent/crystal mineral fleck
+			if rng.Float64() < 0.6 {
+				cx := float32(rng.Intn(config.TileSize-10)) + 5
+				cy := float32(rng.Intn(config.TileSize-10)) + 5
+				shimmerColor := color.RGBA{95, 180, 245, 200}
+				vector.FillCircle(img, cx, cy, 1.2, shimmerColor, false)
+			}
+
+		default: // FloorStyleCoralSand (Shallow Reef)
+			// 1. Sand ripple lines
+			numRipples := rng.Intn(2) + 1
+			for i := 0; i < numRipples; i++ {
+				rx1 := float32(rng.Intn(config.TileSize-16)) + 4
+				ry := float32(rng.Intn(config.TileSize-12)) + 6
+				rx2 := rx1 + float32(rng.Float64()*16.0+8.0)
+				vector.StrokeLine(img, rx1, ry, rx2, ry+1, 1.0, darkColor, false)
+			}
+
+			// 2. Darker sand grains
+			for range 8 {
+				px := float32(rng.Intn(config.TileSize-4)) + 2
+				py := float32(rng.Intn(config.TileSize-4)) + 2
+				vector.FillRect(img, px, py, 2, 2, darkColor, false)
+			}
+
+			// 3. Lighter sand grains
+			for range 8 {
+				px := float32(rng.Intn(config.TileSize-4)) + 2
+				py := float32(rng.Intn(config.TileSize-4)) + 2
+				vector.FillRect(img, px, py, 2, 2, lightColor, false)
+			}
+
+			// 4. Occasional tiny pebble or coral grain
+			if rng.Float64() < 0.35 {
+				px := float32(rng.Intn(config.TileSize-8)) + 4
+				py := float32(rng.Intn(config.TileSize-8)) + 4
+				vector.FillCircle(img, px, py, 1.5, color.RGBA{235, 130, 95, 220}, false)
+			}
 		}
 
 		c.tileImages[idx] = img

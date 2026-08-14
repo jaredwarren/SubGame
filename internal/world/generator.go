@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 
@@ -68,7 +69,12 @@ func (w *World) generateOverworld() {
 		}
 	}
 
-	// Scatter features using the tile type registry
+	// Precompute BFS distance maps for fast per-tile lookups
+	w.buildLandDistMap()
+	w.buildWaterDistMap()
+	w.generateBiomes()
+
+	// Scatter global features (e.g. TileWreckage) using the tile type registry
 	r := rand.New(rand.NewSource(w.Seed + 13))
 	var scatterTypes []TileType
 	for tt, info := range AllTileInfos() {
@@ -84,10 +90,8 @@ func (w *World) generateOverworld() {
 		w.scatterFeature(r, tt, info.ScatterCount)
 	}
 
-	// Precompute BFS distance maps for fast per-tile lookups
-	w.buildLandDistMap()
-	w.buildWaterDistMap()
-	w.generateBiomes()
+	// Scatter biome-specific special caves
+	w.scatterBiomeFeatures(r)
 }
 
 // isOceanArea checks if a 5x5 area centered at (tx, ty) consists entirely of TileWater.
@@ -115,6 +119,76 @@ func (w *World) scatterFeature(r *rand.Rand, tileType TileType, count int) {
 			featureCount++
 		}
 		attempts++
+	}
+}
+
+// scatterBiomeFeatures scatters biome-specific special cave tiles based on BiomeSpec.
+func (w *World) scatterBiomeFeatures(r *rand.Rand) {
+	// Sort biome IDs for deterministic generation
+	biomeIDs := []BiomeID{
+		BiomeShallowReef,
+		BiomeKelpForest,
+		BiomeThermalBarrens,
+		BiomeAbyssalBlue,
+	}
+
+	type pos struct{ x, y int }
+
+	for _, bID := range biomeIDs {
+		spec := GetBiomeInfo(bID)
+		if spec == nil || spec.SpecialCaveTile == TileWater || spec.SpecialCaveSpawnChance <= 0 || spec.SpecialCaveMaxCount <= 0 {
+			continue
+		}
+
+		var candidates []pos
+		for x := 5; x < w.Width-5; x++ {
+			for y := 5; y < w.Height-5; y++ {
+				if w.OverworldMap[x][y] == TileWater && w.BiomeMap[x][y] == bID && w.isOceanArea(x, y) && w.LandDist[x][y] >= 3 {
+					candidates = append(candidates, pos{x, y})
+				}
+			}
+		}
+
+		if len(candidates) == 0 {
+			continue
+		}
+
+		r.Shuffle(len(candidates), func(i, j int) {
+			candidates[i], candidates[j] = candidates[j], candidates[i]
+		})
+
+		var spawned []pos
+		for _, c := range candidates {
+			if len(spawned) >= spec.SpecialCaveMaxCount {
+				break
+			}
+
+			if r.Float64() < spec.SpecialCaveSpawnChance {
+				// Check min distance against already placed caves of this type
+				tooClose := false
+				if spec.SpecialCaveMinDist > 0 {
+					for _, sp := range spawned {
+						dx := float64(c.x - sp.x)
+						dy := float64(c.y - sp.y)
+						if math.Hypot(dx, dy) < spec.SpecialCaveMinDist {
+							tooClose = true
+							break
+						}
+					}
+				}
+
+				if !tooClose {
+					w.OverworldMap[c.x][c.y] = spec.SpecialCaveTile
+					spawned = append(spawned, c)
+				}
+			}
+		}
+
+		// Ensure at least 1 spawns if candidates exist and maxCount > 0
+		if len(spawned) == 0 && spec.SpecialCaveMaxCount > 0 && len(candidates) > 0 {
+			first := candidates[0]
+			w.OverworldMap[first.x][first.y] = spec.SpecialCaveTile
+		}
 	}
 }
 
@@ -221,22 +295,6 @@ func (w *World) generateBiomes() {
 
 	for x := 0; x < w.Width; x++ {
 		for y := 0; y < w.Height; y++ {
-			tt := w.OverworldMap[x][y]
-
-			// Explicit feature overrides
-			if tt == TileThermoCave {
-				w.BiomeMap[x][y] = BiomeThermalBarrens
-				continue
-			}
-			if tt == TileShockKelpCave {
-				w.BiomeMap[x][y] = BiomeKelpForest
-				continue
-			}
-			if tt == TileTrench {
-				w.BiomeMap[x][y] = BiomeAbyssalBlue
-				continue
-			}
-
 			// Noise-based biome assignment
 			nx := float64(x) / 25.0
 			ny := float64(y) / 25.0
@@ -261,12 +319,15 @@ func (w *World) generateBiomes() {
 	}
 }
 
-// GetSmoothedWaterOffset calculates the 5x5 neighborhood averaged water color offset for tile (tx, ty).
+// GetSmoothedWaterOffset calculates the neighborhood averaged water color offset for tile (tx, ty).
 func (w *World) GetSmoothedWaterOffset(tx, ty int) ColorOffset {
 	var totalR, totalG, totalB float64
 	var count float64
 
-	const radius = 2 // 5x5 kernel
+	radius := BiomeBlendRadius
+	if radius < 0 {
+		radius = 0
+	}
 	for dx := -radius; dx <= radius; dx++ {
 		for dy := -radius; dy <= radius; dy++ {
 			nx := tx + dx
@@ -296,8 +357,8 @@ func (w *World) GetSmoothedWaterOffset(tx, ty int) ColorOffset {
 		return ColorOffset{}
 	}
 	return ColorOffset{
-		R: totalR / count,
-		G: totalG / count,
-		B: totalB / count,
+		R: (totalR / count) * BiomeTransitionIntensity,
+		G: (totalG / count) * BiomeTransitionIntensity,
+		B: (totalB / count) * BiomeTransitionIntensity,
 	}
 }
