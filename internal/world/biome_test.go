@@ -115,6 +115,19 @@ func TestBiomeSpecialCaveSpawning(t *testing.T) {
 	}
 }
 
+func TestThermoCaveIsDiveable(t *testing.T) {
+	info := GetTileInfo(TileThermoCave)
+	if info == nil {
+		t.Fatal("missing TileThermoCave info")
+	}
+	if !info.IsDiveable {
+		t.Error("expected TileThermoCave to be diveable")
+	}
+	if info.DivePrompt == "" {
+		t.Error("expected TileThermoCave to have a dive prompt")
+	}
+}
+
 func TestFindLifepodSpawn(t *testing.T) {
 	seeds := []int64{12345, 98765, 424242, 55555}
 

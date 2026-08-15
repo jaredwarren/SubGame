@@ -74,8 +74,11 @@ func (w *World) generateOverworld() {
 	w.buildWaterDistMap()
 	w.generateBiomes()
 
-	// Scatter global features (e.g. TileWreckage) using the tile type registry
+	// Scatter global features (e.g. TileWreckage) using the tile type registry.
+	// Seed+13 previously also scattered 6 trenches before wreckage; consume that
+	// RNG the same way so wreckage sites stay put for existing world seeds.
 	r := rand.New(rand.NewSource(w.Seed + 13))
+	w.scatterFeature(r, TileTrench, 6)
 	var scatterTypes []TileType
 	for tt, info := range AllTileInfos() {
 		if info.ScatterCount > 0 {
@@ -89,9 +92,11 @@ func (w *World) generateOverworld() {
 		info := GetTileInfo(tt)
 		w.scatterFeature(r, tt, info.ScatterCount)
 	}
+	w.clearTiles(TileTrench)
 
-	// Scatter biome-specific special caves
-	w.scatterBiomeFeatures(r)
+	// Biome-local caves use a dedicated stream so later spawn-rate tweaks
+	// cannot shift wreckage (or other Seed+13 features).
+	w.scatterBiomeFeatures(rand.New(rand.NewSource(w.Seed + 17)))
 }
 
 // isOceanArea checks if a 5x5 area centered at (tx, ty) consists entirely of TileWater.
@@ -104,6 +109,17 @@ func (w *World) isOceanArea(tx, ty int) bool {
 		}
 	}
 	return true
+}
+
+// clearTiles converts every tile of the given type back to water.
+func (w *World) clearTiles(tileType TileType) {
+	for x := 0; x < w.Width; x++ {
+		for y := 0; y < w.Height; y++ {
+			if w.OverworldMap[x][y] == tileType {
+				w.OverworldMap[x][y] = TileWater
+			}
+		}
+	}
 }
 
 // scatterFeature scatters a specific tile type in deep ocean areas.

@@ -97,7 +97,8 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 	},
 	TileThermoCave: {
 		IsWater:      true,
-		IsDiveable:   false,
+		IsDiveable:   true,
+		DivePrompt:   "Press [E] to Enter Thermo Cave",
 		EstDiveDepth: "Est. Dive Depth: Thermo Cave (45m)",
 		ScatterCount: 0,
 		GenerateGrid: cave.GenerateThermoCaveGrid,

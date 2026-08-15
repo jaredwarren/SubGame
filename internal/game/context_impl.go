@@ -230,14 +230,13 @@ func (g *Game) SetSoundWaveState(timer int, x, y, radius float64) {
 func (g *Game) IsPlayerSlowed() bool { return g.playerSlowed }
 
 func (g *Game) IsFlashlightOn() bool {
-	if g.ActiveVehicle != nil {
-		return true
-	}
 	if g.player == nil {
 		return false
 	}
-	activeItem := g.player.GetActiveItem()
-	if activeItem == nil || activeItem.GetName() != "Flashlight" {
+	if g.ActiveVehicle != nil {
+		return g.FlashlightOn
+	}
+	if _, ok := g.player.GetActiveItem().(*item.Flashlight); !ok {
 		return false
 	}
 	return g.FlashlightOn

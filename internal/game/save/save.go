@@ -72,8 +72,18 @@ type SaveData struct {
 	BaseStation     SavedBaseStation            `json:"baseStation"`
 	Vehicles        []SavedVehicle              `json:"vehicles"`
 	Story           []string                    `json:"story"`
-	Exploration     exploration.SavedExploration `json:"exploration"`
-	UnlockedRecipes []int                       `json:"unlockedRecipes"`
+	Exploration          exploration.SavedExploration `json:"exploration"`
+	UnlockedRecipes      []int                        `json:"unlockedRecipes"`
+	UnlockedRecipeNames  []string                     `json:"unlockedRecipeNames,omitempty"`
+	LostCargo            []SavedLostCargo             `json:"lostCargo,omitempty"`
+}
+
+// SavedLostCargo is a surface cargo beacon left on death.
+type SavedLostCargo struct {
+	PosX          float64             `json:"posX"`
+	PosY          float64             `json:"posY"`
+	LifetimeTicks int                 `json:"lifetimeTicks"`
+	Cargo         item.SavedInventory `json:"cargo"`
 }
 
 // GetSavePath returns the default save file path.

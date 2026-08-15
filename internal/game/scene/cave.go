@@ -67,6 +67,7 @@ type CaveContext interface {
 	GetCaveVehicles(key string) []vehicle.Vehicle
 	GetActiveTrenchKey() string
 	ActivatePlayerItem(it item.Item)
+	UseRepairTool()
 }
 
 // DiverDrawWidth defines the targeted width of the diver sprite on screen.

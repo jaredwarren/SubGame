@@ -394,6 +394,11 @@ func (g *Game) updateLostCargo() {
 			dist := math.Hypot(pCenter.X-b.Pos.X, pCenter.Y-b.Pos.Y)
 			if dist < reach {
 				n, empty := b.TryRecover(g.player.Inventory)
+				if !empty {
+					var n2 int
+					n2, empty = b.TryRecover(g.player.Hotbar)
+					n += n2
+				}
 				if n > 0 {
 					g.SetMineWarning(fmt.Sprintf("Recovered %d items from lost cargo!", n), 150, 1)
 				}
@@ -553,9 +558,13 @@ func (g *Game) SaveGame() error {
 	}
 
 	var unlockedRecipes []int
+	var unlockedNames []string
 	for i, rcp := range g.craftingRecipes {
 		if rcp.Unlocked {
 			unlockedRecipes = append(unlockedRecipes, i)
+			if name := rcp.ResultName(); name != "" {
+				unlockedNames = append(unlockedNames, name)
+			}
 		}
 	}
 
@@ -595,8 +604,10 @@ func (g *Game) SaveGame() error {
 		},
 		Vehicles:        savedVehicles,
 		Story:           g.storyManager.SerializeState(),
-		Exploration:     g.explorationTracker.SerializeState(),
-		UnlockedRecipes: unlockedRecipes,
+		Exploration:         g.explorationTracker.SerializeState(),
+		UnlockedRecipes:     unlockedRecipes,
+		UnlockedRecipeNames: unlockedNames,
+		LostCargo:           serializeLostCargo(g.lostCargo),
 	}
 
 	return save.SaveToFile(save.GetSavePath(), data)
@@ -686,11 +697,8 @@ func (g *Game) LoadSaveGame() error {
 	g.storyManager.DeserializeState(data.Story)
 
 	g.craftingRecipes = scene.DefaultCraftingRecipes()
-	for _, idx := range data.UnlockedRecipes {
-		if idx >= 0 && idx < len(g.craftingRecipes) {
-			g.craftingRecipes[idx].Unlocked = true
-		}
-	}
+	applyUnlockedRecipes(g.craftingRecipes, data.UnlockedRecipeNames, data.UnlockedRecipes)
+	g.lostCargo = deserializeLostCargo(data.LostCargo)
 
 	// Always reset per-world cave caches so a prior session cannot leak in.
 	g.caveNodes = make(map[string][]resource.Resource)
@@ -736,4 +744,62 @@ func (g *Game) LoadSaveGame() error {
 
 	g.SetMineWarning("GAME LOADED", 120, 1)
 	return nil
+}
+
+func applyUnlockedRecipes(recipes []Recipe, names []string, indexes []int) {
+	if len(names) > 0 {
+		want := make(map[string]struct{}, len(names))
+		for _, name := range names {
+			want[name] = struct{}{}
+		}
+		for i := range recipes {
+			if _, ok := want[recipes[i].ResultName()]; ok {
+				recipes[i].Unlocked = true
+			}
+		}
+		return
+	}
+	for _, idx := range indexes {
+		if idx >= 0 && idx < len(recipes) {
+			recipes[idx].Unlocked = true
+		}
+	}
+}
+
+func serializeLostCargo(beacons []*entity.LostCargoBeacon) []save.SavedLostCargo {
+	if len(beacons) == 0 {
+		return nil
+	}
+	out := make([]save.SavedLostCargo, 0, len(beacons))
+	for _, b := range beacons {
+		if b == nil || !b.Active() {
+			continue
+		}
+		out = append(out, save.SavedLostCargo{
+			PosX:          b.Pos.X,
+			PosY:          b.Pos.Y,
+			LifetimeTicks: b.LifetimeTicks,
+			Cargo:         b.Cargo.SerializeState(),
+		})
+	}
+	return out
+}
+
+func deserializeLostCargo(saved []save.SavedLostCargo) []*entity.LostCargoBeacon {
+	if len(saved) == 0 {
+		return nil
+	}
+	out := make([]*entity.LostCargoBeacon, 0, len(saved))
+	for _, s := range saved {
+		cargo := item.DeserializeInventory(s.Cargo)
+		if cargo == nil || cargo.IsEmpty() || s.LifetimeTicks <= 0 {
+			continue
+		}
+		out = append(out, &entity.LostCargoBeacon{
+			Pos:           gvec.Vec2{X: s.PosX, Y: s.PosY},
+			Cargo:         cargo,
+			LifetimeTicks: s.LifetimeTicks,
+		})
+	}
+	return out
 }

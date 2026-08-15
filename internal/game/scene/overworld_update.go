@@ -9,6 +9,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -88,8 +89,8 @@ func (o *OverworldScene) update(g OverworldContext) error {
 				g.ActivatePlayerItem(activeItem)
 				return nil
 			}
-			if activeItem.GetName() == "Repair Tool" {
-				g.ActivatePlayerItem(activeItem)
+			if _, ok := activeItem.(*item.RepairTool); ok {
+				g.UseRepairTool()
 				return nil
 			}
 		}

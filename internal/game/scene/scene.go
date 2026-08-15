@@ -59,6 +59,7 @@ type PlayerAccess interface {
 	PickUpActiveVehicle()
 	TransferToVehicle(it item.Item)
 	ActivatePlayerItem(it item.Item)
+	UseRepairTool()
 }
 
 type WorldAccess interface {

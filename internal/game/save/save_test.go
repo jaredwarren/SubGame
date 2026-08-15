@@ -52,7 +52,16 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 				Location: "overworld",
 			},
 		},
-		Story: []string{"LOG_01", "LOG_02"},
+		Story:               []string{"LOG_01", "LOG_02"},
+		UnlockedRecipeNames: []string{"Scout Sub Kit"},
+		LostCargo: []SavedLostCargo{
+			{
+				PosX:          640,
+				PosY:          320,
+				LifetimeTicks: 4000,
+				Cargo:         inv.SerializeState(),
+			},
+		},
 	}
 
 	if err := SaveToFile(savePath, original); err != nil {
@@ -81,6 +90,12 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	}
 	if !item.HasItem[*item.Copper](restoredInv, 3) {
 		t.Errorf("Failed to restore 3 Copper from save")
+	}
+	if len(loaded.UnlockedRecipeNames) != 1 || loaded.UnlockedRecipeNames[0] != "Scout Sub Kit" {
+		t.Errorf("UnlockedRecipeNames mismatch: %v", loaded.UnlockedRecipeNames)
+	}
+	if len(loaded.LostCargo) != 1 || loaded.LostCargo[0].LifetimeTicks != 4000 {
+		t.Errorf("LostCargo mismatch: %+v", loaded.LostCargo)
 	}
 }
 

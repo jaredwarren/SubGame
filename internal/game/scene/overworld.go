@@ -49,6 +49,7 @@ type OverworldContext interface {
 	SetDeathReason(reason string)
 	DestroyOverworldVehicle(v vehicle.Vehicle)
 	ActivatePlayerItem(it item.Item)
+	UseRepairTool()
 }
 
 // OverworldScene manages the top-down surface sailing view.

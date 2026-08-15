@@ -62,27 +62,6 @@ var CraftingRecipes = []Recipe{
 		Unlocked: true,
 	},
 	{
-		NewResult: func() item.Item { return &item.RepairTool{} },
-		Ingredients: []Ingredient{
-			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 2},
-			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 1},
-			{NewItem: func() item.Item { return &item.ElectronicWaste{} }, Quantity: 1},
-		},
-		Tier:     0,
-		Unlocked: true,
-	},
-	{
-		NewResult: func() item.Item { return &item.Flashlight{} },
-		Ingredients: []Ingredient{
-			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 3},
-			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 2},
-			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
-			{NewItem: func() item.Item { return &item.PowerCell{} }, Quantity: 1},
-		},
-		Tier:     1,
-		Unlocked: true,
-	},
-	{
 		NewResult: func() item.Item { return &vehicle.SkiffKit{} },
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 10},
@@ -268,6 +247,40 @@ var CraftingRecipes = []Recipe{
 		Tier:     1,
 		Unlocked: false,
 	},
+	// Appended after existing recipes so older saves that store unlocks by
+	// index keep pointing at the same items.
+	{
+		NewResult: func() item.Item { return &item.RepairTool{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 2},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 1},
+			{NewItem: func() item.Item { return &item.ElectronicWaste{} }, Quantity: 1},
+		},
+		Tier:     0,
+		Unlocked: true,
+	},
+	{
+		NewResult: func() item.Item { return &item.Flashlight{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 2},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 1},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 1},
+		},
+		Tier:     0,
+		Unlocked: true,
+	},
+}
+
+// ResultName returns the crafted item's display name, or empty if unset.
+func (r Recipe) ResultName() string {
+	if r.NewResult == nil {
+		return ""
+	}
+	it := r.NewResult()
+	if it == nil {
+		return ""
+	}
+	return it.GetName()
 }
 
 // DefaultCraftingRecipes returns a fresh copy of the default CraftingRecipes slice.

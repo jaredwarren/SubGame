@@ -687,8 +687,8 @@ func TestFlashlightTool_CraftingAndLighting(t *testing.T) {
 	if !flashlightRecipe.Unlocked {
 		t.Error("expected Flashlight recipe to be unlocked by default")
 	}
-	if flashlightRecipe.Tier != 1 {
-		t.Errorf("expected Flashlight recipe Tier 1, got %d", flashlightRecipe.Tier)
+	if flashlightRecipe.Tier != 0 {
+		t.Errorf("expected Flashlight recipe Tier 0, got %d", flashlightRecipe.Tier)
 	}
 
 	// Initially hotbar is empty -> IsFlashlightOn must be false
@@ -741,8 +741,13 @@ func TestFlashlightTool_CraftingAndLighting(t *testing.T) {
 		t.Error("expected false before piloting")
 	}
 	g.ActiveVehicle = vehicle.NewScoutSub(100, 100)
+	g.FlashlightOn = true
 	if !g.IsFlashlightOn() {
-		t.Error("expected IsFlashlightOn() to be true when piloting a vehicle")
+		t.Error("expected IsFlashlightOn() to be true when piloting a vehicle with lights on")
+	}
+	g.FlashlightOn = false
+	if g.IsFlashlightOn() {
+		t.Error("expected IsFlashlightOn() to be false when vehicle headlights are toggled off")
 	}
 }
 
@@ -817,7 +822,7 @@ func TestRepairTool_CraftingAndUsage(t *testing.T) {
 	g.CaveVehicles[g.activeTrenchKey] = []vehicle.Vehicle{sub}
 
 	// Case 1: Try repairing with 0 Scrap Metal
-	g.ActivatePlayerItem(repairTool)
+	g.UseRepairTool()
 	if sub.GetHealth() != 50.0 {
 		t.Errorf("expected sub health to remain 50 with 0 scrap, got %f", sub.GetHealth())
 	}
@@ -828,7 +833,7 @@ func TestRepairTool_CraftingAndUsage(t *testing.T) {
 
 	// Case 2: Give 2 Scrap Metal and repair once
 	g.player.Inventory.AddItem(&item.ScrapMetal{}, 2)
-	g.ActivatePlayerItem(repairTool)
+	g.UseRepairTool()
 	if sub.GetHealth() != 75.0 {
 		t.Errorf("expected sub health 75 after 1 repair, got %f", sub.GetHealth())
 	}
@@ -837,7 +842,7 @@ func TestRepairTool_CraftingAndUsage(t *testing.T) {
 	}
 
 	// Case 3: Repair second time -> reaches max health 100
-	g.ActivatePlayerItem(repairTool)
+	g.UseRepairTool()
 	if sub.GetHealth() != 100.0 {
 		t.Errorf("expected sub health 100 after 2 repairs, got %f", sub.GetHealth())
 	}
@@ -848,13 +853,24 @@ func TestRepairTool_CraftingAndUsage(t *testing.T) {
 	// Case 4: Give more scrap and attempt repair when already at full health -> no scrap consumed
 	g.player.Inventory.AddItem(&item.ScrapMetal{}, 5)
 	scrapCountBefore := g.player.Inventory.Count(&item.ScrapMetal{})
-	g.ActivatePlayerItem(repairTool)
+	g.UseRepairTool()
 	scrapCountAfter := g.player.Inventory.Count(&item.ScrapMetal{})
 	if scrapCountBefore != scrapCountAfter {
 		t.Errorf("expected no scrap metal consumed at full health, went from %d to %d", scrapCountBefore, scrapCountAfter)
 	}
 	if sub.GetHealth() != sub.GetMaxHealth() {
 		t.Errorf("expected sub health %f, got %f", sub.GetMaxHealth(), sub.GetHealth())
+	}
+
+	// Case 5: Piloting blocks repair and does not consume scrap
+	g.ActiveVehicle = sub
+	g.UseRepairTool()
+	if g.player.Inventory.Count(&item.ScrapMetal{}) != scrapCountAfter {
+		t.Error("expected no scrap consumed while piloting")
+	}
+	msg, _ = g.GetMineWarning()
+	if msg != "Exit the vehicle to repair its hull" {
+		t.Errorf("expected in-vehicle warning, got %q", msg)
 	}
 }
 

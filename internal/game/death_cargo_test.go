@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/data"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -134,6 +135,73 @@ func TestCargoBeaconExpires(t *testing.T) {
 	b.LifetimeTicks = 1
 	if !b.TickLifetime() {
 		t.Fatal("expected beacon to expire after last tick")
+	}
+}
+
+func TestLostCargoRecoversIntoHotbarWhenInventoryFull(t *testing.T) {
+	g := NewGame()
+	g.TransitionTo(g.overworldState)
+	g.ActiveVehicle = nil
+	g.player.Inventory.Clear()
+	g.player.Hotbar.Clear()
+
+	for i := range g.player.Inventory.Slots {
+		g.player.Inventory.Slots[i] = item.ItemStack{Item: &item.Quartz{}, Quantity: 1}
+	}
+
+	beacon := entity.NewLostCargoBeacon(g.player.Pos, []item.ItemStack{
+		{Item: &item.Titanium{}, Quantity: 2},
+	})
+	g.lostCargo = []*entity.LostCargoBeacon{beacon}
+	g.player.Pos = gvec.Vec2{X: beacon.Pos.X - g.player.Width/2, Y: beacon.Pos.Y - g.player.Height/2}
+
+	g.updateLostCargo()
+	if len(g.lostCargo) != 0 {
+		t.Fatalf("expected cargo to recover into hotbar, still have %d beacons", len(g.lostCargo))
+	}
+	if g.player.Hotbar.Count(&item.Titanium{}) != 2 {
+		t.Errorf("hotbar titanium = %d, want 2", g.player.Hotbar.Count(&item.Titanium{}))
+	}
+}
+
+func TestApplyUnlockedRecipesPrefersNames(t *testing.T) {
+	recipes := data.DefaultCraftingRecipes()
+	applyUnlockedRecipes(recipes, []string{"Scout Sub Kit"}, []int{4})
+	var scoutUnlocked bool
+	for _, rcp := range recipes {
+		if rcp.ResultName() == "Scout Sub Kit" {
+			scoutUnlocked = rcp.Unlocked
+		}
+	}
+	if !scoutUnlocked {
+		t.Fatal("expected Scout Sub Kit to unlock by name")
+	}
+}
+
+func TestLostCargoSaveRoundTrip(t *testing.T) {
+	original := []*entity.LostCargoBeacon{
+		entity.NewLostCargoBeacon(gvec.Vec2{X: 120, Y: 80}, []item.ItemStack{
+			{Item: &item.Titanium{}, Quantity: 4},
+			{Item: &item.Copper{}, Quantity: 2},
+		}),
+	}
+	original[0].LifetimeTicks = 999
+
+	restored := deserializeLostCargo(serializeLostCargo(original))
+	if len(restored) != 1 {
+		t.Fatalf("expected 1 beacon, got %d", len(restored))
+	}
+	if restored[0].Pos.X != 120 || restored[0].Pos.Y != 80 {
+		t.Errorf("pos = %+v, want (120,80)", restored[0].Pos)
+	}
+	if restored[0].LifetimeTicks != 999 {
+		t.Errorf("lifetime = %d, want 999", restored[0].LifetimeTicks)
+	}
+	if restored[0].Cargo.Count(&item.Titanium{}) != 4 {
+		t.Errorf("titanium = %d, want 4", restored[0].Cargo.Count(&item.Titanium{}))
+	}
+	if restored[0].Cargo.Count(&item.Copper{}) != 2 {
+		t.Errorf("copper = %d, want 2", restored[0].Cargo.Count(&item.Copper{}))
 	}
 }
 

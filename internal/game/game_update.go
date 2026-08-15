@@ -161,7 +161,7 @@ func (g *Game) handleInput() {
 			g.player.ActiveSlot = 4
 		}
 		if g.player.ActiveSlot != prevSlot {
-			if it := g.player.GetActiveItem(); it != nil && it.GetName() == "Flashlight" {
+			if _, ok := g.player.GetActiveItem().(*item.Flashlight); ok {
 				g.FlashlightOn = true
 			}
 		}
@@ -340,10 +340,6 @@ func (g *Game) ActivatePlayerItem(it item.Item) {
 	if it == nil {
 		return
 	}
-	if it.GetName() == "Repair Tool" {
-		g.handleRepairToolAction()
-		return
-	}
 	if g.player.EquipUpgrade(it) {
 		g.player.Inventory.Remove(it, 1)
 		g.player.RecalculateUpgrades()
@@ -378,9 +374,10 @@ func (g *Game) ActivatePlayerItem(it item.Item) {
 	}
 }
 
-// handleRepairToolAction uses 1 Scrap Metal to repair +25 HP to the nearest vehicle in range.
-func (g *Game) handleRepairToolAction() {
+// UseRepairTool uses 1 Scrap Metal to repair +25 HP to the nearest vehicle in range.
+func (g *Game) UseRepairTool() {
 	if g.ActiveVehicle != nil {
+		g.SetMineWarning("Exit the vehicle to repair its hull", 90, 1)
 		return
 	}
 	candidates := g.getVehiclesForCurrentScene()
