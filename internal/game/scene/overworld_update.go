@@ -80,11 +80,15 @@ func (o *OverworldScene) update(g OverworldContext) error {
 	p := g.GetPlayer()
 	inp := g.GetInput()
 
-	// Deploy active item if left-clicked in overworld
+	// Deploy active item or use tool if left-clicked in overworld
 	if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		activeItem := p.GetActiveItem()
 		if activeItem != nil {
 			if _, isDeployable := activeItem.(vehicle.Deployable); isDeployable {
+				g.ActivatePlayerItem(activeItem)
+				return nil
+			}
+			if activeItem.GetName() == "Repair Tool" {
 				g.ActivatePlayerItem(activeItem)
 				return nil
 			}

@@ -121,18 +121,8 @@ func AllTileInfos() map[TileType]*TileTypeInfo {
 // ComputeWreckageShipIndex returns the sorted index of the wreckage at (tx, ty)
 // among all wreckages, ordered by distance from a reference spawn point.
 func (w *World) ComputeWreckageShipIndex(tx, ty int) int {
-	// Find spawn reference tile (water near center)
-	spawnTx, spawnTy := 50, 50
-	for x := 45; x < 55; x++ {
-		for y := 45; y < 55; y++ {
-			if x >= 0 && x < w.Width && y >= 0 && y < w.Height {
-				if w.OverworldMap[x][y] == TileWater {
-					spawnTx, spawnTy = x, y
-					break
-				}
-			}
-		}
-	}
+	// Find spawn reference tile (Shallow Reef water nearest center)
+	spawnTx, spawnTy := w.FindLifepodSpawn()
 
 	type wreckage struct {
 		wtx, wty int

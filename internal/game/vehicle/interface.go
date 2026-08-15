@@ -16,6 +16,7 @@ type Vehicle interface {
 	GetHealth() float64
 	GetMaxHealth() float64
 	TakeDamage(amount float64)
+	Repair(amount float64)
 	GetOxygen() float64
 	GetDepthLimit() float64
 	GetCargo() *item.Inventory

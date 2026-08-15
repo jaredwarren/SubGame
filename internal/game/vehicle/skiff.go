@@ -111,6 +111,13 @@ func (s *Skiff) TakeDamage(amount float64) {
 	}
 }
 
+func (s *Skiff) Repair(amount float64) {
+	s.Health += amount
+	if s.Health > s.MaxHealth {
+		s.Health = s.MaxHealth
+	}
+}
+
 func (s *Skiff) RechargeBattery(amount float64) {
 	s.Battery += amount
 	if s.Battery > s.MaxBattery {

@@ -181,19 +181,14 @@ func NewGame() *Game {
 	return g
 }
 
-// findWaterSpawn scans the center region of the world map for a suitable water tile.
+// findWaterSpawn finds the ShallowReefBiome water tile nearest the center of the world map.
 func findWaterSpawn(w *world.World) (x, y float64) {
-	x = 50.0 * config.TileSize
-	y = 50.0 * config.TileSize
-	for tx := 45; tx < 55; tx++ {
-		for ty := 45; ty < 55; ty++ {
-			if w.OverworldMap[tx][ty] == world.TileWater {
-				return float64(tx*config.TileSize) + (config.TileSize-20.0)/2.0,
-					float64(ty*config.TileSize) + (config.TileSize-20.0)/2.0
-			}
-		}
+	if w == nil {
+		return 50.0 * config.TileSize, 50.0 * config.TileSize
 	}
-	return x, y
+	tx, ty := w.FindLifepodSpawn()
+	return float64(tx*config.TileSize) + (config.TileSize-20.0)/2.0,
+		float64(ty*config.TileSize) + (config.TileSize-20.0)/2.0
 }
 
 // findNearestClearWaterDeployPos returns a top-left vehicle position centered on the

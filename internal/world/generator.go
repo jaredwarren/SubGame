@@ -253,6 +253,55 @@ func (w *World) DistanceToLand(tx, ty int) float64 {
 	return float64(w.LandDist[tx][ty])
 }
 
+// FindLifepodSpawn finds the Shallow Coral Reef water tile nearest the center of the world map.
+// If no ShallowReef water tile is available, it falls back to the nearest water tile to the center.
+func (w *World) FindLifepodSpawn() (spawnTX, spawnTY int) {
+	centerX := float64(w.Width) / 2.0
+	centerY := float64(w.Height) / 2.0
+
+	bestDist := math.MaxFloat64
+	bestTX, bestTY := w.Width/2, w.Height/2
+	foundShallow := false
+
+	// Primary pass: look for Shallow Coral Reef water tiles
+	for x := 5; x < w.Width-5; x++ {
+		for y := 5; y < w.Height-5; y++ {
+			if w.OverworldMap[x][y] == TileWater && w.BiomeMap[x][y] == BiomeShallowReef {
+				dx := float64(x) - centerX
+				dy := float64(y) - centerY
+				dist := math.Hypot(dx, dy)
+				if dist < bestDist {
+					bestDist = dist
+					bestTX, bestTY = x, y
+					foundShallow = true
+				}
+			}
+		}
+	}
+
+	if foundShallow {
+		return bestTX, bestTY
+	}
+
+	// Fallback pass: any water tile nearest center
+	bestDist = math.MaxFloat64
+	for x := 0; x < w.Width; x++ {
+		for y := 0; y < w.Height; y++ {
+			if w.OverworldMap[x][y] == TileWater {
+				dx := float64(x) - centerX
+				dy := float64(y) - centerY
+				dist := math.Hypot(dx, dy)
+				if dist < bestDist {
+					bestDist = dist
+					bestTX, bestTY = x, y
+				}
+			}
+		}
+	}
+
+	return bestTX, bestTY
+}
+
 // GetCave returns a procedurally generated cave linked to the trench position.
 func (w *World) GetCave(tx, ty int) [][]bool {
 	// Clamp inputs to safe overworld boundaries

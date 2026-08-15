@@ -384,6 +384,58 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, size/2.0, clr, false)
 		},
 	},
+	reflect.TypeFor[Flashlight](): {
+		Name:     "Flashlight",
+		MaxStack: 1,
+		Color:    color.RGBA{240, 220, 90, 255},
+		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
+			name := "Flashlight"
+			if drawItemIconSprite(screen, name, cx, cy, size) {
+				return
+			}
+			// Main handle / casing
+			vector.FillRect(screen, cx-size*0.35, cy-size*0.12, size*0.45, size*0.24, color.RGBA{45, 60, 75, 255}, false)
+			vector.StrokeRect(screen, cx-size*0.35, cy-size*0.12, size*0.45, size*0.24, 1.0, color.RGBA{80, 110, 135, 255}, false)
+			// Grip ribs
+			vector.FillRect(screen, cx-size*0.25, cy-size*0.14, size*0.06, size*0.28, color.RGBA{30, 40, 50, 255}, false)
+			vector.FillRect(screen, cx-size*0.12, cy-size*0.14, size*0.06, size*0.28, color.RGBA{30, 40, 50, 255}, false)
+			vector.FillRect(screen, cx+size*0.01, cy-size*0.14, size*0.06, size*0.28, color.RGBA{30, 40, 50, 255}, false)
+			// Head / bezel
+			vector.FillRect(screen, cx+size*0.10, cy-size*0.22, size*0.18, size*0.44, color.RGBA{70, 90, 110, 255}, false)
+			vector.StrokeRect(screen, cx+size*0.10, cy-size*0.22, size*0.18, size*0.44, 1.0, color.RGBA{240, 210, 60, 255}, false)
+			// Lens
+			vector.FillRect(screen, cx+size*0.28, cy-size*0.18, size*0.06, size*0.36, color.RGBA{220, 245, 255, 255}, false)
+			// Power switch
+			vector.FillRect(screen, cx-size*0.15, cy-size*0.20, size*0.12, size*0.08, color.RGBA{240, 90, 60, 255}, false)
+			// Emission glow
+			vector.FillCircle(screen, cx+size*0.32, cy, size*0.15, color.RGBA{255, 240, 100, 140}, false)
+		},
+	},
+	reflect.TypeFor[RepairTool](): {
+		Name:     "Repair Tool",
+		MaxStack: 1,
+		Color:    color.RGBA{235, 140, 40, 255},
+		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
+			name := "Repair Tool"
+			if drawItemIconSprite(screen, name, cx, cy, size) {
+				return
+			}
+			// Welder pistol grip / body
+			vector.FillRect(screen, cx-size*0.30, cy-size*0.15, size*0.38, size*0.26, color.RGBA{50, 62, 75, 255}, false)
+			vector.StrokeRect(screen, cx-size*0.30, cy-size*0.15, size*0.38, size*0.26, 1.0, color.RGBA{85, 105, 130, 255}, false)
+			// Grip handle angled down
+			vector.FillRect(screen, cx-size*0.28, cy+size*0.10, size*0.16, size*0.28, color.RGBA{35, 45, 55, 255}, false)
+			vector.StrokeRect(screen, cx-size*0.28, cy+size*0.10, size*0.16, size*0.28, 1.0, color.RGBA{65, 80, 100, 255}, false)
+			// Heat-treated nozzle barrel
+			vector.FillRect(screen, cx+size*0.08, cy-size*0.08, size*0.24, size*0.16, color.RGBA{220, 120, 35, 255}, false)
+			vector.StrokeRect(screen, cx+size*0.08, cy-size*0.08, size*0.24, size*0.16, 1.0, color.RGBA{255, 180, 70, 255}, false)
+			// Plasma electrode tip
+			vector.FillRect(screen, cx+size*0.32, cy-size*0.04, size*0.08, size*0.08, color.RGBA{140, 240, 255, 255}, false)
+			// Spark / arc glow
+			vector.FillCircle(screen, cx+size*0.38, cy, size*0.12, color.RGBA{255, 230, 90, 180}, false)
+			vector.FillCircle(screen, cx+size*0.38, cy, size*0.06, color.RGBA{255, 255, 255, 240}, false)
+		},
+	},
 	reflect.TypeFor[UpgradeSolar](): {
 		Name:          "Solar Array Module",
 		MaxStack:      1,

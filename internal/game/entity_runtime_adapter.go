@@ -78,7 +78,7 @@ type sonarAdapter struct {
 }
 
 func (a *sonarAdapter) FlashlightOn() bool {
-	return a.g.FlashlightOn
+	return a.g.IsFlashlightOn()
 }
 
 func (a *sonarAdapter) SoundWaveTimer() int {

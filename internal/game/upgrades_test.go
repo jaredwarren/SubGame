@@ -667,3 +667,228 @@ func TestInventory_AddItemBlueprintNode(t *testing.T) {
 		t.Error("expected AddItem with BlueprintNode to return false, got true")
 	}
 }
+
+func TestFlashlightTool_CraftingAndLighting(t *testing.T) {
+	g := NewGame()
+	g.currentState = StateCave
+	g.ActiveVehicle = nil
+
+	// Verify recipe exists and is unlocked
+	var flashlightRecipe *Recipe
+	for i := range g.craftingRecipes {
+		if g.craftingRecipes[i].NewResult().GetName() == "Flashlight" {
+			flashlightRecipe = &g.craftingRecipes[i]
+			break
+		}
+	}
+	if flashlightRecipe == nil {
+		t.Fatal("expected Flashlight recipe in craftingRecipes")
+	}
+	if !flashlightRecipe.Unlocked {
+		t.Error("expected Flashlight recipe to be unlocked by default")
+	}
+	if flashlightRecipe.Tier != 1 {
+		t.Errorf("expected Flashlight recipe Tier 1, got %d", flashlightRecipe.Tier)
+	}
+
+	// Initially hotbar is empty -> IsFlashlightOn must be false
+	g.player.Hotbar.Clear()
+	g.player.ActiveSlot = 0
+	if g.IsFlashlightOn() {
+		t.Error("expected IsFlashlightOn() to be false with empty hotbar")
+	}
+
+	// Equip Flashlight into slot 0
+	flashlight := flashlightRecipe.NewResult()
+	g.player.Hotbar.Slots[0].Item = flashlight
+	g.player.Hotbar.Slots[0].Quantity = 1
+
+	// Active slot is 0 -> IsFlashlightOn must be true
+	if !g.IsFlashlightOn() {
+		t.Error("expected IsFlashlightOn() to be true when Flashlight is selected in active slot")
+	}
+
+	// Toggle off with T
+	g.FlashlightOn = false
+	if g.IsFlashlightOn() {
+		t.Error("expected IsFlashlightOn() to be false after manual toggle off")
+	}
+
+	// Switch to slot 1 (empty)
+	g.player.ActiveSlot = 1
+	if g.IsFlashlightOn() {
+		t.Error("expected IsFlashlightOn() to be false when slot 1 (empty) is active")
+	}
+
+	// Put Titanium into slot 1 and select slot 1
+	g.player.Hotbar.Slots[1].Item = &item.Titanium{}
+	g.player.Hotbar.Slots[1].Quantity = 5
+	if g.IsFlashlightOn() {
+		t.Error("expected IsFlashlightOn() to be false when holding Titanium")
+	}
+
+	// Switch back to slot 0 (Flashlight)
+	g.player.ActiveSlot = 0
+	// Reset to active on slot change
+	g.FlashlightOn = true
+	if !g.IsFlashlightOn() {
+		t.Error("expected IsFlashlightOn() to be true after switching back to Flashlight slot")
+	}
+
+	// When piloting a vehicle, vehicle headlights illuminate even if hotbar item is not Flashlight
+	g.player.ActiveSlot = 1 // Titanium
+	if g.IsFlashlightOn() {
+		t.Error("expected false before piloting")
+	}
+	g.ActiveVehicle = vehicle.NewScoutSub(100, 100)
+	if !g.IsFlashlightOn() {
+		t.Error("expected IsFlashlightOn() to be true when piloting a vehicle")
+	}
+}
+
+func TestFlashlightTool_InventoryClickMovesToHotbar(t *testing.T) {
+	g := NewGame()
+	g.player.Inventory.Clear()
+	g.player.Hotbar.Clear()
+	g.player.Upgrades.Clear()
+
+	flashlight := &item.Flashlight{}
+	g.player.Inventory.AddItem(flashlight, 1)
+
+	// Simulate clicking the inventory slot as done in hud_inventory.go
+	if upg, ok := any(flashlight).(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
+		g.ActivatePlayerItem(flashlight)
+	} else if g.player.Hotbar.AddItem(flashlight, 1) {
+		g.player.Inventory.Remove(flashlight, 1)
+		g.player.RecalculateUpgrades()
+	}
+
+	// Assert:
+	// 1. Flashlight is in Hotbar
+	if !item.HasItem[*item.Flashlight](g.player.Hotbar, 1) {
+		t.Error("expected Flashlight to move to Hotbar upon click")
+	}
+	// 2. Flashlight is NOT in Upgrades gear slots
+	if item.HasItem[*item.Flashlight](g.player.Upgrades, 1) {
+		t.Error("expected Flashlight to NOT be in Upgrades gear slots")
+	}
+	// 3. Flashlight is removed from main Inventory
+	if item.HasItem[*item.Flashlight](g.player.Inventory, 1) {
+		t.Error("expected Flashlight to be removed from main Inventory")
+	}
+}
+
+func TestRepairTool_CraftingAndUsage(t *testing.T) {
+	g := NewGame()
+	g.currentState = StateCave
+	g.ActiveVehicle = nil
+
+	// Verify recipe exists and is unlocked
+	var repairRecipe *Recipe
+	for i := range g.craftingRecipes {
+		if g.craftingRecipes[i].NewResult().GetName() == "Repair Tool" {
+			repairRecipe = &g.craftingRecipes[i]
+			break
+		}
+	}
+	if repairRecipe == nil {
+		t.Fatal("expected Repair Tool recipe in craftingRecipes")
+	}
+	if !repairRecipe.Unlocked {
+		t.Error("expected Repair Tool recipe to be unlocked by default")
+	}
+	if repairRecipe.Tier != 0 {
+		t.Errorf("expected Repair Tool recipe Tier 0, got %d", repairRecipe.Tier)
+	}
+
+	repairTool := repairRecipe.NewResult()
+	g.player.Hotbar.Clear()
+	g.player.Inventory.Clear()
+	g.player.Hotbar.Slots[0].Item = repairTool
+	g.player.Hotbar.Slots[0].Quantity = 1
+	g.player.ActiveSlot = 0
+
+	// Spawn damaged Scout Sub near player
+	sub := vehicle.NewScoutSub(g.player.Pos.X+20, g.player.Pos.Y)
+	sub.TakeDamage(50.0) // Health becomes 50/100
+	if sub.GetHealth() != 50.0 {
+		t.Fatalf("expected sub health 50, got %f", sub.GetHealth())
+	}
+	g.CaveVehicles[g.activeTrenchKey] = []vehicle.Vehicle{sub}
+
+	// Case 1: Try repairing with 0 Scrap Metal
+	g.ActivatePlayerItem(repairTool)
+	if sub.GetHealth() != 50.0 {
+		t.Errorf("expected sub health to remain 50 with 0 scrap, got %f", sub.GetHealth())
+	}
+	msg, _ := g.GetMineWarning()
+	if msg != "Requires Scrap Metal to repair!" {
+		t.Errorf("expected warning 'Requires Scrap Metal to repair!', got %q", msg)
+	}
+
+	// Case 2: Give 2 Scrap Metal and repair once
+	g.player.Inventory.AddItem(&item.ScrapMetal{}, 2)
+	g.ActivatePlayerItem(repairTool)
+	if sub.GetHealth() != 75.0 {
+		t.Errorf("expected sub health 75 after 1 repair, got %f", sub.GetHealth())
+	}
+	if !item.HasItem[*item.ScrapMetal](g.player.Inventory, 1) {
+		t.Error("expected 1 Scrap Metal remaining in inventory")
+	}
+
+	// Case 3: Repair second time -> reaches max health 100
+	g.ActivatePlayerItem(repairTool)
+	if sub.GetHealth() != 100.0 {
+		t.Errorf("expected sub health 100 after 2 repairs, got %f", sub.GetHealth())
+	}
+	if item.HasItem[*item.ScrapMetal](g.player.Inventory, 1) {
+		t.Error("expected 0 Scrap Metal remaining in inventory")
+	}
+
+	// Case 4: Give more scrap and attempt repair when already at full health -> no scrap consumed
+	g.player.Inventory.AddItem(&item.ScrapMetal{}, 5)
+	scrapCountBefore := g.player.Inventory.Count(&item.ScrapMetal{})
+	g.ActivatePlayerItem(repairTool)
+	scrapCountAfter := g.player.Inventory.Count(&item.ScrapMetal{})
+	if scrapCountBefore != scrapCountAfter {
+		t.Errorf("expected no scrap metal consumed at full health, went from %d to %d", scrapCountBefore, scrapCountAfter)
+	}
+	if sub.GetHealth() != sub.GetMaxHealth() {
+		t.Errorf("expected sub health %f, got %f", sub.GetMaxHealth(), sub.GetHealth())
+	}
+}
+
+func TestRepairTool_InventoryClickMovesToHotbar(t *testing.T) {
+	g := NewGame()
+	g.player.Inventory.Clear()
+	g.player.Hotbar.Clear()
+	g.player.Upgrades.Clear()
+
+	tool := &item.RepairTool{}
+	g.player.Inventory.AddItem(tool, 1)
+
+	// Simulate clicking the inventory slot as done in hud_inventory.go
+	if upg, ok := any(tool).(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
+		g.ActivatePlayerItem(tool)
+	} else if g.player.Hotbar.AddItem(tool, 1) {
+		g.player.Inventory.Remove(tool, 1)
+		g.player.RecalculateUpgrades()
+	}
+
+	// Assert:
+	// 1. Repair Tool is in Hotbar
+	if !item.HasItem[*item.RepairTool](g.player.Hotbar, 1) {
+		t.Error("expected Repair Tool to move to Hotbar upon click")
+	}
+	// 2. Repair Tool is NOT in Upgrades gear slots
+	if item.HasItem[*item.RepairTool](g.player.Upgrades, 1) {
+		t.Error("expected Repair Tool to NOT be in Upgrades gear slots")
+	}
+	// 3. Repair Tool is removed from main Inventory
+	if item.HasItem[*item.RepairTool](g.player.Inventory, 1) {
+		t.Error("expected Repair Tool to be removed from main Inventory")
+	}
+}
+
+
+

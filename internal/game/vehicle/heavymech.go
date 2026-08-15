@@ -78,6 +78,13 @@ func (m *HeavyMech) TakeDamage(amount float64) {
 	}
 }
 
+func (m *HeavyMech) Repair(amount float64) {
+	m.Health += amount
+	if m.Health > m.MaxHealth {
+		m.Health = m.MaxHealth
+	}
+}
+
 func (m *HeavyMech) RechargeBattery(amount float64) {
 	m.Battery += amount
 	if m.Battery > m.MaxBattery {

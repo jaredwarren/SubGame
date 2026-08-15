@@ -227,8 +227,22 @@ func (g *Game) SetSoundWaveState(timer int, x, y, radius float64) {
 	g.SoundWave.Radius = radius
 }
 
-func (g *Game) IsPlayerSlowed() bool             { return g.playerSlowed }
-func (g *Game) IsFlashlightOn() bool             { return g.FlashlightOn }
+func (g *Game) IsPlayerSlowed() bool { return g.playerSlowed }
+
+func (g *Game) IsFlashlightOn() bool {
+	if g.ActiveVehicle != nil {
+		return true
+	}
+	if g.player == nil {
+		return false
+	}
+	activeItem := g.player.GetActiveItem()
+	if activeItem == nil || activeItem.GetName() != "Flashlight" {
+		return false
+	}
+	return g.FlashlightOn
+}
+
 func (g *Game) GetWeaverTrackingTimer() float64  { return g.WeaverTrackingTimer }
 func (g *Game) SetWeaverTrackingTimer(v float64) { g.WeaverTrackingTimer = v }
 

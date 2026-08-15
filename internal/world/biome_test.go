@@ -1,6 +1,7 @@
 package world
 
 import (
+	"math"
 	"testing"
 )
 
@@ -112,4 +113,36 @@ func TestBiomeSpecialCaveSpawning(t *testing.T) {
 	if wreckageCount != 3 {
 		t.Errorf("Expected 3 TileWreckage, got %d", wreckageCount)
 	}
+}
+
+func TestFindLifepodSpawn(t *testing.T) {
+	seeds := []int64{12345, 98765, 424242, 55555}
+
+	for _, seed := range seeds {
+		w := NewWorld(seed)
+		tx, ty := w.FindLifepodSpawn()
+
+		if tx < 0 || tx >= w.Width || ty < 0 || ty >= w.Height {
+			t.Fatalf("seed %d: invalid spawn coords (%d, %d)", seed, tx, ty)
+		}
+
+		if w.OverworldMap[tx][ty] != TileWater {
+			t.Errorf("seed %d: expected TileWater at (%d, %d), got %v", seed, tx, ty, w.OverworldMap[tx][ty])
+		}
+
+		if w.BiomeMap[tx][ty] != BiomeShallowReef {
+			t.Errorf("seed %d: expected BiomeShallowReef at (%d, %d), got %v", seed, tx, ty, w.BiomeMap[tx][ty])
+		}
+
+		// Ensure it is reasonably close to center (e.g. within 150 tiles of (250, 250))
+		centerX, centerY := float64(w.Width)/2.0, float64(w.Height)/2.0
+		dist := hypot(float64(tx)-centerX, float64(ty)-centerY)
+		if dist > 150.0 {
+			t.Errorf("seed %d: spawn (%d, %d) too far from center: dist=%.1f", seed, tx, ty, dist)
+		}
+	}
+}
+
+func hypot(a, b float64) float64 {
+	return math.Sqrt(a*a + b*b)
 }

@@ -524,6 +524,16 @@ func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
 		t.Error("expected equipping titanium to fail")
 	}
 
+	// Tools like Flashlight and Scanner should NOT equip to player gear slots
+	flashlight := &item.Flashlight{}
+	if p.EquipUpgrade(flashlight) {
+		t.Error("expected equipping flashlight to upgrades to fail")
+	}
+	scanner := &item.Scanner{}
+	if p.EquipUpgrade(scanner) {
+		t.Error("expected equipping scanner to upgrades to fail")
+	}
+
 	// Equip Fins
 	if !p.EquipUpgrade(fins) {
 		t.Fatal("expected equipping fins to succeed")

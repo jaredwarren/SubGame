@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"image/color"
 	"math"
 	"math/rand"
 
@@ -147,6 +148,7 @@ func (g *Game) handleInput() {
 	}
 
 	if !ctrlPressed && (g.currentState == StateOverworld || g.currentState == StateCave) {
+		prevSlot := g.player.ActiveSlot
 		if g.Input.IsKeyJustPressed(ebiten.Key1) {
 			g.player.ActiveSlot = 0
 		} else if g.Input.IsKeyJustPressed(ebiten.Key2) {
@@ -157,6 +159,11 @@ func (g *Game) handleInput() {
 			g.player.ActiveSlot = 3
 		} else if g.Input.IsKeyJustPressed(ebiten.Key5) {
 			g.player.ActiveSlot = 4
+		}
+		if g.player.ActiveSlot != prevSlot {
+			if it := g.player.GetActiveItem(); it != nil && it.GetName() == "Flashlight" {
+				g.FlashlightOn = true
+			}
 		}
 	}
 
@@ -330,6 +337,13 @@ func (g *Game) TransferToVehicle(it item.Item) {
 
 // ActivatePlayerItem applies the appropriate action for clicking an item in the player inventory.
 func (g *Game) ActivatePlayerItem(it item.Item) {
+	if it == nil {
+		return
+	}
+	if it.GetName() == "Repair Tool" {
+		g.handleRepairToolAction()
+		return
+	}
 	if g.player.EquipUpgrade(it) {
 		g.player.Inventory.Remove(it, 1)
 		g.player.RecalculateUpgrades()
@@ -362,6 +376,69 @@ func (g *Game) ActivatePlayerItem(it item.Item) {
 		g.player.RecalculateUpgrades()
 		g.showInventory = false
 	}
+}
+
+// handleRepairToolAction uses 1 Scrap Metal to repair +25 HP to the nearest vehicle in range.
+func (g *Game) handleRepairToolAction() {
+	if g.ActiveVehicle != nil {
+		return
+	}
+	candidates := g.getVehiclesForCurrentScene()
+	if len(candidates) == 0 {
+		g.SetMineWarning("No vehicle nearby to repair", 90, 1)
+		return
+	}
+
+	pX := g.player.Pos.X + g.player.Width/2.0
+	pY := g.player.Pos.Y + g.player.Height/2.0
+
+	var closestVehicle vehicle.Vehicle
+	closestDist := math.MaxFloat64
+	for _, v := range candidates {
+		vPos := v.GetPos()
+		vDims := v.GetDimensions()
+		vCenterX := vPos.X + vDims.X/2.0
+		vCenterY := vPos.Y + vDims.Y/2.0
+		dist := math.Hypot(vCenterX-pX, vCenterY-pY)
+		if dist < closestDist {
+			closestDist = dist
+			closestVehicle = v
+		}
+	}
+
+	if closestVehicle == nil || closestDist > 90.0 {
+		g.SetMineWarning("No vehicle nearby to repair", 90, 1)
+		return
+	}
+
+	if closestVehicle.GetHealth() >= closestVehicle.GetMaxHealth() {
+		g.SetMineWarning(closestVehicle.GetName()+" hull is already at maximum integrity!", 90, 1)
+		return
+	}
+
+	hasScrapInInv := item.HasItem[*item.ScrapMetal](g.player.Inventory, 1)
+	hasScrapInHotbar := item.HasItem[*item.ScrapMetal](g.player.Hotbar, 1)
+	if !hasScrapInInv && !hasScrapInHotbar {
+		g.SetMineWarning("Requires Scrap Metal to repair!", 120, 2)
+		return
+	}
+
+	scrap := &item.ScrapMetal{}
+	if !g.player.Inventory.Remove(scrap, 1) {
+		g.player.Hotbar.Remove(scrap, 1)
+	}
+	g.player.RecalculateUpgrades()
+
+	closestVehicle.Repair(25.0)
+
+	vPos := closestVehicle.GetPos()
+	vDims := closestVehicle.GetDimensions()
+	sparkX := (pX + vPos.X + vDims.X/2.0) / 2.0
+	sparkY := (pY + vPos.Y + vDims.Y/2.0) / 2.0
+	sparkColor := color.RGBA{255, 220, 80, 255}
+	g.SpawnDebris(sparkX, sparkY, sparkColor)
+
+	g.SetMineWarning(fmt.Sprintf("Repaired %s (+25 HP) [%.0f/%.0f]", closestVehicle.GetName(), closestVehicle.GetHealth(), closestVehicle.GetMaxHealth()), 120, 1)
 }
 
 // checkVehicleDepth applies crush damage when a cave vehicle exceeds its depth limit,

@@ -215,6 +215,10 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 			g.ActivatePlayerItem(activeItem)
 			return
 		}
+		if activeItem.GetName() == "Repair Tool" {
+			g.ActivatePlayerItem(activeItem)
+			return
+		}
 		if usable, ok := activeItem.(item.UsableItem); ok {
 			ctx := &caveUsableContext{
 				scene: c,

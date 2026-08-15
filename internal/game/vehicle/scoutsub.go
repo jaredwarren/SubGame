@@ -86,6 +86,13 @@ func (sub *ScoutSub) TakeDamage(amount float64) {
 	}
 }
 
+func (sub *ScoutSub) Repair(amount float64) {
+	sub.Health += amount
+	if sub.Health > sub.MaxHealth {
+		sub.Health = sub.MaxHealth
+	}
+}
+
 func (sub *ScoutSub) RechargeBattery(amount float64) {
 	sub.Battery += amount
 	if sub.Battery > sub.MaxBattery {

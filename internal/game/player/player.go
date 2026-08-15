@@ -153,9 +153,9 @@ func (p *Player) EquipUpgrade(it any) bool {
 		return false
 	}
 
-	// Only allow Fins and O2 Tanks for player upgrades
-	u, ok := it.(item.PlayerUpgradeItem)
-	if ok && u.IsPlayerUpgrade() {
+	// Only allow Fins and O2 Tanks for player body gear upgrades
+	switch it.(type) {
+	case item.O2UpgradeItem, item.SpeedUpgradeItem:
 		if p.Upgrades.AddItem(it.(item.Item), 1) {
 			p.RecalculateUpgrades()
 			return true
