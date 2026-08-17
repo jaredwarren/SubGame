@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
@@ -89,6 +90,7 @@ func (g *Game) EnterCave(tx, ty int) {
 	g.player.Vel = gvec.Vec2{}
 
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+	audio.Get().PlaySFX("sfx/splash.wav")
 	g.TransitionTo(g.caveState)
 	_ = g.SaveGame()
 }
@@ -118,6 +120,7 @@ func (g *Game) ExitCave() {
 	}
 
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+	audio.Get().PlaySFX("sfx/splash_exit.wav")
 	g.TransitionTo(g.overworldState)
 	_ = g.SaveGame()
 }

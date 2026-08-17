@@ -6,8 +6,10 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
@@ -98,6 +100,8 @@ type Game struct {
 	WeaverTrackingTimer float64
 	SoundWave           SoundWaveState
 	playerSlowed        bool // reset each tick by entity system
+	o2LowAlertPlayed    bool
+	o2CritAlertPlayed   bool
 
 	// Effects
 	Particles      []*particle.Particle
@@ -274,6 +278,48 @@ func (g *Game) TransitionTo(next Scene) {
 		next.OnEnter(g)
 	}
 	g.transitionedThisFrame = true
+	g.updateSceneAudio(next)
+}
+
+func (g *Game) updateSceneAudio(next Scene) {
+	audioMgr := audio.Get()
+	if audioMgr == nil {
+		return
+	}
+
+	switch next {
+	case g.titleState:
+		audioMgr.SetSubmerged(false)
+		audioMgr.PlayMusic("music/main_title.mp3", 0.6)
+	case g.introState:
+		audioMgr.SetSubmerged(false)
+		audioMgr.PlayMusic("music/intro_cinematic.mp3", 0.7)
+	case g.overworldState:
+		audioMgr.SetSubmerged(false)
+		audioMgr.PlayMusic("music/overworld_surface.mp3", 0.5)
+	case g.caveState:
+		audioMgr.SetSubmerged(true)
+		musicTrack := "music/cave_shallow.mp3"
+		if g.caveState != nil && g.caveState.ActiveCave != nil {
+			switch g.caveState.ActiveCave.GetCaveType() {
+			case cave.CaveThermo:
+				musicTrack = "music/cave_volcanic.mp3"
+			case cave.CaveShockKelp:
+				musicTrack = "music/cave_kelp.mp3"
+			case cave.CaveWreckage:
+				musicTrack = "music/cave_wreckage.mp3"
+			case cave.CaveVoid, cave.CaveOrganicTrench:
+				musicTrack = "music/cave_abyssal.mp3"
+			}
+		}
+		audioMgr.PlayMusic(musicTrack, 0.6)
+	case g.gameOverState:
+		audioMgr.SetSubmerged(false)
+		audioMgr.PlayMusic("music/game_over_theme.mp3", 0.7)
+	case g.gameWonState:
+		audioMgr.SetSubmerged(false)
+		audioMgr.PlayMusic("music/escape_outro.mp3", 0.75)
+	}
 }
 
 // Respawn resets the player after death and returns to the overworld.

@@ -9,6 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
@@ -130,6 +131,9 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 				for i, tab := range []int{4, 5} {
 					tx := int(panelX) + 30 + i*150
 					if mx >= tx && mx < tx+140 {
+						if m.ActiveTab != tab {
+							audio.Get().PlaySFX("sfx/ui_hover.wav")
+						}
 						m.ActiveTab = tab
 						m.ScrollY = 0
 						m.SelectedLoreIndex = 0
@@ -140,7 +144,11 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 					tx := int(panelX) + 20 + i*128
 					if mx >= tx && mx < tx+122 {
 						if i == 2 && !b.HasModule(item.ModuleStorage) {
+							audio.Get().PlaySFX("sfx/ui_error.wav")
 							continue
+						}
+						if m.ActiveTab != i {
+							audio.Get().PlaySFX("sfx/ui_hover.wav")
 						}
 						m.ActiveTab = i
 						m.ScrollY = 0
@@ -159,6 +167,7 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 				slot := &p.Inventory.Slots[hoveredIdx]
 				if slot.Item != nil {
 					if b.InstallUpgrade(slot.Item) {
+						audio.Get().PlaySFX("sfx/base_build.wav")
 						p.Inventory.Remove(slot.Item, 1)
 						p.RecalculateUpgrades()
 					}
@@ -172,7 +181,9 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 					if slot.Item != nil {
 						if b.WouldUninstallOverflow(hoveredModuleIdx) {
 							g.SetMineWarning("Vault has too many items to uninstall storage upgrade!", 120, 2)
+							audio.Get().PlaySFX("sfx/ui_error.wav")
 						} else if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+							audio.Get().PlaySFX("sfx/base_deconstruct.wav")
 							b.Upgrades.Remove(slot.Item, 1)
 							b.RecalculateProperties()
 							p.RecalculateUpgrades()
@@ -239,6 +250,7 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 									}
 									b.Power -= 10.0
 									p.RecalculateUpgrades()
+									audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
 									g.TransitionToGameWon()
 									return nil
 								}
@@ -252,8 +264,15 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 									}
 									b.Power -= 10.0
 									p.RecalculateUpgrades()
+									audio.Get().PlaySFX("sfx/fabricator_success.wav")
+								} else {
+									audio.Get().PlaySFX("sfx/ui_error.wav")
 								}
+							} else {
+								audio.Get().PlaySFX("sfx/ui_error.wav")
 							}
+						} else {
+							audio.Get().PlaySFX("sfx/ui_error.wav")
 						}
 					}
 					visibleIndex++

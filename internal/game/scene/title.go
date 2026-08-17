@@ -9,6 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 )
 
@@ -139,11 +140,13 @@ func (s *TitleScene) update(g TitleContext) error {
 		mx, my := cursor.X, cursor.Y
 
 		if hasSave && mx >= s.contBtnX && mx < s.contBtnX+s.btnW && my >= s.contBtnY && my < s.contBtnY+s.btnH {
+			audio.Get().PlaySFX("sfx/ui_confirm.wav")
 			return g.LoadSaveGame()
 		}
 
 		if mx >= s.seedX && mx < s.seedX+s.seedW && my >= s.seedY && my < s.seedY+s.seedH {
 			s.seedFocused = true
+			audio.Get().PlaySFX("sfx/ui_hover.wav")
 		} else {
 			s.seedFocused = false
 		}
@@ -155,12 +158,14 @@ func (s *TitleScene) update(g TitleContext) error {
 			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
 				if len(s.seedText) < 20 {
 					s.seedText += string(r)
+					audio.Get().PlaySFX("sfx/pda_typewriter_tick.wav")
 				}
 			}
 		}
 		if inp.IsKeyJustPressed(ebiten.KeyBackspace) {
 			if len(s.seedText) > 0 {
 				s.seedText = s.seedText[:len(s.seedText)-1]
+				audio.Get().PlaySFX("sfx/pda_typewriter_tick.wav")
 			}
 		}
 	}
@@ -169,12 +174,14 @@ func (s *TitleScene) update(g TitleContext) error {
 		cursor := inp.Cursor()
 		mx, my := cursor.X, cursor.Y
 		if mx >= s.btnX && mx < s.btnX+s.btnW && my >= s.btnY && my < s.btnY+s.btnH {
+			audio.Get().PlaySFX("sfx/ui_confirm.wav")
 			g.TransitionToIntro(parseSeed(s.seedText))
 			return nil
 		}
 	}
 
 	if inp.IsKeyJustPressed(ebiten.KeyEnter) {
+		audio.Get().PlaySFX("sfx/ui_confirm.wav")
 		g.TransitionToIntro(parseSeed(s.seedText))
 		return nil
 	}

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
@@ -191,6 +192,7 @@ func (c *CaveScene) updateVehicle(g CaveContext, inp InputSource, activeVehicle 
 					ny := float64(nodeTy*config.TileSize + config.TileSize/2)
 					if math.Hypot(px-nx, py-ny) <= 120.0 {
 						mech.DrillStrike(node)
+						audio.Get().PlaySFXVaried("sfx/mech_drill_loop.wav", 0.7, 0.05)
 						break
 					}
 				}
@@ -213,10 +215,12 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 	if activeItem != nil {
 		if _, isDeployable := activeItem.(vehicle.Deployable); isDeployable {
 			g.ActivatePlayerItem(activeItem)
+			audio.Get().PlaySFX("sfx/vehicle_exit.wav")
 			return
 		}
 		if _, ok := activeItem.(*item.RepairTool); ok {
 			g.UseRepairTool()
+			audio.Get().PlaySFX("sfx/repair_tool_loop.wav")
 			return
 		}
 		if usable, ok := activeItem.(item.UsableItem); ok {
@@ -264,9 +268,11 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 				if math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2)) <= 96.0 {
 					if bulb, ok := ent.(*entity.ShatterBulb); ok {
 						bulb.Pop(entityRuntime)
+						audio.Get().PlaySFX("sfx/shatter_bulb_pop.wav")
 						unlocked := g.GetStoryManager().TriggerEvent("pop", "shatter-bulb")
 						if unlocked != nil {
 							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+							audio.Get().PlaySFX("sfx/scanner_complete.wav")
 						}
 					}
 					break
@@ -290,12 +296,15 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 						ent.SetActive(false)
 						c.Entities = append(c.Entities[:i], c.Entities[i+1:]...)
 						g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90, 1)
+						audio.Get().PlaySFX("sfx/item_pickup.wav")
 						unlocked := g.GetStoryManager().TriggerEvent("catch", harvestedItem.GetName())
 						if unlocked != nil {
 							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+							audio.Get().PlaySFX("sfx/scanner_complete.wav")
 						}
 					} else {
 						g.SetMineWarning("Inventory full!", 90, 1)
+						audio.Get().PlaySFX("sfx/ui_error.wav")
 					}
 					break
 				}
@@ -315,9 +324,11 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 			if math.Hypot(px-nx, py-ny) <= 96.0 {
 				if node.RequiresMech() {
 					g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120, 1)
+					audio.Get().PlaySFX("sfx/ui_error.wav")
 					continue
 				}
 				node.SetHitsToMine(node.GetHitsToMine() - 1)
+				audio.Get().PlaySFXVaried("sfx/mining_hit.wav", 0.75, 0.05)
 
 				nodeColor := color.RGBA{150, 150, 150, 255}
 				if cRgba, ok := node.GetColor().(color.RGBA); ok {
@@ -326,24 +337,29 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 				g.SpawnDebris(nx, ny, nodeColor)
 
 				if node.GetHitsToMine() <= 0 {
+					audio.Get().PlaySFX("sfx/ore_break.wav")
 					if resName := node.GetRecipeResultName(); resName != "" {
 						recipes := g.GetCraftingRecipes()
 						for idx := range recipes {
 							if recipes[idx].NewResult().GetName() == resName {
 								recipes[idx].Unlocked = true
 								g.SetMineWarning("Unlocked: "+resName+"!", 120, 1)
+								audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
 								break
 							}
 						}
 						unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
 						if unlocked != nil {
 							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+							audio.Get().PlaySFX("sfx/scanner_complete.wav")
 						}
 					} else {
 						p.Inventory.AddItem(node, 1)
+						audio.Get().PlaySFX("sfx/item_pickup.wav")
 						unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
 						if unlocked != nil {
 							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+							audio.Get().PlaySFX("sfx/scanner_complete.wav")
 						}
 					}
 					c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)

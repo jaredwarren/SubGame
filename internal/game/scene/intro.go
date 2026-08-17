@@ -6,6 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 )
 
@@ -131,6 +132,7 @@ func (s *IntroScene) Update(g GameContext) error {
 func (s *IntroScene) update(g IntroContext) error {
 	inp := g.GetInput()
 	if inp.IsKeyJustPressed(ebiten.KeyEnter) || inp.IsKeyJustPressed(ebiten.KeySpace) || inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		audio.Get().PlaySFX("sfx/pod_water_crash.wav")
 		g.StartGame(s.seed)
 		return nil
 	}

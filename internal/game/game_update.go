@@ -7,6 +7,7 @@ import (
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
@@ -61,10 +62,12 @@ func (g *Game) Update() error {
 	g.player.UpdateAnimation()
 
 	g.updateLostCargo()
+	g.updateAudioAlerts()
 
 	if g.player.CurrentHealth <= 0 {
 		// Drop cargo once at the moment of death; stay on GameOver without re-dropping.
 		if g.currentState == StateOverworld || g.currentState == StateCave {
+			audio.Get().PlaySFX("sfx/player_drown.wav")
 			g.dropLostCargo()
 			g.TransitionTo(g.gameOverState)
 		}
@@ -74,9 +77,57 @@ func (g *Game) Update() error {
 		if g.hasSkiffInWorld() {
 			g.TutorialActive = false
 			g.SetMineWarning("TUTORIAL COMPLETE!", 180, 1)
+			audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
 		}
 	}
 	return nil
+}
+
+// updateAudioAlerts handles continuous loops and threshold voice alerts.
+func (g *Game) updateAudioAlerts() {
+	if g.currentState != StateCave && g.currentState != StateOverworld {
+		audio.Get().StopLoop("heartbeat")
+		audio.Get().StopLoop("breathing")
+		return
+	}
+
+	// Critical health heartbeat loop (< 25% health)
+	if g.player.MaxHealth > 0 && (g.player.CurrentHealth/g.player.MaxHealth) < 0.25 && g.player.CurrentHealth > 0 {
+		audio.Get().PlayLoop("heartbeat", "sfx/heartbeat_loop.wav", 0.7)
+	} else {
+		audio.Get().StopLoop("heartbeat")
+	}
+
+	// In cave oxygen monitoring and voice lines
+	if g.currentState == StateCave && g.ActiveVehicle == nil {
+		if g.player.MaxOxygen > 0 {
+			o2Ratio := g.player.CurrentOxygen / g.player.MaxOxygen
+			if o2Ratio <= 0.10 {
+				if !g.o2CritAlertPlayed {
+					g.o2CritAlertPlayed = true
+					audio.Get().PlaySFX("sfx/voice_o2_critical.wav")
+				}
+			} else if o2Ratio <= 0.30 {
+				if !g.o2LowAlertPlayed {
+					g.o2LowAlertPlayed = true
+					audio.Get().PlaySFX("sfx/voice_o2_low.wav")
+				}
+			}
+
+			if o2Ratio <= 0.30 && g.player.CurrentOxygen > 0 {
+				audio.Get().PlayLoop("breathing", "sfx/heavy_breathing_loop.wav", 0.55)
+			} else {
+				audio.Get().StopLoop("breathing")
+			}
+		}
+	} else {
+		// Reset alert flags when surfacing or inside vehicle
+		if g.player.CurrentOxygen >= g.player.MaxOxygen*0.8 {
+			g.o2LowAlertPlayed = false
+			g.o2CritAlertPlayed = false
+		}
+		audio.Get().StopLoop("breathing")
+	}
 }
 
 // advanceTimers increments all per-frame counters and timers.
@@ -106,6 +157,7 @@ func (g *Game) handleInput() {
 	if g.Input.IsKeyJustPressed(ebiten.KeyEscape) {
 		if g.showInventory {
 			g.showInventory = false
+			audio.Get().PlaySFX("sfx/inventory_close.wav")
 			return
 		}
 		if g.currentState == StateOverworld || g.currentState == StateCave {
@@ -116,20 +168,29 @@ func (g *Game) handleInput() {
 	}
 	if g.Input.IsKeyJustPressed(ebiten.KeyT) {
 		g.FlashlightOn = !g.FlashlightOn
+		audio.Get().PlaySFX("sfx/flashlight_toggle.wav")
 	}
 	if (g.Input.IsKeyJustPressed(ebiten.KeyTab) || g.Input.IsKeyJustPressed(ebiten.KeyI)) && (g.currentState == StateOverworld || g.currentState == StateCave) {
 		g.showInventory = !g.showInventory
+		if g.showInventory {
+			audio.Get().PlaySFX("sfx/inventory_open.wav")
+		} else {
+			audio.Get().PlaySFX("sfx/inventory_close.wav")
+		}
 	}
 	if g.currentState == StateOverworld && g.baseStation.DistanceToPlayer(g.player) < 100.0 && g.Input.IsKeyJustPressed(ebiten.KeyE) {
+		audio.Get().PlaySFX("sfx/airlock_cycle.wav")
 		g.TransitionTo(g.baseMenu)
 	}
 	if g.Input.IsKeyJustPressed(ebiten.KeyJ) {
 		switch g.currentState {
 		case StateBaseMenu:
 			if g.menuOpenedAnywhere {
+				audio.Get().PlaySFX("sfx/ui_cancel.wav")
 				g.ClosePDA()
 			}
 		case StateOverworld, StateCave:
+			audio.Get().PlaySFX("sfx/map_open.wav")
 			g.TransitionToPDA()
 		}
 	}
@@ -565,6 +626,7 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 		switch c := cmd.(type) {
 		case vehicle.ActivateSonarCmd:
 			g.Sonar.Activate(c)
+			audio.Get().PlaySFX("sfx/sub_sonar_ping.wav")
 		case vehicle.RemoveCaveNodeCmd:
 			nodes := g.caveState.Nodes
 			for i, node := range nodes {
@@ -580,6 +642,7 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 				if recipes[idx].NewResult().GetName() == c.RecipeResultName {
 					recipes[idx].Unlocked = true
 					g.SetMineWarning("Unlocked: "+c.RecipeResultName+"!", 120, 1)
+					audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
 					break
 				}
 			}
@@ -595,10 +658,12 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 			decoy := entity.NewSonicDecoy(c.Pos.X, c.Pos.Y, c.Vel)
 			g.caveState.Entities = append(g.caveState.Entities, decoy)
 			g.SetCaveEntities(g.GetActiveTrenchKey(), g.caveState.Entities)
+			audio.Get().PlaySFX("sfx/decoy_launch.wav")
 		case vehicle.SpawnDeterrentCloudCmd:
 			cloud := entity.NewDeterrentCloud(c.Pos.X, c.Pos.Y)
 			g.caveState.Entities = append(g.caveState.Entities, cloud)
 			g.SetCaveEntities(g.GetActiveTrenchKey(), g.caveState.Entities)
+			audio.Get().PlaySFX("sfx/deterrent_disperse.wav")
 		}
 	}
 	rt.cmds = rt.cmds[:0]

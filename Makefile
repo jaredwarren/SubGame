@@ -5,13 +5,20 @@ GOFILES := $(shell find . -name '*.go' -not -path './vendor/*')
 
 GOLANGCI_LINT := $(shell which golangci-lint 2>/dev/null)
 
-.PHONY: all build run test vet lint clean tidy check
+.PHONY: all build run test test-v vet lint clean tidy check audio gen-audio
 
 all: check lint build
 
 ## build: compile the game binary
 build:
 	go build -o $(BINARY) $(MAIN)
+
+## audio: generate or regenerate all procedural DSP audio assets
+audio:
+	go run ./cmd/gen_audio
+
+## gen-audio: alias for audio target
+gen-audio: audio
 
 ## run: build and launch the game (must be run from repo root so assets resolve)
 run: build

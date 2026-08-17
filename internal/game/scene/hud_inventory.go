@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
@@ -328,16 +329,19 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 		if slot.Item != nil {
 			// Player upgrades (O2 tank, fins) go to equipment upgrades
 			if upg, ok := slot.Item.(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
+				audio.Get().PlaySFX("sfx/base_build.wav")
 				g.ActivatePlayerItem(slot.Item)
 				return
 			}
 			// Deployable vehicle kits should also deploy directly!
 			if _, isDeployable := slot.Item.(vehicle.Deployable); isDeployable {
+				audio.Get().PlaySFX("sfx/vehicle_exit.wav")
 				g.ActivatePlayerItem(slot.Item)
 				return
 			}
 			// Other items try to go to Hotbar
 			if p.Hotbar.AddItem(slot.Item, 1) {
+				audio.Get().PlaySFX("sfx/hotbar_switch.wav")
 				p.Inventory.Remove(slot.Item, 1)
 				p.RecalculateUpgrades()
 			} else {
@@ -354,11 +358,13 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 		slot := &p.Hotbar.Slots[hoveredHotbarIdx]
 		if slot.Item != nil {
 			if _, isDeployable := slot.Item.(vehicle.Deployable); isDeployable {
+				audio.Get().PlaySFX("sfx/vehicle_exit.wav")
 				g.ActivatePlayerItem(slot.Item)
 				return
 			}
 			// Move item from hotbar back to main inventory
 			if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				audio.Get().PlaySFX("sfx/hotbar_switch.wav")
 				p.Hotbar.Remove(slot.Item, 1)
 				p.RecalculateUpgrades()
 			}
@@ -372,6 +378,7 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 		if hoveredGearIdx != -1 {
 			slot := &p.Upgrades.Slots[hoveredGearIdx]
 			if slot.Item != nil && p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				audio.Get().PlaySFX("sfx/base_deconstruct.wav")
 				p.Upgrades.Remove(slot.Item, 1)
 				p.RecalculateUpgrades()
 			}
@@ -398,6 +405,7 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 		btnY := panelY + 12
 		const btnW, btnH = 200.0, 24.0
 		if float64(mx) >= btnX && float64(mx) < btnX+btnW && float64(my) >= btnY && float64(my) < btnY+btnH {
+			audio.Get().PlaySFX("sfx/vehicle_enter.wav")
 			g.PickUpActiveVehicle()
 			return
 		}
@@ -410,15 +418,18 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 		if slot.Item != nil {
 			// Player upgrades go directly to upgrades/vehicle if vehicle open
 			if upg, ok := slot.Item.(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
+				audio.Get().PlaySFX("sfx/base_build.wav")
 				g.TransferToVehicle(slot.Item)
 				return
 			}
 			// Try to move to hotbar first
 			if p.Hotbar.AddItem(slot.Item, 1) {
+				audio.Get().PlaySFX("sfx/hotbar_switch.wav")
 				p.Inventory.Remove(slot.Item, 1)
 				p.RecalculateUpgrades()
 			} else {
 				// Otherwise transfer to vehicle
+				audio.Get().PlaySFX("sfx/hotbar_switch.wav")
 				g.TransferToVehicle(slot.Item)
 			}
 		}
@@ -432,6 +443,7 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 		if slot.Item != nil {
 			// Transfer from hotbar back to player inventory
 			if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				audio.Get().PlaySFX("sfx/hotbar_switch.wav")
 				p.Hotbar.Remove(slot.Item, 1)
 				p.RecalculateUpgrades()
 			}
@@ -446,6 +458,7 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 	if hoveredCargoIdx != -1 {
 		slot := &vInv.Slots[hoveredCargoIdx]
 		if slot.Item != nil && p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+			audio.Get().PlaySFX("sfx/hotbar_switch.wav")
 			vInv.Remove(slot.Item, 1)
 			p.RecalculateUpgrades()
 		}
@@ -459,6 +472,7 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 		if hoveredUpgradeIdx != -1 {
 			slot := &vUpg.Slots[hoveredUpgradeIdx]
 			if slot.Item != nil && p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+				audio.Get().PlaySFX("sfx/base_build.wav")
 				vUpg.Remove(slot.Item, 1)
 				p.RecalculateUpgrades()
 			}

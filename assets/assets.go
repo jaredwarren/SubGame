@@ -1,6 +1,12 @@
 package assets
 
-import _ "embed"
+import (
+	"embed"
+	_ "embed"
+)
+
+//go:embed all:audio
+var AudioFS embed.FS
 
 //go:embed textures/heavy_mech.png
 var HeavyMechPNG []byte

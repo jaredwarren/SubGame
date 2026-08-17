@@ -1,6 +1,7 @@
 package scene
 
 import (
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
@@ -35,12 +36,14 @@ func (c *caveUsableContext) SpawnSonicDecoy(pos gvec.Vec2, vel gvec.Vec2) {
 	decoy := entity.NewSonicDecoy(pos.X, pos.Y, vel)
 	c.scene.Entities = append(c.scene.Entities, decoy)
 	c.g.SetCaveEntities(c.g.GetActiveTrenchKey(), c.scene.Entities)
+	audio.Get().PlaySFX("sfx/decoy_launch.wav")
 }
 
 func (c *caveUsableContext) SpawnDeterrentCloud(pos gvec.Vec2) {
 	cloud := entity.NewDeterrentCloud(pos.X, pos.Y)
 	c.scene.Entities = append(c.scene.Entities, cloud)
 	c.g.SetCaveEntities(c.g.GetActiveTrenchKey(), c.scene.Entities)
+	audio.Get().PlaySFX("sfx/deterrent_disperse.wav")
 }
 
 func (c *caveUsableContext) SetMineWarning(msg string, duration, level int) {
