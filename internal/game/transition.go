@@ -92,7 +92,7 @@ func (g *Game) EnterCave(tx, ty int) {
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	audio.Get().PlaySFX("sfx/splash.wav")
 	g.TransitionTo(g.caveState)
-	_ = g.SaveGame()
+	g.autosave()
 }
 
 // ExitCave handles the transition from Cave to Overworld.
@@ -122,5 +122,12 @@ func (g *Game) ExitCave() {
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	audio.Get().PlaySFX("sfx/splash_exit.wav")
 	g.TransitionTo(g.overworldState)
-	_ = g.SaveGame()
+	g.autosave()
+}
+
+// autosave writes the current game state and surfaces failures via the warning banner.
+func (g *Game) autosave() {
+	if err := g.SaveGame(); err != nil {
+		g.SetMineWarning("AUTOSAVE FAILED", 150, 3)
+	}
 }

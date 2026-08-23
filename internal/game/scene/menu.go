@@ -72,7 +72,9 @@ func (m *BaseMenuScene) onEnter(g MenuContext) {
 	g.SetCurrentState(StateBaseMenu)
 	m.ScrollY = 0
 	if !g.IsMenuOpenedAnywhere() {
-		_ = g.SaveGame()
+		if err := g.SaveGame(); err != nil {
+			g.SetMineWarning("AUTOSAVE FAILED", 150, 3)
+		}
 	}
 }
 

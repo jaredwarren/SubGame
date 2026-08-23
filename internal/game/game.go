@@ -674,6 +674,8 @@ func (g *Game) SaveGame() error {
 		BaseStation: save.SavedBaseStation{
 			PosX:     g.baseStation.Pos.X,
 			PosY:     g.baseStation.Pos.Y,
+			Power:    g.baseStation.Power,
+			MaxPower: g.baseStation.MaxPower,
 			Storage:  g.baseStation.Storage.SerializeState(),
 			Upgrades: g.baseStation.Upgrades.SerializeState(),
 		},
@@ -749,6 +751,17 @@ func (g *Game) loadSaveFromPath(path string) error {
 		baseStation.Upgrades = item.DeserializeInventory(data.BaseStation.Upgrades)
 	}
 	baseStation.RecalculateProperties()
+	// MaxPower > 0 means this save includes power fields (older saves omit them as 0).
+	if data.BaseStation.MaxPower > 0 {
+		baseStation.MaxPower = data.BaseStation.MaxPower
+		baseStation.Power = data.BaseStation.Power
+		if baseStation.Power > baseStation.MaxPower {
+			baseStation.Power = baseStation.MaxPower
+		}
+		if baseStation.Power < 0 {
+			baseStation.Power = 0
+		}
+	}
 	g.baseStation = baseStation
 
 	g.ActiveVehicle = nil
@@ -758,6 +771,7 @@ func (g *Game) loadSaveFromPath(path string) error {
 	for _, vData := range data.Vehicles {
 		v := vehicle.NewVehicleByName(vData.Type, vData.PosX, vData.PosY)
 		if v != nil {
+			v.SetFacing(vData.Facing)
 			if vData.MaxHealth > 0 && vData.Health < vData.MaxHealth {
 				v.TakeDamage(vData.MaxHealth - vData.Health)
 			}

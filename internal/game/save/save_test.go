@@ -38,15 +38,18 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 			ActiveSlot: 1,
 		},
 		BaseStation: SavedBaseStation{
-			PosX:    400.0,
-			PosY:    600.0,
-			Storage: item.NewInventory(16).SerializeState(),
+			PosX:     400.0,
+			PosY:     600.0,
+			Power:    42.0,
+			MaxPower: 100.0,
+			Storage:  item.NewInventory(16).SerializeState(),
 		},
 		Vehicles: []SavedVehicle{
 			{
 				Type:     "Skiff",
 				PosX:     300.0,
 				PosY:     600.0,
+				Facing:   1.25,
 				Health:   100.0,
 				IsActive: true,
 				Location: "overworld",
@@ -78,6 +81,12 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	}
 	if loaded.Player.PosX != original.Player.PosX || loaded.Player.PosY != original.Player.PosY {
 		t.Errorf("Player pos mismatch")
+	}
+	if loaded.BaseStation.Power != 42.0 || loaded.BaseStation.MaxPower != 100.0 {
+		t.Errorf("BaseStation power mismatch: got power=%v max=%v", loaded.BaseStation.Power, loaded.BaseStation.MaxPower)
+	}
+	if len(loaded.Vehicles) != 1 || loaded.Vehicles[0].Facing != 1.25 {
+		t.Errorf("Vehicle facing mismatch: %+v", loaded.Vehicles)
 	}
 	if len(loaded.Story) != 2 || loaded.Story[0] != "LOG_01" {
 		t.Errorf("Story data mismatch: %v", loaded.Story)

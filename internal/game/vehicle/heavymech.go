@@ -65,6 +65,7 @@ func (m *HeavyMech) GetName() string              { return "Heavy Mech" }
 func (m *HeavyMech) GetBattery() float64          { return m.Battery }
 func (m *HeavyMech) GetMaxBattery() float64       { return m.MaxBattery }
 func (m *HeavyMech) GetFacing() float64           { return m.Facing }
+func (m *HeavyMech) SetFacing(facing float64)     { m.Facing = facing }
 func (m *HeavyMech) ApplyForce(force gvec.Vec2) {
 	// HeavyMech is too heavy and stable to get knocked back!
 }

@@ -27,6 +27,7 @@ type Vehicle interface {
 	GetMaxBattery() float64
 	RechargeBattery(amount float64)
 	GetFacing() float64
+	SetFacing(facing float64)
 	ApplyForce(force gvec.Vec2)
 	GetKit() item.Item
 }

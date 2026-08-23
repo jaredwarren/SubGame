@@ -52,6 +52,8 @@ type SavedPlayer struct {
 type SavedBaseStation struct {
 	PosX     float64             `json:"posX"`
 	PosY     float64             `json:"posY"`
+	Power    float64             `json:"power"`
+	MaxPower float64             `json:"maxPower"`
 	Storage  item.SavedInventory `json:"storage"`
 	Upgrades item.SavedInventory `json:"upgrades"`
 }

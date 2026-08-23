@@ -79,6 +79,7 @@ func (s *Skiff) GetName() string              { return "The Skiff" }
 func (s *Skiff) GetBattery() float64          { return s.Battery }
 func (s *Skiff) GetMaxBattery() float64       { return s.MaxBattery }
 func (s *Skiff) GetFacing() float64           { return s.Facing }
+func (s *Skiff) SetFacing(facing float64)     { s.Facing = facing }
 func (s *Skiff) ApplyForce(force gvec.Vec2) {
 	s.Vel = s.Vel.Add(force)
 }

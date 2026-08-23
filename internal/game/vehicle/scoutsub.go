@@ -73,6 +73,7 @@ func (sub *ScoutSub) GetName() string              { return "Scout Sub" }
 func (sub *ScoutSub) GetBattery() float64          { return sub.Battery }
 func (sub *ScoutSub) GetMaxBattery() float64       { return sub.MaxBattery }
 func (sub *ScoutSub) GetFacing() float64           { return sub.Facing }
+func (sub *ScoutSub) SetFacing(facing float64)     { sub.Facing = facing }
 func (sub *ScoutSub) ApplyForce(force gvec.Vec2) {
 	sub.Vel = sub.Vel.Add(force)
 }
