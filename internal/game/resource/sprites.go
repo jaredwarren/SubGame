@@ -4,11 +4,11 @@ import (
 	"image"
 	"image/color"
 	"log"
-	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/assets"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 )
 
 var (
@@ -17,7 +17,6 @@ var (
 	QuartzSprite   *ebiten.Image
 	AbyssalSprite  *ebiten.Image
 	spritesLoaded  bool
-	gPath          vector.Path
 )
 
 // LoadAssets preloads and chroma-keys all resource crystal sprites.
@@ -57,232 +56,11 @@ func drawNodeBase(screen *ebiten.Image, tx, ty int, camX, camY float64) (float32
 	return sx, sy
 }
 
-// Helper to darken a color
-func darkenColor(c color.Color, factor float32) color.RGBA {
-	r, g, b, a := c.RGBA()
-	return color.RGBA{
-		R: uint8(float32(r>>8) * factor),
-		G: uint8(float32(g>>8) * factor),
-		B: uint8(float32(b>>8) * factor),
-		A: uint8(a >> 8),
-	}
-}
-
-// Helper to blend two colors
-func blendColor(c1, c2 color.Color, t float32) color.RGBA {
-	r1, g1, b1, a1 := c1.RGBA()
-	r2, g2, b2, a2 := c2.RGBA()
-	return color.RGBA{
-		R: uint8((1.0-t)*float32(r1>>8) + t*float32(r2>>8)),
-		G: uint8((1.0-t)*float32(g1>>8) + t*float32(g2>>8)),
-		B: uint8((1.0-t)*float32(b1>>8) + t*float32(b2>>8)),
-		A: uint8((1.0-t)*float32(a1>>8) + t*float32(a2>>8)),
-	}
-}
-
-// rotateVec rotates a 2D vector by an angle in radians
-func rotateVec(v [2]float32, angle float32) [2]float32 {
-	cosA := float32(math.Cos(float64(angle)))
-	sinA := float32(math.Sin(float64(angle)))
-	return [2]float32{
-		v[0]*cosA - v[1]*sinA,
-		v[0]*sinA + v[1]*cosA,
-	}
-}
-
-// localToScreen transforms a local point (lx, ly) to screen space based on growth basis
-func localToScreen(cx, cy float32, lx, ly float32, dirVec, perpVec [2]float32) (float32, float32) {
-	return cx + lx*perpVec[0] + ly*dirVec[0], cy + lx*perpVec[1] + ly*dirVec[1]
-}
-
-// drawShard draws a single 3D crystal shard growing in local space
-func drawShard(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, length, width float32, shadowColor, highlightColor color.Color) {
-	// Left Face
-	gPath.Reset()
-	lx0, ly0 := localToScreen(cx, cy, 0, 0, dirVec, perpVec)
-	lx1, ly1 := localToScreen(cx, cy, -width/2, 0, dirVec, perpVec)
-	lx2, ly2 := localToScreen(cx, cy, -width/2, length*0.4, dirVec, perpVec)
-	lx3, ly3 := localToScreen(cx, cy, 0, length, dirVec, perpVec)
-	lx4, ly4 := localToScreen(cx, cy, 0, length*0.45, dirVec, perpVec)
-
-	gPath.MoveTo(lx0, ly0)
-	gPath.LineTo(lx1, ly1)
-	gPath.LineTo(lx2, ly2)
-	gPath.LineTo(lx3, ly3)
-	gPath.LineTo(lx4, ly4)
-	gPath.Close()
-	var shadowOpts vector.DrawPathOptions
-	shadowOpts.ColorScale.ScaleWithColor(shadowColor)
-	vector.FillPath(screen, &gPath, nil, &shadowOpts)
-
-	// Right Face
-	gPath.Reset()
-	rx0, ry0 := localToScreen(cx, cy, 0, 0, dirVec, perpVec)
-	rx1, ry1 := localToScreen(cx, cy, 0, length*0.45, dirVec, perpVec)
-	rx2, ry2 := localToScreen(cx, cy, 0, length, dirVec, perpVec)
-	rx3, ry3 := localToScreen(cx, cy, width/2, length*0.4, dirVec, perpVec)
-	rx4, ry4 := localToScreen(cx, cy, width/2, 0, dirVec, perpVec)
-
-	gPath.MoveTo(rx0, ry0)
-	gPath.LineTo(rx1, ry1)
-	gPath.LineTo(rx2, ry2)
-	gPath.LineTo(rx3, ry3)
-	gPath.LineTo(rx4, ry4)
-	gPath.Close()
-	var highlightOpts vector.DrawPathOptions
-	highlightOpts.ColorScale.ScaleWithColor(highlightColor)
-	vector.FillPath(screen, &gPath, nil, &highlightOpts)
-}
-
-// drawCrystalCluster draws 3 crystal shards in a cluster
-func drawCrystalCluster(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, shadowColor, highlightColor color.Color, isSpiky bool) {
-	baseLength := float32(28.0) * scale
-	baseWidth := float32(11.0) * scale
-	if isSpiky {
-		baseLength = float32(34.0) * scale
-		baseWidth = float32(7.0) * scale
-	}
-
-	// 1. Left shard (rotated by -0.42 radians, slightly shorter)
-	leftDir := rotateVec(dirVec, -0.42)
-	leftPerp := rotateVec(perpVec, -0.42)
-	drawShard(screen, cx, cy, leftDir, leftPerp, baseLength*0.75, baseWidth*0.8, shadowColor, highlightColor)
-
-	// 2. Right shard (rotated by +0.42 radians, slightly shorter)
-	rightDir := rotateVec(dirVec, 0.42)
-	rightPerp := rotateVec(perpVec, 0.42)
-	drawShard(screen, cx, cy, rightDir, rightPerp, baseLength*0.75, baseWidth*0.8, shadowColor, highlightColor)
-
-	// 3. Center shard (straight, full size)
-	drawShard(screen, cx, cy, dirVec, perpVec, baseLength, baseWidth, shadowColor, highlightColor)
-}
-
-// drawNodule draws 4 overlapping sphere-like bumps to represent a nodule
-func drawNodule(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, mineralColor, coreColor color.Color) {
-	R := float32(12.0) * scale
-	if R < 2.0 {
-		R = 2.0
-	}
-
-	type bump struct {
-		lx, ly float32
-		r      float32
-	}
-
-	// Layering order: back to front (Left & Right, then Center, then Top/Tip)
-	bumps := []bump{
-		{-R * 0.45, R * 0.3, R * 0.75}, // Left
-		{R * 0.45, R * 0.3, R * 0.75},  // Right
-		{0, R * 0.5, R},                // Center
-		{0, R * 0.85, R * 0.6},         // Top/Tip
-	}
-
-	for _, b := range bumps {
-		bx, by := localToScreen(cx, cy, b.lx, b.ly, dirVec, perpVec)
-		// 1. Fill base dark bump
-		vector.FillCircle(screen, bx, by, b.r, darkenColor(mineralColor, 0.9), false)
-		// 2. Stroke outline
-		vector.StrokeCircle(screen, bx, by, b.r, 1.0, darkenColor(mineralColor, 0.5), false)
-
-		// 3. Draw shiny highlight offset
-		hx, hy := localToScreen(cx, cy, b.lx-b.r*0.25, b.ly+b.r*0.25, dirVec, perpVec)
-		hr := b.r * 0.28
-		if hr < 1.0 {
-			hr = 1.0
-		}
-		vector.FillCircle(screen, hx, hy, hr, blendColor(coreColor, color.White, 0.6), false)
-	}
-}
-
-// drawQuartzNeedles draws thin, long glowing quartz needles
-func drawQuartzNeedles(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, shadowColor, highlightColor color.Color) {
-	baseLength := float32(36.0) * scale
-	baseWidth := float32(4.5) * scale
-
-	// Draw 4 needles pointing at various angles
-	angles := []float32{-0.5, -0.18, 0.2, 0.55}
-	lengths := []float32{0.7, 1.0, 0.85, 0.65}
-
-	for i, angle := range angles {
-		d := rotateVec(dirVec, angle)
-		p := rotateVec(perpVec, angle)
-		drawShard(screen, cx, cy, d, p, baseLength*lengths[i], baseWidth, shadowColor, highlightColor)
-	}
-}
-
-func drawCubicCrystal(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, size float32, mineralColor, shadowColor, highlightColor color.Color) {
-	s := size
-
-	// Top face points in local space
-	ptTopX, ptTopY := localToScreen(cx, cy, 0, 1.0*s, dirVec, perpVec)
-	ptRightX, ptRightY := localToScreen(cx, cy, 0.8*s, 0.6*s, dirVec, perpVec)
-	ptBottomX, ptBottomY := localToScreen(cx, cy, 0, 0.2*s, dirVec, perpVec)
-	ptLeftX, ptLeftY := localToScreen(cx, cy, -0.8*s, 0.6*s, dirVec, perpVec)
-
-	// Bottom points (extruded down by 0.8*s in growth direction - i.e., -0.8*s along dirVec)
-	ptBotLeftX, ptBotLeftY := localToScreen(cx, cy, -0.8*s, -0.2*s, dirVec, perpVec)
-	ptBotMidX, ptBotMidY := localToScreen(cx, cy, 0, -0.6*s, dirVec, perpVec)
-	ptBotRightX, ptBotRightY := localToScreen(cx, cy, 0.8*s, -0.2*s, dirVec, perpVec)
-
-	// Draw Top Face (Highlight)
-	gPath.Reset()
-	gPath.MoveTo(ptTopX, ptTopY)
-	gPath.LineTo(ptRightX, ptRightY)
-	gPath.LineTo(ptBottomX, ptBottomY)
-	gPath.LineTo(ptLeftX, ptLeftY)
-	gPath.Close()
-	var topOpts vector.DrawPathOptions
-	topOpts.ColorScale.ScaleWithColor(highlightColor)
-	vector.FillPath(screen, &gPath, nil, &topOpts)
-
-	// Draw Left Face (Shadow)
-	gPath.Reset()
-	gPath.MoveTo(ptLeftX, ptLeftY)
-	gPath.LineTo(ptBottomX, ptBottomY)
-	gPath.LineTo(ptBotMidX, ptBotMidY)
-	gPath.LineTo(ptBotLeftX, ptBotLeftY)
-	gPath.Close()
-	var leftOpts vector.DrawPathOptions
-	leftOpts.ColorScale.ScaleWithColor(shadowColor)
-	vector.FillPath(screen, &gPath, nil, &leftOpts)
-
-	// Draw Right Face (Midtone / base mineralColor)
-	gPath.Reset()
-	gPath.MoveTo(ptBottomX, ptBottomY)
-	gPath.LineTo(ptRightX, ptRightY)
-	gPath.LineTo(ptBotRightX, ptBotRightY)
-	gPath.LineTo(ptBotMidX, ptBotMidY)
-	gPath.Close()
-	var rightOpts vector.DrawPathOptions
-	rightOpts.ColorScale.ScaleWithColor(mineralColor)
-	vector.FillPath(screen, &gPath, nil, &rightOpts)
-}
-
-func drawCubicCluster(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, mineralColor, shadowColor, highlightColor color.Color) {
-	baseSize := float32(16.0) * scale
-
-	// Draw left cube (rotated slightly left, smaller)
-	leftDir := rotateVec(dirVec, -0.5)
-	leftPerp := rotateVec(perpVec, -0.5)
-	lcx, lcy := localToScreen(cx, cy, -baseSize*0.3, -baseSize*0.1, dirVec, perpVec)
-	drawCubicCrystal(screen, lcx, lcy, leftDir, leftPerp, baseSize*0.7, mineralColor, shadowColor, highlightColor)
-
-	// Draw right cube (rotated slightly right, smaller)
-	rightDir := rotateVec(dirVec, 0.5)
-	rightPerp := rotateVec(perpVec, 0.5)
-	rcx, rcy := localToScreen(cx, cy, baseSize*0.3, -baseSize*0.1, dirVec, perpVec)
-	drawCubicCrystal(screen, rcx, rcy, rightDir, rightPerp, baseSize*0.7, mineralColor, shadowColor, highlightColor)
-
-	// Draw center cube (straight, full size, in front)
-	drawCubicCrystal(screen, cx, cy, dirVec, perpVec, baseSize, mineralColor, shadowColor, highlightColor)
-}
-
-// drawMineral renders the mineral based on its type and attachment direction
+// drawMineral renders the mineral based on its type and attachment direction.
 func drawMineral(screen *ebiten.Image, tx, ty int, camX, camY float64, hitsToMine int, mineralColor, coreColor color.Color, attachDir AttachDirection, mineralName string) {
 	sx := float32(tx*TileSize - int(camX))
 	sy := float32(ty*TileSize - int(camY))
 
-	// Determine basis vectors based on AttachDirection
 	var cx, cy float32
 	var dirVec, perpVec [2]float32
 
@@ -314,57 +92,16 @@ func drawMineral(screen *ebiten.Image, tx, ty int, camX, camY float64, hitsToMin
 		perpVec = [2]float32{1, 0}
 	}
 
-	// Scale size based on hits left
 	scale := float32(hitsToMine) / 3.0
 	if scale < 0.35 {
 		scale = 0.35
 	}
 
-	shadowColor := darkenColor(mineralColor, 0.82)
-	highlightColor := blendColor(mineralColor, coreColor, 0.65)
-
-	switch mineralName {
-	case "Copper":
-		drawNodule(screen, cx, cy, dirVec, perpVec, scale, mineralColor, coreColor)
-	case "Quartz":
-		drawQuartzNeedles(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor)
-	case "Abyssal Ore":
-		// Glowing purple crystal shards
-		drawSpikyCrystal := true
-		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
-	case "Nickel":
-		drawCubicCluster(screen, cx, cy, dirVec, perpVec, scale, mineralColor, shadowColor, highlightColor)
-	default: // Titanium / default
-		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
-	}
+	item.DrawMineralShape(screen, cx, cy, dirVec, perpVec, scale, mineralColor, coreColor, mineralName)
 }
 
-// drawMineralIcon renders the mineral crystal or nodule centered at cx, cy with a custom size.
 func drawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, coreColor color.Color, mineralName string) {
-	scale := size / 40.0
-	if scale < 0.2 {
-		scale = 0.2
-	}
-
-	dirVec := [2]float32{0, -1}
-	perpVec := [2]float32{1, 0}
-
-	shadowColor := darkenColor(mineralColor, 0.82)
-	highlightColor := blendColor(mineralColor, coreColor, 0.65)
-
-	switch mineralName {
-	case "Copper":
-		drawNodule(screen, cx, cy, dirVec, perpVec, scale, mineralColor, coreColor)
-	case "Quartz":
-		drawQuartzNeedles(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor)
-	case "Abyssal Ore":
-		drawSpikyCrystal := true
-		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
-	case "Nickel":
-		drawCubicCluster(screen, cx, cy, dirVec, perpVec, scale, mineralColor, shadowColor, highlightColor)
-	default: // Titanium / default
-		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
-	}
+	item.DrawMineralIcon(screen, cx, cy, size, mineralColor, coreColor, mineralName)
 }
 
 func drawCracks(screen *ebiten.Image, sx, sy float32, hitsToMine int) {

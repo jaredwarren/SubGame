@@ -319,16 +319,7 @@ func (g *Game) updateSceneAudio(next Scene) {
 		audioMgr.SetSubmerged(true)
 		musicTrack := "music/cave_shallow.mp3"
 		if g.caveState != nil && g.caveState.ActiveCave != nil {
-			switch g.caveState.ActiveCave.GetCaveType() {
-			case cave.CaveThermo:
-				musicTrack = "music/cave_volcanic.mp3"
-			case cave.CaveShockKelp:
-				musicTrack = "music/cave_kelp.mp3"
-			case cave.CaveWreckage:
-				musicTrack = "music/cave_wreckage.mp3"
-			case cave.CaveVoid, cave.CaveOrganicTrench:
-				musicTrack = "music/cave_abyssal.mp3"
-			}
+			musicTrack = cave.MusicTrack(g.caveState.ActiveCave.GetCaveType())
 		}
 		audioMgr.PlayMusic(musicTrack, 0.6)
 	case g.gameOverState:
@@ -496,14 +487,44 @@ func (g *Game) drawLostCargo(screen *ebiten.Image) {
 
 // DestroyOverworldVehicle removes a vehicle from the overworld list and resets active vehicle.
 func (g *Game) DestroyOverworldVehicle(v vehicle.Vehicle) {
-	for i, ov := range g.OverworldVehicles {
-		if ov == v {
-			g.OverworldVehicles = append(g.OverworldVehicles[:i], g.OverworldVehicles[i+1:]...)
-			break
-		}
-	}
+	removeVehicleFromList(&g.OverworldVehicles, v)
 	if g.ActiveVehicle == v {
 		g.ActiveVehicle = nil
+	}
+}
+
+// serializeVehicle builds a save record for one vehicle.
+func serializeVehicle(v vehicle.Vehicle, location string, active bool) save.SavedVehicle {
+	var cargo, upg item.SavedInventory
+	if v.GetCargo() != nil {
+		cargo = v.GetCargo().SerializeState()
+	}
+	if v.GetUpgrades() != nil {
+		upg = v.GetUpgrades().SerializeState()
+	}
+	return save.SavedVehicle{
+		Type:       v.GetName(),
+		PosX:       v.GetPos().X,
+		PosY:       v.GetPos().Y,
+		Facing:     v.GetFacing(),
+		Health:     v.GetHealth(),
+		MaxHealth:  v.GetMaxHealth(),
+		Battery:    v.GetBattery(),
+		MaxBattery: v.GetMaxBattery(),
+		Cargo:      cargo,
+		Upgrades:   upg,
+		IsActive:   active,
+		Location:   location,
+	}
+}
+
+// removeVehicleFromList removes v from a vehicle slice in place.
+func removeVehicleFromList(list *[]vehicle.Vehicle, v vehicle.Vehicle) {
+	for i, ov := range *list {
+		if ov == v {
+			*list = append((*list)[:i], (*list)[i+1:]...)
+			return
+		}
 	}
 }
 
@@ -600,54 +621,14 @@ func (g *Game) SaveGame() error {
 		if v == nil {
 			continue
 		}
-		var cargo, upg item.SavedInventory
-		if v.GetCargo() != nil {
-			cargo = v.GetCargo().SerializeState()
-		}
-		if v.GetUpgrades() != nil {
-			upg = v.GetUpgrades().SerializeState()
-		}
-		savedVehicles = append(savedVehicles, save.SavedVehicle{
-			Type:       v.GetName(),
-			PosX:       v.GetPos().X,
-			PosY:       v.GetPos().Y,
-			Facing:     v.GetFacing(),
-			Health:     v.GetHealth(),
-			MaxHealth:  v.GetMaxHealth(),
-			Battery:    v.GetBattery(),
-			MaxBattery: v.GetMaxBattery(),
-			Cargo:      cargo,
-			Upgrades:   upg,
-			IsActive:   (v == g.ActiveVehicle),
-			Location:   "overworld",
-		})
+		savedVehicles = append(savedVehicles, serializeVehicle(v, "overworld", v == g.ActiveVehicle))
 	}
 	for trenchKey, vList := range g.CaveVehicles {
 		for _, v := range vList {
 			if v == nil {
 				continue
 			}
-			var cargo, upg item.SavedInventory
-			if v.GetCargo() != nil {
-				cargo = v.GetCargo().SerializeState()
-			}
-			if v.GetUpgrades() != nil {
-				upg = v.GetUpgrades().SerializeState()
-			}
-			savedVehicles = append(savedVehicles, save.SavedVehicle{
-				Type:       v.GetName(),
-				PosX:       v.GetPos().X,
-				PosY:       v.GetPos().Y,
-				Facing:     v.GetFacing(),
-				Health:     v.GetHealth(),
-				MaxHealth:  v.GetMaxHealth(),
-				Battery:    v.GetBattery(),
-				MaxBattery: v.GetMaxBattery(),
-				Cargo:      cargo,
-				Upgrades:   upg,
-				IsActive:   (v == g.ActiveVehicle),
-				Location:   trenchKey,
-			})
+			savedVehicles = append(savedVehicles, serializeVehicle(v, trenchKey, v == g.ActiveVehicle))
 		}
 	}
 

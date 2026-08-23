@@ -21,7 +21,9 @@ const SampleRate = 44100
 type Manager struct {
 	mu           sync.Mutex
 	context      *audio.Context
-	sfxRawCache  map[string][]byte
+	sfxRawCache  map[string][]byte // raw file bytes (WAV containers)
+	pcmCache     map[string][]byte // decoded PCM for NewPlayerFromBytes / looping
+	activeSFX    []*audio.Player   // one-shot players awaiting Close
 	activeLoops  map[string]*audio.Player
 	currentMusic *audio.Player
 	musicName    string
@@ -46,6 +48,7 @@ func Get() *Manager {
 		globalManager = &Manager{
 			context:      audio.NewContext(SampleRate),
 			sfxRawCache:  make(map[string][]byte),
+			pcmCache:     make(map[string][]byte),
 			activeLoops:  make(map[string]*audio.Player),
 			MasterVolume: 1.0,
 			SFXVolume:    0.85,
@@ -59,23 +62,55 @@ func Get() *Manager {
 	return globalManager
 }
 
-// preloadCommonSFX pre-caches raw bytes for audio files from assets.AudioFS.
+// Update closes finished one-shot SFX players. Call once per game tick.
+func (m *Manager) Update() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pruneFinishedSFXLocked()
+}
+
+// preloadCommonSFX pre-caches raw bytes and decoded PCM for audio/sfx/*.wav.
 func (m *Manager) preloadCommonSFX() {
 	entries, err := assets.AudioFS.ReadDir("audio/sfx")
-	if err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".wav") {
-				path := filepath.Join("audio/sfx", entry.Name())
-				data, readErr := assets.AudioFS.ReadFile(path)
-				if readErr == nil {
-					// Store with both "sfx/name.wav" and "name.wav" keys
-					relKey := filepath.Join("sfx", entry.Name())
-					m.sfxRawCache[relKey] = data
-					m.sfxRawCache[entry.Name()] = data
-				}
-			}
-		}
+	if err != nil {
+		return
 	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".wav") {
+			continue
+		}
+		path := filepath.Join("audio/sfx", entry.Name())
+		data, readErr := assets.AudioFS.ReadFile(path)
+		if readErr != nil {
+			continue
+		}
+		relKey := filepath.Join("sfx", entry.Name())
+		m.sfxRawCache[relKey] = data
+		m.sfxRawCache[entry.Name()] = data
+
+		pcm, decErr := decodeWAVPCM(data)
+		if decErr != nil {
+			continue
+		}
+		m.pcmCache[relKey] = pcm
+		m.pcmCache[entry.Name()] = pcm
+	}
+}
+
+func decodeWAVPCM(raw []byte) ([]byte, error) {
+	stream, err := wav.DecodeWithSampleRate(SampleRate, bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	length := stream.Length()
+	if length <= 0 {
+		return nil, fmt.Errorf("empty wav stream")
+	}
+	pcm := make([]byte, length)
+	if _, err := io.ReadFull(stream, pcm); err != nil {
+		return nil, err
+	}
+	return pcm, nil
 }
 
 func (m *Manager) loadRawBytes(relPath string) ([]byte, error) {
@@ -84,7 +119,6 @@ func (m *Manager) loadRawBytes(relPath string) ([]byte, error) {
 		return data, nil
 	}
 
-	// Try with "audio/" prefix in embedded FS
 	fsPath := relPath
 	if !strings.HasPrefix(fsPath, "audio/") {
 		fsPath = "audio/" + fsPath
@@ -97,6 +131,49 @@ func (m *Manager) loadRawBytes(relPath string) ([]byte, error) {
 
 	m.sfxRawCache[relPath] = data
 	return data, nil
+}
+
+// getPCMLocked returns decoded PCM for relPath, decoding and caching on first use.
+// Caller must hold m.mu.
+func (m *Manager) getPCMLocked(relPath string) ([]byte, error) {
+	relPath = filepath.Clean(relPath)
+	if pcm, ok := m.pcmCache[relPath]; ok {
+		return pcm, nil
+	}
+
+	raw, err := m.loadRawBytes(relPath)
+	if err != nil {
+		return nil, err
+	}
+	pcm, err := decodeWAVPCM(raw)
+	if err != nil {
+		return nil, err
+	}
+	m.pcmCache[relPath] = pcm
+	return pcm, nil
+}
+
+func (m *Manager) pruneFinishedSFXLocked() {
+	if len(m.activeSFX) == 0 {
+		return
+	}
+	n := 0
+	for _, p := range m.activeSFX {
+		if p == nil {
+			continue
+		}
+		if p.IsPlaying() {
+			m.activeSFX[n] = p
+			n++
+			continue
+		}
+		_ = p.Close()
+	}
+	// Avoid retaining finished player pointers in the backing array.
+	for i := n; i < len(m.activeSFX); i++ {
+		m.activeSFX[i] = nil
+	}
+	m.activeSFX = m.activeSFX[:n]
 }
 
 // PlaySFX plays a sound effect once at default SFX volume.
@@ -113,20 +190,14 @@ func (m *Manager) PlaySFXWithVolume(name string, volume float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	rawBytes, err := m.loadRawBytes(name)
+	m.pruneFinishedSFXLocked()
+
+	pcm, err := m.getPCMLocked(name)
 	if err != nil {
 		return
 	}
 
-	stream, err := wav.DecodeWithSampleRate(SampleRate, bytes.NewReader(rawBytes))
-	if err != nil {
-		return
-	}
-
-	player, err := m.context.NewPlayer(stream)
-	if err != nil {
-		return
-	}
+	player := m.context.NewPlayerFromBytes(pcm)
 
 	vol := volume * m.SFXVolume * m.MasterVolume
 	if m.Submerged && !strings.Contains(name, "voice") && !strings.Contains(name, "ui") {
@@ -134,6 +205,7 @@ func (m *Manager) PlaySFXWithVolume(name string, volume float64) {
 	}
 	player.SetVolume(vol)
 	player.Play()
+	m.activeSFX = append(m.activeSFX, player)
 }
 
 // PlaySFXVaried plays a sound effect with pitch/volume variation (e.g. ±5-10% for repetitive hits).
@@ -165,18 +237,12 @@ func (m *Manager) PlayLoop(loopID string, name string, volume float64) {
 		return
 	}
 
-	rawBytes, err := m.loadRawBytes(name)
+	pcm, err := m.getPCMLocked(name)
 	if err != nil {
 		return
 	}
 
-	stream, err := wav.DecodeWithSampleRate(SampleRate, bytes.NewReader(rawBytes))
-	if err != nil {
-		return
-	}
-
-	length := stream.Length()
-	loop := audio.NewInfiniteLoop(stream, length)
+	loop := audio.NewInfiniteLoop(bytes.NewReader(pcm), int64(len(pcm)))
 	player, err := m.context.NewPlayer(loop)
 	if err != nil {
 		return
@@ -195,7 +261,7 @@ func (m *Manager) StopLoop(loopID string) {
 
 	if player, exists := m.activeLoops[loopID]; exists && player != nil {
 		player.Pause()
-		player.Close()
+		_ = player.Close()
 		delete(m.activeLoops, loopID)
 	}
 }
@@ -208,7 +274,7 @@ func (m *Manager) StopAllLoops() {
 	for id, player := range m.activeLoops {
 		if player != nil {
 			player.Pause()
-			player.Close()
+			_ = player.Close()
 		}
 		delete(m.activeLoops, id)
 	}
@@ -230,7 +296,7 @@ func (m *Manager) PlayMusic(name string, volume float64) {
 
 	if m.currentMusic != nil {
 		m.currentMusic.Pause()
-		m.currentMusic.Close()
+		_ = m.currentMusic.Close()
 		m.currentMusic = nil
 	}
 
@@ -239,27 +305,21 @@ func (m *Manager) PlayMusic(name string, volume float64) {
 		return
 	}
 
-	rawBytes, err := m.loadRawBytes(name)
+	pcm, err := m.getPCMLocked(name)
 	if err != nil {
 		return
 	}
 
-	var stream io.Reader
-	stream, err = wav.DecodeWithSampleRate(SampleRate, bytes.NewReader(rawBytes))
+	loop := audio.NewInfiniteLoop(bytes.NewReader(pcm), int64(len(pcm)))
+	player, err := m.context.NewPlayer(loop)
 	if err != nil {
 		return
 	}
 
-	if ws, ok := stream.(*wav.Stream); ok {
-		loop := audio.NewInfiniteLoop(ws, ws.Length())
-		player, pErr := m.context.NewPlayer(loop)
-		if pErr == nil {
-			vol := volume * m.MusicVolume * m.MasterVolume
-			player.SetVolume(vol)
-			player.Play()
-			m.currentMusic = player
-		}
-	}
+	vol := volume * m.MusicVolume * m.MasterVolume
+	player.SetVolume(vol)
+	player.Play()
+	m.currentMusic = player
 }
 
 // StopMusic pauses and closes the active background music player.
@@ -269,7 +329,7 @@ func (m *Manager) StopMusic() {
 
 	if m.currentMusic != nil {
 		m.currentMusic.Pause()
-		m.currentMusic.Close()
+		_ = m.currentMusic.Close()
 		m.currentMusic = nil
 	}
 	m.musicName = ""

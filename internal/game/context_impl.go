@@ -133,27 +133,14 @@ func (g *Game) HorizontalTransition(newTx, newTy int, newTrenchKey string, newCa
 	// Update vehicle mapping
 	if g.ActiveVehicle != nil {
 		oldList := g.CaveVehicles[oldKey]
-		for i, v := range oldList {
-			if v == g.ActiveVehicle {
-				g.CaveVehicles[oldKey] = append(oldList[:i], oldList[i+1:]...)
-				break
-			}
-		}
+		removeVehicleFromList(&oldList, g.ActiveVehicle)
+		g.CaveVehicles[oldKey] = oldList
 		g.CaveVehicles[newTrenchKey] = append(g.CaveVehicles[newTrenchKey], g.ActiveVehicle)
 	}
 
 	musicTrack := "music/cave_shallow.mp3"
 	if newCave != nil {
-		switch newCave.GetCaveType() {
-		case cave.CaveThermo:
-			musicTrack = "music/cave_volcanic.mp3"
-		case cave.CaveShockKelp:
-			musicTrack = "music/cave_kelp.mp3"
-		case cave.CaveWreckage:
-			musicTrack = "music/cave_wreckage.mp3"
-		case cave.CaveVoid, cave.CaveOrganicTrench:
-			musicTrack = "music/cave_abyssal.mp3"
-		}
+		musicTrack = cave.MusicTrack(newCave.GetCaveType())
 	}
 	audio.Get().PlayMusic(musicTrack, 0.6)
 }

@@ -309,14 +309,21 @@ func drawCubicCluster(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]f
 }
 
 func drawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, coreColor color.Color, mineralName string) {
+	DrawMineralIcon(screen, cx, cy, size, mineralColor, coreColor, mineralName)
+}
+
+// DrawMineralIcon renders a mineral crystal or nodule centered at cx, cy.
+func DrawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, coreColor color.Color, mineralName string) {
 	scale := size / 40.0
 	if scale < 0.2 {
 		scale = 0.2
 	}
+	DrawMineralShape(screen, cx, cy, [2]float32{0, -1}, [2]float32{1, 0}, scale, mineralColor, coreColor, mineralName)
+}
 
-	dirVec := [2]float32{0, -1}
-	perpVec := [2]float32{1, 0}
-
+// DrawMineralShape renders a mineral at (cx, cy) growing along dirVec (with perpVec).
+// Used by inventory icons and world resource nodes.
+func DrawMineralShape(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]float32, scale float32, mineralColor, coreColor color.Color, mineralName string) {
 	shadowColor := darkenColor(mineralColor, 0.82)
 	highlightColor := blendColor(mineralColor, coreColor, 0.65)
 
@@ -326,11 +333,10 @@ func drawMineralIcon(screen *ebiten.Image, cx, cy, size float32, mineralColor, c
 	case "Quartz":
 		drawQuartzNeedles(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor)
 	case "Abyssal Ore":
-		drawSpikyCrystal := true
-		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, drawSpikyCrystal)
+		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, true)
 	case "Nickel":
 		drawCubicCluster(screen, cx, cy, dirVec, perpVec, scale, mineralColor, shadowColor, highlightColor)
-	default:
+	default: // Titanium / default
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
 	}
 }

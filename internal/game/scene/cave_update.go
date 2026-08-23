@@ -514,39 +514,25 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 				minX, maxX, triggerY := chasm.GetChasmBounds()
 				playerCenterX := playerX + playerW/2.0
 				if playerCenterX >= minX && playerCenterX <= maxX && playerY+playerH >= triggerY-4.0 {
-					c.scrollActive = true
-					c.scrollTimer = 0
-					c.scrollDir = 2 // ScrollDown
-
-					c.oldCave = c.ActiveCave
-					c.oldCaveGrid = c.CaveGrid
-					c.oldNodes = c.Nodes
-					c.oldEntities = c.Entities
-					c.oldTrenchX, c.oldTrenchY = tx, ty
-					c.oldTrenchKey = g.GetActiveTrenchKey()
-					c.oldCamX = g.GetCamera().Pos.X
-					c.oldCamY = g.GetCamera().Pos.Y
-
-					c.newTrenchX, c.newTrenchY = tx, ty
-					c.newTrenchKey = fmt.Sprintf("%d_%d%s", tx, ty, info.Subterranean.DeepKeySuffix)
-					c.newCaveGrid = wld.GetSubterraneanCave(tx, ty)
+					grid := wld.GetSubterraneanCave(tx, ty)
+					var deep cave.Cave
 					if info.Subterranean.DeepFactory != nil {
-						c.newCave = info.Subterranean.DeepFactory(c.newCaveGrid, wld, tx, ty)
+						deep = info.Subterranean.DeepFactory(grid, wld, tx, ty)
 					} else {
-						c.newCave = cave.NewOrganicTrenchCave(c.newCaveGrid)
+						deep = cave.NewOrganicTrenchCave(grid)
 					}
-					c.newNodes = g.GetCaveNodes(c.newTrenchKey)
-					if c.newNodes == nil {
-						c.newNodes = c.newCave.GenerateResources(int64(tx*97 + ty*41 + 5555))
-						g.SetCaveNodes(c.newTrenchKey, c.newNodes)
-					}
-					c.newEntities = g.GetCaveEntities(c.newTrenchKey)
-					if c.newEntities == nil {
-						c.newEntities = c.newCave.GenerateEntities(int64(tx*97 + ty*41 + 5555))
-						g.SetCaveEntities(c.newTrenchKey, c.newEntities)
-					}
-					c.newCamX = float64(len(c.newCaveGrid)/2*config.TileSize - config.ScreenWidth/2)
-					c.newCamY = 0
+					seed := int64(tx*97 + ty*41 + 5555)
+					c.beginCaveTransition(g, tx, ty, caveTransitionDest{
+						dir:      2, // ScrollDown
+						newTX:    tx,
+						newTY:    ty,
+						newKey:   fmt.Sprintf("%d_%d%s", tx, ty, info.Subterranean.DeepKeySuffix),
+						grid:     grid,
+						cave:     deep,
+						seed:     seed,
+						newCamX:  float64(len(grid)/2*config.TileSize - config.ScreenWidth/2),
+						newCamY:  0,
+					})
 					return
 				}
 			}
@@ -556,92 +542,34 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 		if playerX <= 0 {
 			newTx := tx - 1
 			if newTx >= 0 && wld.IsShallowTile(newTx, ty) {
-				// Trigger transition left
-				c.scrollActive = true
-				c.scrollTimer = 0
-				c.scrollDir = -1
-
-				c.oldCave = c.ActiveCave
-				c.oldCaveGrid = c.CaveGrid
-				c.oldNodes = c.Nodes
-				c.oldEntities = c.Entities
-				c.oldTrenchX, c.oldTrenchY = tx, ty
-				c.oldTrenchKey = g.GetActiveTrenchKey()
-				c.oldCamX = g.GetCamera().Pos.X
-				c.oldCamY = g.GetCamera().Pos.Y
-
-				c.newTrenchX, c.newTrenchY = newTx, ty
-				c.newTrenchKey = fmt.Sprintf("%d_%d", newTx, ty)
-				c.newCaveGrid = wld.GetCave(newTx, ty)
-				tileType := wld.OverworldMap[newTx][ty]
-				info := world.GetTileInfo(tileType)
-				if info != nil && info.CaveFactory != nil {
-					c.newCave = info.CaveFactory(c.newCaveGrid, wld, newTx, ty)
-				} else {
-					newSpec := world.GetBiomeInfo(wld.BiomeMap[newTx][ty])
-					var caveSpec *cave.CaveBiomeSpec
-					if newSpec != nil {
-						caveSpec = newSpec.CaveSpec
-					}
-					c.newCave = cave.NewShallowSeabedCaveWithBiome(c.newCaveGrid, caveSpec)
-				}
-				c.newNodes = g.GetCaveNodes(c.newTrenchKey)
-				if c.newNodes == nil {
-					c.newNodes = c.newCave.GenerateResources(int64(newTx*97 + ty*41))
-					g.SetCaveNodes(c.newTrenchKey, c.newNodes)
-				}
-				c.newEntities = g.GetCaveEntities(c.newTrenchKey)
-				if c.newEntities == nil {
-					c.newEntities = c.newCave.GenerateEntities(int64(newTx*97 + ty*41))
-					g.SetCaveEntities(c.newTrenchKey, c.newEntities)
-				}
-				c.newCamX = float64(caveW*config.TileSize - config.ScreenWidth)
-				c.newCamY = c.oldCamY
+				grid := wld.GetCave(newTx, ty)
+				c.beginCaveTransition(g, tx, ty, caveTransitionDest{
+					dir:     -1,
+					newTX:   newTx,
+					newTY:   ty,
+					newKey:  fmt.Sprintf("%d_%d", newTx, ty),
+					grid:    grid,
+					cave:    shallowCaveForTile(wld, grid, newTx, ty),
+					seed:    int64(newTx*97 + ty*41),
+					newCamX: float64(caveW*config.TileSize - config.ScreenWidth),
+					newCamY: g.GetCamera().Pos.Y,
+				})
 			}
 		} else if playerX+playerW >= float64(caveW*config.TileSize) {
 			newTx := tx + 1
 			if newTx < wld.Width && wld.IsShallowTile(newTx, ty) {
-				// Trigger transition right
-				c.scrollActive = true
-				c.scrollTimer = 0
-				c.scrollDir = 1
-
-				c.oldCave = c.ActiveCave
-				c.oldCaveGrid = c.CaveGrid
-				c.oldNodes = c.Nodes
-				c.oldEntities = c.Entities
-				c.oldTrenchX, c.oldTrenchY = tx, ty
-				c.oldTrenchKey = g.GetActiveTrenchKey()
-				c.oldCamX = g.GetCamera().Pos.X
-				c.oldCamY = g.GetCamera().Pos.Y
-
-				c.newTrenchX, c.newTrenchY = newTx, ty
-				c.newTrenchKey = fmt.Sprintf("%d_%d", newTx, ty)
-				c.newCaveGrid = wld.GetCave(newTx, ty)
-				tileType := wld.OverworldMap[newTx][ty]
-				info := world.GetTileInfo(tileType)
-				if info != nil && info.CaveFactory != nil {
-					c.newCave = info.CaveFactory(c.newCaveGrid, wld, newTx, ty)
-				} else {
-					newSpec := world.GetBiomeInfo(wld.BiomeMap[newTx][ty])
-					var caveSpec *cave.CaveBiomeSpec
-					if newSpec != nil {
-						caveSpec = newSpec.CaveSpec
-					}
-					c.newCave = cave.NewShallowSeabedCaveWithBiome(c.newCaveGrid, caveSpec)
-				}
-				c.newNodes = g.GetCaveNodes(c.newTrenchKey)
-				if c.newNodes == nil {
-					c.newNodes = c.newCave.GenerateResources(int64(newTx*97 + ty*41))
-					g.SetCaveNodes(c.newTrenchKey, c.newNodes)
-				}
-				c.newEntities = g.GetCaveEntities(c.newTrenchKey)
-				if c.newEntities == nil {
-					c.newEntities = c.newCave.GenerateEntities(int64(newTx*97 + ty*41))
-					g.SetCaveEntities(c.newTrenchKey, c.newEntities)
-				}
-				c.newCamX = 0
-				c.newCamY = c.oldCamY
+				grid := wld.GetCave(newTx, ty)
+				c.beginCaveTransition(g, tx, ty, caveTransitionDest{
+					dir:     1,
+					newTX:   newTx,
+					newTY:   ty,
+					newKey:  fmt.Sprintf("%d_%d", newTx, ty),
+					grid:    grid,
+					cave:    shallowCaveForTile(wld, grid, newTx, ty),
+					seed:    int64(newTx*97 + ty*41),
+					newCamX: 0,
+					newCamY: g.GetCamera().Pos.Y,
+				})
 			}
 		}
 	} else if !c.IsShallow {
@@ -653,53 +581,102 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 		if info != nil && info.Subterranean != nil {
 			// 3. Check vertical upward transition from subterranean deep cave back to shallow seabed
 			if playerY <= 0 {
-				c.scrollActive = true
-				c.scrollTimer = 0
-				c.scrollDir = -2 // ScrollUp
-
-				c.oldCave = c.ActiveCave
-				c.oldCaveGrid = c.CaveGrid
-				c.oldNodes = c.Nodes
-				c.oldEntities = c.Entities
-				c.oldTrenchX, c.oldTrenchY = tx, ty
-				c.oldTrenchKey = g.GetActiveTrenchKey()
-				c.oldCamX = g.GetCamera().Pos.X
-				c.oldCamY = g.GetCamera().Pos.Y
-
-				c.newTrenchX, c.newTrenchY = tx, ty
-				c.newTrenchKey = fmt.Sprintf("%d_%d", tx, ty)
-				c.newCaveGrid = wld.GetCave(tx, ty)
+				grid := wld.GetCave(tx, ty)
+				var shallow cave.Cave
 				if info.Subterranean.ShallowFactory != nil {
-					c.newCave = info.Subterranean.ShallowFactory(c.newCaveGrid, wld, tx, ty)
+					shallow = info.Subterranean.ShallowFactory(grid, wld, tx, ty)
 				} else if info.CaveFactory != nil {
-					c.newCave = info.CaveFactory(c.newCaveGrid, wld, tx, ty)
+					shallow = info.CaveFactory(grid, wld, tx, ty)
 				} else {
-					c.newCave = cave.NewShallowSeabedCave(c.newCaveGrid)
+					shallow = cave.NewShallowSeabedCave(grid)
 				}
-				c.newNodes = g.GetCaveNodes(c.newTrenchKey)
-				if c.newNodes == nil {
-					c.newNodes = c.newCave.GenerateResources(int64(tx*97 + ty*41))
-					g.SetCaveNodes(c.newTrenchKey, c.newNodes)
-				}
-				c.newEntities = g.GetCaveEntities(c.newTrenchKey)
-				if c.newEntities == nil {
-					c.newEntities = c.newCave.GenerateEntities(int64(tx*97 + ty*41))
-					g.SetCaveEntities(c.newTrenchKey, c.newEntities)
-				}
+
 				chasmMinX, chasmMaxX, chasmTriggerY := float64(0), float64(0), float64(0)
-				if chasm, ok := c.newCave.(cave.ChasmProvider); ok && chasm.HasFloorChasm() {
+				if chasm, ok := shallow.(cave.ChasmProvider); ok && chasm.HasFloorChasm() {
 					chasmMinX, chasmMaxX, chasmTriggerY = chasm.GetChasmBounds()
 				}
+				newCamX := float64(len(grid)/2*config.TileSize - config.ScreenWidth/2)
 				if chasmMaxX > chasmMinX {
-					c.newCamX = (chasmMinX+chasmMaxX)/2.0 - float64(config.ScreenWidth)/2
-				} else {
-					c.newCamX = float64(len(c.newCaveGrid)/2*config.TileSize - config.ScreenWidth/2)
+					newCamX = (chasmMinX+chasmMaxX)/2.0 - float64(config.ScreenWidth)/2
 				}
-				c.newCamY = chasmTriggerY - float64(config.ScreenHeight)/2
-				if c.newCamY < 0 {
-					c.newCamY = 0
+				newCamY := chasmTriggerY - float64(config.ScreenHeight)/2
+				if newCamY < 0 {
+					newCamY = 0
 				}
+
+				c.beginCaveTransition(g, tx, ty, caveTransitionDest{
+					dir:     -2, // ScrollUp
+					newTX:   tx,
+					newTY:   ty,
+					newKey:  fmt.Sprintf("%d_%d", tx, ty),
+					grid:    grid,
+					cave:    shallow,
+					seed:    int64(tx*97 + ty*41),
+					newCamX: newCamX,
+					newCamY: newCamY,
+				})
 			}
 		}
 	}
+}
+
+// caveTransitionDest holds the destination side of a trench scroll transition.
+type caveTransitionDest struct {
+	dir                int
+	newTX, newTY       int
+	newKey             string
+	grid               [][]bool
+	cave               cave.Cave
+	seed               int64
+	newCamX, newCamY   float64
+}
+
+// beginCaveTransition stashes the current cave as the scroll "old" side and
+// prepares the destination cave (lazy-generating nodes/entities when needed).
+func (c *CaveScene) beginCaveTransition(g CaveContext, oldTX, oldTY int, dest caveTransitionDest) {
+	c.scrollActive = true
+	c.scrollTimer = 0
+	c.scrollDir = dest.dir
+
+	c.oldCave = c.ActiveCave
+	c.oldCaveGrid = c.CaveGrid
+	c.oldNodes = c.Nodes
+	c.oldEntities = c.Entities
+	c.oldTrenchX, c.oldTrenchY = oldTX, oldTY
+	c.oldTrenchKey = g.GetActiveTrenchKey()
+	c.oldCamX = g.GetCamera().Pos.X
+	c.oldCamY = g.GetCamera().Pos.Y
+
+	c.newTrenchX, c.newTrenchY = dest.newTX, dest.newTY
+	c.newTrenchKey = dest.newKey
+	c.newCaveGrid = dest.grid
+	c.newCave = dest.cave
+
+	c.newNodes = g.GetCaveNodes(c.newTrenchKey)
+	if c.newNodes == nil {
+		c.newNodes = c.newCave.GenerateResources(dest.seed)
+		g.SetCaveNodes(c.newTrenchKey, c.newNodes)
+	}
+	c.newEntities = g.GetCaveEntities(c.newTrenchKey)
+	if c.newEntities == nil {
+		c.newEntities = c.newCave.GenerateEntities(dest.seed)
+		g.SetCaveEntities(c.newTrenchKey, c.newEntities)
+	}
+
+	c.newCamX = dest.newCamX
+	c.newCamY = dest.newCamY
+}
+
+func shallowCaveForTile(wld *world.World, grid [][]bool, tx, ty int) cave.Cave {
+	tileType := wld.OverworldMap[tx][ty]
+	info := world.GetTileInfo(tileType)
+	if info != nil && info.CaveFactory != nil {
+		return info.CaveFactory(grid, wld, tx, ty)
+	}
+	newSpec := world.GetBiomeInfo(wld.BiomeMap[tx][ty])
+	var caveSpec *cave.CaveBiomeSpec
+	if newSpec != nil {
+		caveSpec = newSpec.CaveSpec
+	}
+	return cave.NewShallowSeabedCaveWithBiome(grid, caveSpec)
 }

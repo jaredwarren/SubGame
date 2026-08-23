@@ -20,6 +20,7 @@ import (
 // Update advances all game logic by one tick.
 func (g *Game) Update() error {
 	g.Input.Update()
+	audio.Get().Update()
 	g.transitionedThisFrame = false
 	g.justExited = false
 	g.playerSlowed = false
@@ -560,12 +561,8 @@ func (g *Game) checkVehicleDepth() {
 	g.player.CurrentHealth -= 40.0
 	g.SetMineWarning("VEHICLE CRUSHED BY DEEP-SEA PRESSURE!", 180, 3)
 	list := g.CaveVehicles[g.activeTrenchKey]
-	for i, v := range list {
-		if v == g.ActiveVehicle {
-			g.CaveVehicles[g.activeTrenchKey] = append(list[:i], list[i+1:]...)
-			break
-		}
-	}
+	removeVehicleFromList(&list, g.ActiveVehicle)
+	g.CaveVehicles[g.activeTrenchKey] = list
 	g.ActiveVehicle = nil
 }
 
@@ -798,19 +795,10 @@ func (g *Game) PickUpActiveVehicle() {
 
 func (g *Game) removeVehicle(v vehicle.Vehicle) {
 	if g.currentState == StateOverworld {
-		for i, ov := range g.OverworldVehicles {
-			if ov == v {
-				g.OverworldVehicles = append(g.OverworldVehicles[:i], g.OverworldVehicles[i+1:]...)
-				break
-			}
-		}
-	} else {
-		list := g.CaveVehicles[g.activeTrenchKey]
-		for i, cv := range list {
-			if cv == v {
-				g.CaveVehicles[g.activeTrenchKey] = append(list[:i], list[i+1:]...)
-				break
-			}
-		}
+		removeVehicleFromList(&g.OverworldVehicles, v)
+		return
 	}
+	list := g.CaveVehicles[g.activeTrenchKey]
+	removeVehicleFromList(&list, v)
+	g.CaveVehicles[g.activeTrenchKey] = list
 }
