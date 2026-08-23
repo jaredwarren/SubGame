@@ -16,11 +16,10 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/quest"
 	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
-
-
 
 // MenuContext defines the narrow context interface required by BaseMenuScene.
 type MenuContext interface {
@@ -32,6 +31,7 @@ type MenuContext interface {
 	GetLostCargo() []*entity.LostCargoBeacon
 	GetCraftingRecipes() []Recipe
 	GetStoryManager() *story.StoryManager
+	GetQuestManager() *quest.QuestManager
 	GetTicks() float64
 	GetCurrentState() State
 	GetPDAPriorState() State
@@ -50,8 +50,9 @@ type BaseMenuScene struct {
 	ActiveTab         int
 	ScrollY           float64
 	SelectedLoreIndex int
+	SelectedQuestID   string
 
-	// Cached ocean chart for the Map tab (tab 5).
+	// Cached ocean chart for the Map tab (tab 6).
 	mapImage  *ebiten.Image
 	mapPixels []byte
 	mapPOIs   []mapPOI
@@ -60,7 +61,7 @@ type BaseMenuScene struct {
 
 // NewBaseMenuScene instantiates a BaseMenuScene.
 func NewBaseMenuScene() *BaseMenuScene {
-	return &BaseMenuScene{ActiveTab: 0, ScrollY: 0, SelectedLoreIndex: 0}
+	return &BaseMenuScene{ActiveTab: 0, ScrollY: 0, SelectedLoreIndex: 0, SelectedQuestID: "training_basics"}
 }
 
 func (m *BaseMenuScene) OnEnter(g GameContext) {
@@ -101,9 +102,14 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 	ctrlHeld := inp.IsKeyPressed(ebiten.KeyControl) || inp.IsKeyPressed(ebiten.KeyMeta)
 	if !ctrlHeld && inp.IsKeyJustPressed(ebiten.KeyM) {
 		if g.IsMenuOpenedAnywhere() {
-			g.ClosePDA()
+			if m.ActiveTab == 6 {
+				g.ClosePDA()
+			} else {
+				m.ActiveTab = 6
+				m.ScrollY = 0
+			}
 		} else {
-			m.ActiveTab = 5
+			m.ActiveTab = 6
 			m.ScrollY = 0
 		}
 		return nil
@@ -127,10 +133,10 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 		ty := int(panelY) + 40
 		if my >= ty && my < ty+30 {
 			if g.IsMenuOpenedAnywhere() {
-				// Detached PDA: Logs | Map mini-strip
-				for i, tab := range []int{4, 5} {
-					tx := int(panelX) + 30 + i*150
-					if mx >= tx && mx < tx+140 {
+				// Detached PDA: Quests | Logs | Map mini-strip
+				for i, tab := range []int{4, 5, 6} {
+					tx := int(panelX) + 30 + i*140
+					if mx >= tx && mx < tx+130 {
 						if m.ActiveTab != tab {
 							audio.Get().PlaySFX("sfx/ui_hover.wav")
 						}
@@ -140,9 +146,9 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 					}
 				}
 			} else {
-				for i := 0; i < 6; i++ {
-					tx := int(panelX) + 20 + i*128
-					if mx >= tx && mx < tx+122 {
+				for i := 0; i < 7; i++ {
+					tx := int(panelX) + 16 + i*110
+					if mx >= tx && mx < tx+104 {
 						if i == 2 && !b.HasModule(item.ModuleStorage) {
 							audio.Get().PlaySFX("sfx/ui_error.wav")
 							continue
@@ -322,6 +328,9 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 		}
 
 	case 4:
+		m.updateQuestsTab(g, panelX, panelY, mx, my, leftClicked)
+
+	case 5:
 		unlocked := g.GetStoryManager().GetUnlockedEntries()
 		if len(unlocked) > 0 {
 			_, wy := inp.Wheel()
@@ -385,17 +394,18 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 	}
 	ebitenutil.DebugPrintAt(screen, powerText, int(panelX)+420, int(panelY)+12)
 
-	tabLabels := []string{"1. OVERVIEW", "2. FABRICATOR", "3. VAULT", "4. MEDICAL", "5. LOGS", "6. MAP"}
+	tabLabels := []string{"1. OVERVIEW", "2. FABRICATOR", "3. VAULT", "4. MEDICAL", "5. QUESTS", "6. LOGS", "7. MAP"}
 	if g.IsMenuOpenedAnywhere() {
 		detachedTabs := []struct {
 			label string
 			tab   int
 		}{
-			{"★ PDA LOGS ★", 4},
-			{"★ MAP ★", 5},
+			{"★ QUESTS ★", 4},
+			{"★ PDA LOGS ★", 5},
+			{"★ MAP ★", 6},
 		}
 		for i, dt := range detachedTabs {
-			tx := panelX + 30 + float32(i*150)
+			tx := panelX + 30 + float32(i*140)
 			ty := panelY + 40
 			tabBg := color.RGBA{18, 24, 38, 255}
 			tabBorder := color.RGBA{45, 58, 78, 255}
@@ -403,13 +413,13 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 				tabBg = color.RGBA{32, 45, 68, 255}
 				tabBorder = color.RGBA{95, 125, 165, 255}
 			}
-			vector.FillRect(screen, tx, ty, 140, 30, tabBg, false)
-			vector.StrokeRect(screen, tx, ty, 140, 30, 1.0, tabBorder, false)
-			ebitenutil.DebugPrintAt(screen, dt.label, int(tx)+18, int(ty)+6)
+			vector.FillRect(screen, tx, ty, 130, 30, tabBg, false)
+			vector.StrokeRect(screen, tx, ty, 130, 30, 1.0, tabBorder, false)
+			ebitenutil.DebugPrintAt(screen, dt.label, int(tx)+14, int(ty)+6)
 		}
 	} else {
-		for i := 0; i < 6; i++ {
-			tx := panelX + 20 + float32(i*128)
+		for i := 0; i < 7; i++ {
+			tx := panelX + 16 + float32(i*110)
 			ty := panelY + 40
 
 			label := tabLabels[i]
@@ -424,9 +434,9 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 				tabBorder = color.RGBA{95, 125, 165, 255}
 			}
 
-			vector.FillRect(screen, tx, ty, 122, 30, tabBg, false)
-			vector.StrokeRect(screen, tx, ty, 122, 30, 1.0, tabBorder, false)
-			ebitenutil.DebugPrintAt(screen, label, int(tx)+8, int(ty)+6)
+			vector.FillRect(screen, tx, ty, 104, 30, tabBg, false)
+			vector.StrokeRect(screen, tx, ty, 104, 30, 1.0, tabBorder, false)
+			ebitenutil.DebugPrintAt(screen, label, int(tx)+6, int(ty)+6)
 		}
 	}
 
@@ -673,6 +683,9 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 		vector.StrokeRect(screen, medX+230, medY+150, 280, 60, 1.0, color.RGBA{70, 100, 140, 255}, false)
 
 	case 4:
+		m.drawQuestsTab(g, screen, panelX, panelY)
+
+	case 5:
 		// Left Panel: Entry List
 		listX := panelX + 30
 		listY := panelY + 95
@@ -777,7 +790,7 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 			}
 		}
 
-	case 5:
+	case 6:
 		m.drawMapTab(g, screen, panelX, panelY)
 	}
 

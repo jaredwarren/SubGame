@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"strings"
 
 	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/base"
@@ -13,6 +14,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/quest"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/scene"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
@@ -21,8 +23,9 @@ import (
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
-// compile-time assertion: *Game must satisfy scene.GameContext
+// compile-time assertion: *Game must satisfy scene.GameContext and quest.QuestContext
 var _ scene.GameContext = (*Game)(nil)
+var _ quest.QuestContext = (*Game)(nil)
 
 // --- Scene navigation ---
 
@@ -70,6 +73,7 @@ func (g *Game) StartGame(seed int64) {
 	g.craftingRecipes = scene.DefaultCraftingRecipes()
 
 	g.storyManager = story.NewStoryManager()
+	g.questManager = quest.NewQuestManager()
 
 	g.explorationTracker = exploration.NewTracker(w.Width, w.Height)
 	spawnTX := int(math.Floor((spawnX + g.player.Width/2.0) / float64(config.TileSize)))
@@ -297,6 +301,8 @@ func (g *Game) IsDebugWaterShaderDisabled() bool { return g.DebugDisableWaterSha
 
 func (g *Game) GetStoryManager() *story.StoryManager { return g.storyManager }
 
+func (g *Game) GetQuestManager() *quest.QuestManager { return g.questManager }
+
 func (g *Game) GetExploration() *exploration.Tracker { return g.explorationTracker }
 
 func (g *Game) GetCraftingRecipes() []scene.Recipe {
@@ -317,7 +323,7 @@ func (g *Game) TransitionToMap() {
 		g.pdaPriorState = g.currentState
 	}
 	g.menuOpenedAnywhere = true
-	g.baseMenu.ActiveTab = 5
+	g.baseMenu.ActiveTab = 6
 	g.TransitionTo(g.baseMenu)
 }
 
@@ -340,4 +346,77 @@ func (g *Game) IsMenuOpenedAnywhere() bool {
 func (g *Game) TransitionToIntro(seed int64) {
 	g.introState.SetSeed(seed)
 	g.TransitionTo(g.introState)
+}
+
+// --- quest.QuestContext implementation ---
+
+func (g *Game) IsPlayerInCave() bool {
+	return g.currentState == scene.StateCave
+}
+
+func (g *Game) PlayerTrenchCoords() (x, y int) {
+	return g.activeTrenchX, g.activeTrenchY
+}
+
+func (g *Game) PlayerDistanceToBase() float64 {
+	if g.player == nil || g.baseStation == nil {
+		return 999999.0
+	}
+	return g.baseStation.DistanceToPlayer(g.player)
+}
+
+func (g *Game) CountInventoryItem(name string) int {
+	if g.player == nil {
+		return 0
+	}
+	it := item.NewItemByName(name)
+	if it == nil {
+		return 0
+	}
+	return g.player.Inventory.Count(it)
+}
+
+func (g *Game) HasVehicleInWorld(vType string) bool {
+	norm := strings.ToLower(strings.ReplaceAll(vType, "_", " "))
+	for _, v := range g.OverworldVehicles {
+		vName := strings.ToLower(v.GetName())
+		if vName == norm || strings.Contains(vName, norm) || strings.Contains(norm, vName) {
+			return true
+		}
+	}
+	for _, vList := range g.CaveVehicles {
+		for _, v := range vList {
+			vName := strings.ToLower(v.GetName())
+			if vName == norm || strings.Contains(vName, norm) || strings.Contains(norm, vName) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (g *Game) MaxDepthReached() float64 {
+	if g.player == nil {
+		return 0.0
+	}
+	if g.currentState == scene.StateCave {
+		return g.player.Pos.Y / 16.0
+	}
+	return 0.0
+}
+
+func (g *Game) HasCraftedItem(name string) bool {
+	if g.CountInventoryItem(name) > 0 {
+		return true
+	}
+	it := item.NewItemByName(name)
+	if it != nil && g.baseStation != nil {
+		if g.baseStation.Storage != nil && g.baseStation.Storage.Count(it) > 0 {
+			return true
+		}
+		if g.baseStation.Upgrades != nil && g.baseStation.Upgrades.Count(it) > 0 {
+			return true
+		}
+	}
+	return false
 }

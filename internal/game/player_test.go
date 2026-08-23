@@ -146,16 +146,12 @@ func TestPlayer_Movement(t *testing.T) {
 
 func TestVehicle_EntryExit(t *testing.T) {
 	g := NewGame()
+	skiff := vehicle.NewSkiff(100, 100)
+	g.ActiveVehicle = skiff
+	g.OverworldVehicles = []vehicle.Vehicle{skiff}
 	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
-
-	// In NewGame, player starts inside a skiff, so ActiveVehicle is the skiff.
-	if g.ActiveVehicle == nil {
-		t.Fatal("expected player to start inside a vehicle (skiff)")
-	}
-
-	skiff := g.ActiveVehicle
 
 	// Mock F key pressed to exit vehicle
 	mockInput.JustPressedKeys[ebiten.KeyF] = true
@@ -305,17 +301,14 @@ func TestBaseMenu_OpenClose(t *testing.T) {
 
 func TestBaseMenu_OpenCloseFromVehicle(t *testing.T) {
 	g := NewGame()
+	skiff := vehicle.NewSkiff(100, 100)
+	g.ActiveVehicle = skiff
+	g.OverworldVehicles = []vehicle.Vehicle{skiff}
 	g.TransitionTo(g.overworldState)
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
 
-	// Player is in skiff (the default active vehicle)
-	if g.ActiveVehicle == nil {
-		t.Fatal("expected player to start in a vehicle")
-	}
-
 	// Position active vehicle (skiff) close to base station
-	skiff := g.ActiveVehicle
 	skiff.SetPos(gvec.Vec2{
 		X: g.baseStation.Pos.X + g.baseStation.Size.X/2.0 - skiff.GetDimensions().X/2.0,
 		Y: g.baseStation.Pos.Y + g.baseStation.Size.Y/2.0 - skiff.GetDimensions().Y/2.0 + 40,
@@ -919,10 +912,15 @@ func TestTutorial_Flow(t *testing.T) {
 	g.Input = NewMockInput()
 	g.StartGame(12345) // Starts the actual game/tutorial
 
-	// 1. Verify tutorial is active and starts with 9 titanium and no vehicle.
-	if !g.TutorialActive {
-		t.Fatal("expected tutorial to be active at start")
+	// 1. Verify questManager starts with 9 titanium and no vehicle.
+	if g.questManager == nil {
+		t.Fatal("expected questManager to be initialized")
 	}
+	trainingQuest := g.questManager.FindQuest("training_basics")
+	if trainingQuest == nil {
+		t.Fatal("expected training_basics quest to exist")
+	}
+
 	if g.ActiveVehicle != nil {
 		t.Errorf("expected no starting active vehicle, got: %v", g.ActiveVehicle)
 	}
@@ -934,49 +932,34 @@ func TestTutorial_Flow(t *testing.T) {
 		t.Errorf("expected player to start with 9 Titanium, got: %d", titCount)
 	}
 
-	// 2. Check tutorial instruction is correct for the start stage in Overworld
-	instr := g.getTutorialInstruction()
-	if instr != "Tutorial: Swim away from Lifepod and press [E] to dive (9/10)" {
-		t.Errorf("unexpected starting overworld near-base instruction: %q", instr)
+	// 2. Initial state: dive task not complete
+	if trainingQuest.GetTask("train_dive").Completed {
+		t.Error("expected train_dive task to start incomplete")
 	}
 
-	// Move player away from Lifepod
-	g.player.Pos = gvec.Vec2{X: g.baseStation.Pos.X + 200, Y: g.baseStation.Pos.Y}
-	instr = g.getTutorialInstruction()
-	if instr != "Tutorial: Press [E] to dive and find Titanium (9/10)" {
-		t.Errorf("unexpected starting overworld far-base instruction: %q", instr)
-	}
-
-	// Transition to Cave
+	// Transition to Cave -> checks off train_dive
 	g.TransitionTo(g.caveState)
-	instr = g.getTutorialInstruction()
-	if instr != "Tutorial: Mine 1 Titanium from the cave wall (9/10)" {
-		t.Errorf("unexpected starting cave instruction: %q", instr)
+	g.updateQuests()
+	if !trainingQuest.GetTask("train_dive").Completed {
+		t.Error("expected train_dive task to complete upon entering cave")
 	}
 
 	// 3. Add 1 titanium (bringing count to 10)
 	g.player.Inventory.AddItem(&item.Titanium{}, 1)
-	instr = g.getTutorialInstruction()
-	if instr != "Tutorial: Swim to the surface" {
-		t.Errorf("unexpected cave return instruction: %q", instr)
+	g.updateQuests()
+	if !trainingQuest.GetTask("train_titanium").Completed {
+		t.Error("expected train_titanium task to complete with 10 titanium")
 	}
 
-	// Surface (Overworld)
+	// Surface (Overworld) and move near Lifepod -> checks off train_return
 	g.TransitionTo(g.overworldState)
-	instr = g.getTutorialInstruction()
-	if instr != "Tutorial: Return to the Lifepod (follow the HUD marker)" {
-		t.Errorf("unexpected overworld return instruction: %q", instr)
-	}
-
-	// Move near Lifepod
 	g.player.Pos = gvec.Vec2{X: g.baseStation.Pos.X, Y: g.baseStation.Pos.Y}
-	instr = g.getTutorialInstruction()
-	if instr != "Tutorial: Press [E] at the Lifepod terminal to craft a Skiff" {
-		t.Errorf("unexpected overworld craft instruction: %q", instr)
+	g.updateQuests()
+	if !trainingQuest.GetTask("train_return").Completed {
+		t.Error("expected train_return task to complete near lifepod")
 	}
 
 	// 4. Craft Skiff Kit
-	// Verify Skiff Kit recipe is in the recipes list
 	recipes := g.GetCraftingRecipes()
 	var skiffRecipe *Recipe
 	for i := range recipes {
@@ -997,17 +980,9 @@ func TestTutorial_Flow(t *testing.T) {
 		g.player.Inventory.Remove(ing.NewItem(), ing.Quantity)
 	}
 	g.player.Inventory.AddItem(skiffRecipe.NewResult(), 1)
-
-	if g.player.Inventory.Count(&item.Titanium{}) != 0 {
-		t.Errorf("expected Titanium to be consumed after crafting, got %d", g.player.Inventory.Count(&item.Titanium{}))
-	}
-	if !g.player.Inventory.Has(&vehicle.SkiffKit{}, 1) {
-		t.Fatal("expected player to have Skiff Kit in inventory after crafting")
-	}
-
-	instr = g.getTutorialInstruction()
-	if instr != "Tutorial: Press [TAB] for inventory, click Skiff Kit to deploy it" {
-		t.Errorf("unexpected deploy instruction: %q", instr)
+	g.updateQuests()
+	if !trainingQuest.GetTask("train_skiff_craft").Completed {
+		t.Error("expected train_skiff_craft task to complete after crafting")
 	}
 
 	// 5. Deploy Skiff via Hotbar click
@@ -1027,7 +1002,7 @@ func TestTutorial_Flow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Verify Skiff is in the world and active vehicle is updated correctly (player needs to press F manually, so it's not active automatically)
+	// Verify Skiff is in the world
 	if len(g.OverworldVehicles) != 1 {
 		t.Fatalf("expected 1 overworld vehicle after deployment, got: %d", len(g.OverworldVehicles))
 	}
@@ -1038,15 +1013,15 @@ func TestTutorial_Flow(t *testing.T) {
 		t.Error("expected Skiff Kit to be removed from hotbar")
 	}
 
-	// Run Update to process tutorial completion check
+	// Run Update to process quest completion check
 	err = g.Update()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// 6. Verify tutorial is complete
-	if g.TutorialActive {
-		t.Error("expected tutorial to be completed after deploying the Skiff")
+	// 6. Verify training quest is complete
+	if !trainingQuest.Completed {
+		t.Error("expected training_basics quest to be completed after deploying the Skiff")
 	}
 }
 

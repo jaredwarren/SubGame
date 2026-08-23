@@ -31,6 +31,7 @@ func (g *Game) Update() error {
 
 	g.advanceTimers()
 	g.updateEffects()
+	g.updateQuests()
 	g.handleInput()
 	g.baseStation.UpdatePower(g.TimeOfDay)
 
@@ -72,15 +73,30 @@ func (g *Game) Update() error {
 			g.TransitionTo(g.gameOverState)
 		}
 	}
+	return nil
+}
 
-	if g.TutorialActive {
-		if g.hasSkiffInWorld() {
-			g.TutorialActive = false
-			g.SetMineWarning("TUTORIAL COMPLETE!", 180, 1)
+func (g *Game) updateQuests() {
+	if g.questManager == nil {
+		return
+	}
+	if g.currentState != StateOverworld && g.currentState != StateCave && g.currentState != StateBaseMenu && g.currentState != StatePause {
+		return
+	}
+	notifs := g.questManager.CheckProgress(g)
+	for _, n := range notifs {
+		if n.Completed {
 			audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
+			if g.MineWarning.Timer <= 0 || g.MineWarning.Level <= 1 {
+				g.SetMineWarning(n.Message+" (Press [J] for PDA)", 200, 1)
+			}
+		} else {
+			audio.Get().PlaySFX("sfx/ui_hover.wav")
+			if g.MineWarning.Timer <= 0 || g.MineWarning.Level <= 1 {
+				g.SetMineWarning(n.Message, 160, 1)
+			}
 		}
 	}
-	return nil
 }
 
 // updateAudioAlerts handles continuous loops and threshold voice alerts.
@@ -199,9 +215,13 @@ func (g *Game) handleInput() {
 		switch g.currentState {
 		case StateBaseMenu:
 			if g.menuOpenedAnywhere {
-				g.ClosePDA()
+				if g.baseMenu != nil && g.baseMenu.ActiveTab == 6 {
+					g.ClosePDA()
+				} else if g.baseMenu != nil {
+					g.baseMenu.ActiveTab = 6
+				}
 			} else if g.baseMenu != nil {
-				g.baseMenu.ActiveTab = 5
+				g.baseMenu.ActiveTab = 6
 			}
 		case StateOverworld, StateCave:
 			g.TransitionToMap()
@@ -335,10 +355,10 @@ func (g *Game) debugRevealAllMapPOIs() {
 	), 240, 1)
 
 	// Jump straight to the chart so icons are visible immediately.
-	if g.currentState != StateBaseMenu || g.baseMenu == nil || g.baseMenu.ActiveTab != 5 {
+	if g.currentState != StateBaseMenu || g.baseMenu == nil || g.baseMenu.ActiveTab != 6 {
 		g.TransitionToMap()
 	} else if g.baseMenu != nil {
-		g.baseMenu.ActiveTab = 5
+		g.baseMenu.ActiveTab = 6
 	}
 }
 

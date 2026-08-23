@@ -16,6 +16,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/quest"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/save"
 	"github.com/jaredwarren/SubGame/internal/game/scene"
@@ -112,8 +113,9 @@ type Game struct {
 	DebugDisableLightShader bool
 	DebugDisableWaterShader bool
 
-	// Story and Lore
+	// Story, Quests and Lore
 	storyManager       *story.StoryManager
+	questManager       *quest.QuestManager
 	pdaPriorState      State
 	menuOpenedAnywhere bool
 	craftingRecipes    []scene.Recipe
@@ -144,9 +146,9 @@ func NewGame() *Game {
 	cam.CenterOn(spawnX, spawnY, p.Width, p.Height)
 
 	baseStation := base.NewBaseStation(spawnX+96.0, spawnY-64.0)
-	skiff := vehicle.NewSkiff(spawnX, spawnY)
 
 	sm := story.NewStoryManager()
+	qm := quest.NewQuestManager()
 	tracker := exploration.NewTracker(w.Width, w.Height)
 	spawnTX := int(math.Floor((spawnX + p.Width/2.0) / float64(config.TileSize)))
 	spawnTY := int(math.Floor((spawnY + p.Height/2.0) / float64(config.TileSize)))
@@ -161,13 +163,14 @@ func NewGame() *Game {
 		Input:                NewEbitenInput(),
 		caveNodes:            make(map[string][]resource.Resource),
 		baseStation:          baseStation,
-		ActiveVehicle:        skiff,
-		OverworldVehicles:    []vehicle.Vehicle{skiff},
+		ActiveVehicle:        nil,
+		OverworldVehicles:    nil,
 		CaveVehicles:         make(map[string][]vehicle.Vehicle),
 		Sonar:                sonar.NewSonar(),
 		caveEntities:         make(map[string][]entity.CaveEntity),
 		FlashlightOn:         true,
 		storyManager:         sm,
+		questManager:         qm,
 		craftingRecipes:      scene.DefaultCraftingRecipes(),
 		explorationTracker:   tracker,
 	}
@@ -654,6 +657,7 @@ func (g *Game) SaveGame() error {
 		UnlockedRecipes:     unlockedRecipes,
 		UnlockedRecipeNames: unlockedNames,
 		LostCargo:           serializeLostCargo(g.lostCargo),
+		Quests:              g.questManager.SerializeState(),
 	}
 
 	return save.SaveToFile(save.GetSavePath(), data)
@@ -741,6 +745,13 @@ func (g *Game) LoadSaveGame() error {
 		g.storyManager = story.NewStoryManager()
 	}
 	g.storyManager.DeserializeState(data.Story)
+
+	if g.questManager == nil {
+		g.questManager = quest.NewQuestManager()
+	}
+	if len(data.Quests.Categories) > 0 || len(data.Quests.Quests) > 0 {
+		g.questManager.DeserializeState(data.Quests)
+	}
 
 	g.craftingRecipes = scene.DefaultCraftingRecipes()
 	applyUnlockedRecipes(g.craftingRecipes, data.UnlockedRecipeNames, data.UnlockedRecipes)

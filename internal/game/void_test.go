@@ -157,10 +157,13 @@ func TestVoidCaveFirstFrameCoords(t *testing.T) {
 
 func TestCaveActiveVehicleAndDebugCaveSetup(t *testing.T) {
 	g := NewGame()
+	skiff := vehicle.NewSkiff(100, 100)
+	g.ActiveVehicle = skiff
+	g.OverworldVehicles = []vehicle.Vehicle{skiff}
 
 	// 1. Verify ActiveVehicle is cleared when entering any cave
 	if g.ActiveVehicle == nil {
-		t.Fatal("expected default ActiveVehicle to be initialized (skiff)")
+		t.Fatal("expected ActiveVehicle to be set")
 	}
 
 	// Dive at coordinates (50, 50)

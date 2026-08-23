@@ -10,13 +10,14 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
+	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/quest"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
-	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/game/story"
-	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -99,6 +100,7 @@ type EffectsEmitter interface {
 
 type StoryAccess interface {
 	GetStoryManager() *story.StoryManager
+	GetQuestManager() *quest.QuestManager
 	GetCraftingRecipes() []Recipe
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/quest"
 )
 
 const DefaultSaveFileName = "save.json"
@@ -76,6 +77,7 @@ type SaveData struct {
 	UnlockedRecipes      []int                        `json:"unlockedRecipes"`
 	UnlockedRecipeNames  []string                     `json:"unlockedRecipeNames,omitempty"`
 	LostCargo            []SavedLostCargo             `json:"lostCargo,omitempty"`
+	Quests               quest.QuestManagerState     `json:"quests,omitempty"`
 }
 
 // SavedLostCargo is a surface cargo beacon left on death.
