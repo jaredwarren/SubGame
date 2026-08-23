@@ -110,27 +110,27 @@ func defaultQuestCategories() []*QuestCategory {
 					Description: "AetherCorp standard survival onboarding protocol. Complete initial dive, gather base construction materials, and deploy a surface skiff.",
 					Tasks: []*Task{
 						{
-							ID:            "train_dive",
+							ID:            string(TaskTrainDive),
 							Description:   "Dive into an ocean trench (Press [E] on a trench tile)",
 							RequiredCount: 1,
 						},
 						{
-							ID:            "train_titanium",
+							ID:            string(TaskTrainTitanium),
 							Description:   "Harvest Titanium from subterranean cave walls",
 							RequiredCount: 10,
 						},
 						{
-							ID:            "train_return",
+							ID:            string(TaskTrainReturn),
 							Description:   "Return to Life Pod 5 (Follow HUD Waypoint marker)",
 							RequiredCount: 1,
 						},
 						{
-							ID:            "train_skiff_craft",
+							ID:            string(TaskTrainSkiffCraft),
 							Description:   "Fabricate Skiff Kit at the Life Pod Terminal",
 							RequiredCount: 1,
 						},
 						{
-							ID:            "train_skiff_deploy",
+							ID:            string(TaskTrainSkiffDeploy),
 							Description:   "Deploy Skiff on ocean surface (From Inventory [Tab])",
 							RequiredCount: 1,
 						},
@@ -150,17 +150,17 @@ func defaultQuestCategories() []*QuestCategory {
 					Description: "Upgrade survival equipment at the Life Pod Fabricator to extend dive endurance and movement velocity.",
 					Tasks: []*Task{
 						{
-							ID:            "gear_o2_hc",
+							ID:            string(TaskGearO2HC),
 							Description:   "Craft High Capacity O2 Tank (+60s capacity)",
 							RequiredCount: 1,
 						},
 						{
-							ID:            "gear_fins",
+							ID:            string(TaskGearFins),
 							Description:   "Craft Propulsion Fins (Boost cave swim speed)",
 							RequiredCount: 1,
 						},
 						{
-							ID:            "gear_scanner",
+							ID:            string(TaskGearScanner),
 							Description:   "Craft Scanner Tool (Bio-scan wildlife & geology)",
 							RequiredCount: 1,
 						},
@@ -173,12 +173,12 @@ func defaultQuestCategories() []*QuestCategory {
 					Description: "Fabricate specialized deep-sea exploration vehicles to withstand immense water pressure and break indestructible ore blocks.",
 					Tasks: []*Task{
 						{
-							ID:            "veh_scout_sub",
+							ID:            string(TaskVehScoutSub),
 							Description:   "Construct and pilot the Scout Sub (Equipped with Sonar Ping [Q])",
 							RequiredCount: 1,
 						},
 						{
-							ID:            "veh_heavy_mech",
+							ID:            string(TaskVehHeavyMech),
 							Description:   "Construct and pilot the Heavy Mech (Equipped with Drill Arm & Thrusters)",
 							RequiredCount: 1,
 						},
@@ -198,17 +198,17 @@ func defaultQuestCategories() []*QuestCategory {
 					Description: "Descend into the deepest abyssal trenches, harvest radioactive Abyssal Ore using the Heavy Mech Drill, and fabricate the Escape Rocket.",
 					Tasks: []*Task{
 						{
-							ID:            "esc_reach_depth",
+							ID:            string(TaskEscReachDepth),
 							Description:   "Descend past depth 100 into the Abyssal Void",
 							RequiredCount: 1,
 						},
 						{
-							ID:            "esc_abyssal_ore",
+							ID:            string(TaskEscAbyssalOre),
 							Description:   "Harvest Abyssal Ore using the Heavy Mech Drill",
 							RequiredCount: 10,
 						},
 						{
-							ID:            "esc_craft_rocket",
+							ID:            string(TaskEscCraftRocket),
 							Description:   "Fabricate and launch the Escape Rocket at Life Pod 5",
 							RequiredCount: 1,
 						},
@@ -250,15 +250,15 @@ func (qm *QuestManager) CheckProgress(ctx QuestContext) []ProgressNotification {
 				oldCompleted := t.Completed
 				oldCount := t.CurrentCount
 
-				switch t.ID {
+				switch TaskID(t.ID) {
 				// Training Tasks
-				case "train_dive":
+				case TaskTrainDive:
 					if ctx.IsPlayerInCave() {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
-				case "train_titanium":
+				case TaskTrainTitanium:
 					titaniumCount := ctx.CountInventoryItem("Titanium")
 					if titaniumCount > t.CurrentCount {
 						t.CurrentCount = titaniumCount
@@ -268,65 +268,65 @@ func (qm *QuestManager) CheckProgress(ctx QuestContext) []ProgressNotification {
 						t.Completed = true
 					}
 
-				case "train_return":
+				case TaskTrainReturn:
 					// Must have completed titanium first
-					if q.GetTask("train_titanium").Completed && !ctx.IsPlayerInCave() && ctx.PlayerDistanceToBase() <= 120.0 {
+					if q.GetTask(string(TaskTrainTitanium)).Completed && !ctx.IsPlayerInCave() && ctx.PlayerDistanceToBase() <= 120.0 {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
-				case "train_skiff_craft":
+				case TaskTrainSkiffCraft:
 					if ctx.HasCraftedItem("Skiff Kit") || ctx.CountInventoryItem("Skiff Kit") > 0 || ctx.HasVehicleInWorld("skiff") {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
-				case "train_skiff_deploy":
+				case TaskTrainSkiffDeploy:
 					if ctx.HasVehicleInWorld("skiff") {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
 				// Survival Gear Tasks
-				case "gear_o2_hc":
+				case TaskGearO2HC:
 					if ctx.HasCraftedItem("High Capacity O2 Tank") || ctx.CountInventoryItem("High Capacity O2 Tank") > 0 {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
-				case "gear_fins":
+				case TaskGearFins:
 					if ctx.HasCraftedItem("Propulsion Fins") || ctx.CountInventoryItem("Propulsion Fins") > 0 {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
-				case "gear_scanner":
+				case TaskGearScanner:
 					if ctx.HasCraftedItem("Scanner Tool") || ctx.CountInventoryItem("Scanner Tool") > 0 {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
 				// Vehicle Fleet Tasks
-				case "veh_scout_sub":
+				case TaskVehScoutSub:
 					if ctx.HasVehicleInWorld("scout_sub") || ctx.HasCraftedItem("Scout Sub Kit") {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
-				case "veh_heavy_mech":
+				case TaskVehHeavyMech:
 					if ctx.HasVehicleInWorld("heavy_mech") || ctx.HasCraftedItem("Heavy Mech Kit") {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
 				// Project Escape Tasks
-				case "esc_reach_depth":
+				case TaskEscReachDepth:
 					if ctx.MaxDepthReached() >= 100.0 {
 						t.CurrentCount = 1
 						t.Completed = true
 					}
 
-				case "esc_abyssal_ore":
+				case TaskEscAbyssalOre:
 					abyssalCount := ctx.CountInventoryItem("Abyssal Ore")
 					if abyssalCount > t.CurrentCount {
 						t.CurrentCount = abyssalCount
@@ -336,7 +336,7 @@ func (qm *QuestManager) CheckProgress(ctx QuestContext) []ProgressNotification {
 						t.Completed = true
 					}
 
-				case "esc_craft_rocket":
+				case TaskEscCraftRocket:
 					if ctx.HasCraftedItem("Escape Rocket") {
 						t.CurrentCount = 1
 						t.Completed = true

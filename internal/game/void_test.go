@@ -194,13 +194,13 @@ func TestCaveActiveVehicleAndDebugCaveSetup(t *testing.T) {
 
 func TestMiningAndCraftingCompatibility(t *testing.T) {
 	g := NewGame()
-	node := resource.NewTitaniumNode(0, 0)
+	node := resource.NewNode(resource.NodeTitanium, 0, 0)
 	g.player.Inventory.AddItem(node, 1)
 	if !g.player.Inventory.Has(&item.Titanium{}, 1) {
 		t.Error("game-breaking bug: inventory does not recognize TitaniumNode as item.Titanium")
 	}
 
-	nickelNode := resource.NewNickelNode(0, 0)
+	nickelNode := resource.NewNode(resource.NodeNickel, 0, 0)
 	g.player.Inventory.AddItem(nickelNode, 1)
 	if !g.player.Inventory.Has(&item.Nickel{}, 1) {
 		t.Error("game-breaking bug: inventory does not recognize NickelNode as item.Nickel")

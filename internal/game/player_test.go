@@ -256,12 +256,12 @@ func TestInventory_AddItem(t *testing.T) {
 	}
 
 	// Test adding a ResourceNode (implements Item via Resource)
-	node := resource.NewCopperNode(10, 10)
+	node := resource.NewNode(resource.NodeCopper, 10, 10)
 	if !inv.AddItem(node, 2) {
 		t.Error("expected successfully adding Copper resource node")
 	}
-	if !item.HasItem[*resource.CopperNode](inv, 2) {
-		t.Errorf("expected inventory to have 2 Copper resource nodes")
+	if !item.HasItem[*item.Copper](inv, 2) {
+		t.Errorf("expected inventory to have 2 Copper")
 	}
 }
 

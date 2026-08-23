@@ -503,6 +503,7 @@ func serializeVehicle(v vehicle.Vehicle, location string, active bool) save.Save
 		upg = v.GetUpgrades().SerializeState()
 	}
 	return save.SavedVehicle{
+		ID:         string(v.GetID()),
 		Type:       v.GetName(),
 		PosX:       v.GetPos().X,
 		PosY:       v.GetPos().Y,
@@ -644,6 +645,7 @@ func (g *Game) SaveGame() error {
 	}
 
 	data := &save.SaveData{
+		Version:         save.CurrentSaveVersion,
 		WorldSeed:       int64(g.world.Seed),
 		TimeOfDay:       g.TimeOfDay,
 		Ticks:           g.Ticks,
@@ -769,7 +771,13 @@ func (g *Game) loadSaveFromPath(path string) error {
 	g.CaveVehicles = make(map[string][]vehicle.Vehicle)
 
 	for _, vData := range data.Vehicles {
-		v := vehicle.NewVehicleByName(vData.Type, vData.PosX, vData.PosY)
+		var v vehicle.Vehicle
+		if vData.ID != "" {
+			v, _ = vehicle.NewVehicleByID(vehicle.VehicleID(vData.ID), vData.PosX, vData.PosY)
+		}
+		if v == nil && vData.Type != "" {
+			v = vehicle.NewVehicleByName(vData.Type, vData.PosX, vData.PosY)
+		}
 		if v != nil {
 			v.SetFacing(vData.Facing)
 			if vData.MaxHealth > 0 && vData.Health < vData.MaxHealth {

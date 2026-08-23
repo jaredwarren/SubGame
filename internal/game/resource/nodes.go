@@ -140,6 +140,14 @@ func (n *ResourceNode) info() *NodeTypeInfo {
 	return nodeRegistry[n.Type]
 }
 
+func (n *ResourceNode) GetID() item.ItemID {
+	base := n.GetBaseItem()
+	if base == nil {
+		return ""
+	}
+	return base.GetID()
+}
+
 func (n *ResourceNode) GetName() string {
 	if n.Type == NodeBlueprint {
 		return "Blueprint: " + n.RecipeResultName
@@ -194,95 +202,19 @@ func (n *ResourceNode) GetRecipeResultName() string {
 	return ""
 }
 
-// ---------------------------------------------------------
-// Wrappers embedding ResourceNode for type-assertions compatibility
-// ---------------------------------------------------------
-
-type TitaniumNode struct{ ResourceNode }
-
-func (n *TitaniumNode) GetBaseItem() item.Item { return &item.Titanium{} }
-
-func NewTitaniumNode(tx, ty int) *TitaniumNode {
-	return &TitaniumNode{ResourceNode{
+// NewNode creates a mineable resource node of the given type at tile (tx, ty).
+func NewNode(kind NodeType, tx, ty int) *ResourceNode {
+	return &ResourceNode{
 		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
-		Type:             NodeTitanium,
-	}}
+		Type:             kind,
+	}
 }
 
-type CopperNode struct{ ResourceNode }
-
-func (n *CopperNode) GetBaseItem() item.Item { return &item.Copper{} }
-
-func NewCopperNode(tx, ty int) *CopperNode {
-	return &CopperNode{ResourceNode{
-		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
-		Type:             NodeCopper,
-	}}
-}
-
-type QuartzNode struct{ ResourceNode }
-
-func (n *QuartzNode) GetBaseItem() item.Item { return &item.Quartz{} }
-
-func NewQuartzNode(tx, ty int) *QuartzNode {
-	return &QuartzNode{ResourceNode{
-		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
-		Type:             NodeQuartz,
-	}}
-}
-
-type AbyssalOreNode struct{ ResourceNode }
-
-func (n *AbyssalOreNode) GetBaseItem() item.Item { return &item.AbyssalOre{} }
-
-func NewAbyssalOreNode(tx, ty int) *AbyssalOreNode {
-	return &AbyssalOreNode{ResourceNode{
-		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
-		Type:             NodeAbyssalOre,
-	}}
-}
-
-type NickelNode struct{ ResourceNode }
-
-func (n *NickelNode) GetBaseItem() item.Item { return &item.Nickel{} }
-
-func NewNickelNode(tx, ty int) *NickelNode {
-	return &NickelNode{ResourceNode{
-		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
-		Type:             NodeNickel,
-	}}
-}
-
-type ScrapMetalNode struct{ ResourceNode }
-
-func (n *ScrapMetalNode) GetBaseItem() item.Item { return &item.ScrapMetal{} }
-
-func NewScrapMetalNode(tx, ty int) *ScrapMetalNode {
-	return &ScrapMetalNode{ResourceNode{
-		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
-		Type:             NodeScrapMetal,
-	}}
-}
-
-type ElectronicWasteNode struct{ ResourceNode }
-
-func (n *ElectronicWasteNode) GetBaseItem() item.Item { return &item.ElectronicWaste{} }
-
-func NewElectronicWasteNode(tx, ty int) *ElectronicWasteNode {
-	return &ElectronicWasteNode{ResourceNode{
-		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
-		Type:             NodeElectronicWaste,
-	}}
-}
-
-type BlueprintNode struct{ ResourceNode }
-
-func (n *BlueprintNode) GetBaseItem() item.Item { return nil }
-
-func NewBlueprintNode(tx, ty int, recipeResultName string) *BlueprintNode {
-	return &BlueprintNode{ResourceNode{
+// NewBlueprintNode creates a blueprint unlock node for the given recipe result name.
+func NewBlueprintNode(tx, ty int, recipeResultName string) *ResourceNode {
+	return &ResourceNode{
 		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
 		Type:             NodeBlueprint,
 		RecipeResultName: recipeResultName,
-	}}
+	}
 }

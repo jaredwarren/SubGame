@@ -432,7 +432,8 @@ func (inv *Inventory) TotalItemCount() int {
 
 // SavedItemStack represents serialized stack data for JSON save/load.
 type SavedItemStack struct {
-	ItemName string          `json:"itemName"`
+	ItemID   ItemID          `json:"itemId,omitempty"`
+	ItemName string          `json:"itemName,omitempty"` // legacy v1; kept for migration/debug
 	Quantity int             `json:"quantity"`
 	Upgrades *SavedInventory `json:"upgrades,omitempty"`
 	Health   float64         `json:"health,omitempty"`
@@ -458,6 +459,7 @@ func (inv *Inventory) SerializeState() SavedInventory {
 	for i, slot := range inv.Slots {
 		if slot.Item != nil {
 			stack := SavedItemStack{
+				ItemID:   slot.Item.GetID(),
 				ItemName: slot.Item.GetName(),
 				Quantity: slot.Quantity,
 			}
@@ -490,17 +492,25 @@ func DeserializeInventory(saved SavedInventory) *Inventory {
 		if i >= len(inv.Slots) {
 			break
 		}
-		if slotData.ItemName != "" && slotData.Quantity > 0 {
-			it := NewItemByName(slotData.ItemName)
-			if it != nil {
-				if stateful, ok := it.(StatefulItem); ok && slotData.HasState {
-					stateful.SetItemState(slotData.Upgrades, slotData.Health, slotData.Battery, true)
-				}
-				inv.Slots[i] = ItemStack{
-					Item:     it,
-					Quantity: slotData.Quantity,
-				}
-			}
+		if slotData.Quantity <= 0 {
+			continue
+		}
+		var it Item
+		if slotData.ItemID != "" {
+			it = NewItemByID(slotData.ItemID)
+		}
+		if it == nil && slotData.ItemName != "" {
+			it = NewItemByName(slotData.ItemName)
+		}
+		if it == nil {
+			continue
+		}
+		if stateful, ok := it.(StatefulItem); ok && slotData.HasState {
+			stateful.SetItemState(slotData.Upgrades, slotData.Health, slotData.Battery, true)
+		}
+		inv.Slots[i] = ItemStack{
+			Item:     it,
+			Quantity: slotData.Quantity,
 		}
 	}
 	return inv

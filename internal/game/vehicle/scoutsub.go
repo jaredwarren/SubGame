@@ -70,6 +70,7 @@ func (sub *ScoutSub) GetCargo() *item.Inventory    { return sub.Cargo }
 func (sub *ScoutSub) GetUpgrades() *item.Inventory { return sub.Upgrades }
 func (sub *ScoutSub) GetPerspective() string       { return "cave" }
 func (sub *ScoutSub) GetName() string              { return "Scout Sub" }
+func (sub *ScoutSub) GetID() VehicleID             { return VehicleScoutSub }
 func (sub *ScoutSub) GetBattery() float64          { return sub.Battery }
 func (sub *ScoutSub) GetMaxBattery() float64       { return sub.MaxBattery }
 func (sub *ScoutSub) GetFacing() float64           { return sub.Facing }
@@ -367,6 +368,7 @@ type ScoutSubKit struct {
 	HasState bool
 }
 
+func (k *ScoutSubKit) GetID() item.ItemID    { return item.IDScoutSubKit }
 func (k *ScoutSubKit) GetName() string       { return "Scout Sub Kit" }
 func (k *ScoutSubKit) GetMaxStack() int      { return 1 }
 func (k *ScoutSubKit) GetColor() color.Color { return color.RGBA{15, 160, 185, 255} }

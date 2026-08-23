@@ -23,6 +23,7 @@ type Vehicle interface {
 	GetUpgrades() *item.Inventory
 	GetPerspective() string // "overworld" or "cave"
 	GetName() string
+	GetID() VehicleID
 	GetBattery() float64
 	GetMaxBattery() float64
 	RechargeBattery(amount float64)
@@ -57,18 +58,29 @@ func solidAt(query func(tx, ty int) bool, pos, dims gvec.Vec2) bool {
 	return false
 }
 
-// NewVehicleByName creates a new Vehicle instance by its display or type name.
-func NewVehicleByName(name string, x, y float64) Vehicle {
-	switch name {
-	case "Skiff", "Skiff Boat", "Surface Skiff", "The Skiff":
-		return NewSkiff(x, y)
-	case "Scout Submarine", "ScoutSub", "Scout Sub":
-		return NewScoutSub(x, y)
-	case "Heavy Mech", "HeavyMech", "Heavy Mech Walker":
-		return NewHeavyMech(x, y)
+// NewVehicleByID creates a vehicle from its stable VehicleID.
+func NewVehicleByID(id VehicleID, x, y float64) (Vehicle, bool) {
+	switch id {
+	case VehicleSkiff:
+		return NewSkiff(x, y), true
+	case VehicleScoutSub:
+		return NewScoutSub(x, y), true
+	case VehicleHeavyMech:
+		return NewHeavyMech(x, y), true
 	default:
-		return NewSkiff(x, y)
+		return nil, false
 	}
+}
+
+// NewVehicleByName creates a new Vehicle instance by its display or type name.
+// Prefer NewVehicleByID for new code and save/load.
+func NewVehicleByName(name string, x, y float64) Vehicle {
+	if id, ok := VehicleIDFromName(name); ok {
+		if v, ok := NewVehicleByID(id, x, y); ok {
+			return v
+		}
+	}
+	return nil
 }
 
 func init() {

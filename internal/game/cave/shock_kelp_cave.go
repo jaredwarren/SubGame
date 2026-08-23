@@ -258,17 +258,15 @@ func (c *ShockKelpCave) GenerateResources(seed int64) []resource.Resource {
 				attachDir := possibleDirs[r.Intn(len(possibleDirs))]
 				roll := r.Float64()
 
-				var node resource.Resource
+				var kind resource.NodeType
 				if roll < 0.45 {
-					// 45% Copper Node
-					node = resource.NewCopperNode(tx, ty)
+					kind = resource.NodeCopper
 				} else if roll < 0.85 {
-					// 40% Quartz Node
-					node = resource.NewQuartzNode(tx, ty)
+					kind = resource.NodeQuartz
 				} else {
-					// 15% Titanium Node
-					node = resource.NewTitaniumNode(tx, ty)
+					kind = resource.NodeTitanium
 				}
+				node := resource.NewNode(kind, tx, ty)
 
 				node.SetAttachDir(attachDir)
 				nodes = append(nodes, node)

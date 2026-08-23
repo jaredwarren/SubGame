@@ -36,24 +36,19 @@ func selectWeightedResource(entries []ResourceSpawnEntry, roll float64) NodeType
 
 // ResourceTier defines configuration for resource spawning at a specific depth range.
 type ResourceTier struct {
-	MaxDepth         int     // The maximum depth (exclusive threshold, e.g. ty < MaxDepth)
-	SpawnChance      float64 // The density/chance of spawning a resource on an exposed rock tile
-	TitaniumWeight   float64 // Relative weight for Titanium spawning
-	CopperWeight     float64 // Relative weight for Copper spawning
-	QuartzWeight     float64 // Relative weight for Quartz spawning
-	NickelWeight     float64 // Relative weight for Nickel spawning
-	AbyssalOreWeight float64 // Relative weight for Abyssal Ore spawning
+	MaxDepth    int                  // The maximum depth (exclusive threshold, e.g. ty < MaxDepth)
+	SpawnChance float64              // The density/chance of spawning a resource on an exposed rock tile
+	Entries     []ResourceSpawnEntry // Weighted ore types for this depth band
 }
 
 // ResourceGenConfig holds the configuration parameters for resource generation.
 type ResourceGenConfig struct {
-	FallbackSpawnChance float64        // Fallback spawn chance if no tier matches
-	BaseHitsToMine      int            // Base health/hits to mine a node
-	HitsDepthScale      int            // Scaling factor for health: depth / HitsDepthScale
-	Tiers               []ResourceTier // List of depth-based configuration tiers (ordered by MaxDepth ascending)
-	WreckageSpawnChance float64        // Spawn chance for wreckage resources on wreckage floor tiles
-	ScrapMetalWeight    float64        // Relative weight for Scrap Metal in wreckage
-	ElecWasteWeight     float64        // Relative weight for Electronic Waste in wreckage
+	FallbackSpawnChance float64              // Fallback spawn chance if no tier matches
+	BaseHitsToMine      int                  // Base health/hits to mine a node
+	HitsDepthScale      int                  // Scaling factor for health: depth / HitsDepthScale
+	Tiers               []ResourceTier       // List of depth-based configuration tiers (ordered by MaxDepth ascending)
+	WreckageSpawnChance float64              // Spawn chance for wreckage resources on wreckage floor tiles
+	WreckageEntries     []ResourceSpawnEntry // Weighted scrap / e-waste for wreckage floors
 }
 
 // DefaultGenConfig represents the default generation settings matching the original game balance.
@@ -63,45 +58,51 @@ var DefaultGenConfig = ResourceGenConfig{
 	HitsDepthScale:      30,
 	Tiers: []ResourceTier{
 		{
-			MaxDepth:         30,
-			SpawnChance:      0.04,
-			TitaniumWeight:   70.0,
-			CopperWeight:     30.0,
-			QuartzWeight:     0.0,
-			NickelWeight:     0.0,
-			AbyssalOreWeight: 0.0,
+			MaxDepth:    30,
+			SpawnChance: 0.04,
+			Entries: []ResourceSpawnEntry{
+				{Type: NodeTitanium, Weight: 70.0},
+				{Type: NodeCopper, Weight: 30.0},
+			},
 		},
 		{
-			MaxDepth:         60,
-			SpawnChance:      0.055,
-			TitaniumWeight:   30.0,
-			CopperWeight:     35.0,
-			QuartzWeight:     20.0,
-			NickelWeight:     15.0,
-			AbyssalOreWeight: 0.0,
+			MaxDepth:    60,
+			SpawnChance: 0.055,
+			Entries: []ResourceSpawnEntry{
+				{Type: NodeTitanium, Weight: 30.0},
+				{Type: NodeCopper, Weight: 35.0},
+				{Type: NodeQuartz, Weight: 20.0},
+				{Type: NodeNickel, Weight: 15.0},
+			},
 		},
 		{
-			MaxDepth:         90,
-			SpawnChance:      0.07,
-			TitaniumWeight:   25.0,
-			CopperWeight:     25.0,
-			QuartzWeight:     25.0,
-			NickelWeight:     15.0,
-			AbyssalOreWeight: 10.0,
+			MaxDepth:    90,
+			SpawnChance: 0.07,
+			Entries: []ResourceSpawnEntry{
+				{Type: NodeTitanium, Weight: 25.0},
+				{Type: NodeCopper, Weight: 25.0},
+				{Type: NodeQuartz, Weight: 25.0},
+				{Type: NodeNickel, Weight: 15.0},
+				{Type: NodeAbyssalOre, Weight: 10.0},
+			},
 		},
 		{
-			MaxDepth:         999999, // Catch-all for super deep zones
-			SpawnChance:      0.085,
-			TitaniumWeight:   15.0,
-			CopperWeight:     15.0,
-			QuartzWeight:     30.0,
-			NickelWeight:     15.0,
-			AbyssalOreWeight: 25.0,
+			MaxDepth:    999999, // Catch-all for super deep zones
+			SpawnChance: 0.085,
+			Entries: []ResourceSpawnEntry{
+				{Type: NodeTitanium, Weight: 15.0},
+				{Type: NodeCopper, Weight: 15.0},
+				{Type: NodeQuartz, Weight: 30.0},
+				{Type: NodeNickel, Weight: 15.0},
+				{Type: NodeAbyssalOre, Weight: 25.0},
+			},
 		},
 	},
 	WreckageSpawnChance: 0.08,
-	ScrapMetalWeight:    65.0,
-	ElecWasteWeight:     35.0,
+	WreckageEntries: []ResourceSpawnEntry{
+		{Type: NodeScrapMetal, Weight: 65.0},
+		{Type: NodeElectronicWaste, Weight: 35.0},
+	},
 }
 
 // GenConfig is the active resource generation configuration.
@@ -138,20 +139,8 @@ func GenerateWreckageResources(grid [][]bool, seed int64, shipIndex int) []Resou
 					}
 
 					if r.Float64() < GenConfig.WreckageSpawnChance {
-						var node Resource
-						totalW := GenConfig.ScrapMetalWeight + GenConfig.ElecWasteWeight
-						var isScrap bool
-						if totalW > 0 {
-							isScrap = r.Float64()*totalW < GenConfig.ScrapMetalWeight
-						} else {
-							isScrap = true
-						}
-
-						if isScrap {
-							node = NewScrapMetalNode(tx, ty)
-						} else {
-							node = NewElectronicWasteNode(tx, ty)
-						}
+						kind := selectWeightedResource(GenConfig.WreckageEntries, r.Float64())
+						node := NewNode(kind, tx, ty)
 						// Scale hits with depth
 						node.SetHitsToMine(GenConfig.BaseHitsToMine + (ty / GenConfig.HitsDepthScale))
 						nodes = append(nodes, node)
@@ -304,42 +293,14 @@ func GenerateResourceNodesWithBiome(grid [][]bool, seed int64, mineralSpawns []R
 
 					if len(mineralSpawns) > 0 {
 						kind = selectWeightedResource(mineralSpawns, r.Float64())
-					} else if activeTier != nil {
-						totalWeight := activeTier.TitaniumWeight + activeTier.CopperWeight + activeTier.QuartzWeight + activeTier.NickelWeight + activeTier.AbyssalOreWeight
-						if totalWeight > 0 {
-							roll := r.Float64() * totalWeight
-							if roll < activeTier.TitaniumWeight {
-								kind = NodeTitanium
-							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight {
-								kind = NodeCopper
-							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight+activeTier.QuartzWeight {
-								kind = NodeQuartz
-							} else if roll < activeTier.TitaniumWeight+activeTier.CopperWeight+activeTier.QuartzWeight+activeTier.NickelWeight {
-								kind = NodeNickel
-							} else {
-								kind = NodeAbyssalOre
-							}
-						}
+					} else if activeTier != nil && len(activeTier.Entries) > 0 {
+						kind = selectWeightedResource(activeTier.Entries, r.Float64())
 					}
 
 					if spawnRoll < spawnChance {
 						// Pick one of the adjacent solid wall directions to attach to
 						attachDir := possibleDirs[r.Intn(len(possibleDirs))]
-						var node Resource
-						switch kind {
-						case NodeTitanium:
-							node = NewTitaniumNode(tx, ty)
-						case NodeCopper:
-							node = NewCopperNode(tx, ty)
-						case NodeQuartz:
-							node = NewQuartzNode(tx, ty)
-						case NodeNickel:
-							node = NewNickelNode(tx, ty)
-						case NodeAbyssalOre:
-							node = NewAbyssalOreNode(tx, ty)
-						default:
-							node = NewTitaniumNode(tx, ty)
-						}
+						node := NewNode(kind, tx, ty)
 						node.SetAttachDir(attachDir)
 						// Scale node hits (health) with depth: base + depth / scale
 						node.SetHitsToMine(GenConfig.BaseHitsToMine + (ty / GenConfig.HitsDepthScale))

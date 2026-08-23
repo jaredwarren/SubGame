@@ -3,6 +3,7 @@ package item
 import (
 	"image/color"
 	"reflect"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -11,6 +12,7 @@ import (
 
 // Item defines the interface that all inventory-compatible items must implement.
 type Item interface {
+	GetID() ItemID
 	GetName() string
 	GetMaxStack() int
 	DrawIcon(screen *ebiten.Image, cx, cy, size float32)
@@ -99,10 +101,11 @@ type UpgradeItem interface {
 
 // NewItemFromType instantiates a new concrete Item struct using reflect.New.
 var nameToType = make(map[string]reflect.Type)
+var idToType = make(map[ItemID]reflect.Type)
 
 // externalItemFactories lets other packages (e.g. vehicle kits) register
 // deserialization factories without importing those packages from item.
-var externalItemFactories = make(map[string]func() Item)
+var externalItemFactories = make(map[ItemID]func() Item)
 
 func initItemRegistryLookup() {
 	for t, meta := range itemRegistry {
@@ -112,8 +115,22 @@ func initItemRegistryLookup() {
 		}
 		if meta != nil && meta.Name != "" {
 			nameToType[meta.Name] = structType
+			if meta.ID == "" {
+				if id, ok := ItemIDFromName(meta.Name); ok {
+					meta.ID = id
+				}
+			}
+			if meta.ID != "" {
+				idToType[meta.ID] = structType
+			}
 		}
 		nameToType[structType.Name()] = structType
+		if meta != nil && meta.ID == "" {
+			if id, ok := ItemIDFromName(structType.Name()); ok {
+				meta.ID = id
+				idToType[meta.ID] = structType
+			}
+		}
 	}
 }
 
@@ -123,7 +140,12 @@ func RegisterItemByName(name string, factory func() Item) {
 	if name == "" || factory == nil {
 		return
 	}
-	externalItemFactories[name] = factory
+	id, ok := ItemIDFromName(name)
+	if !ok {
+		id = ItemID(strings.ToLower(strings.ReplaceAll(name, " ", "_")))
+	}
+	externalItemFactories[id] = factory
+	displayNameToID[name] = id
 }
 
 func NewItemFromType(t reflect.Type) Item {
@@ -136,16 +158,35 @@ func NewItemFromType(t reflect.Type) Item {
 	return reflect.New(t).Interface().(Item)
 }
 
+// NewItemByID instantiates an item from its stable ItemID.
+func NewItemByID(id ItemID) Item {
+	if id == "" {
+		return nil
+	}
+	if len(idToType) == 0 {
+		initItemRegistryLookup()
+	}
+	if t, ok := idToType[id]; ok {
+		return NewItemFromType(t)
+	}
+	if factory, ok := externalItemFactories[id]; ok {
+		return factory()
+	}
+	return nil
+}
+
 // NewItemByName instantiates a new concrete Item using the item's display name or type name.
 func NewItemByName(name string) Item {
+	if id, ok := ItemIDFromName(name); ok {
+		if it := NewItemByID(id); it != nil {
+			return it
+		}
+	}
 	if len(nameToType) == 0 {
 		initItemRegistryLookup()
 	}
 	if t, ok := nameToType[name]; ok {
 		return NewItemFromType(t)
-	}
-	if factory, ok := externalItemFactories[name]; ok {
-		return factory()
 	}
 	return nil
 }
@@ -184,6 +225,7 @@ type ItemStack struct {
 // -----------------------------------------------------------------
 
 type ItemMetadata struct {
+	ID             ItemID
 	Name           string
 	MaxStack       int
 	Color          color.Color
@@ -687,6 +729,10 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 // -----------------------------------------------------------------
 
 type BaseItem[T any] struct{}
+
+func (b BaseItem[T]) GetID() ItemID {
+	return getMeta(reflect.TypeFor[T]()).ID
+}
 
 func (b BaseItem[T]) GetName() string {
 	return getMeta(reflect.TypeFor[T]()).Name

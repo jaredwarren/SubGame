@@ -570,7 +570,7 @@ func TestHeavyMechDrill_CargoFull(t *testing.T) {
 	}
 
 	// Create a resource node at (5, 5) tile coordinates
-	node := resource.NewCopperNode(5, 5)
+	node := resource.NewNode(resource.NodeCopper, 5, 5)
 	node.SetHitsToMine(1)
 	g.caveState.Nodes = []resource.Resource{node}
 

@@ -76,6 +76,7 @@ func (s *Skiff) GetCargo() *item.Inventory    { return s.Cargo }
 func (s *Skiff) GetUpgrades() *item.Inventory { return nil }
 func (s *Skiff) GetPerspective() string       { return "overworld" }
 func (s *Skiff) GetName() string              { return "The Skiff" }
+func (s *Skiff) GetID() VehicleID             { return VehicleSkiff }
 func (s *Skiff) GetBattery() float64          { return s.Battery }
 func (s *Skiff) GetMaxBattery() float64       { return s.MaxBattery }
 func (s *Skiff) GetFacing() float64           { return s.Facing }
@@ -98,6 +99,7 @@ type SkiffKit struct {
 	HasState bool
 }
 
+func (k *SkiffKit) GetID() item.ItemID    { return item.IDSkiffKit }
 func (k *SkiffKit) GetName() string       { return "Skiff Kit" }
 func (k *SkiffKit) GetMaxStack() int      { return 1 }
 func (k *SkiffKit) GetColor() color.Color { return color.RGBA{235, 100, 30, 255} }

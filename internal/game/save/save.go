@@ -60,7 +60,8 @@ type SavedBaseStation struct {
 
 // SavedVehicle holds serialized state for a single vehicle.
 type SavedVehicle struct {
-	Type       string              `json:"type"` // "Skiff", "ScoutSub", "HeavyMech"
+	ID         string              `json:"id,omitempty"`   // stable VehicleID (v2+)
+	Type       string              `json:"type,omitempty"` // legacy display name (v1)
 	PosX       float64             `json:"posX"`
 	PosY       float64             `json:"posY"`
 	Facing     float64             `json:"facing"`
@@ -202,7 +203,7 @@ func DeleteSlot(slot int) error {
 // SaveToFile serializes SaveData into a JSON file atomically.
 func SaveToFile(filePath string, data *SaveData) error {
 	if data.Version == 0 {
-		data.Version = 1
+		data.Version = CurrentSaveVersion
 	}
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().Unix()
@@ -226,6 +227,9 @@ func LoadFromFile(filePath string) (*SaveData, error) {
 	}
 	var data SaveData
 	if err := json.Unmarshal(bytes, &data); err != nil {
+		return nil, err
+	}
+	if err := MigrateSaveData(&data); err != nil {
 		return nil, err
 	}
 	return &data, nil

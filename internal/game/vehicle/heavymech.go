@@ -62,6 +62,7 @@ func (m *HeavyMech) GetCargo() *item.Inventory    { return m.Cargo }
 func (m *HeavyMech) GetUpgrades() *item.Inventory { return m.Upgrades }
 func (m *HeavyMech) GetPerspective() string       { return "cave" }
 func (m *HeavyMech) GetName() string              { return "Heavy Mech" }
+func (m *HeavyMech) GetID() VehicleID             { return VehicleHeavyMech }
 func (m *HeavyMech) GetBattery() float64          { return m.Battery }
 func (m *HeavyMech) GetMaxBattery() float64       { return m.MaxBattery }
 func (m *HeavyMech) GetFacing() float64           { return m.Facing }
@@ -414,6 +415,7 @@ type HeavyMechKit struct {
 	HasState bool
 }
 
+func (k *HeavyMechKit) GetID() item.ItemID    { return item.IDHeavyMechKit }
 func (k *HeavyMechKit) GetName() string       { return "Heavy Mech Kit" }
 func (k *HeavyMechKit) GetMaxStack() int      { return 1 }
 func (k *HeavyMechKit) GetColor() color.Color { return color.RGBA{218, 98, 16, 255} }

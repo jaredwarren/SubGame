@@ -79,6 +79,9 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	if loaded.WorldSeed != original.WorldSeed {
 		t.Errorf("Expected seed %d, got %d", original.WorldSeed, loaded.WorldSeed)
 	}
+	if loaded.Version != CurrentSaveVersion {
+		t.Errorf("Expected version %d after save/load, got %d", CurrentSaveVersion, loaded.Version)
+	}
 	if loaded.Player.PosX != original.Player.PosX || loaded.Player.PosY != original.Player.PosY {
 		t.Errorf("Player pos mismatch")
 	}
@@ -194,5 +197,101 @@ func TestLegacySaveMigration(t *testing.T) {
 	}
 	if _, err := os.Stat(GetSlotPath(1)); err != nil {
 		t.Error("expected save_1.json after migration")
+	}
+}
+
+func TestMigrateV1toV2FillsItemAndVehicleIDs(t *testing.T) {
+	inv := item.NewInventory(4)
+	inv.AddItem(&item.Titanium{}, 2)
+	raw := inv.SerializeState()
+	// Simulate a v1 save: clear ItemIDs, keep display names only.
+	for i := range raw.Slots {
+		raw.Slots[i].ItemID = ""
+	}
+
+	data := &SaveData{
+		Version: 1,
+		Player: SavedPlayer{
+			Inventory: raw,
+		},
+		Vehicles: []SavedVehicle{
+			{Type: "Skiff", PosX: 1, PosY: 2},
+			{Type: "Scout Sub", PosX: 3, PosY: 4},
+		},
+	}
+
+	if err := MigrateSaveData(data); err != nil {
+		t.Fatalf("MigrateSaveData: %v", err)
+	}
+	if data.Version != CurrentSaveVersion {
+		t.Fatalf("expected version %d, got %d", CurrentSaveVersion, data.Version)
+	}
+
+	foundTitanium := false
+	for _, slot := range data.Player.Inventory.Slots {
+		if slot.ItemName == "Titanium" {
+			foundTitanium = true
+			if slot.ItemID != item.IDTitanium {
+				t.Errorf("expected titanium id %q, got %q", item.IDTitanium, slot.ItemID)
+			}
+		}
+	}
+	if !foundTitanium {
+		t.Fatal("expected Titanium slot after migration")
+	}
+
+	if data.Vehicles[0].ID != "skiff" {
+		t.Errorf("expected skiff id, got %q", data.Vehicles[0].ID)
+	}
+	if data.Vehicles[1].ID != "scout_sub" {
+		t.Errorf("expected scout_sub id, got %q", data.Vehicles[1].ID)
+	}
+}
+
+func TestSaveRoundTripWritesItemIDs(t *testing.T) {
+	tempDir := t.TempDir()
+	savePath := filepath.Join(tempDir, "v2_save.json")
+
+	inv := item.NewInventory(4)
+	inv.AddItem(&item.Quartz{}, 7)
+
+	original := &SaveData{
+		Version:   CurrentSaveVersion,
+		WorldSeed: 11,
+		Player: SavedPlayer{
+			Inventory: inv.SerializeState(),
+		},
+		Vehicles: []SavedVehicle{
+			{ID: "heavy_mech", Type: "Heavy Mech", PosX: 10, PosY: 20},
+		},
+	}
+
+	if err := SaveToFile(savePath, original); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadFromFile(savePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Version != CurrentSaveVersion {
+		t.Errorf("expected version %d, got %d", CurrentSaveVersion, loaded.Version)
+	}
+
+	restored := item.DeserializeInventory(loaded.Player.Inventory)
+	if !item.HasItem[*item.Quartz](restored, 7) {
+		t.Error("expected 7 Quartz restored via itemId")
+	}
+	var sawID bool
+	for _, slot := range loaded.Player.Inventory.Slots {
+		if slot.ItemID == item.IDQuartz {
+			sawID = true
+			break
+		}
+	}
+	if !sawID {
+		t.Error("expected quartz itemId in saved inventory")
+	}
+	if loaded.Vehicles[0].ID != "heavy_mech" {
+		t.Errorf("expected heavy_mech id, got %q", loaded.Vehicles[0].ID)
 	}
 }

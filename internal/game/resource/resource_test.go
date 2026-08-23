@@ -15,6 +15,9 @@ func TestDefaultGenConfig(t *testing.T) {
 	if len(GenConfig.Tiers) != 4 {
 		t.Errorf("expected 4 tiers, got %d", len(GenConfig.Tiers))
 	}
+	if len(GenConfig.WreckageEntries) == 0 {
+		t.Error("expected wreckage spawn weight table to be non-empty")
+	}
 }
 
 func TestGenerateResourceNodesWithConfig(t *testing.T) {
@@ -43,13 +46,11 @@ func TestGenerateResourceNodesWithConfig(t *testing.T) {
 		HitsDepthScale:      10,
 		Tiers: []ResourceTier{
 			{
-				MaxDepth:         100,
-				SpawnChance:      1.0,
-				TitaniumWeight:   1.0,
-				CopperWeight:     0.0,
-				QuartzWeight:     0.0,
-				NickelWeight:     0.0,
-				AbyssalOreWeight: 0.0,
+				MaxDepth:    100,
+				SpawnChance: 1.0,
+				Entries: []ResourceSpawnEntry{
+					{Type: NodeTitanium, Weight: 1.0},
+				},
 			},
 		},
 	}
@@ -96,10 +97,10 @@ func TestBlueprintNodeSpawning(t *testing.T) {
 
 	// Test Ship 0 (Tier 1 blueprints only, upper decks only)
 	nodesShip0 := GenerateWreckageResources(grid, 42, 0)
-	var bpNodesShip0 []*BlueprintNode
+	var bpNodesShip0 []*ResourceNode
 	for _, n := range nodesShip0 {
-		if bp, ok := n.(*BlueprintNode); ok {
-			bpNodesShip0 = append(bpNodesShip0, bp)
+		if rn, ok := n.(*ResourceNode); ok && rn.Type == NodeBlueprint {
+			bpNodesShip0 = append(bpNodesShip0, rn)
 		}
 	}
 
@@ -126,10 +127,10 @@ func TestBlueprintNodeSpawning(t *testing.T) {
 
 	// Test Ship 2 (Tier 2 blueprints only, lower decks only)
 	nodesShip2 := GenerateWreckageResources(grid, 42, 2)
-	var bpNodesShip2 []*BlueprintNode
+	var bpNodesShip2 []*ResourceNode
 	for _, n := range nodesShip2 {
-		if bp, ok := n.(*BlueprintNode); ok {
-			bpNodesShip2 = append(bpNodesShip2, bp)
+		if rn, ok := n.(*ResourceNode); ok && rn.Type == NodeBlueprint {
+			bpNodesShip2 = append(bpNodesShip2, rn)
 		}
 	}
 
