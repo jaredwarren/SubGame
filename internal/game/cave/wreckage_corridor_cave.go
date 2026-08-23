@@ -201,8 +201,8 @@ func (c *WreckageCorridorCave) GenerateResources(seed int64) []resource.Resource
 	return resource.GenerateWreckageResources(c.Grid, seed, c.ShipIndex)
 }
 
-func (c *WreckageCorridorCave) GetAmbientColor(lightMult float64) []float32 {
-	return []float32{0.01, 0.01, 0.03, 0.97}
+func (c *WreckageCorridorCave) GetAmbientColor(lightMult float64) [4]float32 {
+	return [4]float32{0.01, 0.01, 0.03, 0.97}
 }
 
 func GenerateWreckageGrid(r *rand.Rand) [][]bool {

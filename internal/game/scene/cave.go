@@ -342,15 +342,15 @@ func getSkyColor(timeOfDay float64) color.RGBA {
 	}
 }
 
-func (c *CaveScene) getAmbientColor(timeOfDay float64) []float32 {
+func (c *CaveScene) getAmbientColor(timeOfDay float64) [4]float32 {
 	if config.LightCaveForDebug {
-		return []float32{0.02, 0.02, 0.03, 0.15}
+		return [4]float32{0.02, 0.02, 0.03, 0.15}
 	}
 	if c.ActiveCave != nil {
 		mult := GetOverworldLightMultiplier(timeOfDay)
 		return c.ActiveCave.GetAmbientColor(mult)
 	}
-	return []float32{0.01, 0.01, 0.03, 0.97}
+	return [4]float32{0.01, 0.01, 0.03, 0.97}
 }
 
 func (c *CaveScene) IsScrollActive() bool {

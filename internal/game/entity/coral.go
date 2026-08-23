@@ -20,6 +20,13 @@ const (
 	CoralBiomeThermo   = 5
 )
 
+// whitePixel is reused by DrawTriangles fills — avoids per-coral NewImage each frame.
+var whitePixel = ebiten.NewImage(1, 1)
+
+func init() {
+	whitePixel.Fill(color.White)
+}
+
 // Coral is a decorative, surface-aligned marine growth that spawns in caves.
 type Coral struct {
 	BaseEntity
@@ -249,9 +256,7 @@ func (c *Coral) drawWreckage(screen *ebiten.Image, bx, by float32) {
 			vertices[i].ColorA = 1.0
 		}
 		// Render filled polygon
-		img := ebiten.NewImage(1, 1)
-		img.Fill(color.White)
-		screen.DrawTriangles(vertices, indices, img, op)
+		screen.DrawTriangles(vertices, indices, whitePixel, op)
 
 		// Draw opening/crater at the top
 		cx, cy := c.project(0, 10, bx, by)
@@ -313,9 +318,7 @@ func (c *Coral) drawShock(screen *ebiten.Image, bx, by float32) {
 			vertices[i].ColorB = float32(purpClr.B) / 255
 			vertices[i].ColorA = 0.9
 		}
-		img := ebiten.NewImage(1, 1)
-		img.Fill(color.White)
-		screen.DrawTriangles(vertices, indices, img, op)
+		screen.DrawTriangles(vertices, indices, whitePixel, op)
 
 		// Glowing core line
 		cx1, cy1 := c.project(0, 3, bx, by)
@@ -384,9 +387,7 @@ func (c *Coral) drawThermo(screen *ebiten.Image, bx, by float32) {
 			vertices[i].ColorB = float32(blackClr.B) / 255
 			vertices[i].ColorA = 1.0
 		}
-		img := ebiten.NewImage(1, 1)
-		img.Fill(color.White)
-		screen.DrawTriangles(vertices, indices, img, op)
+		screen.DrawTriangles(vertices, indices, whitePixel, op)
 
 		// Stroke boundary to make it distinct
 		vector.StrokeLine(screen, p1a_x, p1a_y, p1b_x, p1b_y, 0.8, rimClr, false)
@@ -409,7 +410,7 @@ func (c *Coral) drawThermo(screen *ebiten.Image, bx, by float32) {
 			vertices2[i].ColorB = float32(blackClr.B) / 255
 			vertices2[i].ColorA = 1.0
 		}
-		screen.DrawTriangles(vertices2, indices2, img, op)
+		screen.DrawTriangles(vertices2, indices2, whitePixel, op)
 		vector.StrokeLine(screen, p2a_x, p2a_y, p2b_x, p2b_y, 0.8, rimClr, false)
 		vector.StrokeLine(screen, p2b_x, p2b_y, p2c_x, p2c_y, 0.8, rimClr, false)
 

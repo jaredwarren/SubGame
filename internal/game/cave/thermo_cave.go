@@ -34,25 +34,25 @@ func (c *ThermoCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth
 	// Parallax scrolling floating sparks/embers rising upwards
 	const numParticles = 40
 	for i := 0; i < numParticles; i++ {
-		rng := rand.New(rand.NewSource(int64(i * 9876)))
-		px := rng.Float64() * float64(config.ScreenWidth)
-		pyInitial := rng.Float64() * float64(config.ScreenHeight * 2)
+		seed := uint64(i * 9876)
+		px := fracHash(seed) * float64(config.ScreenWidth)
+		pyInitial := fracHash(seed+1) * float64(config.ScreenHeight*2)
 
 		// Parallax scroll factor: 0.35x camera speed, plus steady upward float
-		riseOffset := float64(c.ticks) * (0.3 + rng.Float64()*0.4)
+		riseOffset := float64(c.ticks) * (0.3 + fracHash(seed+2)*0.4)
 		py := math.Mod(pyInitial-camY*0.35-riseOffset, float64(config.ScreenHeight*2))
 		if py < 0 {
 			py += float64(config.ScreenHeight * 2)
 		}
 
 		if py < float64(config.ScreenHeight) {
-			size := 1.2 + rng.Float64()*1.8
+			size := 1.2 + fracHash(seed+3)*1.8
 			var pClr color.RGBA
-			roll := rng.Float64()
+			roll := fracHash(seed + 4)
 			if roll < 0.50 {
-				pClr = color.RGBA{255, 95, 10, 170}  // Hot Orange
+				pClr = color.RGBA{255, 95, 10, 170} // Hot Orange
 			} else if roll < 0.85 {
-				pClr = color.RGBA{225, 25, 5, 170}   // Glowing Red
+				pClr = color.RGBA{225, 25, 5, 170} // Glowing Red
 			} else {
 				pClr = color.RGBA{255, 210, 30, 190} // Bright Yellow Spark
 			}
@@ -237,8 +237,8 @@ func (c *ThermoCave) GenerateResources(seed int64) []resource.Resource {
 	return resource.GenerateResourceNodes(c.Grid, seed)
 }
 
-func (c *ThermoCave) GetAmbientColor(lightMult float64) []float32 {
-	return []float32{0.02, 0.01, 0.01, 0.95}
+func (c *ThermoCave) GetAmbientColor(lightMult float64) [4]float32 {
+	return [4]float32{0.02, 0.01, 0.01, 0.95}
 }
 
 // GenerateThermoCaveGrid generates a shallow 60x60 grid with magma chambers and narrow crevices.

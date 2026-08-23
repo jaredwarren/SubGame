@@ -229,8 +229,8 @@ func (c *OrganicTrenchCave) GenerateResources(seed int64) []resource.Resource {
 	return resource.GenerateResourceNodes(c.Grid, seed)
 }
 
-func (c *OrganicTrenchCave) GetAmbientColor(lightMult float64) []float32 {
-	return []float32{0.01, 0.01, 0.03, 0.97}
+func (c *OrganicTrenchCave) GetAmbientColor(lightMult float64) [4]float32 {
+	return [4]float32{0.01, 0.01, 0.03, 0.97}
 }
 
 func GenerateOrganicTrenchGrid(r *rand.Rand) [][]bool {

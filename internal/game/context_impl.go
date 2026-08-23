@@ -208,12 +208,16 @@ func (g *Game) SetCaveEntities(key string, entities []entity.CaveEntity) {
 // --- Entity runtime ---
 
 func (g *Game) NewEntityRuntime() entity.Runtime {
-	return &entityRuntimeAdapter{
-		playerAdapter:  playerAdapter{g: g},
-		vehicleAdapter: vehicleAdapter{g: g},
-		sonarAdapter:   sonarAdapter{g: g},
-		worldAdapter:   worldAdapter{g: g},
+	if g.entityRT == nil {
+		g.entityRT = &entityRuntimeAdapter{
+			playerAdapter:  playerAdapter{g: g},
+			vehicleAdapter: vehicleAdapter{g: g},
+			sonarAdapter:   sonarAdapter{g: g},
+			worldAdapter:   worldAdapter{g: g},
+		}
 	}
+	g.entityRT.cmds = g.entityRT.cmds[:0]
+	return g.entityRT
 }
 
 func (g *Game) DrainEntityCommands(rt entity.Runtime) {

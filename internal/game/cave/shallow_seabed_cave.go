@@ -296,6 +296,18 @@ func hashCoords(tx, ty int) uint64 {
 	return u
 }
 
+// fracHash returns a deterministic float in [0, 1) from a seed — used for
+// background particles so DrawBackground does not allocate RNG objects.
+func fracHash(seed uint64) float64 {
+	u := seed
+	u ^= u >> 33
+	u *= 0xff51afd7ed558ccd
+	u ^= u >> 33
+	u *= 0xc4ceb9fe1a85ec53
+	u ^= u >> 33
+	return float64(u>>11) / float64(1<<53)
+}
+
 func (c *ShallowSeabedCave) GetCaveType() CaveType { return CaveOrganicShallow }
 func (c *ShallowSeabedCave) GetGrid() [][]bool     { return c.Grid }
 
@@ -584,15 +596,15 @@ func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
 }
 
 
-func (c *ShallowSeabedCave) GetAmbientColor(lightMult float64) []float32 {
+func (c *ShallowSeabedCave) GetAmbientColor(lightMult float64) [4]float32 {
 	alpha := float32(0.75 - (lightMult-0.2)/0.8*0.60)
 	if c.HasChasm {
 		if c.ChasmTarget == CaveOrganicTrench {
-			return []float32{0.02, 0.04, 0.08, alpha}
+			return [4]float32{0.02, 0.04, 0.08, alpha}
 		}
-		return []float32{0.03, 0.05, 0.09, alpha}
+		return [4]float32{0.03, 0.05, 0.09, alpha}
 	}
-	return []float32{0.04, 0.06, 0.12, alpha}
+	return [4]float32{0.04, 0.06, 0.12, alpha}
 }
 
 func GenerateShallowSeabedGrid(r *rand.Rand, distToLand float64, hasLeftWater, hasRightWater bool) [][]bool {

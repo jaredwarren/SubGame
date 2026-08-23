@@ -135,7 +135,7 @@ var (
 		},
 		MineralSpawns: []SpawnEntry[resource.NodeType]{
 			{Type: resource.NodeQuartz, Weight: 40},
-			{Type: resource.NodeAbyssalOre, Weight: 30},
+			{Type: resource.NodeNickel, Weight: 30},
 			{Type: resource.NodeCopper, Weight: 30},
 		},
 	}
@@ -162,8 +162,8 @@ var (
 		},
 		MineralSpawns: []SpawnEntry[resource.NodeType]{
 			{Type: resource.NodeNickel, Weight: 45},
-			{Type: resource.NodeAbyssalOre, Weight: 35},
-			{Type: resource.NodeTitanium, Weight: 20},
+			{Type: resource.NodeTitanium, Weight: 35},
+			{Type: resource.NodeCopper, Weight: 20},
 		},
 	}
 

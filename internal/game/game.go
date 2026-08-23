@@ -131,6 +131,10 @@ type Game struct {
 
 	// Save slot currently in use (1–3); 0 means unset.
 	activeSaveSlot int
+
+	// Reused runtime adapters — avoid per-frame heap allocation in Update.
+	entityRT  *entityRuntimeAdapter
+	vehicleRT *vehicleRuntimeAdapter
 }
 
 // NewGame creates a fully initialized Game ready to run.
@@ -177,6 +181,14 @@ func NewGame() *Game {
 		craftingRecipes:      scene.DefaultCraftingRecipes(),
 		explorationTracker:   tracker,
 	}
+
+	g.entityRT = &entityRuntimeAdapter{
+		playerAdapter:  playerAdapter{g: g},
+		vehicleAdapter: vehicleAdapter{g: g},
+		sonarAdapter:   sonarAdapter{g: g},
+		worldAdapter:   worldAdapter{g: g},
+	}
+	g.vehicleRT = newVehicleRuntimeAdapter(g)
 
 	g.titleState = NewTitleScene()
 	g.introState = NewIntroScene()

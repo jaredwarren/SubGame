@@ -31,9 +31,9 @@ func (c *ShockKelpCave) DrawBackground(screen *ebiten.Image, camY float64, maxDe
 	// Parallax scrolling electric cyan & purple floating particles
 	const numParticles = 40
 	for i := 0; i < numParticles; i++ {
-		rng := rand.New(rand.NewSource(int64(i * 1234)))
-		px := rng.Float64() * float64(config.ScreenWidth)
-		pyInitial := rng.Float64() * float64(config.ScreenHeight * 2)
+		seed := uint64(i * 1234)
+		px := fracHash(seed) * float64(config.ScreenWidth)
+		pyInitial := fracHash(seed+1) * float64(config.ScreenHeight*2)
 
 		// Parallax scroll factor: 0.35x camera speed
 		py := math.Mod(pyInitial-camY*0.35, float64(config.ScreenHeight*2))
@@ -42,9 +42,9 @@ func (c *ShockKelpCave) DrawBackground(screen *ebiten.Image, camY float64, maxDe
 		}
 
 		if py < float64(config.ScreenHeight) {
-			size := 1.0 + rng.Float64()*2.0
+			size := 1.0 + fracHash(seed+2)*2.0
 			var pClr color.RGBA
-			if rng.Float64() < 0.75 {
+			if fracHash(seed+3) < 0.75 {
 				pClr = color.RGBA{0, 220, 255, 160} // Electric Cyan
 			} else {
 				pClr = color.RGBA{160, 45, 230, 160} // Purple
@@ -314,8 +314,8 @@ func (c *ShockKelpCave) GenerateResources(seed int64) []resource.Resource {
 	return nodes
 }
 
-func (c *ShockKelpCave) GetAmbientColor(lightMult float64) []float32 {
-	return []float32{0.03, 0.02, 0.06, 0.68}
+func (c *ShockKelpCave) GetAmbientColor(lightMult float64) [4]float32 {
+	return [4]float32{0.03, 0.02, 0.06, 0.68}
 }
 
 // GenerateShockKelpCaveGrid generates a shallow, narrow maze-like 60x60 grid.

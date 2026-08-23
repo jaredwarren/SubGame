@@ -12,16 +12,16 @@ type vehicleInputAdapter struct {
 	input InputSource
 }
 
-func (a vehicleInputAdapter) Cursor() gvec.Vec2 {
+func (a *vehicleInputAdapter) Cursor() gvec.Vec2 {
 	cursor := a.input.Cursor()
 	return gvec.Vec2{X: cursor.X, Y: cursor.Y}
 }
 
-func (a vehicleInputAdapter) IsKeyJustPressed(k ebiten.Key) bool {
+func (a *vehicleInputAdapter) IsKeyJustPressed(k ebiten.Key) bool {
 	return a.input.IsKeyJustPressed(k)
 }
 
-func (a vehicleInputAdapter) IsKeyPressed(k ebiten.Key) bool {
+func (a *vehicleInputAdapter) IsKeyPressed(k ebiten.Key) bool {
 	return a.input.IsKeyPressed(k)
 }
 
@@ -29,8 +29,17 @@ func (a vehicleInputAdapter) IsKeyPressed(k ebiten.Key) bool {
 // and read directly from *Game. Mutations are submitted via Emit and buffered in
 // cmds; game.Update() drains the queue after all vehicles have ticked.
 type vehicleRuntimeAdapter struct {
-	g    *Game
-	cmds []gv.GameCommand
+	g        *Game
+	cmds     []gv.GameCommand
+	inputAdp vehicleInputAdapter
+	inputSrc gv.InputSource // stable interface pointing at inputAdp
+}
+
+func newVehicleRuntimeAdapter(g *Game) *vehicleRuntimeAdapter {
+	a := &vehicleRuntimeAdapter{g: g}
+	a.inputAdp.input = g.Input
+	a.inputSrc = &a.inputAdp
+	return a
 }
 
 // Emit queues a fire-and-forget command to be processed after all vehicles tick.
@@ -47,7 +56,8 @@ func (a *vehicleRuntimeAdapter) IsActiveVehicle(v gv.Vehicle) bool {
 }
 
 func (a *vehicleRuntimeAdapter) Input() gv.InputSource {
-	return vehicleInputAdapter{input: a.g.Input}
+	a.inputAdp.input = a.g.Input
+	return a.inputSrc
 }
 
 func (a *vehicleRuntimeAdapter) PlayerScreenCenter() gvec.Vec2 {

@@ -43,7 +43,11 @@ func (g *Game) Update() error {
 
 	g.checkVehicleDepth()
 
-	vrt := &vehicleRuntimeAdapter{g: g}
+	if g.vehicleRT == nil {
+		g.vehicleRT = newVehicleRuntimeAdapter(g)
+	}
+	vrt := g.vehicleRT
+	vrt.cmds = vrt.cmds[:0]
 	g.updateActiveVehicle(vrt)
 	g.checkVehicleEntry()
 
