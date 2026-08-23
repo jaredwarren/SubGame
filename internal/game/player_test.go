@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"os"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -12,6 +13,56 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
+
+// clickTitleEmptySlot selects the first empty slot in the title slot panel.
+func clickTitleEmptySlot(t *testing.T, g *Game, mockInput *MockInput) {
+	t.Helper()
+	slots := g.ListSaveSlots()
+	slotIndex := -1
+	for i, info := range slots {
+		if !info.Occupied {
+			slotIndex = i
+			break
+		}
+	}
+	if slotIndex < 0 {
+		t.Fatal("no empty save slot available for new game test")
+	}
+	const (
+		firstSlotY = 295.0
+		slotRowH   = 52.0
+		slotGap    = 12.0
+	)
+	rowY := firstSlotY + float64(slotIndex)*(slotRowH+slotGap) + slotRowH/2
+	mockInput.CursorPos = gvec.Vec2{X: 500, Y: rowY}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+}
+
+// confirmTitleEmptySlot picks the first empty slot and starts the intro sequence.
+func confirmTitleEmptySlot(t *testing.T, g *Game, mockInput *MockInput) {
+	t.Helper()
+	clickTitleEmptySlot(t, g, mockInput)
+	if err := g.Update(); err != nil {
+		t.Fatal(err)
+	}
+	mockInput.JustPressedMouse = make(map[ebiten.MouseButton]bool)
+	if g.currentState != StateIntro {
+		t.Fatalf("expected state to transition to StateIntro after slot pick, got %s", g.currentState)
+	}
+}
+
+func chdirTempDir(t *testing.T) {
+	t.Helper()
+	tempDir := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+}
 
 func TestPlayer_UpdateStats(t *testing.T) {
 	tests := []struct {
@@ -637,6 +688,8 @@ func TestPlayer_InventoryClickEquip(t *testing.T) {
 }
 
 func TestTitleScene_Transitions(t *testing.T) {
+	chdirTempDir(t)
+
 	// 1. Verify initially in StateTitle
 	g := NewGame()
 	g.Input = NewMockInput()
@@ -649,19 +702,22 @@ func TestTitleScene_Transitions(t *testing.T) {
 		t.Errorf("expected initial scene to be titleState, got %+v", g.currentScene)
 	}
 
-	// 2. Press Enter to transition to intro
+	// 2. With no saves, Enter starts immediately into Intro (slot 1)
 	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
 	err := g.Update()
 	if err != nil {
 		t.Fatal(err)
 	}
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
 
 	if g.currentState != StateIntro {
-		t.Errorf("expected state to transition to StateIntro on Enter, got %s", g.currentState)
+		t.Errorf("expected state to transition to StateIntro on Enter with no saves, got %s", g.currentState)
+	}
+	if g.ActiveSaveSlot() != 1 {
+		t.Errorf("expected active save slot 1, got %d", g.ActiveSaveSlot())
 	}
 
-	// 2.5. Press Enter inside Intro to go to Overworld
-	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	// Press Enter inside Intro to go to Overworld
 	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
 	err = g.Update()
 	if err != nil {
@@ -677,7 +733,7 @@ func TestTitleScene_Transitions(t *testing.T) {
 		t.Errorf("expected state to be StateTitle after resetting, got %s", g.currentState)
 	}
 
-	// 4. Click outside the "Dive" button -> should NOT transition
+	// 4. Click outside the Start button -> should NOT transition
 	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
 	mockInput.CursorPos = gvec.Vec2{X: 10, Y: 10}
 	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
@@ -689,20 +745,27 @@ func TestTitleScene_Transitions(t *testing.T) {
 		t.Errorf("expected state to remain StateTitle after clicking outside button, got %s", g.currentState)
 	}
 
-	// 5. Click inside the "Dive" button -> should transition to Intro
-	// Dive button is at X: 520, Y: 460, W: 240, H: 60
+	// 5. With a save present, Start opens the slot panel
+	g.SetActiveSaveSlot(1)
+	if err := g.SaveGame(); err != nil {
+		t.Fatal(err)
+	}
+	mockInput.JustPressedMouse = make(map[ebiten.MouseButton]bool)
 	mockInput.CursorPos = gvec.Vec2{X: 640, Y: 490}
 	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
 	err = g.Update()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g.currentState != StateIntro {
-		t.Errorf("expected state to transition to StateIntro on button click, got %s", g.currentState)
+	mockInput.JustPressedMouse = make(map[ebiten.MouseButton]bool)
+	if g.currentState != StateTitle {
+		t.Errorf("expected state to remain StateTitle after Start with saves (slot panel), got %s", g.currentState)
 	}
 
-	// 5.5. Press Enter inside Intro to go to Overworld
-	mockInput.JustPressedMouse = make(map[ebiten.MouseButton]bool)
+	// Pick an empty slot -> intro
+	confirmTitleEmptySlot(t, g, mockInput)
+
+	// Press Enter inside Intro to go to Overworld
 	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
 	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
 	err = g.Update()
@@ -734,6 +797,8 @@ func TestPlayer_EquipUpgrade_VehicleKits(t *testing.T) {
 }
 
 func TestTitleScene_SeedInput(t *testing.T) {
+	chdirTempDir(t)
+
 	g := NewGame()
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
@@ -763,6 +828,7 @@ func TestTitleScene_SeedInput(t *testing.T) {
 	mockInput.JustPressedMouse = make(map[ebiten.MouseButton]bool)
 
 	// 2. Mock typing some characters (e.g. "9876") and then press Enter
+	// With no saves, Start begins immediately in slot 1.
 	mockInput.InputChars = []rune{'9', '8', '7', '6'}
 	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
 
@@ -770,8 +836,9 @@ func TestTitleScene_SeedInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
+	mockInput.InputChars = nil
 
-	// Should transition to StateIntro
 	if g.currentState != StateIntro {
 		t.Fatalf("expected state to transition to StateIntro, got %s", g.currentState)
 	}
@@ -796,6 +863,8 @@ func TestTitleScene_SeedInput(t *testing.T) {
 }
 
 func TestTitleScene_SeedInputBackspace(t *testing.T) {
+	chdirTempDir(t)
+
 	g := NewGame()
 	g.Input = NewMockInput()
 	mockInput := g.Input.(*MockInput)
@@ -822,13 +891,14 @@ func TestTitleScene_SeedInputBackspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Now press Enter to transition to StateIntro
+	// Now press Enter — with no saves, start immediately into Intro
 	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
 	mockInput.JustPressedKeys[ebiten.KeyEnter] = true
 	err = g.Update()
 	if err != nil {
 		t.Fatal(err)
 	}
+	mockInput.JustPressedKeys = make(map[ebiten.Key]bool)
 
 	if g.currentState != StateIntro {
 		t.Fatalf("expected state to transition to StateIntro, got %s", g.currentState)
@@ -1026,7 +1096,10 @@ func TestTutorial_Flow(t *testing.T) {
 }
 
 func TestSaveLoad_CraftingAndInventoryHotkeys(t *testing.T) {
+	chdirTempDir(t)
+
 	g := NewGame()
+	g.SetActiveSaveSlot(2)
 	g.TransitionTo(g.overworldState)
 
 	// Save game
@@ -1034,9 +1107,12 @@ func TestSaveLoad_CraftingAndInventoryHotkeys(t *testing.T) {
 		t.Fatalf("Failed to save game: %v", err)
 	}
 
-	// Load save game
-	if err := g.LoadSaveGame(); err != nil {
+	// Load save game from the same slot
+	if err := g.LoadSaveSlot(2); err != nil {
 		t.Fatalf("Failed to load save game: %v", err)
+	}
+	if g.ActiveSaveSlot() != 2 {
+		t.Errorf("expected active save slot 2, got %d", g.ActiveSaveSlot())
 	}
 
 	// Verify crafting recipes are non-empty after loading save game

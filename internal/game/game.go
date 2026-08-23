@@ -128,6 +128,9 @@ type Game struct {
 
 	// Tutorial
 	TutorialActive bool
+
+	// Save slot currently in use (1–3); 0 means unset.
+	activeSaveSlot int
 }
 
 // NewGame creates a fully initialized Game ready to run.
@@ -529,9 +532,39 @@ func (g *Game) hasSkiffInWorld() bool {
 	return false
 }
 
-// HasSaveFile returns true if a save file exists on disk.
+// HasSaveFile returns true if any save slot exists on disk.
 func (g *Game) HasSaveFile() bool {
-	return save.HasSaveFile()
+	return save.HasAnySaveFile()
+}
+
+// ListSaveSlots returns metadata for all save slots.
+func (g *Game) ListSaveSlots() []save.SlotInfo {
+	return save.ListSlots()
+}
+
+// DeleteSaveSlot removes a save file from disk.
+func (g *Game) DeleteSaveSlot(slot int) error {
+	return save.DeleteSlot(slot)
+}
+
+// SetActiveSaveSlot records which slot new saves should write to.
+func (g *Game) SetActiveSaveSlot(slot int) {
+	if slot >= 1 && slot <= save.NumSlots {
+		g.activeSaveSlot = slot
+	}
+}
+
+// ActiveSaveSlot returns the slot currently in use, or 0 if unset.
+func (g *Game) ActiveSaveSlot() int {
+	return g.activeSaveSlot
+}
+
+func (g *Game) savePath() string {
+	slot := g.activeSaveSlot
+	if slot < 1 || slot > save.NumSlots {
+		slot = 1
+	}
+	return save.GetSlotPath(slot)
 }
 
 // effectivePlayState returns the gameplay scene that should be recorded in a
@@ -660,12 +693,28 @@ func (g *Game) SaveGame() error {
 		Quests:              g.questManager.SerializeState(),
 	}
 
-	return save.SaveToFile(save.GetSavePath(), data)
+	return save.SaveToFile(g.savePath(), data)
 }
 
-// LoadSaveGame deserializes and restores game state from disk.
+// LoadSaveSlot deserializes and restores game state from a specific slot.
+func (g *Game) LoadSaveSlot(slot int) error {
+	if slot < 1 || slot > save.NumSlots {
+		return fmt.Errorf("invalid save slot: %d", slot)
+	}
+	g.activeSaveSlot = slot
+	return g.loadSaveFromPath(save.GetSlotPath(slot))
+}
+
+// LoadSaveGame deserializes and restores game state from the active slot (or slot 1).
 func (g *Game) LoadSaveGame() error {
-	data, err := save.LoadFromFile(save.GetSavePath())
+	if g.activeSaveSlot < 1 || g.activeSaveSlot > save.NumSlots {
+		g.activeSaveSlot = 1
+	}
+	return g.loadSaveFromPath(save.GetSlotPath(g.activeSaveSlot))
+}
+
+func (g *Game) loadSaveFromPath(path string) error {
+	data, err := save.LoadFromFile(path)
 	if err != nil {
 		return err
 	}

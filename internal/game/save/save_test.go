@@ -105,3 +105,85 @@ func TestHasSaveFile(t *testing.T) {
 		t.Errorf("Expected file not to exist")
 	}
 }
+
+func TestGetSlotPath(t *testing.T) {
+	if got := GetSlotPath(1); got != "save_1.json" {
+		t.Errorf("expected save_1.json, got %s", got)
+	}
+	if got := GetSlotPath(3); got != "save_3.json" {
+		t.Errorf("expected save_3.json, got %s", got)
+	}
+}
+
+func TestListSlotsAndDelete(t *testing.T) {
+	tempDir := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	slots := ListSlots()
+	if len(slots) != NumSlots {
+		t.Fatalf("expected %d slots, got %d", NumSlots, len(slots))
+	}
+	for _, slot := range slots {
+		if slot.Occupied {
+			t.Errorf("expected slot %d to be empty", slot.Slot)
+		}
+	}
+
+	data := &SaveData{WorldSeed: 4242, Timestamp: 1700000000}
+	if err := SaveToFile(GetSlotPath(2), data); err != nil {
+		t.Fatal(err)
+	}
+
+	slots = ListSlots()
+	if !slots[1].Occupied {
+		t.Fatal("expected slot 2 to be occupied")
+	}
+	if slots[1].WorldSeed != 4242 {
+		t.Errorf("expected seed 4242, got %d", slots[1].WorldSeed)
+	}
+
+	if err := DeleteSlot(2); err != nil {
+		t.Fatal(err)
+	}
+	slots = ListSlots()
+	if slots[1].Occupied {
+		t.Error("expected slot 2 to be empty after delete")
+	}
+}
+
+func TestLegacySaveMigration(t *testing.T) {
+	tempDir := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	if err := SaveToFile(DefaultSaveFileName, &SaveData{WorldSeed: 9999, Timestamp: 1}); err != nil {
+		t.Fatal(err)
+	}
+
+	slots := ListSlots()
+	if !slots[0].Occupied {
+		t.Fatal("expected legacy save migrated into slot 1")
+	}
+	if slots[0].WorldSeed != 9999 {
+		t.Errorf("expected migrated seed 9999, got %d", slots[0].WorldSeed)
+	}
+	if _, err := os.Stat(DefaultSaveFileName); !os.IsNotExist(err) {
+		t.Error("expected legacy save.json to be renamed away")
+	}
+	if _, err := os.Stat(GetSlotPath(1)); err != nil {
+		t.Error("expected save_1.json after migration")
+	}
+}

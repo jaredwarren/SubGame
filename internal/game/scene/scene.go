@@ -15,6 +15,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/quest"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/game/save"
 	"github.com/jaredwarren/SubGame/internal/game/sonar"
 	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
@@ -125,7 +126,11 @@ type DebugAccess interface {
 type SaveAccess interface {
 	SaveGame() error
 	LoadSaveGame() error
+	LoadSaveSlot(slot int) error
 	HasSaveFile() bool
+	ListSaveSlots() []save.SlotInfo
+	DeleteSaveSlot(slot int) error
+	SetActiveSaveSlot(slot int)
 }
 
 // GameContext is the interface through which scenes interact with the game.

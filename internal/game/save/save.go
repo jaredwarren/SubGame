@@ -2,6 +2,7 @@ package save
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 
@@ -10,7 +11,23 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/quest"
 )
 
-const DefaultSaveFileName = "save.json"
+const (
+	DefaultSaveFileName = "save.json"
+	NumSlots            = 3
+)
+
+// SlotInfo describes one save slot on disk.
+type SlotInfo struct {
+	Slot      int
+	Occupied  bool
+	Timestamp int64
+	WorldSeed int64
+}
+
+type saveHeader struct {
+	Timestamp int64 `json:"timestamp"`
+	WorldSeed int64 `json:"worldSeed"`
+}
 
 // SavedPlayer holds serialized player state.
 type SavedPlayer struct {
@@ -88,15 +105,96 @@ type SavedLostCargo struct {
 	Cargo         item.SavedInventory `json:"cargo"`
 }
 
-// GetSavePath returns the default save file path.
-func GetSavePath() string {
-	return DefaultSaveFileName
+// GetSlotPath returns the file path for a save slot (1–NumSlots).
+func GetSlotPath(slot int) string {
+	return fmt.Sprintf("save_%d.json", slot)
 }
 
-// HasSaveFile checks whether the save file exists on disk.
-func HasSaveFile() bool {
-	_, err := os.Stat(GetSavePath())
+// GetSavePath returns the default save file path for slot 1.
+func GetSavePath() string {
+	return GetSlotPath(1)
+}
+
+// HasAnySaveFile reports whether any save slot (or legacy save.json) exists.
+func HasAnySaveFile() bool {
+	for slot := 1; slot <= NumSlots; slot++ {
+		if slotExists(slot) {
+			return true
+		}
+	}
+	_, err := os.Stat(DefaultSaveFileName)
 	return err == nil
+}
+
+// HasSaveFile checks whether any save file exists on disk.
+func HasSaveFile() bool {
+	return HasAnySaveFile()
+}
+
+func slotExists(slot int) bool {
+	_, err := os.Stat(GetSlotPath(slot))
+	return err == nil
+}
+
+func validSlot(slot int) bool {
+	return slot >= 1 && slot <= NumSlots
+}
+
+// migrateLegacySave moves save.json into slot 1 when slot 1 is empty.
+func migrateLegacySave() {
+	legacyPath := DefaultSaveFileName
+	if _, err := os.Stat(legacyPath); err != nil {
+		return
+	}
+	slot1Path := GetSlotPath(1)
+	if _, err := os.Stat(slot1Path); err == nil {
+		return
+	}
+	_ = os.Rename(legacyPath, slot1Path)
+}
+
+// probeSlot returns metadata for one slot without loading the full save.
+func probeSlot(slot int) SlotInfo {
+	info := SlotInfo{Slot: slot}
+	path := GetSlotPath(slot)
+	if _, err := os.Stat(path); err != nil {
+		return info
+	}
+	info.Occupied = true
+
+	bytes, err := os.ReadFile(path)
+	if err != nil {
+		return info
+	}
+	var header saveHeader
+	if err := json.Unmarshal(bytes, &header); err != nil {
+		return info
+	}
+	info.Timestamp = header.Timestamp
+	info.WorldSeed = header.WorldSeed
+	return info
+}
+
+// ListSlots returns metadata for every save slot, migrating legacy saves first.
+func ListSlots() []SlotInfo {
+	migrateLegacySave()
+	slots := make([]SlotInfo, NumSlots)
+	for i := 0; i < NumSlots; i++ {
+		slots[i] = probeSlot(i + 1)
+	}
+	return slots
+}
+
+// DeleteSlot removes the save file for a slot.
+func DeleteSlot(slot int) error {
+	if !validSlot(slot) {
+		return fmt.Errorf("invalid save slot: %d", slot)
+	}
+	path := GetSlotPath(slot)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil
+	}
+	return os.Remove(path)
 }
 
 // SaveToFile serializes SaveData into a JSON file atomically.

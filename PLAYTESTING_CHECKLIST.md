@@ -53,8 +53,8 @@ go run ./cmd/game
 ```
 
 ### 3.2 Save File Management
-- **Clean Slate Play-Test**: Delete or move `save.json` in the root folder before starting.
-- **Save File Inspection**: Open `save.json` to verify serialization of player stats, inventory items, installed base modules, vehicles, and explored map chunks.
+- **Clean Slate Play-Test**: Delete or move `save_1.json`, `save_2.json`, and `save_3.json` in the root folder before starting (legacy `save.json` is migrated into slot 1 on first launch).
+- **Save File Inspection**: Open `save_1.json` (or the active slot file) to verify serialization of player stats, inventory items, installed base modules, vehicles, and explored map chunks.
 
 ### 3.3 Developer / QA Shortcut Keys
 These hotkeys can be used during testing to accelerate state verification:
@@ -77,7 +77,7 @@ These hotkeys can be used during testing to accelerate state verification:
 ## 4. Master Play-Testing Checklist
 
 ### Phase 1: Title Screen, Onboarding & Settings
-- [ ] **Title Screen UI**: Verify options: `NEW GAME`, `CONTINUE` (disabled if no `save.json`), `SETTINGS`, and `QUIT`.
+- [ ] **Title Screen UI**: Verify a single `START` button. With no saves, Start begins a new game in slot 1. With existing saves, Start opens the 3-slot picker (load occupied, start in empty, delete with confirm).
 - [ ] **Title Music**: Ambient electronic synth track plays cleanly without audio popping or distortion.
 - [ ] **Intro Cinematic**: Starting a new game displays introductory sequence / pod splashdown.
 - [ ] **Tutorial & Training Quest Log**:
@@ -87,7 +87,7 @@ These hotkeys can be used during testing to accelerate state verification:
 - [ ] **Pause Overlay (`Esc`)**:
   - [ ] Opens responsive dark overlay pausing world simulation.
   - [ ] `RESUME`: Returns cleanly to previous state without physics glitches.
-  - [ ] `SAVE GAME`: Displays yellow/green `GAME SAVED` notification and writes `save.json`.
+  - [ ] `SAVE GAME`: Displays yellow/green `GAME SAVED` notification and writes the active slot file (`save_1.json`, `save_2.json`, or `save_3.json`).
   - [ ] `RETURN TO TITLE`: Returns cleanly to the Title Screen.
 
 ---
