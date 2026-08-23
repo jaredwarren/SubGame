@@ -147,12 +147,19 @@ func (c *CaveScene) drawScrollTransition(g CaveContext) {
 	opOld := &ebiten.DrawImageOptions{}
 	opNew := &ebiten.DrawImageOptions{}
 
-	if c.scrollDir == 1 { // Scrolling right
+	switch c.scrollDir {
+	case 1: // Scrolling right
 		opOld.GeoM.Translate(-t*float64(config.ScreenWidth), 0)
 		opNew.GeoM.Translate((1.0-t)*float64(config.ScreenWidth), 0)
-	} else { // Scrolling left
+	case -1: // Scrolling left
 		opOld.GeoM.Translate(t*float64(config.ScreenWidth), 0)
 		opNew.GeoM.Translate((t-1.0)*float64(config.ScreenWidth), 0)
+	case 2: // Scrolling down
+		opOld.GeoM.Translate(0, -t*float64(config.ScreenHeight))
+		opNew.GeoM.Translate(0, (1.0-t)*float64(config.ScreenHeight))
+	case -2: // Scrolling up
+		opOld.GeoM.Translate(0, t*float64(config.ScreenHeight))
+		opNew.GeoM.Translate(0, (t-1.0)*float64(config.ScreenHeight))
 	}
 
 	c.offscreen.DrawImage(c.offscreenOld, opOld)
@@ -161,34 +168,61 @@ func (c *CaveScene) drawScrollTransition(g CaveContext) {
 	// 4. Draw the player or active vehicle at the interpolated position
 	p := g.GetPlayer()
 	isPiloting := g.GetActiveVehicle() != nil
-	cam := g.GetCamera()
 
 	var width float64 = p.Width
+	var height float64 = p.Height
 	if isPiloting {
-		width = g.GetActiveVehicle().GetDimensions().X
+		dims := g.GetActiveVehicle().GetDimensions()
+		width = dims.X
+		height = dims.Y
 	}
 
-	var screenStartX float64
-	var screenEndX float64
-	if c.scrollDir == 1 { // Scrolling right
+	var screenStartX, screenEndX float64
+	var screenStartY, screenEndY float64
+
+	switch c.scrollDir {
+	case 1: // Scrolling right
 		screenStartX = float64(config.ScreenWidth) - width
 		screenEndX = 20.0
-	} else { // Scrolling left
+		screenStartY = p.Pos.Y - c.oldCamY
+		screenEndY = screenStartY
+	case -1: // Scrolling left
 		screenStartX = 20.0
 		screenEndX = float64(config.ScreenWidth) - width - 20.0
+		screenStartY = p.Pos.Y - c.oldCamY
+		screenEndY = screenStartY
+	case 2: // Scrolling down (into deep Shock Kelp cave)
+		screenStartX = p.Pos.X - c.oldCamX
+		screenEndX = float64(config.ScreenWidth)/2.0 - width/2.0
+		screenStartY = p.Pos.Y - c.oldCamY
+		screenEndY = float64(config.TileSize * 2)
+	case -2: // Scrolling up (back into shallow seabed)
+		screenStartX = p.Pos.X - c.oldCamX
+		chasmMinX, chasmMaxX, chasmTriggerY := float64(0), float64(0), float64(0)
+		if chasm, ok := c.newCave.(cave.ChasmProvider); ok && chasm.HasFloorChasm() {
+			chasmMinX, chasmMaxX, chasmTriggerY = chasm.GetChasmBounds()
+		}
+		if chasmMaxX > chasmMinX {
+			screenEndX = (chasmMinX+chasmMaxX)/2.0 - width/2.0 - c.newCamX
+		} else {
+			screenEndX = float64(config.ScreenWidth)/2.0 - width/2.0
+		}
+		screenStartY = p.Pos.Y - c.oldCamY
+		screenEndY = chasmTriggerY - height - 8.0 - c.newCamY
 	}
 
 	interpolatedX := (1.0-t)*screenStartX + t*screenEndX
+	interpolatedY := (1.0-t)*screenStartY + t*screenEndY
 
 	if isPiloting {
 		v := g.GetActiveVehicle()
 		oldPos := v.GetPos()
-		v.SetPos(gvec.Vec2{X: interpolatedX, Y: oldPos.Y})
-		v.Draw(c.offscreen, 0, cam.Pos.Y)
+		v.SetPos(gvec.Vec2{X: interpolatedX, Y: interpolatedY})
+		v.Draw(c.offscreen, 0, 0)
 		v.SetPos(oldPos)
 	} else {
 		pX := float32(interpolatedX + p.Width/2.0)
-		pY := float32(p.Pos.Y + p.Height/2.0 - cam.Pos.Y)
+		pY := float32(interpolatedY + p.Height/2.0)
 		c.drawPlayer(c.offscreen, p, pX, pY)
 	}
 }
@@ -408,29 +442,28 @@ func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave ca
 		screen.Fill(color.RGBA{10, 8, 16, 255})
 	}
 
+	isSurfaceCave := c.IsShallow && (activeCave == nil || activeCave.GetCaveType() == cave.CaveOrganicShallow)
+
 	if camY < 0 {
 		var skyColor color.RGBA
-		if activeCave != nil && activeCave.GetCaveType() == cave.CaveVoid {
-			skyColor = color.RGBA{2, 3, 6, 255}
-		} else if c.IsShallow {
+		if isSurfaceCave {
 			skyColor = getSkyColor(g.GetTimeOfDay())
+		} else if activeCave != nil && activeCave.GetCaveType() == cave.CaveShockKelp {
+			skyColor = color.RGBA{15, 12, 22, 255}
+		} else if activeCave != nil && activeCave.GetCaveType() == cave.CaveVoid {
+			skyColor = color.RGBA{2, 3, 6, 255}
 		} else {
-			skyColor = color.RGBA{14, 52, 115, 255}
+			skyColor = color.RGBA{10, 8, 16, 255}
 		}
 		vector.FillRect(screen, 0, 0, float32(config.ScreenWidth), float32(-camY), skyColor, false)
 	}
 
-	surfaceY := float32(-camY)
-	if surfaceY >= 0 && surfaceY < float32(config.ScreenHeight) {
-		var lineColor color.RGBA
-		if activeCave != nil && activeCave.GetCaveType() == cave.CaveVoid {
-			lineColor = color.RGBA{2, 3, 6, 255}
-		} else if c.IsShallow {
-			lineColor = color.RGBA{220, 240, 255, 255}
-		} else {
-			lineColor = color.RGBA{30, 80, 160, 255}
+	if isSurfaceCave {
+		surfaceY := float32(-camY)
+		if surfaceY >= 0 && surfaceY < float32(config.ScreenHeight) {
+			lineColor := color.RGBA{220, 240, 255, 255}
+			vector.StrokeLine(screen, 0, surfaceY, float32(config.ScreenWidth), surfaceY, 3.0, lineColor, false)
 		}
-		vector.StrokeLine(screen, 0, surfaceY, float32(config.ScreenWidth), surfaceY, 3.0, lineColor, false)
 	}
 
 	for _, p := range g.GetParticles() {

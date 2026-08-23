@@ -5,7 +5,7 @@ GOFILES := $(shell find . -name '*.go' -not -path './vendor/*')
 
 GOLANGCI_LINT := $(shell which golangci-lint 2>/dev/null)
 
-.PHONY: all build run test test-v vet lint clean tidy check audio gen-audio
+.PHONY: all build run test test-v vet lint clean tidy check audio gen-audio tools
 
 all: check lint build
 
@@ -19,6 +19,10 @@ audio:
 
 ## gen-audio: alias for audio target
 gen-audio: audio
+
+## tools: launch the local web devtools hub (world / caves / audio)
+tools:
+	go run ./cmd/devtools
 
 ## run: build and launch the game (must be run from repo root so assets resolve)
 run: build

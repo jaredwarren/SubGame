@@ -37,6 +37,23 @@ type TileTypeInfo struct {
 
 	// IsShallow indicates whether this cave type is shallow (affects cave state).
 	IsShallow bool
+
+	// Subterranean configures the two-tier shallow->deep chasm transition system if non-nil.
+	Subterranean *SubterraneanSpec
+}
+
+// SubterraneanSpec defines configuration for two-tier cave systems where diving on an
+// overworld tile enters an open shallow seabed cave layer with an organic funneled chasm/fissure,
+// which seamlessly transitions into a subterranean deep grotto.
+type SubterraneanSpec struct {
+	DeepKeySuffix       string
+	DeepCaveType        cave.CaveType
+	DeepMusicTrack      string
+	ShallowBiome        *cave.CaveBiomeSpec
+	GenerateShallowGrid func(r *rand.Rand, distToLand float64, hasLeftWater, hasRightWater bool) [][]bool
+	ShallowFactory      func(grid [][]bool, w *World, tx, ty int) cave.Cave
+	GenerateDeepGrid    func(r *rand.Rand) [][]bool
+	DeepFactory         func(grid [][]bool, w *World, tx, ty int) cave.Cave
 }
 
 // tileRegistry maps each TileType to its info.
@@ -63,13 +80,27 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 	TileTrench: {
 		IsWater:      true,
 		IsDiveable:   true,
-		ScatterCount: 0,
+		DivePrompt:   "Press [E] to Dive",
 		EstDiveDepth: "Est. Dive Depth: Trench (120m)",
-		GenerateGrid: cave.GenerateOrganicTrenchGrid,
+		ScatterCount: 0,
+		IsShallow:    true,
 		CaveFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
-			return cave.NewOrganicTrenchCave(grid)
+			return cave.NewTrenchShallowCave(grid)
 		},
-		IsShallow: false,
+		Subterranean: &SubterraneanSpec{
+			DeepKeySuffix:       "_trench",
+			DeepCaveType:        cave.CaveOrganicTrench,
+			DeepMusicTrack:      "music/cave_deep.mp3",
+			ShallowBiome:        cave.AbyssalBlueBiome,
+			GenerateShallowGrid: cave.GenerateTrenchShallowGrid,
+			ShallowFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
+				return cave.NewTrenchShallowCave(grid)
+			},
+			GenerateDeepGrid: cave.GenerateOrganicTrenchGrid,
+			DeepFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
+				return cave.NewOrganicTrenchCave(grid)
+			},
+		},
 	},
 	TileWreckage: {
 		IsWater:      true,
@@ -86,14 +117,27 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 	TileShockKelpCave: {
 		IsWater:      true,
 		IsDiveable:   true,
-		DivePrompt:   "Press [E] to Enter Shock Kelp Cave",
-		EstDiveDepth: "Est. Dive Depth: Shock Kelp Cave (60m)",
+		DivePrompt:   "Press [E] to Dive",
+		EstDiveDepth: "Est. Dive Depth: Shock Kelp (75m)",
 		ScatterCount: 0,
-		GenerateGrid: cave.GenerateShockKelpCaveGrid,
+		IsShallow:    true,
 		CaveFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
-			return cave.NewShockKelpCave(grid)
+			return cave.NewShockKelpShallowCave(grid)
 		},
-		IsShallow: true,
+		Subterranean: &SubterraneanSpec{
+			DeepKeySuffix:       "_shock",
+			DeepCaveType:        cave.CaveShockKelp,
+			DeepMusicTrack:      "music/cave_kelp.mp3",
+			ShallowBiome:        cave.KelpForestBiome,
+			GenerateShallowGrid: cave.GenerateShockKelpShallowGrid,
+			ShallowFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
+				return cave.NewShockKelpShallowCave(grid)
+			},
+			GenerateDeepGrid: cave.GenerateShockKelpCaveGrid,
+			DeepFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
+				return cave.NewShockKelpCave(grid)
+			},
+		},
 	},
 	TileThermoCave: {
 		IsWater:      true,

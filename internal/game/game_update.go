@@ -512,6 +512,18 @@ func (g *Game) checkVehicleDepth() {
 	vPos := g.ActiveVehicle.GetPos()
 	vDims := g.ActiveVehicle.GetDimensions()
 	depth := (vPos.Y + vDims.Y/2.0) / config.TileSize
+	if !g.caveState.IsShallow {
+		trenchX, trenchY := g.activeTrenchX, g.activeTrenchY
+		if trenchX >= 0 && trenchX < g.world.Width && trenchY >= 0 && trenchY < g.world.Height {
+			tt := g.world.OverworldMap[trenchX][trenchY]
+			if info := world.GetTileInfo(tt); info != nil && info.Subterranean != nil {
+				depth += 34.0
+			}
+		}
+	}
+	if depth < 0 {
+		depth = 0
+	}
 
 	if depth > limit {
 		g.ActiveVehicle.TakeDamage(0.08)

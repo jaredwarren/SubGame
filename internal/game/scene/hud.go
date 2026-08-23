@@ -118,20 +118,40 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 	} else if g.GetCurrentState() == StateCave {
 		ebitenutil.DebugPrintAt(screen, "DIVE TELEMETRY", int(telX)+26, int(telY)+8)
 
-		depth := (p.Pos.Y + p.Height/2.0) / config.TileSize
+		var depth float64
+		if activeVehicle != nil {
+			vPos := activeVehicle.GetPos()
+			vDims := activeVehicle.GetDimensions()
+			depth = (vPos.Y + vDims.Y/2.0) / config.TileSize
+		} else {
+			depth = (p.Pos.Y + p.Height/2.0) / config.TileSize
+		}
+
+		activeCave := g.GetActiveCave()
+		trenchX, trenchY := g.GetActiveTrenchCoords()
+		w := g.GetWorld()
+		if activeCave != nil && activeCave.GetCaveType() != cave.CaveOrganicShallow {
+			if w != nil && trenchX >= 0 && trenchX < w.Width && trenchY >= 0 && trenchY < w.Height {
+				tt := w.OverworldMap[trenchX][trenchY]
+				if info := world.GetTileInfo(tt); info != nil && info.Subterranean != nil {
+					depth += 34.0
+				}
+			}
+		}
+		if depth < 0 {
+			depth = 0
+		}
+
 		pressure := 1.0 + depth*0.1
 		depthText := fmt.Sprintf("Depth: %.1fm", depth)
 		pressText := fmt.Sprintf("Pressure: %.2f atm", pressure)
 
-		trenchX, trenchY := g.GetActiveTrenchCoords()
 		var trenchText, biomeText string
-		activeCave := g.GetActiveCave()
 		if activeCave != nil && activeCave.GetCaveType() == cave.CaveVoid {
 			trenchText = "Trench Origin: ???"
 			biomeText = "Biome: Ecological Void"
 		} else {
 			trenchText = fmt.Sprintf("Trench Origin: (%d, %d)", trenchX, trenchY)
-			w := g.GetWorld()
 			if w != nil && trenchX >= 0 && trenchX < w.Width && trenchY >= 0 && trenchY < w.Height {
 				bID := w.BiomeMap[trenchX][trenchY]
 				bSpec := world.GetBiomeInfo(bID)

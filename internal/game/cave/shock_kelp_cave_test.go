@@ -125,3 +125,45 @@ func TestShockKelpCaveEntitiesAndResources(t *testing.T) {
 		t.Error("expected to spawn some Quartz nodes, got 0")
 	}
 }
+
+func TestGenerateShockKelpShallowGrid(t *testing.T) {
+	r := rand.New(rand.NewSource(42))
+	grid := GenerateShockKelpShallowGrid(r, 10.0, true, true)
+
+	if len(grid) != CaveWidth {
+		t.Fatalf("expected grid width %d, got %d", CaveWidth, len(grid))
+	}
+	if len(grid[0]) != CaveHeight {
+		t.Fatalf("expected grid height %d, got %d", CaveHeight, len(grid[0]))
+	}
+
+	cave := NewShockKelpShallowCave(grid)
+	if !cave.HasFloorChasm() {
+		t.Fatal("expected cave to have floor chasm")
+	}
+	if cave.GetChasmTarget() != CaveShockKelp {
+		t.Fatalf("expected chasm target CaveShockKelp, got %v", cave.GetChasmTarget())
+	}
+
+	minX, maxX, triggerY := cave.GetChasmBounds()
+	if minX >= maxX {
+		t.Fatalf("expected minX (%f) < maxX (%f)", minX, maxX)
+	}
+	if triggerY <= 0 {
+		t.Fatalf("expected triggerY > 0, got %f", triggerY)
+	}
+
+	// Verify entities include shock kelp along chasm
+	entities := cave.GenerateEntities(99)
+	hasShockKelp := false
+	for _, ent := range entities {
+		if _, ok := ent.(*entity.ShockKelp); ok {
+			hasShockKelp = true
+			break
+		}
+	}
+	if !hasShockKelp {
+		t.Errorf("expected shallow shock kelp cave to spawn ShockKelp entities around chasm")
+	}
+}
+

@@ -1,0 +1,91 @@
+{{define "content"}}
+<form class="controls" method="get" action="/world">
+  <label>Seed
+    <input type="number" name="seed" value="{{.Seed}}" required>
+  </label>
+  <button type="submit">Generate</button>
+  <button type="button" class="secondary" id="rand-seed">Random seed</button>
+</form>
+
+{{if .World}}
+<div class="layout">
+  <div>
+    <section class="panel">
+      <h2>World</h2>
+      <table>
+        <tr><th>Seed</th><td class="num">{{.World.Seed}}</td></tr>
+        <tr><th>Size</th><td class="num">{{.World.Width}} × {{.World.Height}}</td></tr>
+        <tr><th>Lifepod</th><td class="num">({{.World.LifepodX}}, {{.World.LifepodY}})</td></tr>
+        <tr><th>Land</th><td class="num">{{.World.LandTiles}}</td></tr>
+        <tr><th>Water</th><td class="num">{{.World.WaterTiles}}</td></tr>
+        <tr><th>Generated</th><td class="num">{{.World.Elapsed}}</td></tr>
+      </table>
+    </section>
+    <section class="panel" style="margin-top:1rem">
+      <h2>Biomes (tiles)</h2>
+      <table>
+        <tr><th>Biome</th><th class="num">Tiles</th></tr>
+        {{range .World.BiomeCounts}}
+        <tr><td>{{.Name}}</td><td class="num">{{.Count}}</td></tr>
+        {{end}}
+      </table>
+    </section>
+    <section class="panel" style="margin-top:1rem">
+      <h2>Dive sites</h2>
+      {{if .World.POIs}}
+      <table>
+        <tr><th>Kind</th><th>Biome</th><th class="num">X</th><th class="num">Y</th></tr>
+        {{range .World.POIs}}
+        <tr>
+          <td>{{.Kind}}</td>
+          <td>{{.Biome}}</td>
+          <td class="num">{{.X}}</td>
+          <td class="num">{{.Y}}</td>
+        </tr>
+        {{end}}
+      </table>
+      {{else}}
+      <p class="muted">No special dive sites on this seed.</p>
+      {{end}}
+    </section>
+    <section class="panel" style="margin-top:1rem">
+      <h2>Sampled minerals</h2>
+      <p class="muted">{{.World.MineralNote}}</p>
+      {{if .World.Minerals}}
+      <table>
+        <tr><th>Node</th><th class="num">Count</th></tr>
+        {{range .World.Minerals}}
+        <tr{{if eq .Name "Abyssal Ore"}} class="warn"{{end}}><td>{{.Name}}</td><td class="num">{{.Count}}</td></tr>
+        {{end}}
+      </table>
+      {{end}}
+    </section>
+  </div>
+  <div>
+    <div class="map-wrap">
+      <img src="{{.World.MapSrc}}" alt="World minimap" width="{{.World.Width}}" height="{{.World.Height}}">
+    </div>
+    <p class="legend">
+      <span><i class="swatch" style="background:#48703a"></i>Land</span>
+      <span><i class="swatch" style="background:#1e6ea0"></i>Shallow reef</span>
+      <span><i class="swatch" style="background:#145a46"></i>Kelp forest</span>
+      <span><i class="swatch" style="background:#5a3228"></i>Thermal barrens</span>
+      <span><i class="swatch" style="background:#141950"></i>Abyssal</span>
+      <span><i class="swatch" style="background:#ff50dc"></i>Trench</span>
+      <span><i class="swatch" style="background:#28ffc8"></i>Shock kelp</span>
+      <span><i class="swatch" style="background:#ff7828"></i>Thermo</span>
+      <span><i class="swatch" style="background:#ffdc3c"></i>Wreckage</span>
+      <span><i class="swatch" style="background:#ffffff"></i>Lifepod</span>
+    </p>
+  </div>
+</div>
+{{end}}
+<script>
+document.getElementById("rand-seed")?.addEventListener("click", () => {
+  const n = Math.floor(Math.random() * 2147483647);
+  const input = document.querySelector('input[name="seed"]');
+  if (input) input.value = String(n);
+  input?.form?.submit();
+});
+</script>
+{{end}}

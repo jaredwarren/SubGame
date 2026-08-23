@@ -59,6 +59,16 @@ func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 					strokeColor = color.RGBA{210, 210, 220, 255}
 				}
 
+				h := hashCoords(tx, ty)
+				if ty <= 8 {
+					blendProb := float64(8-ty) / 9.0 * 0.70
+					if float64(h%100)/100.0 < blendProb {
+						// Abyssal shallow slate rock
+						rockColor = color.RGBA{42, 50, 72, 255}
+						strokeColor = color.RGBA{65, 78, 108, 255}
+					}
+				}
+
 				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
 				vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
 			}

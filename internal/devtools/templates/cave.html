@@ -1,0 +1,102 @@
+{{define "content"}}
+<form class="controls" method="get" action="/caves">
+  <label>Cave type
+    <select name="type">
+      {{range .CaveKinds}}
+      <option value="{{.ID}}"{{if eq $.CaveType .ID}} selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+  </label>
+  <label>Biome (shallow)
+    <select name="biome">
+      {{range .Biomes}}
+      <option value="{{.ID}}"{{if eq $.Biome .ID}} selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+  </label>
+  <label>Seed
+    <input type="number" name="seed" value="{{.Seed}}" required>
+  </label>
+  <button type="submit">Generate</button>
+  <button type="button" class="secondary" id="rand-seed">Random seed</button>
+</form>
+
+{{if .Cave}}
+<div class="layout">
+  <div>
+    <section class="panel">
+      <h2>Layout</h2>
+      <table>
+        <tr><th>Type</th><td>{{.Cave.TypeName}}</td></tr>
+        <tr><th>Size</th><td class="num">{{.Cave.Width}} × {{.Cave.Height}}</td></tr>
+        <tr><th>Open tiles</th><td class="num">{{.Cave.OpenTiles}} ({{printf "%.1f" .Cave.OpenPercent}}%)</td></tr>
+        <tr><th>Dead ends</th><td class="num">{{.Cave.DeadEnds}}</td></tr>
+        <tr><th>Max depth</th><td class="num">{{.Cave.MaxBFSDepth}} tiles</td></tr>
+        <tr><th>O2 sources</th><td class="num">{{.Cave.O2Count}}</td></tr>
+        <tr><th>O2 at ty≥40</th><td class="num">{{.Cave.DeepO2Count}}</td></tr>
+        {{if .Cave.HasChasm}}
+        <tr><th>Chasm</th><td>x {{.Cave.ChasmMinTX}}–{{.Cave.ChasmMaxTX}}, trigger y {{.Cave.ChasmTriggerTY}}</td></tr>
+        {{end}}
+        <tr><th>Generated</th><td class="num">{{.Cave.Elapsed}}</td></tr>
+      </table>
+    </section>
+    <section class="panel" style="margin-top:1rem">
+      <h2>Entities</h2>
+      {{if .Cave.Entities}}
+      <table>
+        <tr><th>Kind</th><th class="num">Count</th></tr>
+        {{range .Cave.Entities}}
+        <tr><td>{{.Name}}</td><td class="num">{{.Count}}</td></tr>
+        {{end}}
+      </table>
+      {{else}}
+      <p class="muted">No entities.</p>
+      {{end}}
+    </section>
+    <section class="panel" style="margin-top:1rem">
+      <h2>Resources</h2>
+      {{if .Cave.Resources}}
+      <table>
+        <tr><th>Node</th><th class="num">Count</th></tr>
+        {{range .Cave.Resources}}
+        <tr{{if eq .Name "Abyssal Ore"}} class="warn"{{end}}><td>{{.Name}}</td><td class="num">{{.Count}}</td></tr>
+        {{end}}
+      </table>
+      {{else}}
+      <p class="muted">No resource nodes.</p>
+      {{end}}
+    </section>
+  </div>
+  <div>
+    {{if .Cave.MapSrc}}
+    <div class="map-wrap">
+      <img src="{{.Cave.MapSrc}}" alt="Cave grid" width="{{.Cave.ImageWidth}}" height="{{.Cave.ImageHeight}}">
+    </div>
+    <p class="legend">
+      <span><i class="swatch" style="background:#c8b478"></i>Rock</span>
+      <span><i class="swatch" style="background:#0a3250"></i>Open</span>
+      <span><i class="swatch" style="background:#3cffd2"></i>O2 / ShatterBulb</span>
+      <span><i class="swatch" style="background:#f0a020"></i>Hostile</span>
+      <span><i class="swatch" style="background:#88ccff"></i>Fauna</span>
+      <span><i class="swatch" style="background:#6adf3c"></i>Flora</span>
+      <span><i class="swatch" style="background:#c8c8d0"></i>Titanium</span>
+      <span><i class="swatch" style="background:#d26e2d"></i>Copper</span>
+      <span><i class="swatch" style="background:#28d2f0"></i>Quartz</span>
+      <span><i class="swatch" style="background:#8c28d2"></i>Abyssal ore</span>
+      <span><i class="swatch" style="background:#ffe060"></i>Chasm</span>
+    </p>
+    {{else}}
+    <p class="muted">{{.Cave.Note}}</p>
+    {{end}}
+  </div>
+</div>
+{{end}}
+<script>
+document.getElementById("rand-seed")?.addEventListener("click", () => {
+  const n = Math.floor(Math.random() * 2147483647);
+  const input = document.querySelector('input[name="seed"]');
+  if (input) input.value = String(n);
+  input?.form?.submit();
+});
+</script>
+{{end}}

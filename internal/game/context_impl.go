@@ -3,6 +3,7 @@ package game
 import (
 	"math"
 
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
@@ -113,6 +114,11 @@ func (g *Game) HorizontalTransition(newTx, newTy int, newTrenchKey string, newCa
 	g.caveState.CaveGrid = newGrid
 	g.caveState.Nodes = newNodes
 	g.caveState.Entities = newEntities
+	if newCave != nil && newCave.GetCaveType() == cave.CaveOrganicShallow {
+		g.caveState.IsShallow = true
+	} else {
+		g.caveState.IsShallow = false
+	}
 
 	// Update the player's last overworld emergence coordinates to match new location
 	playerWidth := g.player.Width
@@ -131,6 +137,21 @@ func (g *Game) HorizontalTransition(newTx, newTy int, newTrenchKey string, newCa
 		}
 		g.CaveVehicles[newTrenchKey] = append(g.CaveVehicles[newTrenchKey], g.ActiveVehicle)
 	}
+
+	musicTrack := "music/cave_shallow.mp3"
+	if newCave != nil {
+		switch newCave.GetCaveType() {
+		case cave.CaveThermo:
+			musicTrack = "music/cave_volcanic.mp3"
+		case cave.CaveShockKelp:
+			musicTrack = "music/cave_kelp.mp3"
+		case cave.CaveWreckage:
+			musicTrack = "music/cave_wreckage.mp3"
+		case cave.CaveVoid, cave.CaveOrganicTrench:
+			musicTrack = "music/cave_abyssal.mp3"
+		}
+	}
+	audio.Get().PlayMusic(musicTrack, 0.6)
 }
 
 // --- Input ---

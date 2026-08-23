@@ -358,7 +358,11 @@ func (o *OverworldScene) drawBaseTiles(target *ebiten.Image, startTileX, endTile
 				}
 
 				totalMult := float32((1.0 - t) * mult)
-				op.ColorScale.Scale(totalMult, totalMult, totalMult, 1.0)
+				alpha := float32(1.0)
+				if tileType == world.TileShockKelpCave || tileType == world.TileTrench {
+					alpha = 0.75
+				}
+				op.ColorScale.Scale(totalMult*alpha, totalMult*alpha, totalMult*alpha, alpha)
 
 				target.DrawImage(drawTexture, op)
 			}

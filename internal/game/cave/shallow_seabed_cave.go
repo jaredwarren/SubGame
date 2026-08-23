@@ -13,9 +13,15 @@ import (
 )
 
 type ShallowSeabedCave struct {
-	Grid       [][]bool
-	Biome      *CaveBiomeSpec
-	tileImages []*ebiten.Image
+	Grid         [][]bool
+	Biome        *CaveBiomeSpec
+	tileImages   []*ebiten.Image
+	HasChasm     bool
+	ChasmX       int
+	ChasmWidth   int
+	BasinFloorY  int
+	ChasmBottomY int
+	ChasmTarget  CaveType
 }
 
 func NewShallowSeabedCave(grid [][]bool) *ShallowSeabedCave {
@@ -34,6 +40,91 @@ func NewShallowSeabedCaveWithBiome(grid [][]bool, spec *CaveBiomeSpec) *ShallowS
 	c.preRenderTiles()
 	return c
 }
+
+// NewChasmShallowCave creates a shallow seabed cave with a subterranean chasm targeting a deep cave type.
+func NewChasmShallowCave(grid [][]bool, spec *CaveBiomeSpec, target CaveType) *ShallowSeabedCave {
+	c := NewShallowSeabedCaveWithBiome(grid, spec)
+	c.HasChasm = true
+	c.ChasmTarget = target
+	c.detectChasm()
+	return c
+}
+
+// NewShockKelpShallowCave creates a shallow Kelp Forest seabed cave with a subterranean shock chasm.
+func NewShockKelpShallowCave(grid [][]bool) *ShallowSeabedCave {
+	return NewChasmShallowCave(grid, KelpForestBiome, CaveShockKelp)
+}
+
+// NewTrenchShallowCave creates a shallow Abyssal seabed cave with a subterranean trench fissure.
+func NewTrenchShallowCave(grid [][]bool) *ShallowSeabedCave {
+	return NewChasmShallowCave(grid, AbyssalBlueBiome, CaveOrganicTrench)
+}
+
+func (c *ShallowSeabedCave) detectChasm() {
+	if len(c.Grid) == 0 || !c.HasChasm {
+		return
+	}
+	gridW := len(c.Grid)
+	gridH := len(c.Grid[0])
+
+	// 1. Find the seabed surface floor level at the depression basin
+	basinFloorY := 0
+	for x := 2; x < gridW-2; x++ {
+		for y := 0; y < gridH; y++ {
+			if c.Grid[x][y] {
+				if y > basinFloorY {
+					basinFloorY = y
+				}
+				break
+			}
+		}
+	}
+	if basinFloorY < 8 {
+		basinFloorY = 16
+	}
+	c.BasinFloorY = basinFloorY
+
+	// 2. Position trigger 14 tiles down into the crevice shaft
+	triggerTileY := min(basinFloorY+14, gridH-4)
+	startX := -1
+	endX := -1
+	for x := 2; x < gridW-2; x++ {
+		if !c.Grid[x][triggerTileY] {
+			if startX == -1 {
+				startX = x
+			}
+			endX = x
+		}
+	}
+
+	if startX != -1 && endX >= startX {
+		c.ChasmX = startX
+		c.ChasmWidth = endX - startX + 1
+		c.ChasmBottomY = triggerTileY
+		if c.ChasmTarget == 0 {
+			c.ChasmTarget = CaveShockKelp
+		}
+		return
+	}
+
+	c.HasChasm = false
+}
+
+func (c *ShallowSeabedCave) HasFloorChasm() bool {
+	return c.HasChasm
+}
+
+func (c *ShallowSeabedCave) GetChasmBounds() (minX, maxX, triggerY float64) {
+	minX = float64(c.ChasmX * config.TileSize)
+	maxX = float64((c.ChasmX + c.ChasmWidth) * config.TileSize)
+	triggerY = float64(c.ChasmBottomY * config.TileSize)
+	return minX, maxX, triggerY
+}
+
+func (c *ShallowSeabedCave) GetChasmTarget() CaveType {
+	return c.ChasmTarget
+}
+
 
 func (c *ShallowSeabedCave) preRenderTiles() {
 	rockColor := c.Biome.CaveRockColor
@@ -250,17 +341,86 @@ func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 	op := ebiten.DrawImageOptions{}
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
-			if c.Grid[tx][ty] {
-				sx := float64(tx*config.TileSize - int(camX))
-				sy := float64(ty*config.TileSize - int(camY))
+			if tx < 0 || tx >= len(c.Grid) || ty < 0 || ty >= len(c.Grid[0]) || !c.Grid[tx][ty] {
+				continue
+			}
 
+			sx := float64(tx*config.TileSize - int(camX))
+			sy := float64(ty*config.TileSize - int(camY))
+
+			h := hashCoords(tx, ty)
+
+			// If this cave has a chasm, blend deep rock tiles near the shaft/fissure
+			isChasmTile := false
+			if c.HasChasm {
+				distFromChasm := 999
+				if tx < c.ChasmX {
+					distFromChasm = c.ChasmX - tx
+				} else if tx >= c.ChasmX+c.ChasmWidth {
+					distFromChasm = tx - (c.ChasmX + c.ChasmWidth - 1)
+				} else {
+					distFromChasm = 0
+				}
+
+				startBlendY := max(c.BasinFloorY-4, 8)
+				if distFromChasm <= 4 && ty >= startBlendY {
+					depthSpan := float64(c.ChasmBottomY - startBlendY)
+					if depthSpan < 6.0 {
+						depthSpan = 6.0
+					}
+					depthFrac := float64(ty-startBlendY) / depthSpan
+					if depthFrac > 1.0 {
+						depthFrac = 1.0
+					}
+					proxFrac := 1.0 - float64(distFromChasm)/5.0
+					blendChance := depthFrac * proxFrac * 0.95
+					if float64(h%100)/100.0 < blendChance {
+						isChasmTile = true
+					}
+				}
+			}
+
+			if isChasmTile {
+				var rockColor, strokeColor color.RGBA
+				if c.ChasmTarget == CaveOrganicTrench {
+					rockColor = color.RGBA{22, 28, 44, 255} // Deep abyssal slate
+					strokeColor = color.RGBA{38, 48, 70, 255}
+				} else {
+					rockColor = color.RGBA{55, 60, 68, 255} // Slate-grey electric rock
+					strokeColor = color.RGBA{82, 88, 98, 255}
+				}
+
+				vector.FillRect(screen, float32(sx), float32(sy), config.TileSize, config.TileSize, rockColor, false)
+				vector.StrokeRect(screen, float32(sx), float32(sy), config.TileSize, config.TileSize, 0.5, strokeColor, false)
+
+				// Deterministic cracks/veins
+				if h%3 == 0 {
+					var veinClr color.RGBA
+					if c.ChasmTarget == CaveOrganicTrench {
+						veinClr = color.RGBA{0, 190, 220, 160} // Bioluminescent teal fissure
+					} else {
+						if h%2 == 0 {
+							veinClr = color.RGBA{140, 50, 210, 160} // Electric purple
+						} else {
+							veinClr = color.RGBA{0, 220, 255, 140}  // Electric cyan
+						}
+					}
+					vector.StrokeLine(screen, float32(sx)+6, float32(sy)+6, float32(sx)+16, float32(sy)+16, 1.5, veinClr, false)
+					vector.StrokeLine(screen, float32(sx)+16, float32(sy)+16, float32(sx)+12, float32(sy)+24, 1.2, veinClr, false)
+				}
+				if h%5 == 0 {
+					var veinClr color.RGBA
+					if c.ChasmTarget == CaveOrganicTrench {
+						veinClr = color.RGBA{0, 230, 255, 120}
+					} else {
+						veinClr = color.RGBA{0, 220, 255, 110}
+					}
+					vector.StrokeLine(screen, float32(sx)+float32(config.TileSize)-8, float32(sy)+8, float32(sx)+float32(config.TileSize)-16, float32(sy)+20, 1.2, veinClr, false)
+				}
+			} else {
 				op.GeoM.Reset()
 				op.GeoM.Translate(sx, sy)
-
-				// Injective stateless hash to choose the variant
-				h := hashCoords(tx, ty)
 				variantIdx := h % uint64(len(c.tileImages))
-
 				screen.DrawImage(c.tileImages[variantIdx], &op)
 			}
 		}
@@ -358,6 +518,57 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 		}
 	}
 
+	// Spawn special flora and entities along chasm rims and winding crevice walls
+	if c.HasChasm && c.ChasmX > 0 {
+		for y := 10; y < gridH-2; y += 3 {
+			for x := c.ChasmX - 2; x <= c.ChasmX+c.ChasmWidth+2; x++ {
+				if x > 1 && x < gridW-1 && !grid[x][y] {
+					if c.ChasmTarget == CaveOrganicTrench {
+						// Trench chasm entities: ShatterBulbs, FalseBulbSnares
+						if (grid[x-1][y] || grid[x+1][y]) && r.Float64() < 0.25 {
+							entities = append(entities, entity.NewShatterBulb(
+								float64(x*config.TileSize)+float64(config.TileSize-24)/2.0,
+								float64(y*config.TileSize)+float64(config.TileSize-24)/2.0,
+							))
+						}
+						if grid[x][y-1] && r.Float64() < 0.20 {
+							entities = append(entities, entity.NewFalseBulbSnare(
+								float64(x*config.TileSize)+float64(config.TileSize-24)/2.0,
+								float64(y*config.TileSize)+4.0,
+							))
+						}
+					} else {
+						// Shock Kelp chasm entities: ShockKelp
+						if grid[x-1][y] && r.Float64() < 0.35 {
+							entities = append(entities, entity.NewShockKelp(
+								float64(x*config.TileSize),
+								float64(y*config.TileSize)+8.0,
+								28.0,
+								"left",
+							))
+						}
+						if grid[x+1][y] && r.Float64() < 0.35 {
+							entities = append(entities, entity.NewShockKelp(
+								float64(x*config.TileSize)+float64(config.TileSize-28.0),
+								float64(y*config.TileSize)+8.0,
+								28.0,
+								"right",
+							))
+						}
+						if y < gridH-2 && grid[x][y+1] && r.Float64() < 0.30 {
+							entities = append(entities, entity.NewShockKelp(
+								float64(x*config.TileSize)+16.0,
+								float64((y+1)*config.TileSize)-32.0,
+								32.0,
+								"floor",
+							))
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return entities
 }
 
@@ -375,6 +586,12 @@ func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
 
 func (c *ShallowSeabedCave) GetAmbientColor(lightMult float64) []float32 {
 	alpha := float32(0.75 - (lightMult-0.2)/0.8*0.60)
+	if c.HasChasm {
+		if c.ChasmTarget == CaveOrganicTrench {
+			return []float32{0.02, 0.04, 0.08, alpha}
+		}
+		return []float32{0.03, 0.05, 0.09, alpha}
+	}
 	return []float32{0.04, 0.06, 0.12, alpha}
 }
 
@@ -423,3 +640,108 @@ func GenerateShallowSeabedGrid(r *rand.Rand, distToLand float64, hasLeftWater, h
 	}
 	return caveGrid
 }
+
+// GenerateChasmShallowGrid generates a shallow seabed grid with a funneled basin
+// and an organic winding crevice / fissure descending into a subterranean deep cave.
+func GenerateChasmShallowGrid(r *rand.Rand, distToLand float64, hasLeftWater, hasRightWater bool, funnelRadius, initialWidth, minWidth float64) [][]bool {
+	const (
+		w = CaveWidth  // 60
+		h = CaveHeight // 120
+	)
+	baseFloorY := min(max(6+int(distToLand*2.2), 6), 60)
+
+	freq1 := 0.15 + r.Float64()*0.2
+	freq2 := 0.05 + r.Float64()*0.1
+	amp1 := 2.0 + r.Float64()*4.0
+	amp2 := 1.0 + r.Float64()*3.0
+
+	// Center of the funneled basin & chasm (between x=24 and x=34)
+	chasmCenter := 26 + r.Intn(7) // e.g. 26..32
+
+	caveGrid := make([][]bool, w)
+	colFloorHeights := make([]int, w)
+
+	for x := range w {
+		caveGrid[x] = make([]bool, h)
+		colFloorY := max(baseFloorY+int(math.Sin(float64(x)*freq1)*amp1+math.Cos(float64(x)*freq2)*amp2), 6)
+
+		// 1. Funnel effect: smoothly depress seabed floor as we get closer to chasmCenter
+		distFromCenter := math.Abs(float64(x - chasmCenter))
+		if distFromCenter < funnelRadius {
+			t := (funnelRadius - distFromCenter) / funnelRadius
+			dip := math.Sin(t * math.Pi / 2.0) * 8.0
+			colFloorY += int(dip)
+		}
+
+		// Apply slope to the left edge if the neighbor is not water
+		if !hasLeftWater && x < 15 {
+			t := float64(x) / 15.0
+			t = math.Sin(t * math.Pi / 2.0)
+			blendY := 4.0 + (float64(colFloorY)-4.0)*t
+			colFloorY = int(blendY)
+		}
+
+		// Apply slope to the right edge if the neighbor is not water
+		if !hasRightWater && x >= w-15 {
+			t := float64(w-1-x) / 15.0
+			t = math.Sin(t * math.Pi / 2.0)
+			blendY := 4.0 + (float64(colFloorY)-4.0)*t
+			colFloorY = int(blendY)
+		}
+
+		colFloorHeights[x] = colFloorY
+
+		for y := range h {
+			isLeftBorderSolid := !hasLeftWater && x == 0
+			isRightBorderSolid := !hasRightWater && x == w-1
+			if isLeftBorderSolid || isRightBorderSolid || y >= colFloorY {
+				caveGrid[x][y] = true
+			} else {
+				caveGrid[x][y] = false
+			}
+		}
+	}
+
+	// 2. Carve the organic winding crevice down through the rock
+	basinFloorY := colFloorHeights[chasmCenter]
+	meanderFreq := 0.20 + r.Float64()*0.15
+	meanderPhase := r.Float64() * math.Pi * 2.0
+
+	for y := basinFloorY - 1; y < h; y++ {
+		depthProgress := float64(y - basinFloorY)
+		// Smooth horizontal meandering (-2.0 to +2.0 tiles)
+		meanderOffset := math.Sin(depthProgress*meanderFreq+meanderPhase) * 2.0
+		roughness := (r.Float64() - 0.5) * 0.8
+		cx := float64(chasmCenter) + meanderOffset + roughness
+
+		// Crevice width: smoothly tapering from initialWidth to minWidth
+		creviceWidth := initialWidth - math.Min(depthProgress/30.0, 1.0)*(initialWidth-minWidth) + (r.Float64()-0.5)*0.5
+		if creviceWidth < minWidth {
+			creviceWidth = minWidth
+		}
+
+		minX := int(math.Floor(cx - creviceWidth/2.0))
+		maxX := int(math.Ceil(cx + creviceWidth/2.0))
+
+		for x := minX; x <= maxX; x++ {
+			if x > 1 && x < w-2 && y >= 0 && y < h {
+				caveGrid[x][y] = false
+			}
+		}
+	}
+
+	return caveGrid
+}
+
+// GenerateShockKelpShallowGrid generates a shallow seabed grid with a funneled kelp basin
+// and an organic winding crevice (4.2 to 5.2 tiles wide) descending toward the subterranean Shock Kelp Cave.
+func GenerateShockKelpShallowGrid(r *rand.Rand, distToLand float64, hasLeftWater, hasRightWater bool) [][]bool {
+	return GenerateChasmShallowGrid(r, distToLand, hasLeftWater, hasRightWater, 11.0, 5.2, 4.2)
+}
+
+// GenerateTrenchShallowGrid generates a shallow seabed grid with a funneled abyssal basin
+// and an organic winding fissure (4.2 to 5.6 tiles wide) descending toward the subterranean Organic Trench Cave.
+func GenerateTrenchShallowGrid(r *rand.Rand, distToLand float64, hasLeftWater, hasRightWater bool) [][]bool {
+	return GenerateChasmShallowGrid(r, distToLand, hasLeftWater, hasRightWater, 12.0, 5.6, 4.2)
+}
+

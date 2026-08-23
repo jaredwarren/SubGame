@@ -62,30 +62,55 @@ func (c *ShockKelpCave) DrawTiles(screen *ebiten.Image, camX, camY float64, star
 					sx := float32(tx*config.TileSize - int(camX))
 					sy := float32(ty*config.TileSize - int(camY))
 
-					// Slate-grey rock colors
-					rockColor := color.RGBA{55, 60, 68, 255}
-					strokeColor := color.RGBA{82, 88, 98, 255}
-
-					vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
-					vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
-
-					// Deterministic vein cracks inside the rock
 					h := hashCoords(tx, ty)
-					if h%3 == 0 {
-						var veinClr color.RGBA
-						if h%2 == 0 {
-							veinClr = color.RGBA{140, 50, 210, 90} // Electric purple vein
-						} else {
-							veinClr = color.RGBA{0, 210, 240, 75}  // Glowing cyan vein
+
+					// Blend mossy kelp reef rock tiles near the top entrance ceiling
+					isKelpBlend := false
+					if ty <= 8 {
+						kelpProb := float64(8-ty) / 9.0 * 0.75
+						if float64(h%100)/100.0 < kelpProb {
+							isKelpBlend = true
 						}
-						// Draw a diagonal crack
-						vector.StrokeLine(screen, sx+6, sy+6, sx+16, sy+16, 1.2, veinClr, false)
-						vector.StrokeLine(screen, sx+16, sy+16, sx+12, sy+24, 1.0, veinClr, false)
 					}
-					if h%5 == 0 {
-						// Subtle second crack/vein
-						veinClr := color.RGBA{0, 210, 240, 60}
-						vector.StrokeLine(screen, sx+float32(config.TileSize)-8, sy+8, sx+float32(config.TileSize)-16, sy+20, 1.0, veinClr, false)
+
+					if isKelpBlend {
+						// Mossy kelp rock tile
+						rockColor := color.RGBA{38, 52, 32, 255}
+						strokeColor := color.RGBA{54, 76, 44, 255}
+						vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
+						vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
+
+						darkColor := color.RGBA{32, 70, 28, 255}
+						lightColor := color.RGBA{56, 118, 48, 255}
+						vector.FillCircle(screen, sx+16, sy+16, 7, darkColor, false)
+						vector.FillCircle(screen, sx+16, sy+16, 4.5, lightColor, false)
+						vector.FillCircle(screen, sx+42, sy+38, 8, darkColor, false)
+						vector.FillCircle(screen, sx+42, sy+38, 5, lightColor, false)
+					} else {
+						// Slate-grey rock colors
+						rockColor := color.RGBA{55, 60, 68, 255}
+						strokeColor := color.RGBA{82, 88, 98, 255}
+
+						vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
+						vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
+
+						// Deterministic vein cracks inside the rock
+						if h%3 == 0 {
+							var veinClr color.RGBA
+							if h%2 == 0 {
+								veinClr = color.RGBA{140, 50, 210, 90} // Electric purple vein
+							} else {
+								veinClr = color.RGBA{0, 210, 240, 75}  // Glowing cyan vein
+							}
+							// Draw a diagonal crack
+							vector.StrokeLine(screen, sx+6, sy+6, sx+16, sy+16, 1.2, veinClr, false)
+							vector.StrokeLine(screen, sx+16, sy+16, sx+12, sy+24, 1.0, veinClr, false)
+						}
+						if h%5 == 0 {
+							// Subtle second crack/vein
+							veinClr := color.RGBA{0, 210, 240, 60}
+							vector.StrokeLine(screen, sx+float32(config.TileSize)-8, sy+8, sx+float32(config.TileSize)-16, sy+20, 1.0, veinClr, false)
+						}
 					}
 				}
 			}
@@ -371,7 +396,7 @@ func GenerateShockKelpCaveGrid(r *rand.Rand) [][]bool {
 	}
 
 	// Ensure entrance at top center is fully open and cleared for spawn safety
-	for y := 0; y < 5; y++ {
+	for y := 0; y < 6; y++ {
 		for x := (w / 2) - 3; x <= (w/2)+3; x++ {
 			if x > 0 && x < w-1 && y < h-1 {
 				grid[x][y] = false
@@ -383,37 +408,37 @@ func GenerateShockKelpCaveGrid(r *rand.Rand) [][]bool {
 }
 
 // GenerateShockKelpReefTexture generates the slate-grey stone reef texture with electric purple veins
-// and glowing cyan spores, centered around a dark entrance, for use in the overworld view.
+// and glowing cyan spores, rendered semi-transparently to look submerged underwater in the overworld.
 func GenerateShockKelpReefTexture() *ebiten.Image {
 	img := ebiten.NewImage(config.TileSize, config.TileSize)
 	cx := float32(config.TileSize) / 2.0
 	cy := float32(config.TileSize) / 2.0
 
-	// Draw grey stone reef circle
-	vector.FillCircle(img, cx, cy, 28, color.RGBA{60, 65, 75, 255}, false)
-	vector.StrokeCircle(img, cx, cy, 28, 2.0, color.RGBA{95, 100, 110, 255}, false)
+	// Draw submerged grey stone reef circle (semi-transparent for underwater look)
+	vector.FillCircle(img, cx, cy, 28, color.RGBA{50, 65, 80, 160}, false)
+	vector.StrokeCircle(img, cx, cy, 28, 2.0, color.RGBA{80, 105, 125, 180}, false)
 
 	// Draw stony bumps
 	for angle := 0.0; angle < 2.0*math.Pi; angle += math.Pi / 4.0 {
 		bx := cx + float32(math.Cos(angle))*20.0
 		by := cy + float32(math.Sin(angle))*20.0
-		vector.FillCircle(img, bx, by, 6.0, color.RGBA{75, 80, 90, 255}, false)
-		vector.StrokeCircle(img, bx, by, 6.0, 1.0, color.RGBA{105, 110, 120, 255}, false)
+		vector.FillCircle(img, bx, by, 6.0, color.RGBA{65, 80, 95, 165}, false)
+		vector.StrokeCircle(img, bx, by, 6.0, 1.0, color.RGBA{95, 115, 135, 180}, false)
 	}
 
 	// Draw electric purple swirls/lines
-	vector.StrokeLine(img, cx-15, cy-15, cx+15, cy+15, 2.0, color.RGBA{140, 50, 210, 255}, false)
-	vector.StrokeLine(img, cx+15, cy-15, cx-15, cy+15, 2.0, color.RGBA{140, 50, 210, 255}, false)
+	vector.StrokeLine(img, cx-15, cy-15, cx+15, cy+15, 2.0, color.RGBA{140, 50, 210, 190}, false)
+	vector.StrokeLine(img, cx+15, cy-15, cx-15, cy+15, 2.0, color.RGBA{140, 50, 210, 190}, false)
 
 	// Draw cyan glowing spots (kelp spores)
-	vector.FillCircle(img, cx-12, cy-10, 3.0, color.RGBA{0, 230, 255, 255}, false)
-	vector.FillCircle(img, cx+12, cy+10, 3.0, color.RGBA{0, 230, 255, 255}, false)
-	vector.FillCircle(img, cx+10, cy-12, 2.5, color.RGBA{0, 230, 255, 255}, false)
-	vector.FillCircle(img, cx-10, cy+12, 2.5, color.RGBA{0, 230, 255, 255}, false)
+	vector.FillCircle(img, cx-12, cy-10, 3.0, color.RGBA{0, 230, 255, 210}, false)
+	vector.FillCircle(img, cx+12, cy+10, 3.0, color.RGBA{0, 230, 255, 210}, false)
+	vector.FillCircle(img, cx+10, cy-12, 2.5, color.RGBA{0, 230, 255, 210}, false)
+	vector.FillCircle(img, cx-10, cy+12, 2.5, color.RGBA{0, 230, 255, 210}, false)
 
 	// Draw cave entrance in the center
-	vector.FillCircle(img, cx, cy, 8.0, color.RGBA{15, 15, 18, 255}, false)
-	vector.StrokeCircle(img, cx, cy, 8.0, 1.5, color.RGBA{140, 50, 210, 255}, false)
+	vector.FillCircle(img, cx, cy, 8.0, color.RGBA{10, 15, 25, 190}, false)
+	vector.StrokeCircle(img, cx, cy, 8.0, 1.5, color.RGBA{140, 50, 210, 190}, false)
 
 	return img
 }

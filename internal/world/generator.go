@@ -336,18 +336,73 @@ func (w *World) GetCave(tx, ty int) [][]bool {
 	var caveGrid [][]bool
 
 	info := GetTileInfo(tileType)
-	if info != nil && info.GenerateGrid != nil {
+	if info != nil && info.Subterranean != nil && info.Subterranean.GenerateShallowGrid != nil {
+		dist := w.DistanceToLand(tx, ty)
+		hasLeftWater := tx-1 >= 0 && (w.OverworldMap[tx-1][ty] == TileWater || w.IsShallowTile(tx-1, ty))
+		hasRightWater := tx+1 < w.Width && (w.OverworldMap[tx+1][ty] == TileWater || w.IsShallowTile(tx+1, ty))
+		caveGrid = info.Subterranean.GenerateShallowGrid(r, dist, hasLeftWater, hasRightWater)
+	} else if info != nil && info.GenerateGrid != nil {
 		caveGrid = info.GenerateGrid(r)
 	} else {
 		dist := w.DistanceToLand(tx, ty)
-		hasLeftWater := tx-1 >= 0 && w.OverworldMap[tx-1][ty] == TileWater
-		hasRightWater := tx+1 < w.Width && w.OverworldMap[tx+1][ty] == TileWater
+		hasLeftWater := tx-1 >= 0 && (w.OverworldMap[tx-1][ty] == TileWater || w.IsShallowTile(tx-1, ty))
+		hasRightWater := tx+1 < w.Width && (w.OverworldMap[tx+1][ty] == TileWater || w.IsShallowTile(tx+1, ty))
 		caveGrid = cave.GenerateShallowSeabedGrid(r, dist, hasLeftWater, hasRightWater)
 	}
 
 	w.Caves[key] = caveGrid
 	return caveGrid
 }
+
+// IsShallowTile returns true if the tile at (tx, ty) generates a shallow seabed cave.
+func (w *World) IsShallowTile(tx, ty int) bool {
+	if tx < 0 || tx >= w.Width || ty < 0 || ty >= w.Height {
+		return false
+	}
+	tt := w.OverworldMap[tx][ty]
+	if tt == TileWater {
+		return true
+	}
+	if info := GetTileInfo(tt); info != nil && info.IsShallow {
+		return true
+	}
+	return false
+}
+
+// GetSubterraneanCave returns a procedurally generated subterranean deep cave linked to the tile position.
+func (w *World) GetSubterraneanCave(tx, ty int) [][]bool {
+	tx = max(0, min(tx, w.Width-1))
+	ty = max(0, min(ty, w.Height-1))
+
+	tileType := w.OverworldMap[tx][ty]
+	info := GetTileInfo(tileType)
+	if info == nil || info.Subterranean == nil {
+		return nil
+	}
+
+	key := fmt.Sprintf("%d_%d%s", tx, ty, info.Subterranean.DeepKeySuffix)
+	if caveGrid, exists := w.Caves[key]; exists {
+		return caveGrid
+	}
+
+	seed := w.Seed + int64(tx*73) + int64(ty*31) + 9999
+	r := rand.New(rand.NewSource(seed))
+
+	var caveGrid [][]bool
+	if info.Subterranean.GenerateDeepGrid != nil {
+		caveGrid = info.Subterranean.GenerateDeepGrid(r)
+	} else {
+		caveGrid = cave.GenerateCellularCave(cave.CaveWidth, cave.CaveHeight, 0.42, 4, r)
+	}
+	w.Caves[key] = caveGrid
+	return caveGrid
+}
+
+// GetDeepCave is a backward-compatible alias for GetSubterraneanCave.
+func (w *World) GetDeepCave(tx, ty int) [][]bool {
+	return w.GetSubterraneanCave(tx, ty)
+}
+
 
 // generateBiomes initializes the biome map across the overworld.
 func (w *World) generateBiomes() {

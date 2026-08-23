@@ -14,7 +14,7 @@ import (
 func main() {
 	outDir := flag.String("output-dir", "assets/audio", "Target output directory for synthesized audio files")
 	filter := flag.String("filter", "", "Filter sounds by name substring")
-	seed := flag.Int64("seed", 42, "Base random seed for procedural generation")
+	seed := flag.Int64("seed", 12345, "Base random seed for procedural generation")
 	flag.Parse()
 
 	startTime := time.Now()

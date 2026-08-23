@@ -33,3 +33,11 @@ type Cave interface {
 	GenerateResources(seed int64) []resource.Resource
 	GetAmbientColor(lightMult float64) []float32
 }
+
+// ChasmProvider defines an optional interface for caves with subterranean chasms/pits.
+type ChasmProvider interface {
+	HasFloorChasm() bool
+	GetChasmBounds() (minX, maxX, triggerY float64)
+	GetChasmTarget() CaveType
+}
+
