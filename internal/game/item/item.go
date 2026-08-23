@@ -150,10 +150,25 @@ func NewItemByName(name string) Item {
 	return nil
 }
 
-// Clone returns a new instance of the same concrete item type.
+// Cloner defines an item that can create a deep copy of itself (including internal state).
+type Cloner interface {
+	Clone() Item
+}
+
+// StatefulItem is an item that saves and restores custom state (e.g., vehicle upgrades/health).
+type StatefulItem interface {
+	Item
+	GetItemState() (upgrades *SavedInventory, health float64, battery float64, hasState bool)
+	SetItemState(upgrades *SavedInventory, health float64, battery float64, hasState bool)
+}
+
+// Clone returns a new instance of the item, preserving internal state if Cloner is implemented.
 func Clone(it Item) Item {
 	if it == nil {
 		return nil
+	}
+	if cloner, ok := it.(Cloner); ok {
+		return cloner.Clone()
 	}
 	return NewItemFromType(reflect.TypeOf(it))
 }

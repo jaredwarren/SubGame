@@ -184,10 +184,25 @@ func (inv *Inventory) Has(it Item, qty int) bool {
 	return inv.HasItem(reflect.TypeOf(it), qty)
 }
 
-// Remove consumes qty items of the same type as it.
+// Remove consumes qty items, prioritizing the exact instance it if present in a slot.
 func (inv *Inventory) Remove(it Item, qty int) bool {
-	if it == nil {
+	if it == nil || inv == nil {
 		return false
+	}
+	for i := len(inv.Slots) - 1; i >= 0; i-- {
+		if inv.Slots[i].Item == it {
+			if inv.Slots[i].Quantity >= qty {
+				inv.Slots[i].Quantity -= qty
+				if inv.Slots[i].Quantity == 0 {
+					inv.Slots[i].Item = nil
+				}
+				return true
+			}
+			qty -= inv.Slots[i].Quantity
+			inv.Slots[i].Item = nil
+			inv.Slots[i].Quantity = 0
+			break
+		}
 	}
 	return inv.RemoveItem(reflect.TypeOf(it), qty)
 }
@@ -417,8 +432,12 @@ func (inv *Inventory) TotalItemCount() int {
 
 // SavedItemStack represents serialized stack data for JSON save/load.
 type SavedItemStack struct {
-	ItemName string `json:"itemName"`
-	Quantity int    `json:"quantity"`
+	ItemName string          `json:"itemName"`
+	Quantity int             `json:"quantity"`
+	Upgrades *SavedInventory `json:"upgrades,omitempty"`
+	Health   float64         `json:"health,omitempty"`
+	Battery  float64         `json:"battery,omitempty"`
+	HasState bool            `json:"hasState,omitempty"`
 }
 
 // SavedInventory represents a serialized snapshot of an Inventory.
@@ -438,10 +457,20 @@ func (inv *Inventory) SerializeState() SavedInventory {
 	}
 	for i, slot := range inv.Slots {
 		if slot.Item != nil {
-			saved.Slots[i] = SavedItemStack{
+			stack := SavedItemStack{
 				ItemName: slot.Item.GetName(),
 				Quantity: slot.Quantity,
 			}
+			if stateful, ok := slot.Item.(StatefulItem); ok {
+				upgs, health, battery, hasState := stateful.GetItemState()
+				if hasState {
+					stack.Upgrades = upgs
+					stack.Health = health
+					stack.Battery = battery
+					stack.HasState = true
+				}
+			}
+			saved.Slots[i] = stack
 		}
 	}
 	return saved
@@ -464,6 +493,9 @@ func DeserializeInventory(saved SavedInventory) *Inventory {
 		if slotData.ItemName != "" && slotData.Quantity > 0 {
 			it := NewItemByName(slotData.ItemName)
 			if it != nil {
+				if stateful, ok := it.(StatefulItem); ok && slotData.HasState {
+					stateful.SetItemState(slotData.Upgrades, slotData.Health, slotData.Battery, true)
+				}
 				inv.Slots[i] = ItemStack{
 					Item:     it,
 					Quantity: slotData.Quantity,

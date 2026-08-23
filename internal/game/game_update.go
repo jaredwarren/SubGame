@@ -744,17 +744,51 @@ func (g *Game) PickUpActiveVehicle() {
 	if kit == nil {
 		return
 	}
-	if (v.GetCargo() != nil && !v.GetCargo().IsEmpty()) || (v.GetUpgrades() != nil && !v.GetUpgrades().IsEmpty()) {
-		g.SetMineWarning("Vehicle cargo and upgrades must be empty to pick up!", 120, 2)
+
+	if !g.player.Inventory.AddItem(kit, 1) {
+		g.SetMineWarning("Inventory full! Cannot pick up vehicle.", 120, 2)
 		return
 	}
-	if g.player.Inventory.AddItem(kit, 1) {
-		g.removeVehicle(v)
-		g.ActiveVehicle = nil
-		g.showInventory = false
-		g.SetMineWarning("Picked up "+v.GetName()+"!", 120, 1)
+
+	var cargoStacks []item.ItemStack
+	if vCargo := v.GetCargo(); vCargo != nil {
+		cargoStacks = vCargo.ExtractAll()
+	}
+
+	hadOverflow := false
+	if len(cargoStacks) > 0 {
+		leftover := g.player.Inventory.InsertStacks(cargoStacks)
+		if len(leftover) > 0 {
+			leftover = g.player.Hotbar.InsertStacks(leftover)
+		}
+		if len(leftover) > 0 {
+			hadOverflow = true
+			var dropPos gvec.Vec2
+			if g.currentState == StateCave {
+				dropPos = gvec.Vec2{
+					X: float64(g.activeTrenchX * config.TileSize),
+					Y: float64(g.activeTrenchY * config.TileSize),
+				}
+				if dropPos.X == 0 && dropPos.Y == 0 {
+					dropPos = gvec.Vec2{X: g.lastOverworldX, Y: g.lastOverworldY}
+				}
+			} else {
+				dropPos = g.player.Pos
+			}
+			beacon := entity.NewLostCargoBeacon(dropPos, leftover)
+			g.lostCargo = append(g.lostCargo, beacon)
+		}
+	}
+
+	g.player.RecalculateUpgrades()
+	g.removeVehicle(v)
+	g.ActiveVehicle = nil
+	g.showInventory = false
+
+	if hadOverflow {
+		g.SetMineWarning("Picked up "+v.GetName()+"! Excess cargo dropped in cargo crate.", 150, 1)
 	} else {
-		g.SetMineWarning("Inventory full! Cannot pick up vehicle.", 120, 2)
+		g.SetMineWarning("Picked up "+v.GetName()+"!", 120, 1)
 	}
 }
 

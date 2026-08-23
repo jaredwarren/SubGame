@@ -68,7 +68,26 @@ func (m *HeavyMech) GetFacing() float64           { return m.Facing }
 func (m *HeavyMech) ApplyForce(force gvec.Vec2) {
 	// HeavyMech is too heavy and stable to get knocked back!
 }
-func (m *HeavyMech) GetKit() item.Item { return &HeavyMechKit{} }
+func (m *HeavyMech) GetKit() item.Item {
+	var upgCopy *item.Inventory
+	if m.Upgrades != nil {
+		upgCopy = item.NewInventory(len(m.Upgrades.Slots))
+		for i, slot := range m.Upgrades.Slots {
+			if slot.Item != nil {
+				upgCopy.Slots[i] = item.ItemStack{
+					Item:     item.Clone(slot.Item),
+					Quantity: slot.Quantity,
+				}
+			}
+		}
+	}
+	return &HeavyMechKit{
+		Upgrades: upgCopy,
+		Health:   m.Health,
+		Battery:  m.Battery,
+		HasState: true,
+	}
+}
 
 
 func (m *HeavyMech) TakeDamage(amount float64) {
@@ -387,7 +406,12 @@ func (m *HeavyMech) Draw(screen *ebiten.Image, camX, camY float64) {
 }
 
 // HeavyMechKit represents the deployable kit for the Heavy Mech.
-type HeavyMechKit struct{}
+type HeavyMechKit struct {
+	Upgrades *item.Inventory
+	Health   float64
+	Battery  float64
+	HasState bool
+}
 
 func (k *HeavyMechKit) GetName() string       { return "Heavy Mech Kit" }
 func (k *HeavyMechKit) GetMaxStack() int      { return 1 }
@@ -401,7 +425,72 @@ func (k *HeavyMechKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillRect(screen, cx-size/2.0, cy+size/6.0, size, size/6.0, color.RGBA{60, 70, 80, 255}, false)
 }
 func (k *HeavyMechKit) IsPlayerUpgrade() bool { return false }
+
+func (k *HeavyMechKit) Clone() item.Item {
+	var upgCopy *item.Inventory
+	if k.Upgrades != nil {
+		upgCopy = item.NewInventory(len(k.Upgrades.Slots))
+		for i, slot := range k.Upgrades.Slots {
+			if slot.Item != nil {
+				upgCopy.Slots[i] = item.ItemStack{
+					Item:     item.Clone(slot.Item),
+					Quantity: slot.Quantity,
+				}
+			}
+		}
+	}
+	return &HeavyMechKit{
+		Upgrades: upgCopy,
+		Health:   k.Health,
+		Battery:  k.Battery,
+		HasState: k.HasState,
+	}
+}
+
+func (k *HeavyMechKit) GetItemState() (*item.SavedInventory, float64, float64, bool) {
+	if !k.HasState {
+		return nil, 0, 0, false
+	}
+	var savedUpg *item.SavedInventory
+	if k.Upgrades != nil {
+		s := k.Upgrades.SerializeState()
+		savedUpg = &s
+	}
+	return savedUpg, k.Health, k.Battery, true
+}
+
+func (k *HeavyMechKit) SetItemState(upgrades *item.SavedInventory, health float64, battery float64, hasState bool) {
+	k.HasState = hasState
+	k.Health = health
+	k.Battery = battery
+	if upgrades != nil {
+		k.Upgrades = item.DeserializeInventory(*upgrades)
+	} else {
+		k.Upgrades = nil
+	}
+}
+
 func (k *HeavyMechKit) Deploy(x, y float64) Vehicle {
-	return NewHeavyMech(x, y)
+	mech := NewHeavyMech(x, y)
+	if k.HasState {
+		if k.Upgrades != nil {
+			mech.Upgrades = item.NewInventory(len(k.Upgrades.Slots))
+			for i, slot := range k.Upgrades.Slots {
+				if slot.Item != nil {
+					mech.Upgrades.Slots[i] = item.ItemStack{
+						Item:     item.Clone(slot.Item),
+						Quantity: slot.Quantity,
+					}
+				}
+			}
+		}
+		if k.Health > 0 {
+			mech.Health = k.Health
+		}
+		if k.Battery >= 0 {
+			mech.Battery = k.Battery
+		}
+	}
+	return mech
 }
 

@@ -73,14 +73,13 @@ func (g *Game) drawOverworldLayer(screen *ebiten.Image) {
 		g.drawVehicleEntryPrompts(screen, g.OverworldVehicles, camX, camY)
 	}
 
-	g.drawWaypointMarker(screen)
-
-	// Fog last so unexplored tiles hide terrain, extras, and vehicles alike.
+	// Fog so unexplored tiles hide terrain, extras, and vehicles alike.
 	if g.overworldState != nil {
 		g.overworldState.DrawFogOverlay(g, screen)
 	}
 
-	// Lost cargo pierces fog so the return expedition can find the death site.
+	// Waypoint marker (Life Pod) and lost cargo pierce fog so navigation remains clear.
+	g.drawWaypointMarker(screen)
 	g.drawLostCargo(screen)
 }
 

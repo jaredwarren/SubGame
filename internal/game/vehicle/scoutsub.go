@@ -76,7 +76,26 @@ func (sub *ScoutSub) GetFacing() float64           { return sub.Facing }
 func (sub *ScoutSub) ApplyForce(force gvec.Vec2) {
 	sub.Vel = sub.Vel.Add(force)
 }
-func (sub *ScoutSub) GetKit() item.Item { return &ScoutSubKit{} }
+func (sub *ScoutSub) GetKit() item.Item {
+	var upgCopy *item.Inventory
+	if sub.Upgrades != nil {
+		upgCopy = item.NewInventory(len(sub.Upgrades.Slots))
+		for i, slot := range sub.Upgrades.Slots {
+			if slot.Item != nil {
+				upgCopy.Slots[i] = item.ItemStack{
+					Item:     item.Clone(slot.Item),
+					Quantity: slot.Quantity,
+				}
+			}
+		}
+	}
+	return &ScoutSubKit{
+		Upgrades: upgCopy,
+		Health:   sub.Health,
+		Battery:  sub.Battery,
+		HasState: true,
+	}
+}
 
 
 func (sub *ScoutSub) TakeDamage(amount float64) {
@@ -340,7 +359,12 @@ func (sub *ScoutSub) Draw(screen *ebiten.Image, camX, camY float64) {
 }
 
 // ScoutSubKit represents the deployable kit for the Scout Submarine.
-type ScoutSubKit struct{}
+type ScoutSubKit struct {
+	Upgrades *item.Inventory
+	Health   float64
+	Battery  float64
+	HasState bool
+}
 
 func (k *ScoutSubKit) GetName() string       { return "Scout Sub Kit" }
 func (k *ScoutSubKit) GetMaxStack() int      { return 1 }
@@ -354,7 +378,72 @@ func (k *ScoutSubKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx+size/4.0, cy, size/4.0, color.RGBA{80, 205, 255, 255}, false)
 }
 func (k *ScoutSubKit) IsPlayerUpgrade() bool { return false }
+
+func (k *ScoutSubKit) Clone() item.Item {
+	var upgCopy *item.Inventory
+	if k.Upgrades != nil {
+		upgCopy = item.NewInventory(len(k.Upgrades.Slots))
+		for i, slot := range k.Upgrades.Slots {
+			if slot.Item != nil {
+				upgCopy.Slots[i] = item.ItemStack{
+					Item:     item.Clone(slot.Item),
+					Quantity: slot.Quantity,
+				}
+			}
+		}
+	}
+	return &ScoutSubKit{
+		Upgrades: upgCopy,
+		Health:   k.Health,
+		Battery:  k.Battery,
+		HasState: k.HasState,
+	}
+}
+
+func (k *ScoutSubKit) GetItemState() (*item.SavedInventory, float64, float64, bool) {
+	if !k.HasState {
+		return nil, 0, 0, false
+	}
+	var savedUpg *item.SavedInventory
+	if k.Upgrades != nil {
+		s := k.Upgrades.SerializeState()
+		savedUpg = &s
+	}
+	return savedUpg, k.Health, k.Battery, true
+}
+
+func (k *ScoutSubKit) SetItemState(upgrades *item.SavedInventory, health float64, battery float64, hasState bool) {
+	k.HasState = hasState
+	k.Health = health
+	k.Battery = battery
+	if upgrades != nil {
+		k.Upgrades = item.DeserializeInventory(*upgrades)
+	} else {
+		k.Upgrades = nil
+	}
+}
+
 func (k *ScoutSubKit) Deploy(x, y float64) Vehicle {
-	return NewScoutSub(x, y)
+	sub := NewScoutSub(x, y)
+	if k.HasState {
+		if k.Upgrades != nil {
+			sub.Upgrades = item.NewInventory(len(k.Upgrades.Slots))
+			for i, slot := range k.Upgrades.Slots {
+				if slot.Item != nil {
+					sub.Upgrades.Slots[i] = item.ItemStack{
+						Item:     item.Clone(slot.Item),
+						Quantity: slot.Quantity,
+					}
+				}
+			}
+		}
+		if k.Health > 0 {
+			sub.Health = k.Health
+		}
+		if k.Battery >= 0 {
+			sub.Battery = k.Battery
+		}
+	}
+	return sub
 }
 

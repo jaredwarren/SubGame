@@ -82,10 +82,20 @@ func (s *Skiff) GetFacing() float64           { return s.Facing }
 func (s *Skiff) ApplyForce(force gvec.Vec2) {
 	s.Vel = s.Vel.Add(force)
 }
-func (s *Skiff) GetKit() item.Item { return &SkiffKit{} }
+func (s *Skiff) GetKit() item.Item {
+	return &SkiffKit{
+		Health:   s.Health,
+		Battery:  s.Battery,
+		HasState: true,
+	}
+}
 
 // SkiffKit represents the deployable kit for the Skiff.
-type SkiffKit struct{}
+type SkiffKit struct {
+	Health   float64
+	Battery  float64
+	HasState bool
+}
 
 func (k *SkiffKit) GetName() string       { return "Skiff Kit" }
 func (k *SkiffKit) GetMaxStack() int      { return 1 }
@@ -99,8 +109,39 @@ func (k *SkiffKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 	vector.FillCircle(screen, cx, cy-size/8.0, size/4.0, color.RGBA{40, 80, 110, 255}, false)
 }
 func (k *SkiffKit) IsPlayerUpgrade() bool { return false }
+
+func (k *SkiffKit) Clone() item.Item {
+	return &SkiffKit{
+		Health:   k.Health,
+		Battery:  k.Battery,
+		HasState: k.HasState,
+	}
+}
+
+func (k *SkiffKit) GetItemState() (*item.SavedInventory, float64, float64, bool) {
+	if !k.HasState {
+		return nil, 0, 0, false
+	}
+	return nil, k.Health, k.Battery, true
+}
+
+func (k *SkiffKit) SetItemState(upgrades *item.SavedInventory, health float64, battery float64, hasState bool) {
+	k.HasState = hasState
+	k.Health = health
+	k.Battery = battery
+}
+
 func (k *SkiffKit) Deploy(x, y float64) Vehicle {
-	return NewSkiff(x, y)
+	skiff := NewSkiff(x, y)
+	if k.HasState {
+		if k.Health > 0 {
+			skiff.Health = k.Health
+		}
+		if k.Battery >= 0 {
+			skiff.Battery = k.Battery
+		}
+	}
+	return skiff
 }
 
 
