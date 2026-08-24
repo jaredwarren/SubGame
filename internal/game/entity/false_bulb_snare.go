@@ -30,7 +30,7 @@ func NewFalseBulbSnare(x, y float64) *FalseBulbSnare {
 	return &FalseBulbSnare{
 		BaseEntity: BaseEntity{
 			Pos:        gvec.Vec2{X: x, Y: y},
-			Dimensions: gvec.Vec2{X: 24, Y: 32},
+			Dimensions: d.Dims,
 			Active:     true,
 		},
 		def:   d,

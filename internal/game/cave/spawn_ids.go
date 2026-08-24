@@ -1,5 +1,7 @@
 package cave
 
+import "github.com/jaredwarren/SubGame/internal/game/entity"
+
 // FloraID identifies a flora archetype for weighted cave spawning.
 type FloraID int
 
@@ -13,18 +15,18 @@ const (
 )
 
 // FaunaID identifies a fauna archetype for weighted cave spawning.
-type FaunaID int
+type FaunaID = entity.FaunaID
 
 const (
-	FaunaPassiveFish FaunaID = iota
-	FaunaPassiveCrab
-	FaunaSandViper
-	FaunaFalseBulbSnare
-	FaunaThermoclineRammer
-	FaunaElectroWeaver
-	FaunaVoltaicLurker
-	FaunaBrimstoneSiphon
-	FaunaCount
+	FaunaPassiveFish       = entity.FaunaPassiveFish
+	FaunaPassiveCrab       = entity.FaunaPassiveCrab
+	FaunaSandViper         = entity.FaunaSandViper
+	FaunaFalseBulbSnare    = entity.FaunaFalseBulbSnare
+	FaunaThermoclineRammer = entity.FaunaThermoclineRammer
+	FaunaElectroWeaver     = entity.FaunaElectroWeaver
+	FaunaVoltaicLurker     = entity.FaunaVoltaicLurker
+	FaunaBrimstoneSiphon   = entity.FaunaBrimstoneSiphon
+	FaunaCount             = entity.FaunaCount
 )
 
 // SpawnEntry is a weighted entry in a typed spawn table.

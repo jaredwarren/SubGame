@@ -30,7 +30,7 @@ func NewBrimstoneSiphon(x, y float64, direction string) *BrimstoneSiphon {
 	return &BrimstoneSiphon{
 		BaseEntity: BaseEntity{
 			Pos:        gvec.Vec2{X: x, Y: y},
-			Dimensions: gvec.Vec2{X: 32, Y: 32},
+			Dimensions: d.Dims,
 			Active:     true,
 		},
 		def:       d,

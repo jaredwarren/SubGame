@@ -34,7 +34,7 @@ func NewThermoclineRammer(x, y float64) *ThermoclineRammer {
 	return &ThermoclineRammer{
 		BaseEntity: BaseEntity{
 			Pos:        gvec.Vec2{X: x, Y: y},
-			Dimensions: gvec.Vec2{X: 36, Y: 24},
+			Dimensions: d.Dims,
 			Active:     true,
 		},
 		def: d,

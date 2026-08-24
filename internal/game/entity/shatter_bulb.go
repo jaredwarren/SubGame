@@ -56,7 +56,7 @@ func (s *ShatterBulb) Pop(gr Runtime) {
 		return
 	}
 	s.Active = false
-	gr.Emit(RestoreOxygenCmd{Amount: 20})
+	gr.Emit(RestoreOxygenCmd{Amount: s.stats().RestoreOxygen})
 	gr.Emit(TriggerSoundWaveCmd{
 		Pos: gvec.Vec2{X: s.Pos.X + s.Dimensions.X/2.0, Y: s.Pos.Y + s.Dimensions.Y/2.0},
 	})

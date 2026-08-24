@@ -13,13 +13,17 @@ import (
 // grid may be nil for types that do not need wall attachment; lurker/siphon
 // need grid to pick an anchor face/direction.
 func SpawnFauna(id FaunaID, tx, ty int, grid [][]bool, r *rand.Rand) entity.CaveEntity {
+	def := entity.FaunaDefFor(id)
+	if def == nil {
+		return nil
+	}
 	ts := config.TileSize
 	cx := float64(tx*ts) + float64(ts)/2.0
 	cy := float64(ty*ts) + float64(ts)/2.0
+	d := def.Dims
 
 	switch id {
 	case FaunaPassiveFish:
-		d := entity.PassiveFishArchetype.Dims
 		return entity.NewPassiveFish(
 			float64(tx*ts)+float64(ts-int(d.X))/2.0,
 			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
@@ -27,33 +31,31 @@ func SpawnFauna(id FaunaID, tx, ty int, grid [][]bool, r *rand.Rand) entity.Cave
 			r.Float64()*math.Pi*2,
 		)
 	case FaunaPassiveCrab:
-		d := entity.PassiveCrabArchetype.Dims
 		return entity.NewPassiveCrab(
 			float64(tx*ts)+float64(ts-int(d.X))/2.0,
 			float64(ty*ts)+float64(ts-int(d.Y)),
 		)
 	case FaunaSandViper:
-		d := entity.SandViperArchetype.Dims
 		return entity.NewSandViper(
 			float64(tx*ts)+float64(ts-int(d.X))/2.0,
 			float64(ty*ts)+float64(ts-int(d.Y)),
 		)
 	case FaunaFalseBulbSnare:
 		return entity.NewFalseBulbSnare(
-			float64(tx*ts)+float64(ts-24)/2.0,
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
 			float64(ty*ts)+4,
 		)
 	case FaunaThermoclineRammer:
 		rammer := entity.NewThermoclineRammer(
-			float64(tx*ts)+float64(ts-36)/2.0,
-			float64(ty*ts)+float64(ts-24)/2.0,
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
 		)
 		rammer.Facing = r.Float64() * math.Pi * 2
 		return rammer
 	case FaunaElectroWeaver:
 		return entity.NewElectroWeaver(
-			float64(tx*ts)+float64(ts-40)/2.0,
-			float64(ty*ts)+float64(ts-20)/2.0,
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
 		)
 	case FaunaVoltaicLurker:
 		face := pickSolidFace(grid, tx, ty, r)
@@ -67,9 +69,9 @@ func SpawnFauna(id FaunaID, tx, ty int, grid [][]bool, r *rand.Rand) entity.Cave
 			return nil
 		}
 		siphon := entity.NewBrimstoneSiphon(
-			cx-16, cy-16, dir,
+			cx-d.X/2.0, cy-d.Y/2.0, dir,
 		)
-		siphon.Timer = r.Intn(entity.BrimstoneSiphonArchetype.CycleFrames)
+		siphon.Timer = r.Intn(def.CycleFrames)
 		return siphon
 	default:
 		return nil

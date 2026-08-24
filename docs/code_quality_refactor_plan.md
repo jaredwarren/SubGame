@@ -469,13 +469,11 @@ Phase 3 shipped the core migrations (FaunaID/spawn tables, `CaveSpec`,
 were intentionally left open; each is independently shippable but too large
 for a single incidental commit:
 
-14. **Unified `FaunaDef` registry** (§2.4): collapse the ten `*Def` structs in
-    `entity/archetypes.go` into one `FaunaDef` table keyed by `FaunaID`, with
-    `BehaviorID` picking a small set of Go behavior implementations. Creatures
-    today still carry hardcoded dims in a few types (`false_bulb_snare.go`,
-    `thermocline_rammer.go`) and magic numbers in glue (`shatter_bulb.go`).
-    *Touch:* `entity/archetypes.go`, each predator file, `cave/spawn.go`,
-    `data/entities.go`. Estimate: 1–2 focused PRs.
+14. ~~**Unified `FaunaDef` registry**~~ — **done**: `entity/fauna_def.go` holds one
+    `FaunaDef` table keyed by `FaunaID` (moved from `cave/spawn_ids.go`) with
+    `BehaviorID` per row; legacy `*Archetype` pointers alias registry entries.
+    Flora (`ShockKelp`, `ShatterBulb`) keeps separate defs until a `FloraDef`
+    pass. Hardcoded dims/O₂ restore moved into defs.
 
 15. ~~**Shallow chasm-rim data tables**~~ — **done**: `ChasmRimSpec` registry
     (`chasm_rim.go`) keyed by target `CaveType` drives chasm tile palette, ambient
