@@ -3,6 +3,9 @@ package quest
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 )
 
 // Task represents a single objective within a quest.
@@ -224,10 +227,10 @@ type QuestContext interface {
 	IsPlayerInCave() bool
 	PlayerTrenchCoords() (x, y int)
 	PlayerDistanceToBase() float64
-	CountInventoryItem(name string) int
-	HasVehicleInWorld(vType string) bool
+	CountInventoryItemID(id item.ItemID) int
+	HasVehicleInWorldID(id vehicle.VehicleID) bool
 	MaxDepthReached() float64
-	HasCraftedItem(name string) bool
+	HasCraftedItemID(id item.ItemID) bool
 }
 
 // ProgressNotification represents a message generated when a quest or task updates.

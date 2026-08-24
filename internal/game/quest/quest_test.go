@@ -2,17 +2,20 @@ package quest
 
 import (
 	"testing"
+
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 )
 
 type mockQuestContext struct {
-	inCave        bool
-	trenchX       int
-	trenchY       int
-	distToBase    float64
-	items         map[string]int
-	vehicles      map[string]bool
-	maxDepth      float64
-	craftedItems  map[string]bool
+	inCave       bool
+	trenchX      int
+	trenchY      int
+	distToBase   float64
+	items        map[item.ItemID]int
+	vehicles     map[vehicle.VehicleID]bool
+	maxDepth     float64
+	craftedItems map[item.ItemID]bool
 }
 
 func (m *mockQuestContext) IsPlayerInCave() bool {
@@ -27,29 +30,29 @@ func (m *mockQuestContext) PlayerDistanceToBase() float64 {
 	return m.distToBase
 }
 
-func (m *mockQuestContext) CountInventoryItem(name string) int {
+func (m *mockQuestContext) CountInventoryItemID(id item.ItemID) int {
 	if m.items == nil {
 		return 0
 	}
-	return m.items[name]
+	return m.items[id]
 }
 
-func (m *mockQuestContext) HasVehicleInWorld(vType string) bool {
+func (m *mockQuestContext) HasVehicleInWorldID(id vehicle.VehicleID) bool {
 	if m.vehicles == nil {
 		return false
 	}
-	return m.vehicles[vType]
+	return m.vehicles[id]
 }
 
 func (m *mockQuestContext) MaxDepthReached() float64 {
 	return m.maxDepth
 }
 
-func (m *mockQuestContext) HasCraftedItem(name string) bool {
+func (m *mockQuestContext) HasCraftedItemID(id item.ItemID) bool {
 	if m.craftedItems == nil {
 		return false
 	}
-	return m.craftedItems[name]
+	return m.craftedItems[id]
 }
 
 func TestQuestManager_Progression(t *testing.T) {
@@ -64,9 +67,9 @@ func TestQuestManager_Progression(t *testing.T) {
 	}
 
 	ctx := &mockQuestContext{
-		items:        make(map[string]int),
-		vehicles:     make(map[string]bool),
-		craftedItems: make(map[string]bool),
+		items:        make(map[item.ItemID]int),
+		vehicles:     make(map[vehicle.VehicleID]bool),
+		craftedItems: make(map[item.ItemID]bool),
 		distToBase:   300.0,
 	}
 
@@ -84,14 +87,14 @@ func TestQuestManager_Progression(t *testing.T) {
 	}
 
 	// 3. Mine 5 titanium -> partial progress notification
-	ctx.items["Titanium"] = 5
+	ctx.items[item.IDTitanium] = 5
 	notifs = qm.CheckProgress(ctx)
 	if len(notifs) == 0 || trainingQuest.GetTask("train_titanium").Completed {
 		t.Fatal("expected partial titanium progress notification, task should not be completed yet")
 	}
 
 	// 4. Mine 10 titanium -> task completes
-	ctx.items["Titanium"] = 10
+	ctx.items[item.IDTitanium] = 10
 	notifs = qm.CheckProgress(ctx)
 	if !trainingQuest.GetTask("train_titanium").Completed {
 		t.Fatal("expected train_titanium task to be completed with 10 items")
@@ -106,14 +109,14 @@ func TestQuestManager_Progression(t *testing.T) {
 	}
 
 	// 6. Craft Skiff Kit
-	ctx.craftedItems["Skiff Kit"] = true
+	ctx.craftedItems[item.IDSkiffKit] = true
 	notifs = qm.CheckProgress(ctx)
 	if !trainingQuest.GetTask("train_skiff_craft").Completed {
 		t.Fatal("expected train_skiff_craft to complete")
 	}
 
 	// 7. Deploy Skiff
-	ctx.vehicles["skiff"] = true
+	ctx.vehicles[vehicle.VehicleSkiff] = true
 	notifs = qm.CheckProgress(ctx)
 	if !trainingQuest.GetTask("train_skiff_deploy").Completed {
 		t.Fatal("expected train_skiff_deploy to complete")

@@ -462,6 +462,48 @@ Ordered for value ÷ risk; each step is independently shippable.
     paths. (§3)
 13. Fog/water-offset caching; exploration drain; BFS queue. (§6.3, §6.4, §6.6)
 
+**Phase 3 polish — deferred tail work**
+
+Phase 3 shipped the core migrations (FaunaID/spawn tables, `CaveSpec`,
+`VehicleDef`/`Controller`, declarative quest conditions). The following items
+were intentionally left open; each is independently shippable but too large
+for a single incidental commit:
+
+14. **Unified `FaunaDef` registry** (§2.4): collapse the ten `*Def` structs in
+    `entity/archetypes.go` into one `FaunaDef` table keyed by `FaunaID`, with
+    `BehaviorID` picking a small set of Go behavior implementations. Creatures
+    today still carry hardcoded dims in a few types (`false_bulb_snare.go`,
+    `thermocline_rammer.go`) and magic numbers in glue (`shatter_bulb.go`).
+    *Touch:* `entity/archetypes.go`, each predator file, `cave/spawn.go`,
+    `data/entities.go`. Estimate: 1–2 focused PRs.
+
+15. **Shallow chasm-rim data tables** (§2.5): `shallow_seabed_cave.go` still
+    branches on `ChasmTarget` for draw palette, ambient tint, and rim entity
+    spawns (~170 lines of `if target == OrganicTrench / else ShockKelp`).
+    Move rim spawn weights, vein colors, and ambient overrides onto
+    `CaveSpec.Subterranean` or a `ChasmRimSpec` keyed by target cave type.
+    *Touch:* `cave/spec.go`, `shallow_seabed_cave.go`. Estimate: one PR.
+
+16. **Full vehicle `Update` merge** (§2.6): `Controller` today covers
+    damage/repair/recharge and stun gating only; `skiff.go`, `scoutsub.go`, and
+    `heavymech.go` still triplicate movement, axis collision, battery drain,
+    and kit cloning (~450 lines each). Finish extracting a shared update loop
+    driven by `VehicleDef` with per-craft strategy hooks (mech mining arms,
+    skiff surface handling).
+    *Touch:* `vehicle/controller.go`, all three vehicle files. Estimate: 1–2 PRs.
+
+17. **Event-driven quest progress** (§6.5): `CheckProgress` still runs every
+    tick even though conditions are declarative. Emit progress events on
+    inventory pickup, craft completion, depth milestones, vehicle deploy, and
+    cave enter/exit; have `QuestManager` subscribe and only re-evaluate affected
+    tasks. Combines with typed IDs (item 18 below — done).
+    *Touch:* `quest/quest.go`, `game_update.go`, inventory/craft/transition
+    hooks. Estimate: one PR.
+
+18. ~~**Quest `ItemID` / `VehicleID` keys**~~ — **done**: `Condition` and
+    `QuestContext` now use `item.ItemID` and `vehicle.VehicleID` instead of
+    display names.
+
 After phases 2–3, the table in §1 collapses: a new ore, creature, or cave is a
 definition row plus (at most) one behavior or generator function — and the
 compiler, not grep, tells you when something is missing.

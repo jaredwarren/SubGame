@@ -1,5 +1,10 @@
 package quest
 
+import (
+	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
+)
+
 // ConditionKind identifies a declarative quest progress check.
 type ConditionKind int
 
@@ -17,29 +22,29 @@ const (
 // Condition is a data-driven objective check evaluated by CheckProgress.
 type Condition struct {
 	Kind         ConditionKind
-	ItemName     string  // inventory / craft display name
-	VehicleType  string  // HasVehicleInWorld key
-	Amount       int     // inventory threshold (defaults to RequiredCount when 0)
-	Distance     float64 // near-base threshold
-	Depth        float64 // max depth threshold
-	Prerequisite TaskID  // required sibling task
+	ItemID       item.ItemID     // inventory / craft check
+	VehicleID    vehicle.VehicleID // HasVehicleInWorld check
+	Amount       int             // inventory threshold (defaults to RequiredCount when 0)
+	Distance     float64         // near-base threshold
+	Depth        float64         // max depth threshold
+	Prerequisite TaskID          // required sibling task
 }
 
 // taskConditions maps every default TaskID to its evaluation rule.
 var taskConditions = map[TaskID]Condition{
 	TaskTrainDive:        {Kind: CondInCave},
-	TaskTrainTitanium:    {Kind: CondInventoryAtLeast, ItemName: "Titanium"},
+	TaskTrainTitanium:    {Kind: CondInventoryAtLeast, ItemID: item.IDTitanium},
 	TaskTrainReturn:      {Kind: CondNearBaseOutOfCave, Distance: 120, Prerequisite: TaskTrainTitanium},
-	TaskTrainSkiffCraft:  {Kind: CondCraftedOrVehicle, ItemName: "Skiff Kit", VehicleType: "skiff"},
-	TaskTrainSkiffDeploy: {Kind: CondHasVehicle, VehicleType: "skiff"},
-	TaskGearO2HC:         {Kind: CondCraftedOrOwned, ItemName: "High Capacity O2 Tank"},
-	TaskGearFins:         {Kind: CondCraftedOrOwned, ItemName: "Propulsion Fins"},
-	TaskGearScanner:      {Kind: CondCraftedOrOwned, ItemName: "Scanner Tool"},
-	TaskVehScoutSub:      {Kind: CondCraftedOrVehicle, ItemName: "Scout Sub Kit", VehicleType: "scout_sub"},
-	TaskVehHeavyMech:     {Kind: CondCraftedOrVehicle, ItemName: "Heavy Mech Kit", VehicleType: "heavy_mech"},
+	TaskTrainSkiffCraft:  {Kind: CondCraftedOrVehicle, ItemID: item.IDSkiffKit, VehicleID: vehicle.VehicleSkiff},
+	TaskTrainSkiffDeploy: {Kind: CondHasVehicle, VehicleID: vehicle.VehicleSkiff},
+	TaskGearO2HC:         {Kind: CondCraftedOrOwned, ItemID: item.IDO2TankHC},
+	TaskGearFins:         {Kind: CondCraftedOrOwned, ItemID: item.IDFins},
+	TaskGearScanner:      {Kind: CondCraftedOrOwned, ItemID: item.IDScanner},
+	TaskVehScoutSub:      {Kind: CondCraftedOrVehicle, ItemID: item.IDScoutSubKit, VehicleID: vehicle.VehicleScoutSub},
+	TaskVehHeavyMech:     {Kind: CondCraftedOrVehicle, ItemID: item.IDHeavyMechKit, VehicleID: vehicle.VehicleHeavyMech},
 	TaskEscReachDepth:    {Kind: CondMaxDepth, Depth: 100},
-	TaskEscAbyssalOre:    {Kind: CondInventoryAtLeast, ItemName: "Abyssal Ore"},
-	TaskEscCraftRocket:   {Kind: CondCraftedOrOwned, ItemName: "Escape Rocket"},
+	TaskEscAbyssalOre:    {Kind: CondInventoryAtLeast, ItemID: item.IDAbyssalOre},
+	TaskEscCraftRocket:   {Kind: CondCraftedOrOwned, ItemID: item.IDEscapeRocket},
 }
 
 func evaluateCondition(cond Condition, t *Task, q *Quest, ctx QuestContext) {
@@ -54,7 +59,7 @@ func evaluateCondition(cond Condition, t *Task, q *Quest, ctx QuestContext) {
 		if need <= 0 {
 			need = t.RequiredCount
 		}
-		count := ctx.CountInventoryItem(cond.ItemName)
+		count := ctx.CountInventoryItemID(cond.ItemID)
 		if count > t.CurrentCount {
 			t.CurrentCount = count
 		}
@@ -63,17 +68,17 @@ func evaluateCondition(cond Condition, t *Task, q *Quest, ctx QuestContext) {
 			t.Completed = true
 		}
 	case CondCraftedOrOwned:
-		if ctx.HasCraftedItem(cond.ItemName) || ctx.CountInventoryItem(cond.ItemName) > 0 {
+		if ctx.HasCraftedItemID(cond.ItemID) || ctx.CountInventoryItemID(cond.ItemID) > 0 {
 			t.CurrentCount = 1
 			t.Completed = true
 		}
 	case CondHasVehicle:
-		if ctx.HasVehicleInWorld(cond.VehicleType) {
+		if ctx.HasVehicleInWorldID(cond.VehicleID) {
 			t.CurrentCount = 1
 			t.Completed = true
 		}
 	case CondCraftedOrVehicle:
-		if ctx.HasCraftedItem(cond.ItemName) || ctx.CountInventoryItem(cond.ItemName) > 0 || ctx.HasVehicleInWorld(cond.VehicleType) {
+		if ctx.HasCraftedItemID(cond.ItemID) || ctx.CountInventoryItemID(cond.ItemID) > 0 || ctx.HasVehicleInWorldID(cond.VehicleID) {
 			t.CurrentCount = 1
 			t.Completed = true
 		}

@@ -1,8 +1,6 @@
 package game
 
 import (
-	"strings"
-
 	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
@@ -301,29 +299,29 @@ func (g *Game) PlayerDistanceToBase() float64 {
 	return g.baseStation.DistanceToPlayer(g.player)
 }
 
-func (g *Game) CountInventoryItem(name string) int {
-	if g.player == nil {
+func (g *Game) CountInventoryItemID(id item.ItemID) int {
+	if g.player == nil || id == "" {
 		return 0
 	}
-	it := item.NewItemByName(name)
+	it := item.NewItemByID(id)
 	if it == nil {
 		return 0
 	}
 	return g.player.Inventory.Count(it)
 }
 
-func (g *Game) HasVehicleInWorld(vType string) bool {
-	norm := strings.ToLower(strings.ReplaceAll(vType, "_", " "))
+func (g *Game) HasVehicleInWorldID(id vehicle.VehicleID) bool {
+	if id == "" {
+		return false
+	}
 	for _, v := range g.OverworldVehicles {
-		vName := strings.ToLower(v.GetName())
-		if vName == norm || strings.Contains(vName, norm) || strings.Contains(norm, vName) {
+		if v.GetID() == id {
 			return true
 		}
 	}
 	for _, vList := range g.CaveVehicles {
 		for _, v := range vList {
-			vName := strings.ToLower(v.GetName())
-			if vName == norm || strings.Contains(vName, norm) || strings.Contains(norm, vName) {
+			if v.GetID() == id {
 				return true
 			}
 		}
@@ -341,11 +339,14 @@ func (g *Game) MaxDepthReached() float64 {
 	return 0.0
 }
 
-func (g *Game) HasCraftedItem(name string) bool {
-	if g.CountInventoryItem(name) > 0 {
+func (g *Game) HasCraftedItemID(id item.ItemID) bool {
+	if id == "" {
+		return false
+	}
+	if g.CountInventoryItemID(id) > 0 {
 		return true
 	}
-	it := item.NewItemByName(name)
+	it := item.NewItemByID(id)
 	if it != nil && g.baseStation != nil {
 		if g.baseStation.Storage != nil && g.baseStation.Storage.Count(it) > 0 {
 			return true
