@@ -137,7 +137,6 @@ func (s *TitleScene) OnEnter(g GameContext) {
 }
 
 func (s *TitleScene) onEnter(g TitleContext) {
-	g.SetCurrentState(StateTitle)
 	s.panelMode = panelNone
 	s.deleteConfirmSlot = 0
 	s.seedFocused = false

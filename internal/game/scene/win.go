@@ -29,7 +29,6 @@ func (s *GameWonScene) OnEnter(g GameContext) {
 }
 
 func (s *GameWonScene) onEnter(g GameWonContext) {
-	g.SetCurrentState(StateGameWon)
 }
 
 func (s *GameWonScene) OnExit(g GameContext) {}

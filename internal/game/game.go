@@ -20,7 +20,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/save"
 	"github.com/jaredwarren/SubGame/internal/game/scene"
-	"github.com/jaredwarren/SubGame/internal/game/sonar"
 	"github.com/jaredwarren/SubGame/internal/game/story"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -62,72 +61,15 @@ type Game struct {
 	gameWonState          *GameWonScene
 	pauseState            *scene.PauseScene
 
-	// Core objects
-	player *player.Player
-	hud    *HUD
-	world  *world.World
-	camera *camera.Camera
-	Input  InputSource
+	Session
+	CaveCache
+	Effects
+	Progress
 
-	// Navigation
-	lastOverworldX  float64
-	lastOverworldY  float64
-	activeTrenchX   int
-	activeTrenchY   int
-	activeTrenchKey string
-	justExited      bool
-
-	// Inventory / cave resources
-	caveNodes     map[string][]resource.Resource
-	showInventory bool
-	baseStation   *base.BaseStation
-
-	// Vehicles
-	ActiveVehicle     vehicle.Vehicle
-	OverworldVehicles []vehicle.Vehicle
-	CaveVehicles      map[string][]vehicle.Vehicle // keyed by trenchKey
-
-	// World time
-	TimeOfDay float64 // 0–14400 ticks per 4-min day/night cycle
-	Ticks     float64
-
-	// Sonar and alerts
-	Sonar            *sonar.Sonar
-	MineWarning      WarningBanner
-
-	// Biome / AI state
-	caveEntities        map[string][]entity.CaveEntity
-	FlashlightOn        bool
-	WeaverTrackingTimer float64
-	SoundWave           SoundWaveState
-	playerSlowed        bool // reset each tick by entity system
-	o2LowAlertPlayed    bool
-	o2CritAlertPlayed   bool
-
-	// Effects
-	Particles      []*particle.Particle
-	Shake          ScreenShake
-	deathReason    string
-
-	// Debug
+	hud             *HUD
+	showInventory   bool
 	DebugDisableLightShader bool
 	DebugDisableWaterShader bool
-
-	// Story, Quests and Lore
-	storyManager       *story.StoryManager
-	questManager       *quest.QuestManager
-	pdaPriorState      State
-	menuOpenedAnywhere bool
-	craftingRecipes    []scene.Recipe
-
-	// Exploration / fog-of-war
-	explorationTracker *exploration.Tracker
-
-	// Death cargo beacons (inventory dropped at death site; upgrades stay equipped).
-	lostCargo []*entity.LostCargoBeacon
-
-	// Tutorial
-	TutorialActive bool
 
 	// Save slot currently in use (1–3); 0 means unset.
 	activeSaveSlot int
@@ -144,43 +86,16 @@ func NewGame() *Game {
 	item.LoadAssets()
 	base.LoadAssets()
 	scene.LoadAssets()
-	w := world.NewWorld(12345)
-
-	spawnX, spawnY := findWaterSpawn(w)
-
-	p := player.NewPlayer(spawnX, spawnY)
-	cam := camera.NewCamera(spawnX, spawnY)
-	cam.CenterOn(spawnX, spawnY, p.Width, p.Height)
-
-	baseStation := base.NewBaseStation(spawnX+96.0, spawnY-64.0)
-
-	sm := story.NewStoryManager()
-	qm := quest.NewQuestManager()
-	tracker := exploration.NewTracker(w.Width, w.Height)
-	spawnTX := int(math.Floor((spawnX + p.Width/2.0) / float64(config.TileSize)))
-	spawnTY := int(math.Floor((spawnY + p.Height/2.0) / float64(config.TileSize)))
-	tracker.Reveal(spawnTX, spawnTY, exploration.RevealRadius)
-
 	g := &Game{
-		currentState:         StateTitle,
-		player:               p,
-		hud:                  NewHUD(),
-		world:                w,
-		camera:               cam,
-		Input:                NewEbitenInput(),
-		caveNodes:            make(map[string][]resource.Resource),
-		baseStation:          baseStation,
-		ActiveVehicle:        nil,
-		OverworldVehicles:    nil,
-		CaveVehicles:         make(map[string][]vehicle.Vehicle),
-		Sonar:                sonar.NewSonar(),
-		caveEntities:         make(map[string][]entity.CaveEntity),
-		FlashlightOn:         true,
-		storyManager:         sm,
-		questManager:         qm,
-		craftingRecipes:      scene.DefaultCraftingRecipes(),
-		explorationTracker:   tracker,
+		currentState: StateTitle,
+		hud:          NewHUD(),
+		Session:      Session{Input: NewEbitenInput()},
 	}
+	g.initSessionFromSeed(sessionConfig{
+		Seed:                  12345,
+		Tutorial:              false,
+		GrantStarterInventory: false,
+	})
 
 	g.entityRT = &entityRuntimeAdapter{
 		playerAdapter:  playerAdapter{g: g},
@@ -192,7 +107,6 @@ func NewGame() *Game {
 
 	g.titleState = NewTitleScene()
 	g.introState = NewIntroScene()
-	g.overworldState = NewOverworldScene(w)
 	g.caveState = NewCaveScene()
 	g.baseMenu = NewBaseMenuScene()
 	g.gameOverState = NewGameOverScene()
@@ -235,10 +149,11 @@ func (g *Game) findNearestClearWaterDeployPos(near gvec.Vec2, dims gvec.Vec2) gv
 	queue := []tilePos{{startTX, startTY}}
 	visited[startTX][startTY] = true
 	dirs := []tilePos{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+	head := 0
 
-	for len(queue) > 0 {
-		cur := queue[0]
-		queue = queue[1:]
+	for head < len(queue) {
+		cur := queue[head]
+		head++
 
 		pos := gvec.Vec2{
 			X: float64(cur.x)*ts + ts/2 - dims.X/2,
@@ -295,6 +210,7 @@ func (g *Game) TransitionTo(next Scene) {
 	if next != nil {
 		next.OnEnter(g)
 	}
+	g.currentState = g.stateForScene(next)
 	g.transitionedThisFrame = true
 	g.updateSceneAudio(next)
 }
@@ -821,14 +737,14 @@ func (g *Game) loadSaveFromPath(path string) error {
 	applyUnlockedRecipes(g.craftingRecipes, data.UnlockedRecipeNames, data.UnlockedRecipes)
 	g.lostCargo = deserializeLostCargo(data.LostCargo)
 
-	// Always reset per-world cave caches so a prior session cannot leak in.
-	g.caveNodes = make(map[string][]resource.Resource)
-	g.caveEntities = make(map[string][]entity.CaveEntity)
+	g.resetCaveCache()
+	g.resetEffects()
 	g.showInventory = false
 	g.menuOpenedAnywhere = false
 
 	g.explorationTracker = exploration.NewTracker(w.Width, w.Height)
 	g.explorationTracker.DeserializeState(data.Exploration)
+	g.explorationTracker.RebuildFogCache()
 
 	g.TimeOfDay = data.TimeOfDay
 	g.Ticks = data.Ticks

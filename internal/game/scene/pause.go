@@ -32,7 +32,6 @@ func NewPauseScene() *PauseScene {
 }
 
 func (p *PauseScene) OnEnter(g GameContext) {
-	g.SetCurrentState(StatePause)
 }
 
 func (p *PauseScene) OnExit(g GameContext) {}

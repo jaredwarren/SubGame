@@ -245,7 +245,6 @@ func (c *CaveScene) OnEnter(g GameContext) {
 }
 
 func (c *CaveScene) onEnter(g CaveContext) {
-	g.SetCurrentState(StateCave)
 }
 
 func (c *CaveScene) OnExit(g GameContext) {

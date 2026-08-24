@@ -1,7 +1,6 @@
 package game
 
 import (
-	"math"
 	"strings"
 
 	"github.com/jaredwarren/SubGame/internal/game/audio"
@@ -30,67 +29,11 @@ var _ quest.QuestContext = (*Game)(nil)
 // --- Scene navigation ---
 
 func (g *Game) StartGame(seed int64) {
-	w := world.NewWorld(seed)
-	g.world = w
-
-	spawnX, spawnY := findWaterSpawn(w)
-
-	g.player = player.NewPlayer(spawnX, spawnY)
-	g.player.Inventory.AddItem(&item.Titanium{}, 9)
-	g.camera = camera.NewCamera(spawnX, spawnY)
-	g.camera.CenterOn(spawnX, spawnY, g.player.Width, g.player.Height)
-
-	g.baseStation = base.NewBaseStation(spawnX+96.0, spawnY-64.0)
-
-	g.ActiveVehicle = nil
-	g.OverworldVehicles = nil
-	g.CaveVehicles = make(map[string][]vehicle.Vehicle)
-	g.caveNodes = make(map[string][]resource.Resource)
-	g.caveEntities = make(map[string][]entity.CaveEntity)
-	g.Sonar = sonar.NewSonar()
-	g.TutorialActive = true
-
-	// Reset navigation and progression state
-	g.lastOverworldX = 0
-	g.lastOverworldY = 0
-	g.activeTrenchX = 0
-	g.activeTrenchY = 0
-	g.activeTrenchKey = ""
-	g.justExited = false
-	g.showInventory = false
-	g.TimeOfDay = 0
-	g.Ticks = 0
-	g.WeaverTrackingTimer = 0
-	g.SoundWave = SoundWaveState{}
-	g.playerSlowed = false
-	g.FlashlightOn = true
-	g.Particles = nil
-	g.Shake = ScreenShake{}
-	g.deathReason = ""
-	g.MineWarning = WarningBanner{}
-
-	// Reset progression and PDA state
-	g.craftingRecipes = scene.DefaultCraftingRecipes()
-
-	g.storyManager = story.NewStoryManager()
-	g.questManager = quest.NewQuestManager()
-
-	g.explorationTracker = exploration.NewTracker(w.Width, w.Height)
-	spawnTX := int(math.Floor((spawnX + g.player.Width/2.0) / float64(config.TileSize)))
-	spawnTY := int(math.Floor((spawnY + g.player.Height/2.0) / float64(config.TileSize)))
-	g.explorationTracker.Reveal(spawnTX, spawnTY, exploration.RevealRadius)
-
-	if g.baseMenu != nil {
-		g.baseMenu.ActiveTab = 0
-		g.baseMenu.ScrollY = 0
-		g.baseMenu.SelectedLoreIndex = 0
-		g.baseMenu.ResetMapCache()
-	}
-	g.pdaPriorState = StateTitle
-	g.menuOpenedAnywhere = false
-
-	g.overworldState = NewOverworldScene(w)
-
+	g.initSessionFromSeed(sessionConfig{
+		Seed:                  seed,
+		Tutorial:              true,
+		GrantStarterInventory: true,
+	})
 	g.TransitionToOverworld()
 }
 
@@ -151,8 +94,10 @@ func (g *Game) GetInput() scene.InputSource { return g.Input }
 
 // --- Core state ---
 
-func (g *Game) GetCurrentState() scene.State  { return g.currentState }
-func (g *Game) SetCurrentState(s scene.State) { g.currentState = s }
+func (g *Game) GetCurrentState() scene.State { return g.currentState }
+
+// SetCurrentState is deprecated; TransitionTo derives state via stateForScene.
+func (g *Game) SetCurrentState(_ scene.State) {}
 
 // --- Core objects ---
 

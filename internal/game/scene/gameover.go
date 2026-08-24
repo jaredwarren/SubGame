@@ -28,7 +28,6 @@ func (s *GameOverScene) OnEnter(g GameContext) {
 }
 
 func (s *GameOverScene) onEnter(g GameOverContext) {
-	g.SetCurrentState(StateGameOver)
 }
 
 func (s *GameOverScene) OnExit(g GameContext) {}

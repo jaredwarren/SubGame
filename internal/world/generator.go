@@ -27,7 +27,8 @@ type World struct {
 	BiomeMap      [][]BiomeID
 	LandDist      [][]int             // Precomputed BFS distance from each tile to nearest land
 	WaterDist     [][]int             // Precomputed BFS distance from each tile to nearest water
-	Caves         map[string][][]bool // Key: "trenchX_trenchY" -> Cave grid
+	Caves               map[string][][]bool // Key: "trenchX_trenchY" -> Cave grid
+	SmoothedWaterOffset [][]ColorOffset
 	Width, Height int
 	Seed          int64
 }
@@ -73,6 +74,7 @@ func (w *World) generateOverworld() {
 	w.buildLandDistMap()
 	w.buildWaterDistMap()
 	w.generateBiomes()
+	w.buildSmoothedWaterOffsets()
 
 	// Scatter global features (e.g. TileWreckage) using the tile type registry.
 	// Seed+13 previously also scattered 6 trenches before wreckage; consume that
@@ -232,9 +234,10 @@ func (w *World) buildDistMap(matches func(TileType) bool) [][]int {
 	}
 
 	dirs := [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
-	for len(queue) > 0 {
-		cur := queue[0]
-		queue = queue[1:]
+	head := 0
+	for head < len(queue) {
+		cur := queue[head]
+		head++
 		for _, d := range dirs {
 			nx, ny := cur.x+d[0], cur.y+d[1]
 			if nx >= 0 && nx < w.Width && ny >= 0 && ny < w.Height && dist[nx][ny] == -1 {
@@ -439,8 +442,19 @@ func (w *World) generateBiomes() {
 	}
 }
 
-// GetSmoothedWaterOffset calculates the neighborhood averaged water color offset for tile (tx, ty).
-func (w *World) GetSmoothedWaterOffset(tx, ty int) ColorOffset {
+// buildSmoothedWaterOffsets precomputes neighborhood-averaged water color offsets.
+func (w *World) buildSmoothedWaterOffsets() {
+	w.SmoothedWaterOffset = make([][]ColorOffset, w.Width)
+	for x := 0; x < w.Width; x++ {
+		w.SmoothedWaterOffset[x] = make([]ColorOffset, w.Height)
+		for y := 0; y < w.Height; y++ {
+			w.SmoothedWaterOffset[x][y] = w.computeSmoothedWaterOffset(x, y)
+		}
+	}
+}
+
+// computeSmoothedWaterOffset calculates the neighborhood averaged water color offset for tile (tx, ty).
+func (w *World) computeSmoothedWaterOffset(tx, ty int) ColorOffset {
 	var totalR, totalG, totalB float64
 	var count float64
 
@@ -481,4 +495,22 @@ func (w *World) GetSmoothedWaterOffset(tx, ty int) ColorOffset {
 		G: (totalG / count) * BiomeTransitionIntensity,
 		B: (totalB / count) * BiomeTransitionIntensity,
 	}
+}
+
+// GetSmoothedWaterOffset returns the precomputed neighborhood-averaged water color offset.
+func (w *World) GetSmoothedWaterOffset(tx, ty int) ColorOffset {
+	if w.SmoothedWaterOffset == nil {
+		return w.computeSmoothedWaterOffset(tx, ty)
+	}
+	if tx < 0 {
+		tx = 0
+	} else if tx >= w.Width {
+		tx = w.Width - 1
+	}
+	if ty < 0 {
+		ty = 0
+	} else if ty >= w.Height {
+		ty = w.Height - 1
+	}
+	return w.SmoothedWaterOffset[tx][ty]
 }

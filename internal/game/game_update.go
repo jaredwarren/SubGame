@@ -31,6 +31,7 @@ func (g *Game) Update() error {
 	}
 
 	g.advanceTimers()
+	g.drainExplorationUpdates()
 	g.updateEffects()
 	g.updateQuests()
 	g.handleInput()
@@ -160,6 +161,12 @@ func (g *Game) advanceTimers() {
 	}
 	if g.MineWarning.Timer > 0 {
 		g.MineWarning.Timer--
+	}
+}
+
+func (g *Game) drainExplorationUpdates() {
+	if g.explorationTracker != nil {
+		g.explorationTracker.Drain()
 	}
 }
 

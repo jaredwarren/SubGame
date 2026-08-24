@@ -115,7 +115,6 @@ func (o *OverworldScene) OnEnter(g GameContext) {
 }
 
 func (o *OverworldScene) onEnter(g OverworldContext) {
-	g.SetCurrentState(StateOverworld)
 	if o.whirlpool == nil {
 		o.whirlpool = oe.NewWhirlpool(g.GetWorld().Seed)
 		rng := rand.New(rand.NewSource(g.GetWorld().Seed + 997))

@@ -29,6 +29,11 @@ func TestBiomeGeneration(t *testing.T) {
 func TestSmoothedWaterOffset(t *testing.T) {
 	w := NewWorld(54321)
 	offset := w.GetSmoothedWaterOffset(50, 50)
+	expected := w.computeSmoothedWaterOffset(50, 50)
+
+	if offset != expected {
+		t.Errorf("precomputed offset mismatch at (50,50): got %+v, want %+v", offset, expected)
+	}
 
 	// Verify offset produces finite numbers within reasonable bounds
 	if offset.R < -100 || offset.R > 100 || offset.G < -100 || offset.G > 100 || offset.B < -100 || offset.B > 100 {
@@ -48,10 +53,10 @@ func TestBiomeTransitionAdjustment(t *testing.T) {
 
 	BiomeTransitionIntensity = 1.0
 	BiomeBlendRadius = 2
-	offset1 := w.GetSmoothedWaterOffset(50, 50)
+	offset1 := w.computeSmoothedWaterOffset(50, 50)
 
 	BiomeTransitionIntensity = 2.0
-	offset2 := w.GetSmoothedWaterOffset(50, 50)
+	offset2 := w.computeSmoothedWaterOffset(50, 50)
 
 	// Offset at 2.0 should be double that of 1.0 (within float precision)
 	const eps = 1e-6

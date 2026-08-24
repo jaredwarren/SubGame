@@ -120,7 +120,6 @@ func (s *IntroScene) OnEnter(g GameContext) {
 }
 
 func (s *IntroScene) onEnter(g IntroContext) {
-	g.SetCurrentState(StateIntro)
 }
 
 func (s *IntroScene) OnExit(g GameContext) {}

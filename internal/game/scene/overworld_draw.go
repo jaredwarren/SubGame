@@ -189,7 +189,6 @@ func (o *OverworldScene) DrawFogOverlay(g OverworldContext, screen *ebiten.Image
 	const sub = 4 // sub-cells per tile for a smoother gradient
 	cell := float32(config.TileSize) / sub
 	falloff := exploration.FogFalloffTiles
-	search := int(math.Ceil(falloff)) + 1
 
 	for tx := startTileX; tx < endTileX; tx++ {
 		for ty := startTileY; ty < endTileY; ty++ {
@@ -198,7 +197,7 @@ func (o *OverworldScene) DrawFogOverlay(g OverworldContext, screen *ebiten.Image
 			}
 
 			// Fully opaque far from the frontier — one fill, no subdivision.
-			if fogDistToExplored(tracker, float64(tx)+0.5, float64(ty)+0.5, search) >= falloff {
+			if tracker.FogDistAt(float64(tx)+0.5, float64(ty)+0.5) >= falloff {
 				sx := float32(tx*config.TileSize) - float32(camX)
 				sy := float32(ty*config.TileSize) - float32(camY)
 				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, fogRGBA(255), false)
@@ -211,7 +210,7 @@ func (o *OverworldScene) DrawFogOverlay(g OverworldContext, screen *ebiten.Image
 				for sx := 0; sx < sub; sx++ {
 					cx := float64(tx) + (float64(sx)+0.5)/sub
 					cy := float64(ty) + (float64(sy)+0.5)/sub
-					dist := fogDistToExplored(tracker, cx, cy, search)
+					dist := tracker.FogDistAt(cx, cy)
 					alpha := fogAlphaFromDist(dist, falloff)
 					if alpha == 0 {
 						continue
@@ -244,36 +243,6 @@ func fogAlphaFromDist(dist, falloff float64) uint8 {
 	// Smoothstep for a gentler edge than a linear ramp.
 	t = t * t * (3.0 - 2.0*t)
 	return uint8(t * 255.0)
-}
-
-// fogDistToExplored returns the distance in tile-space from (px,py) to the
-// nearest explored tile square. Unexplored/out-of-range returns a large value.
-func fogDistToExplored(tracker *exploration.Tracker, px, py float64, search int) float64 {
-	tx0 := int(math.Floor(px))
-	ty0 := int(math.Floor(py))
-	best := math.MaxFloat64
-	found := false
-
-	for dy := -search; dy <= search; dy++ {
-		for dx := -search; dx <= search; dx++ {
-			ex, ey := tx0+dx, ty0+dy
-			if !tracker.IsExplored(ex, ey) {
-				continue
-			}
-			found = true
-			// Distance to the unit square [ex, ex+1] × [ey, ey+1].
-			cx := math.Min(math.Max(px, float64(ex)), float64(ex+1))
-			cy := math.Min(math.Max(py, float64(ey)), float64(ey+1))
-			d := math.Hypot(px-cx, py-cy)
-			if d < best {
-				best = d
-			}
-		}
-	}
-	if !found {
-		return exploration.FogFalloffTiles + 1
-	}
-	return best
 }
 
 func (o *OverworldScene) drawBaseTiles(target *ebiten.Image, startTileX, endTileX, startTileY, endTileY int, offsetX, offsetY float64, mult float64) {

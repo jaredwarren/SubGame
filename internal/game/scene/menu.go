@@ -69,7 +69,6 @@ func (m *BaseMenuScene) OnEnter(g GameContext) {
 }
 
 func (m *BaseMenuScene) onEnter(g MenuContext) {
-	g.SetCurrentState(StateBaseMenu)
 	m.ScrollY = 0
 	if !g.IsMenuOpenedAnywhere() {
 		if err := g.SaveGame(); err != nil {

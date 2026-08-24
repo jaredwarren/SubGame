@@ -41,6 +41,7 @@ type Tracker struct {
 	lastTX        int
 	lastTY        int
 	hasLast       bool
+	fogDist       []float32
 }
 
 // NewTracker creates an empty exploration tracker for a w×h tile world.
@@ -100,7 +101,10 @@ func (t *Tracker) markExplored(tx, ty int) {
 	}
 	t.explored[word] |= bit
 	t.exploredCount++
-	t.newlyRevealed = append(t.newlyRevealed, idx)
+	if len(t.newlyRevealed) < 4096 {
+		t.newlyRevealed = append(t.newlyRevealed, idx)
+	}
+	t.refreshFogDistNear(tx, ty)
 }
 
 // IsExplored reports whether tile (tx,ty) has been charted.
@@ -193,6 +197,7 @@ func (t *Tracker) DeserializeState(s SavedExploration) {
 	t.visited = make(map[string]world.TileType)
 	t.hasLast = false
 	t.lastTX, t.lastTY = -1, -1
+	t.fogDist = nil
 
 	if s.Explored != "" {
 		compressed, err := base64.StdEncoding.DecodeString(s.Explored)
