@@ -477,12 +477,10 @@ for a single incidental commit:
     *Touch:* `entity/archetypes.go`, each predator file, `cave/spawn.go`,
     `data/entities.go`. Estimate: 1–2 focused PRs.
 
-15. **Shallow chasm-rim data tables** (§2.5): `shallow_seabed_cave.go` still
-    branches on `ChasmTarget` for draw palette, ambient tint, and rim entity
-    spawns (~170 lines of `if target == OrganicTrench / else ShockKelp`).
-    Move rim spawn weights, vein colors, and ambient overrides onto
-    `CaveSpec.Subterranean` or a `ChasmRimSpec` keyed by target cave type.
-    *Touch:* `cave/spec.go`, `shallow_seabed_cave.go`. Estimate: one PR.
+15. ~~**Shallow chasm-rim data tables**~~ — **done**: `ChasmRimSpec` registry
+    (`chasm_rim.go`) keyed by target `CaveType` drives chasm tile palette, ambient
+    tint, and rim entity spawns; `shallow_seabed_cave.go` no longer branches on
+    `ChasmTarget`.
 
 16. **Full vehicle `Update` merge** (§2.6): `Controller` today covers
     damage/repair/recharge and stun gating only; `skiff.go`, `scoutsub.go`, and

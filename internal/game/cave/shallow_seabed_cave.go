@@ -128,6 +128,10 @@ func (c *ShallowSeabedCave) GetChasmTarget() CaveType {
 	return c.ChasmTarget
 }
 
+func (c *ShallowSeabedCave) chasmRim() *ChasmRimSpec {
+	return ChasmRimSpecFor(c.ChasmTarget)
+}
+
 
 func (c *ShallowSeabedCave) preRenderTiles() {
 	rockColor := c.Biome.CaveRockColor
@@ -396,41 +400,21 @@ func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 			}
 
 			if isChasmTile {
-				var rockColor, strokeColor color.RGBA
-				if c.ChasmTarget == CaveOrganicTrench {
-					rockColor = color.RGBA{22, 28, 44, 255} // Deep abyssal slate
-					strokeColor = color.RGBA{38, 48, 70, 255}
-				} else {
-					rockColor = color.RGBA{55, 60, 68, 255} // Slate-grey electric rock
-					strokeColor = color.RGBA{82, 88, 98, 255}
-				}
+				rim := c.chasmRim()
+				rockColor := rim.RockColor
+				strokeColor := rim.StrokeColor
 
 				vector.FillRect(screen, float32(sx), float32(sy), config.TileSize, config.TileSize, rockColor, false)
 				vector.StrokeRect(screen, float32(sx), float32(sy), config.TileSize, config.TileSize, 0.5, strokeColor, false)
 
 				// Deterministic cracks/veins
 				if h%3 == 0 {
-					var veinClr color.RGBA
-					if c.ChasmTarget == CaveOrganicTrench {
-						veinClr = color.RGBA{0, 190, 220, 160} // Bioluminescent teal fissure
-					} else {
-						if h%2 == 0 {
-							veinClr = color.RGBA{140, 50, 210, 160} // Electric purple
-						} else {
-							veinClr = color.RGBA{0, 220, 255, 140}  // Electric cyan
-						}
-					}
+					veinClr := rim.primaryVeinColor(h)
 					vector.StrokeLine(screen, float32(sx)+6, float32(sy)+6, float32(sx)+16, float32(sy)+16, 1.5, veinClr, false)
 					vector.StrokeLine(screen, float32(sx)+16, float32(sy)+16, float32(sx)+12, float32(sy)+24, 1.2, veinClr, false)
 				}
 				if h%5 == 0 {
-					var veinClr color.RGBA
-					if c.ChasmTarget == CaveOrganicTrench {
-						veinClr = color.RGBA{0, 230, 255, 120}
-					} else {
-						veinClr = color.RGBA{0, 220, 255, 110}
-					}
-					vector.StrokeLine(screen, float32(sx)+float32(config.TileSize)-8, float32(sy)+8, float32(sx)+float32(config.TileSize)-16, float32(sy)+20, 1.2, veinClr, false)
+					vector.StrokeLine(screen, float32(sx)+float32(config.TileSize)-8, float32(sy)+8, float32(sx)+float32(config.TileSize)-16, float32(sy)+20, 1.2, rim.VeinSecondary, false)
 				}
 			} else {
 				op.GeoM.Reset()
@@ -500,53 +484,7 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 
 	// Spawn special flora and entities along chasm rims and winding crevice walls
 	if c.HasChasm && c.ChasmX > 0 {
-		for y := 10; y < gridH-2; y += 3 {
-			for x := c.ChasmX - 2; x <= c.ChasmX+c.ChasmWidth+2; x++ {
-				if x > 1 && x < gridW-1 && !grid[x][y] {
-					if c.ChasmTarget == CaveOrganicTrench {
-						// Trench chasm entities: ShatterBulbs, FalseBulbSnares
-						if (grid[x-1][y] || grid[x+1][y]) && r.Float64() < 0.25 {
-							entities = append(entities, entity.NewShatterBulb(
-								float64(x*config.TileSize)+float64(config.TileSize-24)/2.0,
-								float64(y*config.TileSize)+float64(config.TileSize-24)/2.0,
-							))
-						}
-						if grid[x][y-1] && r.Float64() < 0.20 {
-							entities = append(entities, entity.NewFalseBulbSnare(
-								float64(x*config.TileSize)+float64(config.TileSize-24)/2.0,
-								float64(y*config.TileSize)+4.0,
-							))
-						}
-					} else {
-						// Shock Kelp chasm entities: ShockKelp
-						if grid[x-1][y] && r.Float64() < 0.35 {
-							entities = append(entities, entity.NewShockKelp(
-								float64(x*config.TileSize),
-								float64(y*config.TileSize)+8.0,
-								28.0,
-								"left",
-							))
-						}
-						if grid[x+1][y] && r.Float64() < 0.35 {
-							entities = append(entities, entity.NewShockKelp(
-								float64(x*config.TileSize)+float64(config.TileSize-28.0),
-								float64(y*config.TileSize)+8.0,
-								28.0,
-								"right",
-							))
-						}
-						if y < gridH-2 && grid[x][y+1] && r.Float64() < 0.30 {
-							entities = append(entities, entity.NewShockKelp(
-								float64(x*config.TileSize)+16.0,
-								float64((y+1)*config.TileSize)-32.0,
-								32.0,
-								"floor",
-							))
-						}
-					}
-				}
-			}
-		}
+		entities = append(entities, spawnChasmRimEntities(c.chasmRim(), grid, c.ChasmX, c.ChasmWidth, r)...)
 	}
 
 	return entities
@@ -567,10 +505,8 @@ func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
 func (c *ShallowSeabedCave) GetAmbientColor(lightMult float64) [4]float32 {
 	alpha := float32(0.75 - (lightMult-0.2)/0.8*0.60)
 	if c.HasChasm {
-		if c.ChasmTarget == CaveOrganicTrench {
-			return [4]float32{0.02, 0.04, 0.08, alpha}
-		}
-		return [4]float32{0.03, 0.05, 0.09, alpha}
+		rgb := c.chasmRim().AmbientRGB
+		return [4]float32{rgb[0], rgb[1], rgb[2], alpha}
 	}
 	return [4]float32{0.04, 0.06, 0.12, alpha}
 }
