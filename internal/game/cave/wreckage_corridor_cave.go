@@ -10,7 +10,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
-	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 type WreckageCorridorCave struct {
@@ -84,81 +83,7 @@ func (c *WreckageCorridorCave) DrawTiles(screen *ebiten.Image, camX, camY float6
 }
 
 func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity {
-	r := rand.New(rand.NewSource(seed))
-	var entities []entity.CaveEntity
-
-	gridW := len(c.Grid)
-	gridH := len(c.Grid[0])
-
-	for tx := 1; tx < gridW-1; tx++ {
-		for ty := 2; ty < gridH-2; ty++ {
-			if c.Grid[tx][ty] {
-				continue
-			}
-			// Wreckage caves only spawn static Shatter-bulb plants (emergency lighting bulbs) on walls
-			hasAdjacentWall := c.Grid[tx-1][ty] || c.Grid[tx+1][ty] || c.Grid[tx][ty-1] || c.Grid[tx][ty+1]
-			if hasAdjacentWall && r.Float64() < 0.05 {
-				entities = append(entities, entity.NewShatterBulb(
-					float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
-					float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
-				))
-			}
-
-			// Spawn decorative wreckage barnacles/growths (8% chance near any solid face)
-			entities = MaybeSpawnCoral(entities, c.Grid, tx, ty, 0.08, entity.CoralBiomeWreckage, 2, r)
-		}
-	}
-
-	// Spawn 1-2 (random) ElectroWeavers deep in the wreckage cave (depth ty >= 80)
-	var candidates []gvec.Vec2
-	for tx := 2; tx < gridW-2; tx++ {
-		for ty := 80; ty < gridH-2; ty++ {
-			if c.Grid[tx][ty] {
-				continue
-			}
-			isOpenSpace := !c.Grid[tx-1][ty] && !c.Grid[tx+1][ty] && !c.Grid[tx][ty-1] && !c.Grid[tx][ty+1]
-			if isOpenSpace {
-				candidates = append(candidates, gvec.Vec2{X: float64(tx), Y: float64(ty)})
-			}
-		}
-	}
-
-	if len(candidates) > 0 {
-		numToSpawn := min(
-			// 1 or 2
-			r.Intn(2)+1, len(candidates))
-
-		idx1 := r.Intn(len(candidates))
-		c1 := candidates[idx1]
-		entities = append(entities, entity.NewElectroWeaver(
-			c1.X*float64(config.TileSize)+(float64(config.TileSize)-40)/2.0,
-			c1.Y*float64(config.TileSize)+(float64(config.TileSize)-20)/2.0,
-		))
-
-		if numToSpawn == 2 && len(candidates) > 1 {
-			idx2 := idx1
-			for range 10 {
-				candIdx := r.Intn(len(candidates))
-				if candIdx != idx1 {
-					dist := math.Hypot(candidates[candIdx].X-c1.X, candidates[candIdx].Y-c1.Y)
-					if dist >= 5 {
-						idx2 = candIdx
-						break
-					}
-					idx2 = candIdx
-				}
-			}
-			if idx2 != idx1 {
-				c2 := candidates[idx2]
-				entities = append(entities, entity.NewElectroWeaver(
-					c2.X*float64(config.TileSize)+(float64(config.TileSize)-40)/2.0,
-					c2.Y*float64(config.TileSize)+(float64(config.TileSize)-20)/2.0,
-				))
-			}
-		}
-	}
-
-	return entities
+	return GenerateDeepEntitiesFromSpec(Spec(CaveWreckage), c.Grid, seed)
 }
 
 func (c *WreckageCorridorCave) GenerateResources(seed int64) []resource.Resource {
@@ -167,7 +92,7 @@ func (c *WreckageCorridorCave) GenerateResources(seed int64) []resource.Resource
 }
 
 func (c *WreckageCorridorCave) GetAmbientColor(lightMult float64) [4]float32 {
-	return [4]float32{0.01, 0.01, 0.03, 0.97}
+	return AmbientColor(CaveWreckage)
 }
 
 func GenerateWreckageGrid(r *rand.Rand) [][]bool {

@@ -66,31 +66,10 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 
-	var targetX, targetY float64
-	var targetW, targetH float64
-	var isDecoy bool
-
-	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, d.DecoyRange)
-	if decoyFound {
-		targetX = decoyPos.X
-		targetY = decoyPos.Y
-		targetW, targetH = d.DecoyTargetSize, d.DecoyTargetSize
-		isDecoy = true
-	} else {
-		if g.HasActiveVehicle() {
-			vPos := g.ActiveVehiclePos()
-			vDims := g.ActiveVehicleDims()
-			targetX = vPos.X + vDims.X/2.0
-			targetY = vPos.Y + vDims.Y/2.0
-			targetW = vDims.X
-			targetH = vDims.Y
-		} else {
-			targetX = g.PlayerPos().X + g.PlayerDims().X/2.0
-			targetY = g.PlayerPos().Y + g.PlayerDims().Y/2.0
-			targetW = g.PlayerDims().X
-			targetH = g.PlayerDims().Y
-		}
-	}
+	tgt := AcquireTarget(g, gvec.Vec2{X: ex, Y: ey}, d.DecoyRange, d.DecoyTargetSize)
+	targetX, targetY := tgt.CenterX, tgt.CenterY
+	targetW, targetH := tgt.Width, tgt.Height
+	isDecoy := tgt.IsDecoy
 	dist := math.Hypot(targetX-ex, targetY-ey)
 
 	if dist > d.LeashRange {
@@ -98,40 +77,15 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 		return
 	}
 
-	// Occlusion check
 	if !isDecoy {
-		playerTopLeftX, playerTopLeftY := g.PlayerPos().X, g.PlayerPos().Y
-		if g.HasActiveVehicle() {
-			vPos := g.ActiveVehiclePos()
-			playerTopLeftX, playerTopLeftY = vPos.X, vPos.Y
-		}
-		if g.CheckDeterrentSlowing(playerTopLeftX, playerTopLeftY, targetW, targetH) || g.CheckDeterrentOcclusion(gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: targetX, Y: targetY}) {
+		if g.CheckDeterrentSlowing(tgt.TopLeftX, tgt.TopLeftY, targetW, targetH) || g.CheckDeterrentOcclusion(gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: targetX, Y: targetY}) {
 			ent.State = 0
 			ent.Vel = gvec.Vec2{}
 			return
 		}
 	}
 
-	isLit := false
-	if !isDecoy && g.FlashlightOn() {
-		facingAngle := g.PlayerFacing()
-		if g.HasActiveVehicle() {
-			facingAngle = g.ActiveVehicleFacing()
-		}
-		dx := ex - targetX
-		dy := ey - targetY
-		angleToEnt := math.Atan2(dy, dx)
-		diff := angleToEnt - facingAngle
-		for diff > math.Pi {
-			diff -= 2 * math.Pi
-		}
-		for diff < -math.Pi {
-			diff += 2 * math.Pi
-		}
-		if math.Abs(diff) < d.FlashlightConeHalfAngle {
-			isLit = true
-		}
-	}
+	isLit := !isDecoy && InFlashlightCone(g, gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: targetX, Y: targetY}, d.FlashlightConeHalfAngle)
 
 	soundAlerted := !isDecoy && g.SoundWaveTimer() > 0 && math.Hypot(g.SoundWaveX()-ex, g.SoundWaveY()-ey) < d.SoundAlertRange
 	if soundAlerted || isDecoy {
@@ -140,33 +94,21 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 
 	if isLit {
 		ent.Vel = gvec.Vec2{}
-	} else {
-		if dist < d.ChaseRange || ent.State == 1 {
-			ent.State = 1
-			dx := targetX - ex
-			dy := targetY - ey
-			dDist := math.Hypot(dx, dy)
-			if dDist > 0 {
-				ent.Vel.X = (dx / dDist) * d.ChaseSpeed
-				ent.Vel.Y = (dy / dDist) * d.ChaseSpeed
-			}
-			ent.Pos = ent.Pos.Add(ent.Vel)
-		} else {
-			ent.State = 0
+	} else if dist < d.ChaseRange || ent.State == 1 {
+		ent.State = 1
+		dx := targetX - ex
+		dy := targetY - ey
+		dDist := math.Hypot(dx, dy)
+		if dDist > 0 {
+			ent.Vel.X = (dx / dDist) * d.ChaseSpeed
+			ent.Vel.Y = (dy / dDist) * d.ChaseSpeed
 		}
+		ent.Pos = ent.Pos.Add(ent.Vel)
+	} else {
+		ent.State = 0
 	}
 
-	targetTopLeftX := targetX - targetW/2.0
-	targetTopLeftY := targetY - targetH/2.0
-	if !isDecoy {
-		if g.HasActiveVehicle() {
-			vPos := g.ActiveVehiclePos()
-			targetTopLeftX, targetTopLeftY = vPos.X, vPos.Y
-		} else {
-			targetTopLeftX, targetTopLeftY = g.PlayerPos().X, g.PlayerPos().Y
-		}
-	}
-	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, targetTopLeftX, targetTopLeftY, targetW, targetH) {
+	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, tgt.TopLeftX, tgt.TopLeftY, targetW, targetH) {
 		if isDecoy {
 			g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
 			ent.Active = false

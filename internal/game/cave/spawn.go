@@ -10,9 +10,13 @@ import (
 )
 
 // SpawnFauna creates a cave entity for the given fauna ID at tile (tx, ty).
-// Returns nil if the ID is unknown.
-func SpawnFauna(id FaunaID, tx, ty int, r *rand.Rand) entity.CaveEntity {
+// grid may be nil for types that do not need wall attachment; lurker/siphon
+// need grid to pick an anchor face/direction.
+func SpawnFauna(id FaunaID, tx, ty int, grid [][]bool, r *rand.Rand) entity.CaveEntity {
 	ts := config.TileSize
+	cx := float64(tx*ts) + float64(ts)/2.0
+	cy := float64(ty*ts) + float64(ts)/2.0
+
 	switch id {
 	case FaunaPassiveFish:
 		d := entity.PassiveFishArchetype.Dims
@@ -34,30 +38,130 @@ func SpawnFauna(id FaunaID, tx, ty int, r *rand.Rand) entity.CaveEntity {
 			float64(tx*ts)+float64(ts-int(d.X))/2.0,
 			float64(ty*ts)+float64(ts-int(d.Y)),
 		)
+	case FaunaFalseBulbSnare:
+		return entity.NewFalseBulbSnare(
+			float64(tx*ts)+float64(ts-24)/2.0,
+			float64(ty*ts)+4,
+		)
+	case FaunaThermoclineRammer:
+		rammer := entity.NewThermoclineRammer(
+			float64(tx*ts)+float64(ts-36)/2.0,
+			float64(ty*ts)+float64(ts-24)/2.0,
+		)
+		rammer.Facing = r.Float64() * math.Pi * 2
+		return rammer
+	case FaunaElectroWeaver:
+		return entity.NewElectroWeaver(
+			float64(tx*ts)+float64(ts-40)/2.0,
+			float64(ty*ts)+float64(ts-20)/2.0,
+		)
+	case FaunaVoltaicLurker:
+		face := pickSolidFace(grid, tx, ty, r)
+		if face == "" {
+			return nil
+		}
+		return entity.NewVoltaicLurker(float64(tx*ts), float64(ty*ts), face)
+	case FaunaBrimstoneSiphon:
+		dir := pickSiphonDir(grid, tx, ty, r)
+		if dir == "" {
+			return nil
+		}
+		siphon := entity.NewBrimstoneSiphon(
+			cx-16, cy-16, dir,
+		)
+		siphon.Timer = r.Intn(entity.BrimstoneSiphonArchetype.CycleFrames)
+		return siphon
 	default:
 		return nil
 	}
 }
 
+func pickSolidFace(grid [][]bool, tx, ty int, r *rand.Rand) string {
+	if grid == nil {
+		return ""
+	}
+	var faces []string
+	if grid[tx-1][ty] {
+		faces = append(faces, "left")
+	}
+	if grid[tx+1][ty] {
+		faces = append(faces, "right")
+	}
+	if grid[tx][ty-1] {
+		faces = append(faces, "top")
+	}
+	if grid[tx][ty+1] {
+		faces = append(faces, "bottom")
+	}
+	if len(faces) == 0 {
+		return ""
+	}
+	return faces[r.Intn(len(faces))]
+}
+
+func pickSiphonDir(grid [][]bool, tx, ty int, r *rand.Rand) string {
+	if grid == nil {
+		return ""
+	}
+	var dirs []string
+	if grid[tx][ty+1] {
+		dirs = append(dirs, "up")
+	}
+	if grid[tx][ty-1] {
+		dirs = append(dirs, "down")
+	}
+	if grid[tx-1][ty] {
+		dirs = append(dirs, "right")
+	}
+	if grid[tx+1][ty] {
+		dirs = append(dirs, "left")
+	}
+	if len(dirs) == 0 {
+		return ""
+	}
+	return dirs[r.Intn(len(dirs))]
+}
+
 // SpawnFlora creates a cave entity for the given flora ID at tile (tx, ty).
 // height is used for kelp / shock kelp. Returns nil if the ID is unknown.
 func SpawnFlora(id FloraID, tx, ty int, height float64, r *rand.Rand) entity.CaveEntity {
+	return SpawnFloraAnchored(id, tx, ty, height, "floor", r)
+}
+
+// SpawnFloraAnchored creates flora with an explicit wall/floor anchor.
+func SpawnFloraAnchored(id FloraID, tx, ty int, height float64, anchor string, r *rand.Rand) entity.CaveEntity {
 	ts := config.TileSize
 	switch id {
 	case FloraShockKelp:
 		w := entity.ShockKelpArchetype.FloorWidth
-		return entity.NewShockKelp(
-			float64(tx*ts)+float64(ts-int(w))/2.0,
-			float64(ty*ts)+float64(ts)-height,
-			height,
-			"floor",
-		)
+		var x, y float64
+		switch anchor {
+		case "left":
+			x = float64(tx * ts)
+			y = float64(ty*ts) + float64(ts)/2.0 - height
+		case "right":
+			x = float64(tx*ts) + float64(ts) - 28.0
+			y = float64(ty*ts) + float64(ts)/2.0 - height
+		default: // floor
+			x = float64(tx*ts) + float64(ts-int(w))/2.0
+			y = float64(ty*ts) + float64(ts) - height
+			anchor = "floor"
+		}
+		return entity.NewShockKelp(x, y, height, anchor)
 	case FloraShatterBulb:
 		d := entity.ShatterBulbArchetype.Dims
 		return entity.NewShatterBulb(
 			float64(tx*ts)+float64(ts-int(d.X))/2.0,
 			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
 		)
+	case FloraNerveMat:
+		return &entity.NerveMat{
+			BaseEntity: entity.BaseEntity{
+				Pos:        gvec.Vec2{X: float64(tx * ts), Y: float64(ty*ts) + float64(ts-12)},
+				Dimensions: gvec.Vec2{X: float64(ts), Y: 12},
+				Active:     true,
+			},
+		}
 	case FloraKelp, FloraCoral:
 		// FloraCoral historically fell through to kelp in the floor-flora path.
 		return &entity.Kelp{

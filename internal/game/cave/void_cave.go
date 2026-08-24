@@ -35,5 +35,5 @@ func (c *VoidCave) GenerateResources(seed int64) []resource.Resource {
 }
 
 func (c *VoidCave) GetAmbientColor(lightMult float64) [4]float32 {
-	return [4]float32{0.01, 0.01, 0.03, 0.97}
+	return AmbientColor(CaveVoid)
 }

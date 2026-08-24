@@ -149,24 +149,21 @@ func (k *SkiffKit) Deploy(x, y float64) Vehicle {
 
 
 func (s *Skiff) TakeDamage(amount float64) {
-	s.Health -= amount
-	if s.Health < 0 {
-		s.Health = 0
-	}
+	c := Controller{Health: s.Health, MaxHealth: s.MaxHealth}
+	c.ApplyDamage(amount, 1)
+	s.Health = c.Health
 }
 
 func (s *Skiff) Repair(amount float64) {
-	s.Health += amount
-	if s.Health > s.MaxHealth {
-		s.Health = s.MaxHealth
-	}
+	c := Controller{Health: s.Health, MaxHealth: s.MaxHealth}
+	c.ApplyRepair(amount)
+	s.Health = c.Health
 }
 
 func (s *Skiff) RechargeBattery(amount float64) {
-	s.Battery += amount
-	if s.Battery > s.MaxBattery {
-		s.Battery = s.MaxBattery
-	}
+	c := Controller{Battery: s.Battery, MaxBattery: s.MaxBattery}
+	c.ApplyRecharge(amount)
+	s.Battery = c.Battery
 }
 
 func (s *Skiff) Update(runtime Runtime) {
@@ -196,12 +193,7 @@ func (s *Skiff) Update(runtime Runtime) {
 		}
 	}
 
-	if !runtime.IsActiveVehicle(s) {
-		s.Vel = gvec.Vec2{}
-		return
-	}
-
-	if runtime.PlayerStunned() {
+	if skip, _ := ShouldSkipPilotControl(runtime, s); skip {
 		s.Vel = gvec.Vec2{}
 		return
 	}

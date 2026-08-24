@@ -46,11 +46,14 @@ type RammerContext interface {
 	PlayerPos() gvec.Vec2
 	PlayerDims() gvec.Vec2
 	PlayerVel() gvec.Vec2
+	PlayerFacing() float64
 	IsPlayerSprinting() bool
 	HasActiveVehicle() bool
 	ActiveVehicleMoving() bool
 	ActiveVehiclePos() gvec.Vec2
 	ActiveVehicleDims() gvec.Vec2
+	ActiveVehicleFacing() float64
+	FlashlightOn() bool
 	SoundWaveTimer() int
 	SoundWaveX() float64
 	SoundWaveY() float64
@@ -69,31 +72,11 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 	ex := ent.Pos.X + ent.Dimensions.X/2.0
 	ey := ent.Pos.Y + ent.Dimensions.Y/2.0
 
-	var targetX, targetY float64
-	var targetW, targetH float64
-	var isDecoy bool
-
-	decoyPos, decoyFound := g.FindClosestDecoy(gvec.Vec2{X: ex, Y: ey}, d.DecoyRange)
-	if decoyFound {
-		targetX = decoyPos.X
-		targetY = decoyPos.Y
-		targetW, targetH = d.DecoyTargetSize, d.DecoyTargetSize
-		isDecoy = true
-	} else {
-		if g.HasActiveVehicle() {
-			vPos := g.ActiveVehiclePos()
-			vDims := g.ActiveVehicleDims()
-			targetX = vPos.X + vDims.X/2.0
-			targetY = vPos.Y + vDims.Y/2.0
-			targetW = vDims.X
-			targetH = vDims.Y
-		} else {
-			targetX = g.PlayerPos().X + g.PlayerDims().X/2.0
-			targetY = g.PlayerPos().Y + g.PlayerDims().Y/2.0
-			targetW = g.PlayerDims().X
-			targetH = g.PlayerDims().Y
-		}
-	}
+	tgt := AcquireTarget(g, gvec.Vec2{X: ex, Y: ey}, d.DecoyRange, d.DecoyTargetSize)
+	targetX, targetY := tgt.CenterX, tgt.CenterY
+	targetW, targetH := tgt.Width, tgt.Height
+	isDecoy := tgt.IsDecoy
+	decoyFound := isDecoy
 	dist := math.Hypot(targetX-ex, targetY-ey)
 
 	if ent.State == 2 {

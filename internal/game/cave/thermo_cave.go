@@ -10,7 +10,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
-	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 type ThermoCave struct {
@@ -83,7 +82,7 @@ func (c *ThermoCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTi
 						if h%2 == 0 {
 							veinClr = color.RGBA{235, 65, 15, 120} // Hot orange crack
 						} else {
-							veinClr = color.RGBA{205, 20, 5, 90}   // Deep magma red crack
+							veinClr = color.RGBA{205, 20, 5, 90} // Deep magma red crack
 						}
 						// Draw a diagonal crack
 						vector.StrokeLine(screen, sx+6, sy+6, sx+16, sy+16, 1.2, veinClr, false)
@@ -101,101 +100,7 @@ func (c *ThermoCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTi
 }
 
 func (c *ThermoCave) GenerateEntities(seed int64) []entity.CaveEntity {
-	grid := c.Grid
-	r := rand.New(rand.NewSource(seed))
-	var entities []entity.CaveEntity
-
-	gridW := len(grid)
-	gridH := len(grid[0])
-
-	var rammerCandidates []gvec.Vec2
-	type siphonCandidate struct {
-		pos gvec.Vec2
-		dir string
-	}
-	var siphonCandidates []siphonCandidate
-
-	for tx := 2; tx < gridW-2; tx++ {
-		for ty := 2; ty < gridH-2; ty++ {
-			if grid[tx][ty] {
-				continue
-			}
-
-			// Gather possible attachment wall directions for BrimstoneSiphon
-			var possibleDirs []string
-			if grid[tx][ty+1] {
-				possibleDirs = append(possibleDirs, "up")
-			}
-			if grid[tx][ty-1] {
-				possibleDirs = append(possibleDirs, "down")
-			}
-			if grid[tx-1][ty] {
-				possibleDirs = append(possibleDirs, "right")
-			}
-			if grid[tx+1][ty] {
-				possibleDirs = append(possibleDirs, "left")
-			}
-
-			if len(possibleDirs) > 0 {
-				// Pick the first valid dir for this candidate tile
-				dir := possibleDirs[r.Intn(len(possibleDirs))]
-				siphonCandidates = append(siphonCandidates, siphonCandidate{
-					pos: gvec.Vec2{
-						X: float64(tx*config.TileSize) + float64(config.TileSize-32)/2.0,
-						Y: float64(ty*config.TileSize) + float64(config.TileSize-32)/2.0,
-					},
-					dir: dir,
-				})
-			}
-
-			// Check if this is open space (no walls adjacent) for ThermoclineRammers
-			isOpenSpace := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-			if isOpenSpace {
-				rammerCandidates = append(rammerCandidates, gvec.Vec2{
-					X: float64(tx*config.TileSize) + float64(config.TileSize-36)/2.0,
-					Y: float64(ty*config.TileSize) + float64(config.TileSize-24)/2.0,
-				})
-			}
-
-			// Spawn decorative volcanic/magmatic corals (10% chance near any solid face)
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, 0.10, entity.CoralBiomeThermo, 2, r)
-		}
-	}
-
-	// Spawn exactly 1-2 Rammers
-	if len(rammerCandidates) > 0 {
-		numRammers := r.Intn(2) + 1 // 1 or 2
-		if numRammers > len(rammerCandidates) {
-			numRammers = len(rammerCandidates)
-		}
-		r.Shuffle(len(rammerCandidates), func(i, j int) {
-			rammerCandidates[i], rammerCandidates[j] = rammerCandidates[j], rammerCandidates[i]
-		})
-		for i := 0; i < numRammers; i++ {
-			rammer := entity.NewThermoclineRammer(rammerCandidates[i].X, rammerCandidates[i].Y)
-			rammer.Facing = r.Float64() * math.Pi * 2
-			entities = append(entities, rammer)
-		}
-	}
-
-	// Spawn exactly 4-6 BrimstoneSiphons
-	if len(siphonCandidates) > 0 {
-		numSiphons := r.Intn(3) + 4 // 4, 5, or 6
-		if numSiphons > len(siphonCandidates) {
-			numSiphons = len(siphonCandidates)
-		}
-		r.Shuffle(len(siphonCandidates), func(i, j int) {
-			siphonCandidates[i], siphonCandidates[j] = siphonCandidates[j], siphonCandidates[i]
-		})
-		for i := 0; i < numSiphons; i++ {
-			cand := siphonCandidates[i]
-			siphon := entity.NewBrimstoneSiphon(cand.pos.X, cand.pos.Y, cand.dir)
-			siphon.Timer = r.Intn(entity.BrimstoneSiphonArchetype.CycleFrames)
-			entities = append(entities, siphon)
-		}
-	}
-
-	return entities
+	return GenerateDeepEntitiesFromSpec(Spec(CaveThermo), c.Grid, seed)
 }
 
 func (c *ThermoCave) GenerateResources(seed int64) []resource.Resource {
@@ -203,7 +108,7 @@ func (c *ThermoCave) GenerateResources(seed int64) []resource.Resource {
 }
 
 func (c *ThermoCave) GetAmbientColor(lightMult float64) [4]float32 {
-	return [4]float32{0.02, 0.01, 0.01, 0.95}
+	return AmbientColor(CaveThermo)
 }
 
 // GenerateThermoCaveGrid generates a shallow 60x60 grid with magma chambers and narrow crevices.

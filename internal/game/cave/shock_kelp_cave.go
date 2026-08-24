@@ -10,7 +10,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
-	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 type ShockKelpCave struct {
@@ -100,7 +99,7 @@ func (c *ShockKelpCave) DrawTiles(screen *ebiten.Image, camX, camY float64, star
 							if h%2 == 0 {
 								veinClr = color.RGBA{140, 50, 210, 90} // Electric purple vein
 							} else {
-								veinClr = color.RGBA{0, 210, 240, 75}  // Glowing cyan vein
+								veinClr = color.RGBA{0, 210, 240, 75} // Glowing cyan vein
 							}
 							// Draw a diagonal crack
 							vector.StrokeLine(screen, sx+6, sy+6, sx+16, sy+16, 1.2, veinClr, false)
@@ -119,109 +118,7 @@ func (c *ShockKelpCave) DrawTiles(screen *ebiten.Image, camX, camY float64, star
 }
 
 func (c *ShockKelpCave) GenerateEntities(seed int64) []entity.CaveEntity {
-	grid := c.Grid
-	r := rand.New(rand.NewSource(seed))
-	var entities []entity.CaveEntity
-
-	gridW := len(grid)
-	gridH := len(grid[0])
-
-	for tx := 1; tx < gridW-1; tx++ {
-		for ty := 1; ty < gridH-2; ty++ {
-			if grid[tx][ty] {
-				continue
-			}
-
-			// 1. Floor-anchored kelp (60% chance on solid bottom tile)
-			if grid[tx][ty+1] && r.Float64() < 0.60 {
-				height := 24.0 + r.Float64()*28.0
-				entities = append(entities, entity.NewShockKelp(
-					float64(tx*config.TileSize)+float64(config.TileSize-16)/2.0,
-					float64(ty*config.TileSize)+float64(config.TileSize)-height,
-					height,
-					"floor",
-				))
-			}
-
-			// 2. Left-wall anchored kelp (45% chance on solid left tile)
-			if grid[tx-1][ty] && r.Float64() < 0.45 {
-				height := 24.0 + r.Float64()*28.0
-				entities = append(entities, entity.NewShockKelp(
-					float64(tx*config.TileSize),
-					float64(ty*config.TileSize)+float64(config.TileSize)/2.0-height,
-					height,
-					"left",
-				))
-			}
-
-			// 3. Right-wall anchored kelp (45% chance on solid right tile)
-			if grid[tx+1][ty] && r.Float64() < 0.45 {
-				height := 24.0 + r.Float64()*28.0
-				entities = append(entities, entity.NewShockKelp(
-					float64(tx*config.TileSize)+float64(config.TileSize-28.0),
-					float64(ty*config.TileSize)+float64(config.TileSize)/2.0-height,
-					height,
-					"right",
-				))
-			}
-
-			// 4. VoltaicLurker (8% chance on solid faces)
-			var lurkerFaces []string
-			if grid[tx-1][ty] {
-				lurkerFaces = append(lurkerFaces, "left")
-			}
-			if grid[tx+1][ty] {
-				lurkerFaces = append(lurkerFaces, "right")
-			}
-			if grid[tx][ty-1] {
-				lurkerFaces = append(lurkerFaces, "top")
-			}
-			if grid[tx][ty+1] {
-				lurkerFaces = append(lurkerFaces, "bottom")
-			}
-
-			if len(lurkerFaces) > 0 && r.Float64() < 0.08 {
-				face := lurkerFaces[r.Intn(len(lurkerFaces))]
-				entities = append(entities, entity.NewVoltaicLurker(
-					float64(tx*config.TileSize),
-					float64(ty*config.TileSize),
-					face,
-				))
-			}
-
-			// Spawn decorative shock/electric corals (10% chance near any solid face)
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, 0.10, entity.CoralBiomeShock, 2, r)
-		}
-	}
-
-	// Spawn 0-2 (random) ElectroWeavers in the shock kelp cave
-	var weaverCandidates []gvec.Vec2
-	for tx := 2; tx < gridW-2; tx++ {
-		for ty := 2; ty < gridH-2; ty++ {
-			if !grid[tx][ty] {
-				weaverCandidates = append(weaverCandidates, gvec.Vec2{X: float64(tx), Y: float64(ty)})
-			}
-		}
-	}
-
-	if len(weaverCandidates) > 0 {
-		numToSpawn := r.Intn(3) // 0, 1, or 2
-		if numToSpawn > len(weaverCandidates) {
-			numToSpawn = len(weaverCandidates)
-		}
-		for i := 0; i < numToSpawn; i++ {
-			idx := r.Intn(len(weaverCandidates))
-			c1 := weaverCandidates[idx]
-			weaverCandidates = append(weaverCandidates[:idx], weaverCandidates[idx+1:]...)
-
-			entities = append(entities, entity.NewElectroWeaver(
-				c1.X*float64(config.TileSize)+(float64(config.TileSize)-40.0)/2.0,
-				c1.Y*float64(config.TileSize)+(float64(config.TileSize)-20.0)/2.0,
-			))
-		}
-	}
-
-	return entities
+	return GenerateDeepEntitiesFromSpec(Spec(CaveShockKelp), c.Grid, seed)
 }
 
 func (c *ShockKelpCave) GenerateResources(seed int64) []resource.Resource {
@@ -278,7 +175,7 @@ func (c *ShockKelpCave) GenerateResources(seed int64) []resource.Resource {
 }
 
 func (c *ShockKelpCave) GetAmbientColor(lightMult float64) [4]float32 {
-	return [4]float32{0.03, 0.02, 0.06, 0.68}
+	return AmbientColor(CaveShockKelp)
 }
 
 // GenerateShockKelpCaveGrid generates a shallow, narrow maze-like 60x60 grid.

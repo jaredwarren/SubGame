@@ -13,15 +13,16 @@ import (
 )
 
 type ShallowSeabedCave struct {
-	Grid         [][]bool
-	Biome        *CaveBiomeSpec
-	tileImages   []*ebiten.Image
-	HasChasm     bool
-	ChasmX       int
-	ChasmWidth   int
-	BasinFloorY  int
-	ChasmBottomY int
-	ChasmTarget  CaveType
+	Grid            [][]bool
+	Biome           *CaveBiomeSpec
+	tileImages      []*ebiten.Image
+	HasChasm        bool
+	ChasmX          int
+	ChasmWidth      int
+	BasinFloorY     int
+	ChasmBottomY    int
+	ChasmTarget     CaveType
+	chasmTargetSet  bool
 }
 
 func NewShallowSeabedCave(grid [][]bool) *ShallowSeabedCave {
@@ -46,6 +47,7 @@ func NewChasmShallowCave(grid [][]bool, spec *CaveBiomeSpec, target CaveType) *S
 	c := NewShallowSeabedCaveWithBiome(grid, spec)
 	c.HasChasm = true
 	c.ChasmTarget = target
+	c.chasmTargetSet = true
 	c.detectChasm()
 	return c
 }
@@ -101,8 +103,9 @@ func (c *ShallowSeabedCave) detectChasm() {
 		c.ChasmX = startX
 		c.ChasmWidth = endX - startX + 1
 		c.ChasmBottomY = triggerTileY
-		if c.ChasmTarget == 0 {
+		if !c.chasmTargetSet {
 			c.ChasmTarget = CaveShockKelp
+			c.chasmTargetSet = true
 		}
 		return
 	}
@@ -475,7 +478,7 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 				if c.Biome != nil && len(c.Biome.FaunaSpawns) > 0 {
 					faunaType = SelectWeightedEntry(c.Biome.FaunaSpawns, r.Float64())
 				}
-				if ent := SpawnFauna(faunaType, tx, ty, r); ent != nil {
+				if ent := SpawnFauna(faunaType, tx, ty, grid, r); ent != nil {
 					entities = append(entities, ent)
 				}
 			}

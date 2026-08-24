@@ -93,38 +93,34 @@ func (m *HeavyMech) GetKit() item.Item {
 
 
 func (m *HeavyMech) TakeDamage(amount float64) {
-	m.Health -= amount * HeavyMechArchetype.DamageReduction
-	if m.Health < 0 {
-		m.Health = 0
-	}
+	c := Controller{Health: m.Health, MaxHealth: m.MaxHealth}
+	c.ApplyDamage(amount, HeavyMechArchetype.DamageReduction)
+	m.Health = c.Health
 }
 
 func (m *HeavyMech) Repair(amount float64) {
-	m.Health += amount
-	if m.Health > m.MaxHealth {
-		m.Health = m.MaxHealth
-	}
+	c := Controller{Health: m.Health, MaxHealth: m.MaxHealth}
+	c.ApplyRepair(amount)
+	m.Health = c.Health
 }
 
 func (m *HeavyMech) RechargeBattery(amount float64) {
-	m.Battery += amount
-	if m.Battery > m.MaxBattery {
-		m.Battery = m.MaxBattery
-	}
+	c := Controller{Battery: m.Battery, MaxBattery: m.MaxBattery}
+	c.ApplyRecharge(amount)
+	m.Battery = c.Battery
 }
 
 func (m *HeavyMech) Update(runtime Runtime) {
 	d := HeavyMechArchetype
 	m.AnimTick++
-	if !runtime.IsActiveVehicle(m) {
-		m.Vel.Y += d.Gravity
-		m.Vel.Y *= d.DragV
-		m.Vel.X = 0
-		m.checkCollisions(runtime)
-		return
-	}
-
-	if runtime.PlayerStunned() {
+	if skip, inactive := ShouldSkipPilotControl(runtime, m); skip {
+		if inactive {
+			m.Vel.Y += d.Gravity
+			m.Vel.Y *= d.DragV
+			m.Vel.X = 0
+			m.checkCollisions(runtime)
+			return
+		}
 		m.Vel = gvec.Vec2{}
 		return
 	}

@@ -25,8 +25,18 @@ func TestSelectWeightedEntry(t *testing.T) {
 
 func TestSpawnFaunaAllIDs(t *testing.T) {
 	r := rand.New(rand.NewSource(1))
+	// 7x7 solid ring with open center at (3,3) so wall-anchored fauna can attach.
+	grid := make([][]bool, 7)
+	for x := range grid {
+		grid[x] = make([]bool, 7)
+		for y := range grid[x] {
+			grid[x][y] = true
+		}
+	}
+	grid[3][3] = false
+
 	for id := FaunaID(0); id < FaunaCount; id++ {
-		ent := SpawnFauna(id, 5, 5, r)
+		ent := SpawnFauna(id, 3, 3, grid, r)
 		if ent == nil {
 			t.Fatalf("SpawnFauna(%d) returned nil", id)
 		}
@@ -34,7 +44,7 @@ func TestSpawnFaunaAllIDs(t *testing.T) {
 			t.Fatalf("SpawnFauna(%d) inactive", id)
 		}
 	}
-	if SpawnFauna(FaunaCount, 0, 0, r) != nil {
+	if SpawnFauna(FaunaCount, 0, 0, grid, r) != nil {
 		t.Fatal("unknown fauna id should return nil")
 	}
 }

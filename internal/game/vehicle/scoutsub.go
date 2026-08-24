@@ -101,24 +101,21 @@ func (sub *ScoutSub) GetKit() item.Item {
 
 
 func (sub *ScoutSub) TakeDamage(amount float64) {
-	sub.Health -= amount
-	if sub.Health < 0 {
-		sub.Health = 0
-	}
+	c := Controller{Health: sub.Health, MaxHealth: sub.MaxHealth}
+	c.ApplyDamage(amount, 1)
+	sub.Health = c.Health
 }
 
 func (sub *ScoutSub) Repair(amount float64) {
-	sub.Health += amount
-	if sub.Health > sub.MaxHealth {
-		sub.Health = sub.MaxHealth
-	}
+	c := Controller{Health: sub.Health, MaxHealth: sub.MaxHealth}
+	c.ApplyRepair(amount)
+	sub.Health = c.Health
 }
 
 func (sub *ScoutSub) RechargeBattery(amount float64) {
-	sub.Battery += amount
-	if sub.Battery > sub.MaxBattery {
-		sub.Battery = sub.MaxBattery
-	}
+	c := Controller{Battery: sub.Battery, MaxBattery: sub.MaxBattery}
+	c.ApplyRecharge(amount)
+	sub.Battery = c.Battery
 }
 
 func (sub *ScoutSub) hasUpgrade() bool {
@@ -134,12 +131,7 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 		}
 	}
 
-	if !runtime.IsActiveVehicle(sub) {
-		sub.Vel = gvec.Vec2{}
-		return
-	}
-
-	if runtime.PlayerStunned() {
+	if skip, _ := ShouldSkipPilotControl(runtime, sub); skip {
 		sub.Vel = gvec.Vec2{}
 		return
 	}

@@ -8,6 +8,7 @@ const (
 	FloraShockKelp
 	FloraShatterBulb
 	FloraCoral // floor-flora path historically spawned kelp for this id
+	FloraNerveMat
 	FloraCount
 )
 
@@ -18,6 +19,11 @@ const (
 	FaunaPassiveFish FaunaID = iota
 	FaunaPassiveCrab
 	FaunaSandViper
+	FaunaFalseBulbSnare
+	FaunaThermoclineRammer
+	FaunaElectroWeaver
+	FaunaVoltaicLurker
+	FaunaBrimstoneSiphon
 	FaunaCount
 )
 

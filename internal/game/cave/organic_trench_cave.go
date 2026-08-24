@@ -2,7 +2,6 @@ package cave
 
 import (
 	"image/color"
-	"math"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -10,7 +9,6 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
-	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 type OrganicTrenchCave struct {
@@ -77,117 +75,7 @@ func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 }
 
 func (c *OrganicTrenchCave) GenerateEntities(seed int64) []entity.CaveEntity {
-	grid := c.Grid
-	r := rand.New(rand.NewSource(seed))
-	var entities []entity.CaveEntity
-
-	gridW := len(grid)
-	gridH := len(grid[0])
-
-	for tx := 1; tx < gridW-1; tx++ {
-		for ty := 2; ty < gridH-2; ty++ {
-			if grid[tx][ty] {
-				continue
-			}
-
-			// Biome 1: Mid-Depth (ty 4–40) - Grotto
-			if ty >= 4 && ty < 40 {
-				hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
-				if hasAdjacentWall && r.Float64() < 0.08 {
-					entities = append(entities, entity.NewShatterBulb(
-						float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
-						float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
-					))
-				}
-				if grid[tx][ty-1] && r.Float64() < 0.04 {
-					entities = append(entities, entity.NewFalseBulbSnare(
-						float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
-						float64(ty*config.TileSize)+4,
-					))
-				}
-			}
-
-			// Biome 2: Deep (ty 40–80) - Smoker Trenches
-			if ty >= 40 && ty < 80 {
-				if r.Float64() < 0.05 {
-					var dir string
-					if grid[tx][ty+1] {
-						dir = "up"
-					} else if grid[tx][ty-1] {
-						dir = "down"
-					} else if grid[tx-1][ty] {
-						dir = "right"
-					} else if grid[tx+1][ty] {
-						dir = "left"
-					}
-					if dir != "" {
-						siphon := entity.NewBrimstoneSiphon(
-							float64(tx*config.TileSize)+float64(config.TileSize-32)/2.0,
-							float64(ty*config.TileSize)+float64(config.TileSize-32)/2.0,
-							dir,
-						)
-						siphon.Timer = r.Intn(entity.BrimstoneSiphonArchetype.CycleFrames)
-						entities = append(entities, siphon)
-					}
-				}
-				isOpenSpace := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-				if isOpenSpace && r.Float64() < 0.015 {
-					rammer := entity.NewThermoclineRammer(
-						float64(tx*config.TileSize)+float64(config.TileSize-36)/2.0,
-						float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
-					)
-					rammer.Facing = r.Float64() * math.Pi * 2
-					entities = append(entities, rammer)
-				}
-			}
-
-			// Spawn ShockKelp in OrganicTrenchCave (Mid-Depth and Deep)
-			if (ty >= 4 && ty < 80) && ty < gridH-2 && grid[tx][ty+1] && r.Float64() < 0.18 {
-				height := 32.0 + r.Float64()*48.0
-				entities = append(entities, entity.NewShockKelp(
-					float64(tx*config.TileSize)+float64(config.TileSize-16)/2.0,
-					float64(ty*config.TileSize)+float64(config.TileSize)-height,
-					height,
-					"floor",
-				))
-			}
-
-			// Biome 3: Abyssal (ty 80+) - Brine Falls
-			if ty >= 80 && ty < gridH-1 {
-				if grid[tx][ty+1] && r.Float64() < 0.10 {
-					entities = append(entities, &entity.NerveMat{
-						BaseEntity: entity.BaseEntity{
-							Pos:        gvec.Vec2{X: float64(tx * config.TileSize), Y: float64(ty*config.TileSize) + float64(config.TileSize-12)},
-							Dimensions: gvec.Vec2{X: float64(config.TileSize), Y: 12},
-							Active:     true,
-						},
-					})
-				}
-				isOpenSpace := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-				if isOpenSpace && r.Float64() < 0.012 {
-					hasWeaverNearby := false
-					for _, ent := range entities {
-						ee, ok := ent.(*entity.ElectroWeaver)
-						if ok && math.Abs(ee.GetPos().X-float64(tx*config.TileSize)) < 500 {
-							hasWeaverNearby = true
-							break
-						}
-					}
-					if !hasWeaverNearby {
-						entities = append(entities, entity.NewElectroWeaver(
-							float64(tx*config.TileSize)+float64(config.TileSize-40)/2.0,
-							float64(ty*config.TileSize)+float64(config.TileSize-20)/2.0,
-						))
-					}
-				}
-			}
-
-			// Spawn decorative trench corals (12% chance near any solid face)
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, 0.12, entity.CoralBiomeTrench, 2, r)
-		}
-	}
-
-	return entities
+	return GenerateDeepEntitiesFromSpec(Spec(CaveOrganicTrench), c.Grid, seed)
 }
 
 func (c *OrganicTrenchCave) GenerateResources(seed int64) []resource.Resource {
@@ -195,7 +83,7 @@ func (c *OrganicTrenchCave) GenerateResources(seed int64) []resource.Resource {
 }
 
 func (c *OrganicTrenchCave) GetAmbientColor(lightMult float64) [4]float32 {
-	return [4]float32{0.01, 0.01, 0.03, 0.97}
+	return AmbientColor(CaveOrganicTrench)
 }
 
 func GenerateOrganicTrenchGrid(r *rand.Rand) [][]bool {
