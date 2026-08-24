@@ -71,43 +71,24 @@ func (m *HeavyMech) ApplyForce(force gvec.Vec2) {
 	// HeavyMech is too heavy and stable to get knocked back!
 }
 func (m *HeavyMech) GetKit() item.Item {
-	var upgCopy *item.Inventory
-	if m.Upgrades != nil {
-		upgCopy = item.NewInventory(len(m.Upgrades.Slots))
-		for i, slot := range m.Upgrades.Slots {
-			if slot.Item != nil {
-				upgCopy.Slots[i] = item.ItemStack{
-					Item:     item.Clone(slot.Item),
-					Quantity: slot.Quantity,
-				}
-			}
-		}
-	}
 	return &HeavyMechKit{
-		Upgrades: upgCopy,
+		Upgrades: CloneInventory(m.Upgrades),
 		Health:   m.Health,
 		Battery:  m.Battery,
 		HasState: true,
 	}
 }
 
-
 func (m *HeavyMech) TakeDamage(amount float64) {
-	c := Controller{Health: m.Health, MaxHealth: m.MaxHealth}
-	c.ApplyDamage(amount, HeavyMechArchetype.DamageReduction)
-	m.Health = c.Health
+	SyncDamage(&m.Health, &m.MaxHealth, amount, HeavyMechArchetype.DamageReduction)
 }
 
 func (m *HeavyMech) Repair(amount float64) {
-	c := Controller{Health: m.Health, MaxHealth: m.MaxHealth}
-	c.ApplyRepair(amount)
-	m.Health = c.Health
+	SyncRepair(&m.Health, &m.MaxHealth, amount)
 }
 
 func (m *HeavyMech) RechargeBattery(amount float64) {
-	c := Controller{Battery: m.Battery, MaxBattery: m.MaxBattery}
-	c.ApplyRecharge(amount)
-	m.Battery = c.Battery
+	SyncRecharge(&m.Battery, &m.MaxBattery, amount)
 }
 
 func (m *HeavyMech) Update(runtime Runtime) {
@@ -126,22 +107,11 @@ func (m *HeavyMech) Update(runtime Runtime) {
 	}
 
 	input := runtime.Input()
-	cursor := input.Cursor()
-	center := runtime.PlayerScreenCenter()
-	m.Facing = math.Atan2(cursor.Y-center.Y, cursor.X-center.X)
-
-	walkForce := d.WalkForce
-	maxSpeedH := d.MaxSpeedH
+	m.Facing = CursorFacing(runtime)
 
 	hasPower := m.Battery > 0
-	if !hasPower {
-		walkForce = d.NoPowerWalkForce
-		maxSpeedH = d.NoPowerMaxSpeedH
-	}
-	if runtime.PlayerSlowed() {
-		walkForce *= 0.5
-		maxSpeedH *= 0.5
-	}
+	walkForce, maxSpeedH := ScaleForPower(d.WalkForce, d.MaxSpeedH, d.NoPowerWalkForce, d.NoPowerMaxSpeedH, hasPower)
+	walkForce, maxSpeedH = ScaleForSlow(walkForce, maxSpeedH, runtime.PlayerSlowed())
 
 	moving := false
 	if input.IsKeyPressed(ebiten.KeyA) || input.IsKeyPressed(ebiten.KeyArrowLeft) {
@@ -154,116 +124,94 @@ func (m *HeavyMech) Update(runtime Runtime) {
 	}
 
 	m.Vel.Y += d.Gravity
-
-	waterline := d.Waterline
-	m.ThrustersActive = false
-	if hasPower && (input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) || input.IsKeyPressed(ebiten.KeySpace)) {
-		if m.Pos.Y > waterline {
-			m.Vel.Y -= d.ThrustForce
-			m.Battery -= d.ThrustDrain
-			if m.Battery < 0 {
-				m.Battery = 0
-			}
-			m.ThrustersActive = true
-			if rand.Float64() < 0.4 {
-				runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: m.Pos.X + 14, Y: m.Pos.Y + m.Dimensions.Y - 14}})
-				runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: m.Pos.X + m.Dimensions.X - 22, Y: m.Pos.Y + m.Dimensions.Y - 14}})
-			}
-		}
-	}
+	m.ThrustersActive = m.applyThrusters(runtime, input, d, hasPower)
 
 	if moving && hasPower {
-		m.Battery -= d.WalkDrain
-		if m.Battery < 0 {
-			m.Battery = 0
-		}
+		hasPower = DrainBatteryOnMove(&m.Battery, moving, hasPower, d.WalkDrain)
 	}
 
 	m.Vel.X *= d.DragH
 	m.Vel.Y *= d.DragV
-
 	if math.Abs(m.Vel.X) > maxSpeedH {
 		m.Vel.X = math.Copysign(maxSpeedH, m.Vel.X)
 	}
 
-	if m.Pos.Y < waterline {
-		m.Vel.Y += d.SurfaceBuoyancy
-	} else if m.ThrustersActive && m.Pos.Y < waterline+16.0 {
-		bobY := waterline + 4.0 + math.Sin(float64(runtime.TimeOfDay())*0.05)*2.0
-		m.Vel.Y += (bobY - m.Pos.Y) * 0.05
-	}
+	m.Vel.Y = ApplyWaterline(m.Pos.Y, m.Vel.Y, runtime.TimeOfDay(), moving, m.ThrustersActive, WaterlineOpts{
+		Waterline:       d.Waterline,
+		SurfacePush:     d.SurfaceBuoyancy,
+		BobSpring:       0.05,
+		BobWhenThruster: true,
+	})
 
 	m.checkCollisions(runtime)
+	m.tickDrill(runtime)
 
-	if m.IsDrilling {
-		m.DrillTimer--
-		if m.DrillTimer <= 0 {
-			m.IsDrilling = false
-			if m.TargetDrillNode != nil && m.TargetDrillNode.GetHitsToMine() > 0 {
-				m.TargetDrillNode.SetHitsToMine(m.TargetDrillNode.GetHitsToMine() - 1)
+	if hasPower && input.IsKeyJustPressed(ebiten.KeySpace) && item.HasItem[*item.DecoyLauncher](m.Upgrades, 1) {
+		TryLaunchDecoy(runtime, m.Cargo, &m.Battery, m.Pos, m.Dimensions, m.Facing)
+	}
+}
 
-				targetTx, targetTy := m.TargetDrillNode.GetTilePos()
-				drillPos := gvec.Vec2{
-					X: float64(targetTx*TileSize + TileSize/2),
-					Y: float64(targetTy*TileSize + TileSize/2),
-				}
-				nodeColor := color.RGBA{150, 150, 150, 255}
-				if cRgba, ok := m.TargetDrillNode.GetColor().(color.RGBA); ok {
-					nodeColor = cRgba
-				}
-				runtime.Emit(SpawnDebrisCmd{Pos: drillPos, Color: nodeColor})
+func (m *HeavyMech) applyThrusters(runtime Runtime, input InputSource, d *HeavyMechDef, hasPower bool) bool {
+	if !hasPower {
+		return false
+	}
+	if !(input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) || input.IsKeyPressed(ebiten.KeySpace)) {
+		return false
+	}
+	if m.Pos.Y <= d.Waterline {
+		return false
+	}
+	m.Vel.Y -= d.ThrustForce
+	m.Battery -= d.ThrustDrain
+	ClampBattery(&m.Battery, &m.MaxBattery)
+	if rand.Float64() < 0.4 {
+		runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: m.Pos.X + 14, Y: m.Pos.Y + m.Dimensions.Y - 14}})
+		runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: m.Pos.X + m.Dimensions.X - 22, Y: m.Pos.Y + m.Dimensions.Y - 14}})
+	}
+	return true
+}
 
-				if m.TargetDrillNode.GetHitsToMine() <= 0 {
-					recipeName := m.TargetDrillNode.GetRecipeResultName()
-					if recipeName != "" {
-						runtime.Emit(UnlockRecipeCmd{RecipeResultName: recipeName})
+func (m *HeavyMech) tickDrill(runtime Runtime) {
+	if !m.IsDrilling {
+		return
+	}
+	m.DrillTimer--
+	if m.DrillTimer <= 0 {
+		m.IsDrilling = false
+		if m.TargetDrillNode != nil && m.TargetDrillNode.GetHitsToMine() > 0 {
+			m.TargetDrillNode.SetHitsToMine(m.TargetDrillNode.GetHitsToMine() - 1)
+
+			targetTx, targetTy := m.TargetDrillNode.GetTilePos()
+			drillPos := gvec.Vec2{
+				X: float64(targetTx*TileSize + TileSize/2),
+				Y: float64(targetTy*TileSize + TileSize/2),
+			}
+			nodeColor := color.RGBA{150, 150, 150, 255}
+			if cRgba, ok := m.TargetDrillNode.GetColor().(color.RGBA); ok {
+				nodeColor = cRgba
+			}
+			runtime.Emit(SpawnDebrisCmd{Pos: drillPos, Color: nodeColor})
+
+			if m.TargetDrillNode.GetHitsToMine() <= 0 {
+				recipeName := m.TargetDrillNode.GetRecipeResultName()
+				if recipeName != "" {
+					runtime.Emit(UnlockRecipeCmd{RecipeResultName: recipeName})
+					runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
+				} else {
+					if m.Cargo.AddItem(m.TargetDrillNode, 1) {
 						runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
 					} else {
-						if m.Cargo.AddItem(m.TargetDrillNode, 1) {
-							runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
-						} else {
-							m.TargetDrillNode.SetHitsToMine(1)
-							runtime.Emit(SetWarningCmd{
-								Message:  "Cargo hold full! Cannot mine resource.",
-								Duration: 120,
-								Level:    2,
-							})
-						}
+						m.TargetDrillNode.SetHitsToMine(1)
+						runtime.Emit(SetWarningCmd{
+							Message:  "Cargo hold full! Cannot mine resource.",
+							Duration: 120,
+							Level:    2,
+						})
 					}
 				}
 			}
-			m.TargetDrillNode = nil
 		}
-	}
-
-	if hasPower && input.IsKeyJustPressed(ebiten.KeySpace) {
-		hasDecoyLauncher := item.HasItem[*item.DecoyLauncher](m.Upgrades, 1)
-
-		if hasDecoyLauncher {
-			var decoyAmmo item.SonicDecoy
-			if m.Cargo.Has(&decoyAmmo, 1) && m.Battery >= 5.0 {
-				m.Cargo.Remove(&decoyAmmo, 1)
-				m.Battery -= 5.0
-
-				cosF := math.Cos(m.Facing)
-				sinF := math.Sin(m.Facing)
-
-				spawnX := m.Pos.X + m.Dimensions.X/2.0 + cosF*(m.Dimensions.X/2.0+10.0)
-				spawnY := m.Pos.Y + m.Dimensions.Y/2.0 + sinF*(m.Dimensions.Y/2.0+10.0)
-				launchVel := gvec.Vec2{X: cosF * 6.0, Y: sinF * 6.0}
-
-				runtime.Emit(SpawnDecoyCmd{
-					Pos: gvec.Vec2{X: spawnX, Y: spawnY},
-					Vel: launchVel,
-				})
-			} else {
-				runtime.Emit(SetWarningCmd{
-					Message:  "COUNTERMEASURE DEPLETED / LOW POWER",
-					Duration: 90,
-					Level:    2,
-				})
-			}
-		}
+		m.TargetDrillNode = nil
 	}
 }
 
@@ -275,7 +223,7 @@ func (m *HeavyMech) DrillStrike(node DrillableResource) {
 }
 
 func (m *HeavyMech) checkCollisions(runtime Runtime) {
-	gvec.MoveAxisSeparated(&m.Pos, &m.Vel, m.Dimensions, func(pos gvec.Vec2) bool {
+	MoveAxisSeparated(&m.Pos, &m.Vel, m.Dimensions, func(pos gvec.Vec2) bool {
 		return m.isSolid(runtime, pos)
 	}, nil, func() {
 		if m.Vel.Y > 4.5 {
@@ -426,20 +374,8 @@ func (k *HeavyMechKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 func (k *HeavyMechKit) IsPlayerUpgrade() bool { return false }
 
 func (k *HeavyMechKit) Clone() item.Item {
-	var upgCopy *item.Inventory
-	if k.Upgrades != nil {
-		upgCopy = item.NewInventory(len(k.Upgrades.Slots))
-		for i, slot := range k.Upgrades.Slots {
-			if slot.Item != nil {
-				upgCopy.Slots[i] = item.ItemStack{
-					Item:     item.Clone(slot.Item),
-					Quantity: slot.Quantity,
-				}
-			}
-		}
-	}
 	return &HeavyMechKit{
-		Upgrades: upgCopy,
+		Upgrades: CloneInventory(k.Upgrades),
 		Health:   k.Health,
 		Battery:  k.Battery,
 		HasState: k.HasState,
@@ -471,25 +407,12 @@ func (k *HeavyMechKit) SetItemState(upgrades *item.SavedInventory, health float6
 
 func (k *HeavyMechKit) Deploy(x, y float64) Vehicle {
 	mech := NewHeavyMech(x, y)
-	if k.HasState {
-		if k.Upgrades != nil {
-			mech.Upgrades = item.NewInventory(len(k.Upgrades.Slots))
-			for i, slot := range k.Upgrades.Slots {
-				if slot.Item != nil {
-					mech.Upgrades.Slots[i] = item.ItemStack{
-						Item:     item.Clone(slot.Item),
-						Quantity: slot.Quantity,
-					}
-				}
-			}
-		}
-		if k.Health > 0 {
-			mech.Health = k.Health
-		}
-		if k.Battery >= 0 {
-			mech.Battery = k.Battery
-		}
-	}
+	RestoreKitState(&mech.Health, &mech.Battery, &mech.Upgrades, KitVehicleState{
+		Upgrades: k.Upgrades,
+		Health:   k.Health,
+		Battery:  k.Battery,
+		HasState: k.HasState,
+	})
 	return mech
 }
 

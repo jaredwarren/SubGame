@@ -5,7 +5,6 @@ import (
 	"image/color"
 	_ "image/png"
 	"math"
-	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -79,43 +78,24 @@ func (sub *ScoutSub) ApplyForce(force gvec.Vec2) {
 	sub.Vel = sub.Vel.Add(force)
 }
 func (sub *ScoutSub) GetKit() item.Item {
-	var upgCopy *item.Inventory
-	if sub.Upgrades != nil {
-		upgCopy = item.NewInventory(len(sub.Upgrades.Slots))
-		for i, slot := range sub.Upgrades.Slots {
-			if slot.Item != nil {
-				upgCopy.Slots[i] = item.ItemStack{
-					Item:     item.Clone(slot.Item),
-					Quantity: slot.Quantity,
-				}
-			}
-		}
-	}
 	return &ScoutSubKit{
-		Upgrades: upgCopy,
+		Upgrades: CloneInventory(sub.Upgrades),
 		Health:   sub.Health,
 		Battery:  sub.Battery,
 		HasState: true,
 	}
 }
 
-
 func (sub *ScoutSub) TakeDamage(amount float64) {
-	c := Controller{Health: sub.Health, MaxHealth: sub.MaxHealth}
-	c.ApplyDamage(amount, 1)
-	sub.Health = c.Health
+	SyncDamage(&sub.Health, &sub.MaxHealth, amount, 1)
 }
 
 func (sub *ScoutSub) Repair(amount float64) {
-	c := Controller{Health: sub.Health, MaxHealth: sub.MaxHealth}
-	c.ApplyRepair(amount)
-	sub.Health = c.Health
+	SyncRepair(&sub.Health, &sub.MaxHealth, amount)
 }
 
 func (sub *ScoutSub) RechargeBattery(amount float64) {
-	c := Controller{Battery: sub.Battery, MaxBattery: sub.MaxBattery}
-	c.ApplyRecharge(amount)
-	sub.Battery = c.Battery
+	SyncRecharge(&sub.Battery, &sub.MaxBattery, amount)
 }
 
 func (sub *ScoutSub) hasUpgrade() bool {
@@ -126,9 +106,7 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 	d := ScoutSubArchetype
 	if item.HasItem[*item.ThermalGenerator](sub.Upgrades, 1) {
 		sub.Battery += d.ThermalRecharge
-		if sub.Battery > sub.MaxBattery {
-			sub.Battery = sub.MaxBattery
-		}
+		ClampBattery(&sub.Battery, &sub.MaxBattery)
 	}
 
 	if skip, _ := ShouldSkipPilotControl(runtime, sub); skip {
@@ -137,160 +115,73 @@ func (sub *ScoutSub) Update(runtime Runtime) {
 	}
 
 	input := runtime.Input()
-	cursor := input.Cursor()
-	center := runtime.PlayerScreenCenter()
-	sub.Facing = math.Atan2(cursor.Y-center.Y, cursor.X-center.X)
-
-	force := d.Force
-	maxSpeed := d.MaxSpeed
+	sub.Facing = CursorFacing(runtime)
 
 	hasPower := sub.Battery > 0
-	if !hasPower {
-		force = d.NoPowerForce
-		maxSpeed = d.NoPowerMaxSpeed
-	}
-	if runtime.PlayerSlowed() {
-		force *= 0.5
-		maxSpeed *= 0.5
-	}
+	force, maxSpeed := ScaleForPower(d.Force, d.MaxSpeed, d.NoPowerForce, d.NoPowerMaxSpeed, hasPower)
+	force, maxSpeed = ScaleForSlow(force, maxSpeed, runtime.PlayerSlowed())
 
-	waterline := d.Waterline
-	moving := false
-	if input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) {
-		if sub.Pos.Y > waterline {
-			sub.Vel.Y -= force
-			moving = true
-		}
-	}
-	if input.IsKeyPressed(ebiten.KeyS) || input.IsKeyPressed(ebiten.KeyArrowDown) {
-		sub.Vel.Y += force
-		moving = true
-	}
-	if input.IsKeyPressed(ebiten.KeyA) || input.IsKeyPressed(ebiten.KeyArrowLeft) {
-		sub.Vel.X -= force
-		moving = true
-	}
-	if input.IsKeyPressed(ebiten.KeyD) || input.IsKeyPressed(ebiten.KeyArrowRight) {
-		sub.Vel.X += force
-		moving = true
-	}
-
+	moving := ApplyWASDThrust(input, sub.Pos.Y, d.Waterline, &sub.Vel, force)
 	if moving && hasPower {
-		sub.Battery -= d.BatteryDrain
-		if sub.Battery < 0 {
-			sub.Battery = 0
-		}
-		if rand.Float64() < 0.35 {
-			propX := sub.Pos.X
-			if math.Cos(sub.Facing) < 0 {
-				propX = sub.Pos.X + sub.Dimensions.X
-			}
-			runtime.Emit(SpawnBubbleCmd{Pos: gvec.Vec2{X: propX, Y: sub.Pos.Y + sub.Dimensions.Y/2.0}})
-		}
+		hasPower = DrainBatteryOnMove(&sub.Battery, moving, hasPower, d.BatteryDrain)
+		MaybeEmitPropBubble(runtime, sub.Pos, sub.Dimensions, sub.Facing, 0.35)
 	}
 
-	sub.Vel = sub.Vel.Scale(d.Drag)
-	speed := sub.Vel.Length()
-	if speed > maxSpeed {
-		sub.Vel = sub.Vel.Scale(maxSpeed / speed)
-	}
-
-	if sub.Pos.Y < waterline {
-		sub.Vel.Y += 0.15
-	} else if !moving && sub.Pos.Y < waterline+16.0 {
-		bobY := waterline + 4.0 + math.Sin(float64(runtime.TimeOfDay())*0.05)*2.0
-		sub.Vel.Y += (bobY - sub.Pos.Y) * 0.03
-	}
+	ApplyDragClamp(&sub.Vel, d.Drag, maxSpeed)
+	sub.Vel.Y = ApplyWaterline(sub.Pos.Y, sub.Vel.Y, runtime.TimeOfDay(), moving, false, WaterlineOpts{
+		Waterline:   d.Waterline,
+		SurfacePush: 0.15,
+		BobSpring:   0.03,
+	})
 
 	sub.checkCollisions(runtime)
+	sub.trySonar(runtime, input, hasPower)
+	sub.tryCountermeasures(runtime, input, hasPower)
+}
 
-	if hasPower && input.IsKeyJustPressed(ebiten.KeyQ) {
-		if runtime.CanUseSonar() && sub.Battery >= sub.Sonar.BatteryCost {
-			sub.Battery -= sub.Sonar.BatteryCost
-			if sub.Battery < 0 {
-				sub.Battery = 0
-			}
-			pulse := sub.Sonar.Pulse
-			isUpgraded := sub.hasUpgrade()
-			if isUpgraded {
-				pulse.DurationTicks = int(float64(pulse.DurationTicks) * 1.8)
-				pulse.RadiusStep = pulse.RadiusStep * 1.4
-			}
-			runtime.Emit(ActivateSonarCmd{
-				Source: gvec.Vec2{X: sub.Pos.X + sub.Dimensions.X/2.0, Y: sub.Pos.Y + sub.Dimensions.Y/2.0},
-				Pulse:  pulse,
-				Bright: isUpgraded,
-			})
-		}
+func (sub *ScoutSub) trySonar(runtime Runtime, input InputSource, hasPower bool) {
+	if !hasPower || !input.IsKeyJustPressed(ebiten.KeyQ) {
+		return
 	}
+	if !runtime.CanUseSonar() || sub.Battery < sub.Sonar.BatteryCost {
+		return
+	}
+	sub.Battery -= sub.Sonar.BatteryCost
+	ClampBattery(&sub.Battery, &sub.MaxBattery)
 
-	if hasPower && input.IsKeyJustPressed(ebiten.KeySpace) {
-		hasDecoyLauncher := item.HasItem[*item.DecoyLauncher](sub.Upgrades, 1)
-		hasChemicalDischarger := item.HasItem[*item.ChemicalDischarger](sub.Upgrades, 1)
+	pulse := sub.Sonar.Pulse
+	isUpgraded := sub.hasUpgrade()
+	if isUpgraded {
+		pulse.DurationTicks = int(float64(pulse.DurationTicks) * 1.8)
+		pulse.RadiusStep = pulse.RadiusStep * 1.4
+	}
+	runtime.Emit(ActivateSonarCmd{
+		Source: gvec.Vec2{X: sub.Pos.X + sub.Dimensions.X/2.0, Y: sub.Pos.Y + sub.Dimensions.Y/2.0},
+		Pulse:  pulse,
+		Bright: isUpgraded,
+	})
+}
 
-		if hasDecoyLauncher {
-			var decoyAmmo item.SonicDecoy
-			if sub.Cargo.Has(&decoyAmmo, 1) && sub.Battery >= 5.0 {
-				sub.Cargo.Remove(&decoyAmmo, 1)
-				sub.Battery -= 5.0
-
-				cosF := math.Cos(sub.Facing)
-				sinF := math.Sin(sub.Facing)
-
-				spawnX := sub.Pos.X + sub.Dimensions.X/2.0 + cosF*(sub.Dimensions.X/2.0+10.0)
-				spawnY := sub.Pos.Y + sub.Dimensions.Y/2.0 + sinF*(sub.Dimensions.Y/2.0+10.0)
-				launchVel := gvec.Vec2{X: cosF * 6.0, Y: sinF * 6.0}
-
-				runtime.Emit(SpawnDecoyCmd{
-					Pos: gvec.Vec2{X: spawnX, Y: spawnY},
-					Vel: launchVel,
-				})
-			} else {
-				runtime.Emit(SetWarningCmd{
-					Message:  "COUNTERMEASURE DEPLETED / LOW POWER",
-					Duration: 90,
-					Level:    2,
-				})
-			}
-		} else if hasChemicalDischarger {
-			var chemicalAmmo item.ChemicalDeterrent
-			if sub.Cargo.Has(&chemicalAmmo, 1) && sub.Battery >= 5.0 {
-				sub.Cargo.Remove(&chemicalAmmo, 1)
-				sub.Battery -= 5.0
-
-				centerX := sub.Pos.X + sub.Dimensions.X/2.0
-				centerY := sub.Pos.Y + sub.Dimensions.Y/2.0
-
-				runtime.Emit(SpawnDeterrentCloudCmd{
-					Pos: gvec.Vec2{X: centerX, Y: centerY},
-				})
-			} else {
-				runtime.Emit(SetWarningCmd{
-					Message:  "COUNTERMEASURE DEPLETED / LOW POWER",
-					Duration: 90,
-					Level:    2,
-				})
-			}
-		}
+func (sub *ScoutSub) tryCountermeasures(runtime Runtime, input InputSource, hasPower bool) {
+	if !hasPower || !input.IsKeyJustPressed(ebiten.KeySpace) {
+		return
+	}
+	if item.HasItem[*item.DecoyLauncher](sub.Upgrades, 1) {
+		TryLaunchDecoy(runtime, sub.Cargo, &sub.Battery, sub.Pos, sub.Dimensions, sub.Facing)
+		return
+	}
+	if item.HasItem[*item.ChemicalDischarger](sub.Upgrades, 1) {
+		TryLaunchDeterrent(runtime, sub.Cargo, &sub.Battery, sub.Pos, sub.Dimensions)
 	}
 }
 
 func (sub *ScoutSub) checkCollisions(runtime Runtime) {
-	gvec.MoveAxisSeparated(&sub.Pos, &sub.Vel, sub.Dimensions, func(pos gvec.Vec2) bool {
+	onImpact := func(absSpeed float64) {
+		CaveSpeedImpact(sub.TakeDamage, runtime, absSpeed, 2.0, 4.0, 2.0)
+	}
+	MoveAxisSeparated(&sub.Pos, &sub.Vel, sub.Dimensions, func(pos gvec.Vec2) bool {
 		return sub.isSolid(runtime, pos)
-	}, func() {
-		speed := math.Abs(sub.Vel.X)
-		if speed > 2.0 {
-			sub.TakeDamage(speed * 4.0)
-			runtime.Emit(TriggerShakeCmd{Duration: 15, Intensity: speed * 2.0})
-		}
-	}, func() {
-		speed := math.Abs(sub.Vel.Y)
-		if speed > 2.0 {
-			sub.TakeDamage(speed * 4.0)
-			runtime.Emit(TriggerShakeCmd{Duration: 15, Intensity: speed * 2.0})
-		}
-	})
+	}, func() { onImpact(math.Abs(sub.Vel.X)) }, func() { onImpact(math.Abs(sub.Vel.Y)) })
 }
 
 func (sub *ScoutSub) isSolid(runtime Runtime, pos gvec.Vec2) bool {
@@ -375,20 +266,8 @@ func (k *ScoutSubKit) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {
 func (k *ScoutSubKit) IsPlayerUpgrade() bool { return false }
 
 func (k *ScoutSubKit) Clone() item.Item {
-	var upgCopy *item.Inventory
-	if k.Upgrades != nil {
-		upgCopy = item.NewInventory(len(k.Upgrades.Slots))
-		for i, slot := range k.Upgrades.Slots {
-			if slot.Item != nil {
-				upgCopy.Slots[i] = item.ItemStack{
-					Item:     item.Clone(slot.Item),
-					Quantity: slot.Quantity,
-				}
-			}
-		}
-	}
 	return &ScoutSubKit{
-		Upgrades: upgCopy,
+		Upgrades: CloneInventory(k.Upgrades),
 		Health:   k.Health,
 		Battery:  k.Battery,
 		HasState: k.HasState,
@@ -420,25 +299,12 @@ func (k *ScoutSubKit) SetItemState(upgrades *item.SavedInventory, health float64
 
 func (k *ScoutSubKit) Deploy(x, y float64) Vehicle {
 	sub := NewScoutSub(x, y)
-	if k.HasState {
-		if k.Upgrades != nil {
-			sub.Upgrades = item.NewInventory(len(k.Upgrades.Slots))
-			for i, slot := range k.Upgrades.Slots {
-				if slot.Item != nil {
-					sub.Upgrades.Slots[i] = item.ItemStack{
-						Item:     item.Clone(slot.Item),
-						Quantity: slot.Quantity,
-					}
-				}
-			}
-		}
-		if k.Health > 0 {
-			sub.Health = k.Health
-		}
-		if k.Battery >= 0 {
-			sub.Battery = k.Battery
-		}
-	}
+	RestoreKitState(&sub.Health, &sub.Battery, &sub.Upgrades, KitVehicleState{
+		Upgrades: k.Upgrades,
+		Health:   k.Health,
+		Battery:  k.Battery,
+		HasState: k.HasState,
+	})
 	return sub
 }
 

@@ -480,13 +480,13 @@ for a single incidental commit:
     tint, and rim entity spawns; `shallow_seabed_cave.go` no longer branches on
     `ChasmTarget`.
 
-16. **Full vehicle `Update` merge** (§2.6): `Controller` today covers
-    damage/repair/recharge and stun gating only; `skiff.go`, `scoutsub.go`, and
-    `heavymech.go` still triplicate movement, axis collision, battery drain,
-    and kit cloning (~450 lines each). Finish extracting a shared update loop
-    driven by `VehicleDef` with per-craft strategy hooks (mech mining arms,
-    skiff surface handling).
-    *Touch:* `vehicle/controller.go`, all three vehicle files. Estimate: 1–2 PRs.
+16. ~~**Full vehicle `Update` merge**~~ — **done**: shared helpers in
+    `motion.go` (power scaling, drag, waterline, WASD thrust, collision impact),
+    `kit.go` (`CloneInventory`, `RestoreKitState`), `countermeasures.go` (decoy/
+    deterrent), and `SyncDamage`/`SyncRepair`/`SyncRecharge` on `Controller`.
+    Scout/mech Updates call shared paths; skiff keeps surface wake/turn logic.
+    *Touch:* `vehicle/controller.go`, `motion.go`, `kit.go`, `countermeasures.go`,
+    `skiff.go`, `scoutsub.go`, `heavymech.go`.
 
 17. **Event-driven quest progress** (§6.5): `CheckProgress` still runs every
     tick even though conditions are declarative. Emit progress events on

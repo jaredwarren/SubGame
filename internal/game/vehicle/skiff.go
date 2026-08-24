@@ -149,48 +149,24 @@ func (k *SkiffKit) Deploy(x, y float64) Vehicle {
 
 
 func (s *Skiff) TakeDamage(amount float64) {
-	c := Controller{Health: s.Health, MaxHealth: s.MaxHealth}
-	c.ApplyDamage(amount, 1)
-	s.Health = c.Health
+	SyncDamage(&s.Health, &s.MaxHealth, amount, 1)
 }
 
 func (s *Skiff) Repair(amount float64) {
-	c := Controller{Health: s.Health, MaxHealth: s.MaxHealth}
-	c.ApplyRepair(amount)
-	s.Health = c.Health
+	SyncRepair(&s.Health, &s.MaxHealth, amount)
 }
 
 func (s *Skiff) RechargeBattery(amount float64) {
-	c := Controller{Battery: s.Battery, MaxBattery: s.MaxBattery}
-	c.ApplyRecharge(amount)
-	s.Battery = c.Battery
+	SyncRecharge(&s.Battery, &s.MaxBattery, amount)
 }
 
 func (s *Skiff) Update(runtime Runtime) {
-	// Update wake points
-	var activeWake []skiffWakePoint
-	decayRate := 0.025
-	if activeWakeStyle == WakeStyleArcs || activeWakeStyle == WakeStyleVSegments {
-		decayRate = 0.015
-	}
-
-	for i := range s.wake {
-		s.wake[i].life -= decayRate
-		if s.wake[i].life > 0 {
-			activeWake = append(activeWake, s.wake[i])
-		}
-	}
-	s.wake = activeWake
-
-	// Update light multiplier
+	s.tickWake()
 	s.lightMult = s.getLightMultiplier(runtime.TimeOfDay())
 
-	isDaytime := runtime.TimeOfDay() < 10800
-	if isDaytime {
+	if runtime.TimeOfDay() < 10800 {
 		s.Battery += 0.05
-		if s.Battery > s.MaxBattery {
-			s.Battery = s.MaxBattery
-		}
+		ClampBattery(&s.Battery, &s.MaxBattery)
 	}
 
 	if skip, _ := ShouldSkipPilotControl(runtime, s); skip {
@@ -207,14 +183,8 @@ func (s *Skiff) Update(runtime Runtime) {
 		s.Facing += d.TurnSpeed
 	}
 
-	accel := d.Accel
-	maxSpeed := d.MaxSpeed
-
 	hasPower := s.Battery > 0
-	if !hasPower {
-		accel = d.NoPowerAccel
-		maxSpeed = d.NoPowerMaxSpeed
-	}
+	accel, maxSpeed := ScaleForPower(d.Accel, d.MaxSpeed, d.NoPowerAccel, d.NoPowerMaxSpeed, hasPower)
 
 	moving := false
 	if input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) {
@@ -222,28 +192,38 @@ func (s *Skiff) Update(runtime Runtime) {
 		s.Vel.Y += math.Sin(s.Facing) * accel
 		moving = true
 	} else if input.IsKeyPressed(ebiten.KeyS) || input.IsKeyPressed(ebiten.KeyArrowDown) {
-		s.Vel.X -= math.Cos(s.Facing) * (accel * d.ReverseAccelScale)
-		s.Vel.Y -= math.Sin(s.Facing) * (accel * d.ReverseAccelScale)
+		reverse := accel * d.ReverseAccelScale
+		s.Vel.X -= math.Cos(s.Facing) * reverse
+		s.Vel.Y -= math.Sin(s.Facing) * reverse
 		moving = true
 	}
 
 	if moving && hasPower {
-		s.Battery -= d.BatteryDrain
-		if s.Battery < 0 {
-			s.Battery = 0
+		hasPower = DrainBatteryOnMove(&s.Battery, moving, hasPower, d.BatteryDrain)
+	}
+
+	ApplyDragClamp(&s.Vel, d.Drag, maxSpeed)
+	s.checkCollisions(runtime)
+	s.maybeSpawnWake(moving, d)
+}
+
+func (s *Skiff) tickWake() {
+	var activeWake []skiffWakePoint
+	decayRate := 0.025
+	if activeWakeStyle == WakeStyleArcs || activeWakeStyle == WakeStyleVSegments {
+		decayRate = 0.015
+	}
+	for i := range s.wake {
+		s.wake[i].life -= decayRate
+		if s.wake[i].life > 0 {
+			activeWake = append(activeWake, s.wake[i])
 		}
 	}
+	s.wake = activeWake
+}
 
-	s.Vel = s.Vel.Scale(d.Drag)
-
+func (s *Skiff) maybeSpawnWake(moving bool, d *SkiffDef) {
 	speed := s.Vel.Length()
-	if speed > maxSpeed {
-		s.Vel = s.Vel.Scale(maxSpeed / speed)
-	}
-
-	s.checkCollisions(runtime)
-
-	// Spawn new wake point when moving
 	if moving && speed > d.WakeSpeedThresh {
 		spawnInterval := 1
 		if activeWakeStyle == WakeStyleArcs || activeWakeStyle == WakeStyleVSegments {
@@ -288,7 +268,7 @@ func (s *Skiff) checkCollisions(runtime Runtime) {
 		return false
 	}
 
-	gvec.MoveAxisSeparated(&s.Pos, &s.Vel, s.Dimensions, isSolid, nil, nil)
+	MoveAxisSeparated(&s.Pos, &s.Vel, s.Dimensions, isSolid, nil, nil)
 }
 
 func (s *Skiff) isSolid(runtime Runtime, pos gvec.Vec2) bool {

@@ -104,3 +104,24 @@ func (c *Controller) DrainBattery(amount float64) bool {
 func (c *Controller) HasPower() bool {
 	return c.Battery > 0
 }
+
+// SyncDamage applies damage through Controller and writes health back.
+func SyncDamage(health, maxHealth *float64, amount, damageReduction float64) {
+	c := Controller{Health: *health, MaxHealth: *maxHealth}
+	c.ApplyDamage(amount, damageReduction)
+	*health = c.Health
+}
+
+// SyncRepair applies repair through Controller and writes health back.
+func SyncRepair(health, maxHealth *float64, amount float64) {
+	c := Controller{Health: *health, MaxHealth: *maxHealth}
+	c.ApplyRepair(amount)
+	*health = c.Health
+}
+
+// SyncRecharge applies battery recharge through Controller and writes back.
+func SyncRecharge(battery, maxBattery *float64, amount float64) {
+	c := Controller{Battery: *battery, MaxBattery: *maxBattery}
+	c.ApplyRecharge(amount)
+	*battery = c.Battery
+}
