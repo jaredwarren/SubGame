@@ -47,10 +47,35 @@ type ChasmRimSpec struct {
 	Spawns       []ChasmRimSpawn
 }
 
-var chasmRimRegistry = map[CaveType]*ChasmRimSpec{}
-
-func registerChasmRim(s *ChasmRimSpec) {
-	chasmRimRegistry[s.Target] = s
+var chasmRimRegistry = map[CaveType]*ChasmRimSpec{
+	CaveOrganicTrench: {
+		Target:        CaveOrganicTrench,
+		RockColor:     color.RGBA{22, 28, 44, 255},
+		StrokeColor:   color.RGBA{38, 48, 70, 255},
+		VeinStyle:     ChasmVeinSingle,
+		VeinPrimary:   color.RGBA{0, 190, 220, 160},
+		VeinSecondary: color.RGBA{0, 230, 255, 120},
+		AmbientRGB:    [3]float32{0.02, 0.04, 0.08},
+		Spawns: []ChasmRimSpawn{
+			{Chance: 0.25, SideWall: true, IsFlora: true, Flora: FloraShatterBulb},
+			{Chance: 0.20, Ceiling: true, IsFauna: true, Fauna: FaunaFalseBulbSnare},
+		},
+	},
+	CaveShockKelp: {
+		Target:        CaveShockKelp,
+		RockColor:     color.RGBA{55, 60, 68, 255},
+		StrokeColor:   color.RGBA{82, 88, 98, 255},
+		VeinStyle:     ChasmVeinDual,
+		VeinAltA:      color.RGBA{140, 50, 210, 160},
+		VeinAltB:      color.RGBA{0, 220, 255, 140},
+		VeinSecondary: color.RGBA{0, 220, 255, 110},
+		AmbientRGB:    [3]float32{0.03, 0.05, 0.09},
+		Spawns: []ChasmRimSpawn{
+			{Chance: 0.35, LeftWall: true, IsFlora: true, Flora: FloraShockKelp, MinH: 28, MaxH: 28, Anchor: "left"},
+			{Chance: 0.35, RightWall: true, IsFlora: true, Flora: FloraShockKelp, MinH: 28, MaxH: 28, Anchor: "right"},
+			{Chance: 0.30, FloorBelow: true, IsFlora: true, Flora: FloraShockKelp, MinH: 32, MaxH: 32, Anchor: "floor"},
+		},
+	},
 }
 
 // ChasmRimSpecFor returns rim data for a subterranean target cave, or the shock-kelp default.
@@ -59,37 +84,6 @@ func ChasmRimSpecFor(target CaveType) *ChasmRimSpec {
 		return s
 	}
 	return chasmRimRegistry[CaveShockKelp]
-}
-
-func init() {
-	registerChasmRim(&ChasmRimSpec{
-		Target:      CaveOrganicTrench,
-		RockColor:   color.RGBA{22, 28, 44, 255},
-		StrokeColor: color.RGBA{38, 48, 70, 255},
-		VeinStyle:   ChasmVeinSingle,
-		VeinPrimary: color.RGBA{0, 190, 220, 160},
-		VeinSecondary: color.RGBA{0, 230, 255, 120},
-		AmbientRGB:  [3]float32{0.02, 0.04, 0.08},
-		Spawns: []ChasmRimSpawn{
-			{Chance: 0.25, SideWall: true, IsFlora: true, Flora: FloraShatterBulb},
-			{Chance: 0.20, Ceiling: true, IsFauna: true, Fauna: FaunaFalseBulbSnare},
-		},
-	})
-	registerChasmRim(&ChasmRimSpec{
-		Target:      CaveShockKelp,
-		RockColor:   color.RGBA{55, 60, 68, 255},
-		StrokeColor: color.RGBA{82, 88, 98, 255},
-		VeinStyle:   ChasmVeinDual,
-		VeinAltA:    color.RGBA{140, 50, 210, 160},
-		VeinAltB:    color.RGBA{0, 220, 255, 140},
-		VeinSecondary: color.RGBA{0, 220, 255, 110},
-		AmbientRGB:  [3]float32{0.03, 0.05, 0.09},
-		Spawns: []ChasmRimSpawn{
-			{Chance: 0.35, LeftWall: true, IsFlora: true, Flora: FloraShockKelp, MinH: 28, MaxH: 28, Anchor: "left"},
-			{Chance: 0.35, RightWall: true, IsFlora: true, Flora: FloraShockKelp, MinH: 28, MaxH: 28, Anchor: "right"},
-			{Chance: 0.30, FloorBelow: true, IsFlora: true, Flora: FloraShockKelp, MinH: 32, MaxH: 32, Anchor: "floor"},
-		},
-	})
 }
 
 // primaryVeinColor picks the main vein tint for a chasm-blended tile.

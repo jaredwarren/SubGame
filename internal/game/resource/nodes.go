@@ -16,6 +16,7 @@ const (
 	NodeQuartz
 	NodeAbyssalOre
 	NodeNickel
+	NodeTungsten
 	NodeScrapMetal
 	NodeElectronicWaste
 	NodeBlueprint
@@ -51,6 +52,7 @@ var nodeRegistry = map[NodeType]*NodeTypeInfo{
 	NodeQuartz:     oreNodeInfo(item.MaterialQuartz, func() item.Item { return &item.Quartz{} }),
 	NodeAbyssalOre: oreNodeInfo(item.MaterialAbyssalOre, func() item.Item { return &item.AbyssalOre{} }),
 	NodeNickel:     oreNodeInfo(item.MaterialNickel, func() item.Item { return &item.Nickel{} }),
+	NodeTungsten:   oreNodeInfo(item.MaterialTungsten, func() item.Item { return &item.Tungsten{} }),
 	NodeScrapMetal: {
 		Material: item.MaterialScrapMetal,
 		BaseItem: func() item.Item { return &item.ScrapMetal{} },
@@ -185,6 +187,21 @@ func (n *ResourceNode) GetColor() color.Color {
 		return info.Material.Color
 	}
 	return info.Color
+}
+
+// MapColor returns the in-world / overview marker color for this node.
+func (n *ResourceNode) MapColor() color.RGBA {
+	info := n.info()
+	if info.Material != nil {
+		if info.Material.WorldColor.A != 0 {
+			return info.Material.WorldColor
+		}
+		return info.Material.Color
+	}
+	if rgba, ok := info.Color.(color.RGBA); ok {
+		return rgba
+	}
+	return color.RGBA{0, 180, 255, 255}
 }
 
 func (n *ResourceNode) DrawIcon(screen *ebiten.Image, cx, cy, size float32) {

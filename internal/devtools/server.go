@@ -29,7 +29,7 @@ type page struct {
 	Cave      *CaveReport
 	CaveType  string
 	Biome     string
-	CaveKinds []caveKind
+	CaveKinds []namedOpt
 	Biomes    []namedOpt
 	Audio     *AudioReport
 }
@@ -88,7 +88,7 @@ func handleCaves(w http.ResponseWriter, r *http.Request) {
 		Seed:      seed,
 		CaveType:  kind,
 		Biome:     biome,
-		CaveKinds: caveKinds,
+		CaveKinds: caveKindOptions(),
 		Biomes:    caveBiomes,
 	}
 	report, err := inspectCave(kind, biome, seed)

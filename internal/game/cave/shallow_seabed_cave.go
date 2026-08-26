@@ -478,7 +478,7 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			}
 
 			// Spawn decorative corals near any solid face
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, rules.CoralChance, entity.CoralBiomeShallow, 3, r)
+			entities = MaybeSpawnCoral(entities, grid, tx, ty, rules.CoralChance, entity.CoralBiomeShallow, entity.CoralShallowVariantCount, r)
 		}
 	}
 

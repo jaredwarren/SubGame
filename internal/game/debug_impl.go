@@ -61,6 +61,7 @@ func (g *Game) GivePreset(presetName string) {
 		g.player.Inventory.AddItem(&item.Copper{}, 10)
 		g.player.Inventory.AddItem(&item.Quartz{}, 10)
 		g.player.Inventory.AddItem(&item.Nickel{}, 10)
+		g.player.Inventory.AddItem(&item.Tungsten{}, 10)
 		g.player.Inventory.AddItem(&item.AbyssalOre{}, 10)
 		g.player.Inventory.AddItem(&item.ScrapMetal{}, 10)
 		g.player.Inventory.AddItem(&item.ElectronicWaste{}, 10)

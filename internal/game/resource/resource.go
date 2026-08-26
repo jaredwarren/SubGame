@@ -1,6 +1,8 @@
 package resource
 
 import (
+	"image/color"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 )
@@ -30,6 +32,8 @@ type Resource interface {
 	GetRecipeResultName() string
 	SetAttachDir(dir AttachDirection)
 	GetAttachDir() AttachDirection
+	// MapColor is the color used for overview / debug map markers.
+	MapColor() color.RGBA
 }
 
 // BaseResourceNode holds the shared state for all resource node types.

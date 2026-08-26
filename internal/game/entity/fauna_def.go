@@ -100,7 +100,67 @@ type FaunaDef struct {
 	ShakeIntensity     float64
 }
 
-var faunaRegistry = make(map[FaunaID]*FaunaDef)
+var faunaRegistry = map[FaunaID]*FaunaDef{
+	FaunaPassiveFish: {
+		ID: FaunaPassiveFish, Behavior: BehaviorPassiveFish,
+		Dims: gvec.Vec2{X: 20, Y: 12},
+		CatchRange: 80, FleeRange: 120, FleeSpeed: 3.5, FleeFrames: 60,
+		CruiseSpeed: 0.6, SwimPhaseSpeed: 0.04,
+	},
+	FaunaPassiveCrab: {
+		ID: FaunaPassiveCrab, Behavior: BehaviorPassiveCrab,
+		Dims: gvec.Vec2{X: 16, Y: 10},
+		CatchRange: 64, ThreatRange: 100, LightRange: 300,
+		FlashlightConeHalfAngle: 0.42, ShellFrames: 90,
+		WalkTurnInterval: 180, WalkSpeed: 0.35, Gravity: 0.3, MaxFallSpeed: 4.0,
+	},
+	FaunaSandViper: {
+		ID: FaunaSandViper, Behavior: BehaviorSandViper,
+		Dims: gvec.Vec2{X: 24, Y: 12},
+		PatrolSpeed: 0.5, BobAmplitude: 0.2, AggroRange: 100,
+		WindupFrames: 30, LungeSpeed: 4.5, LungeFrames: 20, Damage: 10,
+		Knockback: 3.5, PushBack: 15, CooldownFrames: 120, CooldownDriftY: 0.25,
+		SwayPhaseSpeed: 0.08, WarningDuration: 90,
+	},
+	FaunaFalseBulbSnare: {
+		ID: FaunaFalseBulbSnare, Behavior: BehaviorFalseBulbSnare,
+		Dims: gvec.Vec2{X: 24, Y: 32},
+		DecoyRange: 280, LeashRange: 360, ChaseRange: 180, ChaseSpeed: 3.5,
+		Damage: 20, FlashlightConeHalfAngle: 0.42, SoundAlertRange: 280,
+		WarningDuration: 120, DecoyTargetSize: 16,
+	},
+	FaunaThermoclineRammer: {
+		ID: FaunaThermoclineRammer, Behavior: BehaviorThermoclineRammer,
+		Dims: gvec.Vec2{X: 36, Y: 24},
+		DecoyRange: 350, AggroRange: 250, SoundAlertRange: 250,
+		SprintVelThreshold: 1.2, ChargeSpeed: 6.2, PatrolSpeedX: 0.8, PatrolSpeedY: 0.4,
+		PatrolTurnInterval: 120, ChargeMaxFrames: 90, ChargeMaxDist: 350, StunFrames: 180,
+		DeterrentSlowScale: 0.5, PlayerDamage: 25, VehicleDamage: 30,
+		Knockback: 6.5, PushBack: 40, WarningDuration: 120, DecoyTargetSize: 16,
+	},
+	FaunaBrimstoneSiphon: {
+		ID: FaunaBrimstoneSiphon, Behavior: BehaviorBrimstoneSiphon,
+		Dims: gvec.Vec2{X: 32, Y: 32},
+		CycleFrames: 120, ActiveStartFrame: 60, JetRange: 160, JetDrawLen: 120,
+		PlayerDPS: 0.6, VehicleDPS: 0.4,
+	},
+	FaunaElectroWeaver: {
+		ID: FaunaElectroWeaver, Behavior: BehaviorElectroWeaver,
+		Dims: gvec.Vec2{X: 40, Y: 20},
+		DecoyRange: 500, TrackRange: 500, StrikeTimerFrames: 300, PlayerDamage: 45,
+		TeleportAwayDist: 350, ApproachDist: 100, ApproachSpeed: 1.5,
+		OrbitSpeedClose: 1.2, IdleSpeed: 0.8, TimerDecay: 2, MoveStartTimer: 60,
+		AbyssalDepthTiles: 80, WarningDuration: 180, DecoyWarningDuration: 120,
+	},
+	FaunaVoltaicLurker: {
+		ID: FaunaVoltaicLurker, Behavior: BehaviorVoltaicLurker,
+		Dims: gvec.Vec2{X: 64, Y: 64},
+		SightRange: 130, SightHalfWidth: 12, LungeSpeed: 6, MaxExtension: 80,
+		RetractSpeed: 3, CooldownFrames: 480, Damage: 15, HeadSize: 16,
+		StunDuration: 90, ShakeDuration: 20, ShakeIntensity: 4,
+		WarningDuration: 90, SwayPhaseSpeed: 0.05,
+	},
+}
 
 // Legacy per-type aliases — all fauna balance rows are FaunaDef entries.
 type (
@@ -114,94 +174,19 @@ type (
 	PassiveCrabDef       = FaunaDef
 )
 
-// Legacy archetype pointers — populated from faunaRegistry in init.
+// Legacy archetype pointers alias faunaRegistry rows.
 var (
-	SandViperArchetype         *FaunaDef
-	FalseBulbSnareArchetype    *FaunaDef
-	ThermoclineRammerArchetype *FaunaDef
-	BrimstoneSiphonArchetype   *FaunaDef
-	ElectroWeaverArchetype     *FaunaDef
-	VoltaicLurkerArchetype     *FaunaDef
-	PassiveFishArchetype       *FaunaDef
-	PassiveCrabArchetype       *FaunaDef
+	SandViperArchetype         = faunaRegistry[FaunaSandViper]
+	FalseBulbSnareArchetype    = faunaRegistry[FaunaFalseBulbSnare]
+	ThermoclineRammerArchetype = faunaRegistry[FaunaThermoclineRammer]
+	BrimstoneSiphonArchetype   = faunaRegistry[FaunaBrimstoneSiphon]
+	ElectroWeaverArchetype     = faunaRegistry[FaunaElectroWeaver]
+	VoltaicLurkerArchetype     = faunaRegistry[FaunaVoltaicLurker]
+	PassiveFishArchetype       = faunaRegistry[FaunaPassiveFish]
+	PassiveCrabArchetype       = faunaRegistry[FaunaPassiveCrab]
 )
-
-func registerFauna(def *FaunaDef) {
-	faunaRegistry[def.ID] = def
-}
 
 // FaunaDefFor returns the balance row for id, or nil.
 func FaunaDefFor(id FaunaID) *FaunaDef {
 	return faunaRegistry[id]
-}
-
-func init() {
-	registerFauna(&FaunaDef{
-		ID: FaunaPassiveFish, Behavior: BehaviorPassiveFish,
-		Dims: gvec.Vec2{X: 20, Y: 12},
-		CatchRange: 80, FleeRange: 120, FleeSpeed: 3.5, FleeFrames: 60,
-		CruiseSpeed: 0.6, SwimPhaseSpeed: 0.04,
-	})
-	registerFauna(&FaunaDef{
-		ID: FaunaPassiveCrab, Behavior: BehaviorPassiveCrab,
-		Dims: gvec.Vec2{X: 16, Y: 10},
-		CatchRange: 64, ThreatRange: 100, LightRange: 300,
-		FlashlightConeHalfAngle: 0.42, ShellFrames: 90,
-		WalkTurnInterval: 180, WalkSpeed: 0.35, Gravity: 0.3, MaxFallSpeed: 4.0,
-	})
-	registerFauna(&FaunaDef{
-		ID: FaunaSandViper, Behavior: BehaviorSandViper,
-		Dims: gvec.Vec2{X: 24, Y: 12},
-		PatrolSpeed: 0.5, BobAmplitude: 0.2, AggroRange: 100,
-		WindupFrames: 30, LungeSpeed: 4.5, LungeFrames: 20, Damage: 10,
-		Knockback: 3.5, PushBack: 15, CooldownFrames: 120, CooldownDriftY: 0.25,
-		SwayPhaseSpeed: 0.08, WarningDuration: 90,
-	})
-	registerFauna(&FaunaDef{
-		ID: FaunaFalseBulbSnare, Behavior: BehaviorFalseBulbSnare,
-		Dims: gvec.Vec2{X: 24, Y: 32},
-		DecoyRange: 280, LeashRange: 360, ChaseRange: 180, ChaseSpeed: 3.5,
-		Damage: 20, FlashlightConeHalfAngle: 0.42, SoundAlertRange: 280,
-		WarningDuration: 120, DecoyTargetSize: 16,
-	})
-	registerFauna(&FaunaDef{
-		ID: FaunaThermoclineRammer, Behavior: BehaviorThermoclineRammer,
-		Dims: gvec.Vec2{X: 36, Y: 24},
-		DecoyRange: 350, AggroRange: 250, SoundAlertRange: 250,
-		SprintVelThreshold: 1.2, ChargeSpeed: 6.2, PatrolSpeedX: 0.8, PatrolSpeedY: 0.4,
-		PatrolTurnInterval: 120, ChargeMaxFrames: 90, ChargeMaxDist: 350, StunFrames: 180,
-		DeterrentSlowScale: 0.5, PlayerDamage: 25, VehicleDamage: 30,
-		Knockback: 6.5, PushBack: 40, WarningDuration: 120, DecoyTargetSize: 16,
-	})
-	registerFauna(&FaunaDef{
-		ID: FaunaBrimstoneSiphon, Behavior: BehaviorBrimstoneSiphon,
-		Dims: gvec.Vec2{X: 32, Y: 32},
-		CycleFrames: 120, ActiveStartFrame: 60, JetRange: 160, JetDrawLen: 120,
-		PlayerDPS: 0.6, VehicleDPS: 0.4,
-	})
-	registerFauna(&FaunaDef{
-		ID: FaunaElectroWeaver, Behavior: BehaviorElectroWeaver,
-		Dims: gvec.Vec2{X: 40, Y: 20},
-		DecoyRange: 500, TrackRange: 500, StrikeTimerFrames: 300, PlayerDamage: 45,
-		TeleportAwayDist: 350, ApproachDist: 100, ApproachSpeed: 1.5,
-		OrbitSpeedClose: 1.2, IdleSpeed: 0.8, TimerDecay: 2, MoveStartTimer: 60,
-		AbyssalDepthTiles: 80, WarningDuration: 180, DecoyWarningDuration: 120,
-	})
-	registerFauna(&FaunaDef{
-		ID: FaunaVoltaicLurker, Behavior: BehaviorVoltaicLurker,
-		Dims: gvec.Vec2{X: 64, Y: 64},
-		SightRange: 130, SightHalfWidth: 12, LungeSpeed: 6, MaxExtension: 80,
-		RetractSpeed: 3, CooldownFrames: 480, Damage: 15, HeadSize: 16,
-		StunDuration: 90, ShakeDuration: 20, ShakeIntensity: 4,
-		WarningDuration: 90, SwayPhaseSpeed: 0.05,
-	})
-
-	SandViperArchetype = FaunaDefFor(FaunaSandViper)
-	FalseBulbSnareArchetype = FaunaDefFor(FaunaFalseBulbSnare)
-	ThermoclineRammerArchetype = FaunaDefFor(FaunaThermoclineRammer)
-	BrimstoneSiphonArchetype = FaunaDefFor(FaunaBrimstoneSiphon)
-	ElectroWeaverArchetype = FaunaDefFor(FaunaElectroWeaver)
-	VoltaicLurkerArchetype = FaunaDefFor(FaunaVoltaicLurker)
-	PassiveFishArchetype = FaunaDefFor(FaunaPassiveFish)
-	PassiveCrabArchetype = FaunaDefFor(FaunaPassiveCrab)
 }

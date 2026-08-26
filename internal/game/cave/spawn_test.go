@@ -68,7 +68,7 @@ func TestDefaultBiomeMineralTypes(t *testing.T) {
 	for _, s := range DefaultShallowReefBiome.MineralSpawns {
 		switch s.Type {
 		case resource.NodeTitanium, resource.NodeCopper, resource.NodeQuartz,
-			resource.NodeNickel, resource.NodeAbyssalOre:
+			resource.NodeNickel, resource.NodeTungsten, resource.NodeAbyssalOre:
 			// ok
 		default:
 			t.Fatalf("unexpected mineral type %v", s.Type)

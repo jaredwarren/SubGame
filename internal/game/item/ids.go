@@ -10,6 +10,7 @@ const (
 	IDQuartz             ItemID = "quartz"
 	IDAbyssalOre         ItemID = "abyssal_ore"
 	IDNickel             ItemID = "nickel"
+	IDTungsten           ItemID = "tungsten"
 	IDScrapMetal         ItemID = "scrap_metal"
 	IDElectronicWaste    ItemID = "electronic_waste"
 	IDRawFish            ItemID = "raw_fish"
@@ -47,6 +48,7 @@ var displayNameToID = map[string]ItemID{
 	"Abyssal Ore":                 IDAbyssalOre,
 	"AbyssalOre":                  IDAbyssalOre,
 	"Nickel":                      IDNickel,
+	"Tungsten":                    IDTungsten,
 	"Scrap Metal":                 IDScrapMetal,
 	"ScrapMetal":                  IDScrapMetal,
 	"Electronic Waste":            IDElectronicWaste,

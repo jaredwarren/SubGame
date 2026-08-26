@@ -3,7 +3,7 @@ package item
 import "testing"
 
 func TestCatalogHasCoreMinerals(t *testing.T) {
-	for _, id := range []ItemID{IDTitanium, IDCopper, IDQuartz, IDNickel, IDAbyssalOre} {
+	for _, id := range []ItemID{IDTitanium, IDCopper, IDQuartz, IDNickel, IDTungsten, IDAbyssalOre} {
 		def := Def(id)
 		if def == nil {
 			t.Fatalf("missing catalog entry for %q", id)

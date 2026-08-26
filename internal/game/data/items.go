@@ -13,6 +13,7 @@ var (
 	MaterialQuartz          = item.MaterialQuartz
 	MaterialAbyssalOre      = item.MaterialAbyssalOre
 	MaterialNickel          = item.MaterialNickel
+	MaterialTungsten        = item.MaterialTungsten
 	MaterialScrapMetal      = item.MaterialScrapMetal
 	MaterialElectronicWaste = item.MaterialElectronicWaste
 )

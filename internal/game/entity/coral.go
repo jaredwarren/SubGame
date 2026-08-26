@@ -20,6 +20,55 @@ const (
 	CoralBiomeThermo   = 5
 )
 
+// Attachment sides for surface-aligned coral.
+const (
+	CoralAttachFloor   = "floor"
+	CoralAttachCeiling = "ceiling"
+	CoralAttachLeft    = "left"
+	CoralAttachRight   = "right"
+)
+
+// Variant indices within a biome (spawn rolls 0..count-1).
+const (
+	CoralShallowStaghorn = 0
+	CoralShallowBrain    = 1
+	CoralShallowTube     = 2
+
+	CoralTrenchFan  = 0
+	CoralTrenchBulb = 1
+
+	CoralWreckageBarnacle = 0
+	CoralWreckageTubes    = 1
+
+	CoralShockSpire  = 0
+	CoralShockBranch = 1
+
+	CoralThermoSpikes = 0
+	CoralThermoVent   = 1
+)
+
+const (
+	CoralShallowVariantCount = 3
+	CoralBiomeVariantCount   = 2 // trench / wreckage / shock / thermo
+)
+
+// CoralVariantCount is how many looks spawn for a biome (Intn-friendly).
+func CoralVariantCount(biome int) int {
+	if biome == CoralBiomeShallow {
+		return CoralShallowVariantCount
+	}
+	return CoralBiomeVariantCount
+}
+
+// coralDefaultVariant matches the former switch default when Variant is out of range.
+var coralDefaultVariant = map[int]int{
+	CoralBiomeShallow:  CoralShallowTube,
+	CoralBiomeTrench:   CoralTrenchBulb,
+	CoralBiomeWreckage: CoralWreckageTubes,
+	CoralBiomeShock:    CoralShockBranch,
+	CoralBiomeThermo:   CoralThermoVent,
+}
+
 // whitePixel is reused by DrawTriangles fills — avoids per-coral NewImage each frame.
 var whitePixel = ebiten.NewImage(1, 1)
 
@@ -31,8 +80,8 @@ func init() {
 type Coral struct {
 	BaseEntity
 	Biome      int
-	Attachment string // "floor", "ceiling", "left", "right"
-	Variant    int    // Spawning variation (0, 1, 2 depending on biome)
+	Attachment string // CoralAttachFloor / Ceiling / Left / Right
+	Variant    int    // Per-biome look index (see CoralShallow* / CoralTrench* / …)
 	SwayPhase  float64
 	RandOffset float64
 }
@@ -54,8 +103,32 @@ func NewCoral(x, y float64, biome int, attachment string, variant int, r *rand.R
 }
 
 func (c *Coral) Update(gr Runtime) {
-	// Increment animation phases
 	c.SwayPhase += 0.035
+}
+
+type coralStyleKey struct {
+	Biome   int
+	Variant int
+}
+
+type coralDrawer func(c *Coral, screen *ebiten.Image, bx, by float32)
+
+var coralDrawers = map[coralStyleKey]coralDrawer{
+	{CoralBiomeShallow, CoralShallowStaghorn}: drawCoralStaghorn,
+	{CoralBiomeShallow, CoralShallowBrain}:    drawCoralBrain,
+	{CoralBiomeShallow, CoralShallowTube}:     drawCoralTube,
+
+	{CoralBiomeTrench, CoralTrenchFan}:  drawCoralFan,
+	{CoralBiomeTrench, CoralTrenchBulb}: drawCoralBulbStalk,
+
+	{CoralBiomeWreckage, CoralWreckageBarnacle}: drawCoralBarnacle,
+	{CoralBiomeWreckage, CoralWreckageTubes}:    drawCoralMetalTubes,
+
+	{CoralBiomeShock, CoralShockSpire}:  drawCoralCrystalSpire,
+	{CoralBiomeShock, CoralShockBranch}: drawCoralElectricBranch,
+
+	{CoralBiomeThermo, CoralThermoSpikes}: drawCoralObsidianSpikes,
+	{CoralBiomeThermo, CoralThermoVent}:   drawCoralMagmaVent,
 }
 
 // project transforms local coordinates (relative to attachment surface base) into screen coordinates.
@@ -63,13 +136,13 @@ func (c *Coral) Update(gr Runtime) {
 // localY: distance extending outward from the surface (0 to height)
 func (c *Coral) project(localX, localY float32, baseScreenX, baseScreenY float32) (float32, float32) {
 	switch c.Attachment {
-	case "ceiling":
+	case CoralAttachCeiling:
 		return baseScreenX + localX, baseScreenY + localY
-	case "left":
+	case CoralAttachLeft:
 		return baseScreenX + localY, baseScreenY + localX
-	case "right":
+	case CoralAttachRight:
 		return baseScreenX - localY, baseScreenY + localX
-	default: // "floor"
+	default: // CoralAttachFloor
 		return baseScreenX + localX, baseScreenY - localY
 	}
 }
@@ -80,369 +153,289 @@ func (c *Coral) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay floa
 	sw := float32(c.Dimensions.X)
 	sh := float32(c.Dimensions.Y)
 
-	// Determine base position along the attached wall/floor/ceiling
 	var bx, by float32
 	switch c.Attachment {
-	case "ceiling":
+	case CoralAttachCeiling:
 		bx, by = sx+sw/2.0, sy
-	case "left":
+	case CoralAttachLeft:
 		bx, by = sx, sy+sh/2.0
-	case "right":
+	case CoralAttachRight:
 		bx, by = sx+sw, sy+sh/2.0
-	default: // "floor"
+	default: // CoralAttachFloor
 		bx, by = sx+sw/2.0, sy+sh
 	}
 
-	switch c.Biome {
-	case CoralBiomeShallow:
-		c.drawShallow(screen, bx, by)
-	case CoralBiomeTrench:
-		c.drawTrench(screen, bx, by)
-	case CoralBiomeWreckage:
-		c.drawWreckage(screen, bx, by)
-	case CoralBiomeShock:
-		c.drawShock(screen, bx, by)
-	case CoralBiomeThermo:
-		c.drawThermo(screen, bx, by)
+	key := coralStyleKey{c.Biome, c.Variant}
+	draw, ok := coralDrawers[key]
+	if !ok {
+		if def, has := coralDefaultVariant[c.Biome]; has {
+			draw, ok = coralDrawers[coralStyleKey{c.Biome, def}]
+		}
+	}
+	if ok {
+		draw(c, screen, bx, by)
 	}
 }
 
-func (c *Coral) drawShallow(screen *ebiten.Image, bx, by float32) {
-	switch c.Variant {
-	case 0:
-		// Staghorn (Branching) Coral: Coral pink/rose color, sways slightly, light tips
-		mainClr := color.RGBA{255, 110, 130, 255}
-		tipClr := color.RGBA{255, 180, 195, 255}
-		sway := float32(math.Sin(c.SwayPhase)) * 3.0
+func fillCoralPath(screen *ebiten.Image, p *vector.Path, clr color.RGBA, alpha float32) {
+	op := &ebiten.DrawTrianglesOptions{AntiAlias: false}
+	vertices, indices := p.AppendVerticesAndIndicesForFilling(nil, nil)
+	r := float32(clr.R) / 255
+	g := float32(clr.G) / 255
+	b := float32(clr.B) / 255
+	for i := range vertices {
+		vertices[i].ColorR = r
+		vertices[i].ColorG = g
+		vertices[i].ColorB = b
+		vertices[i].ColorA = alpha
+	}
+	screen.DrawTriangles(vertices, indices, whitePixel, op)
+}
 
-		// Main stem
-		mx, my := c.project(sway*0.5, 10, bx, by)
-		vector.StrokeLine(screen, bx, by, mx, my, 2.5, mainClr, false)
+func drawCoralStaghorn(c *Coral, screen *ebiten.Image, bx, by float32) {
+	mainClr := color.RGBA{255, 110, 130, 255}
+	tipClr := color.RGBA{255, 180, 195, 255}
+	sway := float32(math.Sin(c.SwayPhase)) * 3.0
 
-		// Left branch
-		lx, ly := c.project(-6+sway*0.8, 18, bx, by)
-		vector.StrokeLine(screen, mx, my, lx, ly, 1.8, mainClr, false)
-		vector.FillCircle(screen, lx, ly, 2.2, tipClr, false)
+	mx, my := c.project(sway*0.5, 10, bx, by)
+	vector.StrokeLine(screen, bx, by, mx, my, 2.5, mainClr, false)
 
-		// Right branch
-		rx, ry := c.project(6+sway*0.8, 18, bx, by)
-		vector.StrokeLine(screen, mx, my, rx, ry, 1.8, mainClr, false)
-		vector.FillCircle(screen, rx, ry, 2.2, tipClr, false)
+	lx, ly := c.project(-6+sway*0.8, 18, bx, by)
+	vector.StrokeLine(screen, mx, my, lx, ly, 1.8, mainClr, false)
+	vector.FillCircle(screen, lx, ly, 2.2, tipClr, false)
 
-	case 1:
-		// Brain (Mound) Coral: Orange-yellow, ribbed dome texture
-		mainClr := color.RGBA{255, 160, 60, 255}
-		strokeClr := color.RGBA{210, 110, 30, 255}
+	rx, ry := c.project(6+sway*0.8, 18, bx, by)
+	vector.StrokeLine(screen, mx, my, rx, ry, 1.8, mainClr, false)
+	vector.FillCircle(screen, rx, ry, 2.2, tipClr, false)
+}
 
-		// Draw overlapping circles to create dome
-		cx1, cy1 := c.project(-4, 6, bx, by)
-		vector.FillCircle(screen, cx1, cy1, 6, mainClr, false)
+func drawCoralBrain(c *Coral, screen *ebiten.Image, bx, by float32) {
+	mainClr := color.RGBA{255, 160, 60, 255}
+	strokeClr := color.RGBA{210, 110, 30, 255}
 
-		cx2, cy2 := c.project(4, 6, bx, by)
-		vector.FillCircle(screen, cx2, cy2, 6, mainClr, false)
+	cx1, cy1 := c.project(-4, 6, bx, by)
+	vector.FillCircle(screen, cx1, cy1, 6, mainClr, false)
 
-		cx3, cy3 := c.project(0, 9, bx, by)
-		vector.FillCircle(screen, cx3, cy3, 8, mainClr, false)
+	cx2, cy2 := c.project(4, 6, bx, by)
+	vector.FillCircle(screen, cx2, cy2, 6, mainClr, false)
 
-		// Rib texture lines
-		vector.StrokeCircle(screen, cx3, cy3, 5, 0.8, strokeClr, false)
-		vector.StrokeCircle(screen, cx3, cy3, 8, 0.8, strokeClr, false)
+	cx3, cy3 := c.project(0, 9, bx, by)
+	vector.FillCircle(screen, cx3, cy3, 8, mainClr, false)
 
-	default:
-		// Tube Coral: Lavender cylinders with dark openings
-		tubeClr := color.RGBA{210, 115, 220, 255}
-		rimClr := color.RGBA{170, 75, 180, 255}
-		openClr := color.RGBA{80, 20, 90, 255}
+	vector.StrokeCircle(screen, cx3, cy3, 5, 0.8, strokeClr, false)
+	vector.StrokeCircle(screen, cx3, cy3, 8, 0.8, strokeClr, false)
+}
 
-		// Tube 1 (left)
-		tx1, ty1 := c.project(-5, 12, bx, by)
-		bx1, by1 := c.project(-5, 0, bx, by)
-		vector.StrokeLine(screen, bx1, by1, tx1, ty1, 4.5, tubeClr, false)
-		vector.FillCircle(screen, tx1, ty1, 2.2, openClr, false)
-		vector.StrokeCircle(screen, tx1, ty1, 2.2, 0.8, rimClr, false)
+func drawCoralTube(c *Coral, screen *ebiten.Image, bx, by float32) {
+	tubeClr := color.RGBA{210, 115, 220, 255}
+	rimClr := color.RGBA{170, 75, 180, 255}
+	openClr := color.RGBA{80, 20, 90, 255}
 
-		// Tube 2 (center)
-		tx2, ty2 := c.project(0, 18, bx, by)
-		bx2, by2 := c.project(0, 0, bx, by)
-		vector.StrokeLine(screen, bx2, by2, tx2, ty2, 5.0, tubeClr, false)
-		vector.FillCircle(screen, tx2, ty2, 2.5, openClr, false)
-		vector.StrokeCircle(screen, tx2, ty2, 2.5, 0.8, rimClr, false)
+	tx1, ty1 := c.project(-5, 12, bx, by)
+	bx1, by1 := c.project(-5, 0, bx, by)
+	vector.StrokeLine(screen, bx1, by1, tx1, ty1, 4.5, tubeClr, false)
+	vector.FillCircle(screen, tx1, ty1, 2.2, openClr, false)
+	vector.StrokeCircle(screen, tx1, ty1, 2.2, 0.8, rimClr, false)
 
-		// Tube 3 (right)
-		tx3, ty3 := c.project(5, 10, bx, by)
-		bx3, by3 := c.project(5, 0, bx, by)
-		vector.StrokeLine(screen, bx3, by3, tx3, ty3, 4.0, tubeClr, false)
-		vector.FillCircle(screen, tx3, ty3, 2.0, openClr, false)
-		vector.StrokeCircle(screen, tx3, ty3, 2.0, 0.8, rimClr, false)
+	tx2, ty2 := c.project(0, 18, bx, by)
+	bx2, by2 := c.project(0, 0, bx, by)
+	vector.StrokeLine(screen, bx2, by2, tx2, ty2, 5.0, tubeClr, false)
+	vector.FillCircle(screen, tx2, ty2, 2.5, openClr, false)
+	vector.StrokeCircle(screen, tx2, ty2, 2.5, 0.8, rimClr, false)
+
+	tx3, ty3 := c.project(5, 10, bx, by)
+	bx3, by3 := c.project(5, 0, bx, by)
+	vector.StrokeLine(screen, bx3, by3, tx3, ty3, 4.0, tubeClr, false)
+	vector.FillCircle(screen, tx3, ty3, 2.0, openClr, false)
+	vector.StrokeCircle(screen, tx3, ty3, 2.0, 0.8, rimClr, false)
+}
+
+func drawCoralFan(c *Coral, screen *ebiten.Image, bx, by float32) {
+	pulse := float32(math.Sin(c.SwayPhase))*0.5 + 0.5
+	tealVal := uint8(150 + 105*pulse)
+	fanClr := color.RGBA{0, tealVal, 190, uint8(160 + 95*pulse)}
+	glowClr := color.RGBA{100, 255, 230, uint8(80 * pulse)}
+
+	tips := []struct{ lx, ly float32 }{
+		{-10, 15},
+		{-5, 19},
+		{0, 20},
+		{5, 19},
+		{10, 15},
+	}
+	for _, t := range tips {
+		tx, ty := c.project(t.lx, t.ly, bx, by)
+		vector.StrokeLine(screen, bx, by, tx, ty, 1.2, fanClr, false)
+		vector.FillCircle(screen, tx, ty, 3.0, glowClr, false)
+		vector.FillCircle(screen, tx, ty, 1.0, color.White, false)
 	}
 }
 
-func (c *Coral) drawTrench(screen *ebiten.Image, bx, by float32) {
-	// Bioluminescent deep-sea corals
-	pulse := float32(math.Sin(c.SwayPhase)) * 0.5 + 0.5 // 0.0 to 1.0
+func drawCoralBulbStalk(c *Coral, screen *ebiten.Image, bx, by float32) {
+	pulse := float32(math.Sin(c.SwayPhase))*0.5 + 0.5
+	stalkClr := color.RGBA{20, 80, 100, 255}
+	blueVal := uint8(200 + 55*pulse)
+	bulbClr := color.RGBA{0, blueVal, 255, 255}
+	glowClr := color.RGBA{0, 120, 255, uint8(60 + 60*pulse)}
+	sway := float32(math.Cos(c.SwayPhase)) * 2.0
 
-	switch c.Variant {
-	case 0:
-		// Fan Coral: Teal, radiating ribs that pulse in brightness/alpha
-		tealVal := uint8(150 + 105*pulse)
-		fanClr := color.RGBA{0, tealVal, 190, uint8(160 + 95*pulse)}
-		glowClr := color.RGBA{100, 255, 230, uint8(80 * pulse)}
+	tx1, ty1 := c.project(sway*0.4, 8, bx, by)
+	vector.StrokeLine(screen, bx, by, tx1, ty1, 1.8, stalkClr, false)
 
-		tips := []struct{ lx, ly float32 }{
-			{-10, 15},
-			{-5, 19},
-			{0, 20},
-			{5, 19},
-			{10, 15},
-		}
+	tx2, ty2 := c.project(sway, 16, bx, by)
+	vector.StrokeLine(screen, tx1, ty1, tx2, ty2, 1.5, stalkClr, false)
 
-		for _, t := range tips {
-			tx, ty := c.project(t.lx, t.ly, bx, by)
-			vector.StrokeLine(screen, bx, by, tx, ty, 1.2, fanClr, false)
-			vector.FillCircle(screen, tx, ty, 3.0, glowClr, false)
-			vector.FillCircle(screen, tx, ty, 1.0, color.White, false)
-		}
+	vector.FillCircle(screen, tx2, ty2, 7.0+pulse*2.0, glowClr, false)
+	vector.FillCircle(screen, tx2, ty2, 3.5, bulbClr, false)
+	vector.FillCircle(screen, tx2, ty2, 1.2, color.White, false)
+}
 
-	default:
-		// Bulb Stalk: Swaying stem with a glowing blue bulb at the tip
-		stalkClr := color.RGBA{20, 80, 100, 255}
-		blueVal := uint8(200 + 55*pulse)
-		bulbClr := color.RGBA{0, blueVal, 255, 255}
-		glowClr := color.RGBA{0, 120, 255, uint8(60 + 60*pulse)}
-		sway := float32(math.Cos(c.SwayPhase)) * 2.0
+func drawCoralBarnacle(c *Coral, screen *ebiten.Image, bx, by float32) {
+	rustClr := color.RGBA{165, 85, 35, 255}
+	darkClr := color.RGBA{50, 45, 45, 255}
+	rimClr := color.RGBA{105, 110, 115, 255}
 
-		// Stem curve
-		tx1, ty1 := c.project(sway*0.4, 8, bx, by)
-		vector.StrokeLine(screen, bx, by, tx1, ty1, 1.8, stalkClr, false)
+	p := &vector.Path{}
+	p0x, p0y := c.project(-8, 0, bx, by)
+	p1x, p1y := c.project(-3, 10, bx, by)
+	p2x, p2y := c.project(3, 10, bx, by)
+	p3x, p3y := c.project(8, 0, bx, by)
 
-		tx2, ty2 := c.project(sway, 16, bx, by)
-		vector.StrokeLine(screen, tx1, ty1, tx2, ty2, 1.5, stalkClr, false)
+	p.MoveTo(p0x, p0y)
+	p.LineTo(p1x, p1y)
+	p.LineTo(p2x, p2y)
+	p.LineTo(p3x, p3y)
+	p.Close()
+	fillCoralPath(screen, p, rustClr, 1.0)
 
-		// Bulb glow & center
-		vector.FillCircle(screen, tx2, ty2, 7.0+pulse*2.0, glowClr, false)
-		vector.FillCircle(screen, tx2, ty2, 3.5, bulbClr, false)
-		vector.FillCircle(screen, tx2, ty2, 1.2, color.White, false)
+	cx, cy := c.project(0, 10, bx, by)
+	vector.FillCircle(screen, cx, cy, 3.0, darkClr, false)
+	vector.StrokeCircle(screen, cx, cy, 3.0, 0.8, rimClr, false)
+}
+
+func drawCoralMetalTubes(c *Coral, screen *ebiten.Image, bx, by float32) {
+	metalClr := color.RGBA{95, 100, 105, 255}
+	stripeClr := color.RGBA{215, 130, 30, 220}
+
+	tx1, ty1 := c.project(-4, 12, bx, by)
+	bx1, by1 := c.project(-4, 0, bx, by)
+	vector.StrokeLine(screen, bx1, by1, tx1, ty1, 4.0, metalClr, false)
+	sx1, sy1 := c.project(-4, 6, bx, by)
+	vector.FillCircle(screen, sx1, sy1, 2.2, stripeClr, false)
+
+	tx2, ty2 := c.project(3, 16, bx, by)
+	bx2, by2 := c.project(3, 0, bx, by)
+	vector.StrokeLine(screen, bx2, by2, tx2, ty2, 4.5, metalClr, false)
+	sx2, sy2 := c.project(3, 8, bx, by)
+	vector.FillCircle(screen, sx2, sy2, 2.5, stripeClr, false)
+}
+
+func drawCoralCrystalSpire(c *Coral, screen *ebiten.Image, bx, by float32) {
+	pulse := float32(math.Sin(c.SwayPhase*1.5))*0.5 + 0.5
+	purpClr := color.RGBA{160, 45, 230, 220}
+	cyanClr := color.RGBA{0, 230, 255, 255}
+	glowClr := color.RGBA{0, 210, 255, uint8(50 + 80*pulse)}
+
+	p := &vector.Path{}
+	p0x, p0y := c.project(0, 0, bx, by)
+	p1x, p1y := c.project(-7, 8, bx, by)
+	p2x, p2y := c.project(0, 20, bx, by)
+	p3x, p3y := c.project(7, 8, bx, by)
+
+	p.MoveTo(p0x, p0y)
+	p.LineTo(p1x, p1y)
+	p.LineTo(p2x, p2y)
+	p.LineTo(p3x, p3y)
+	p.Close()
+	fillCoralPath(screen, p, purpClr, 0.9)
+
+	cx1, cy1 := c.project(0, 3, bx, by)
+	cx2, cy2 := c.project(0, 17, bx, by)
+	vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 1.5, cyanClr, false)
+
+	tipX, tipY := c.project(0, 20, bx, by)
+	vector.FillCircle(screen, tipX, tipY, 4.0+pulse*3.0, glowClr, false)
+	vector.FillCircle(screen, tipX, tipY, 1.2, color.White, false)
+}
+
+func drawCoralElectricBranch(c *Coral, screen *ebiten.Image, bx, by float32) {
+	pulse := float32(math.Sin(c.SwayPhase*1.5))*0.5 + 0.5
+	cyanClr := color.RGBA{0, 240, 255, 255}
+	purpClr := color.RGBA{140, 50, 210, 255}
+	sparkClr := color.RGBA{255, 255, 255, uint8(180 + 75*pulse)}
+
+	x1, y1 := c.project(-4, 7, bx, by)
+	vector.StrokeLine(screen, bx, by, x1, y1, 2.0, purpClr, false)
+
+	x2, y2 := c.project(3, 14, bx, by)
+	vector.StrokeLine(screen, x1, y1, x2, y2, 1.5, purpClr, false)
+
+	x3, y3 := c.project(-2, 19, bx, by)
+	vector.StrokeLine(screen, x2, y2, x3, y3, 1.2, cyanClr, false)
+
+	vector.FillCircle(screen, x3, y3, 3.5, sparkClr, false)
+	if pulse > 0.8 {
+		sx, sy := c.project(-2+float32(math.Sin(c.RandOffset))*4.0, 19+4.0, bx, by)
+		vector.StrokeLine(screen, x3, y3, sx, sy, 0.8, cyanClr, false)
 	}
 }
 
-func (c *Coral) drawWreckage(screen *ebiten.Image, bx, by float32) {
-	// Industrial wreckage barnacles/metal-encrusting tube growths
-	switch c.Variant {
-	case 0:
-		// Barnacle Mounds: Cratered rusty volcano cones
-		rustClr := color.RGBA{165, 85, 35, 255}
-		darkClr := color.RGBA{50, 45, 45, 255}
-		rimClr := color.RGBA{105, 110, 115, 255}
+func drawCoralObsidianSpikes(c *Coral, screen *ebiten.Image, bx, by float32) {
+	pulse := float32(math.Sin(c.SwayPhase*1.2))*0.5 + 0.5
+	blackClr := color.RGBA{30, 26, 26, 255}
+	rimClr := color.RGBA{50, 42, 42, 255}
+	glowClr := color.RGBA{255, 80, 10, uint8(180 + 75*pulse)}
 
-		// Draw main barnacle cone
-		p := &vector.Path{}
-		p0x, p0y := c.project(-8, 0, bx, by)
-		p1x, p1y := c.project(-3, 10, bx, by)
-		p2x, p2y := c.project(3, 10, bx, by)
-		p3x, p3y := c.project(8, 0, bx, by)
+	p1 := &vector.Path{}
+	p1aX, p1aY := c.project(-7, 0, bx, by)
+	p1bX, p1bY := c.project(-2, 18, bx, by)
+	p1cX, p1cY := c.project(3, 0, bx, by)
+	p1.MoveTo(p1aX, p1aY)
+	p1.LineTo(p1bX, p1bY)
+	p1.LineTo(p1cX, p1cY)
+	p1.Close()
+	fillCoralPath(screen, p1, blackClr, 1.0)
 
-		p.MoveTo(p0x, p0y)
-		p.LineTo(p1x, p1y)
-		p.LineTo(p2x, p2y)
-		p.LineTo(p3x, p3y)
-		p.Close()
+	vector.StrokeLine(screen, p1aX, p1aY, p1bX, p1bY, 0.8, rimClr, false)
+	vector.StrokeLine(screen, p1bX, p1bY, p1cX, p1cY, 0.8, rimClr, false)
 
-		op := &ebiten.DrawTrianglesOptions{AntiAlias: false}
-		vertices, indices := p.AppendVerticesAndIndicesForFilling(nil, nil)
-		for i := range vertices {
-			vertices[i].ColorR = float32(rustClr.R) / 255
-			vertices[i].ColorG = float32(rustClr.G) / 255
-			vertices[i].ColorB = float32(rustClr.B) / 255
-			vertices[i].ColorA = 1.0
-		}
-		// Render filled polygon
-		screen.DrawTriangles(vertices, indices, whitePixel, op)
+	p2 := &vector.Path{}
+	p2aX, p2aY := c.project(1, 0, bx, by)
+	p2bX, p2bY := c.project(6, 12, bx, by)
+	p2cX, p2cY := c.project(9, 0, bx, by)
+	p2.MoveTo(p2aX, p2aY)
+	p2.LineTo(p2bX, p2bY)
+	p2.LineTo(p2cX, p2cY)
+	p2.Close()
+	fillCoralPath(screen, p2, blackClr, 1.0)
+	vector.StrokeLine(screen, p2aX, p2aY, p2bX, p2bY, 0.8, rimClr, false)
+	vector.StrokeLine(screen, p2bX, p2bY, p2cX, p2cY, 0.8, rimClr, false)
 
-		// Draw opening/crater at the top
-		cx, cy := c.project(0, 10, bx, by)
-		vector.FillCircle(screen, cx, cy, 3.0, darkClr, false)
-		vector.StrokeCircle(screen, cx, cy, 3.0, 0.8, rimClr, false)
-
-	default:
-		// Industrial Encrusted Metal Tubes: Straight tubes with rusted safety stripes
-		metalClr := color.RGBA{95, 100, 105, 255}
-		stripeClr := color.RGBA{215, 130, 30, 220}
-
-		// Left tube
-		tx1, ty1 := c.project(-4, 12, bx, by)
-		bx1, by1 := c.project(-4, 0, bx, by)
-		vector.StrokeLine(screen, bx1, by1, tx1, ty1, 4.0, metalClr, false)
-		// Rusted stripe
-		sx1, sy1 := c.project(-4, 6, bx, by)
-		vector.FillCircle(screen, sx1, sy1, 2.2, stripeClr, false)
-
-		// Right tube
-		tx2, ty2 := c.project(3, 16, bx, by)
-		bx2, by2 := c.project(3, 0, bx, by)
-		vector.StrokeLine(screen, bx2, by2, tx2, ty2, 4.5, metalClr, false)
-		// Rusted stripe
-		sx2, sy2 := c.project(3, 8, bx, by)
-		vector.FillCircle(screen, sx2, sy2, 2.5, stripeClr, false)
-	}
+	cx1, cy1 := c.project(-4, 4, bx, by)
+	cx2, cy2 := c.project(-2.5, 12, bx, by)
+	vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 1.2, glowClr, false)
 }
 
-func (c *Coral) drawShock(screen *ebiten.Image, bx, by float32) {
-	// Electric crystalline corals in Shock Kelp cave
-	pulse := float32(math.Sin(c.SwayPhase * 1.5)) * 0.5 + 0.5 // High frequency pulse
+func drawCoralMagmaVent(c *Coral, screen *ebiten.Image, bx, by float32) {
+	pulse := float32(math.Sin(c.SwayPhase*1.2))*0.5 + 0.5
+	ventClr := color.RGBA{40, 32, 32, 255}
+	lavaClr := color.RGBA{255, 60, 0, 255}
+	glowClr := color.RGBA{255, 100, 10, uint8(100 + 80*pulse)}
 
-	switch c.Variant {
-	case 0:
-		// Crystal Spire: Crystalline purple diamond spires with electric cyan centers
-		purpClr := color.RGBA{160, 45, 230, 220}
-		cyanClr := color.RGBA{0, 230, 255, 255}
-		glowClr := color.RGBA{0, 210, 255, uint8(50 + 80*pulse)}
+	cx, cy := c.project(0, 5, bx, by)
+	vector.FillCircle(screen, cx, cy, 7.5, ventClr, false)
+	vector.StrokeCircle(screen, cx, cy, 7.5, 0.8, color.RGBA{65, 55, 55, 255}, false)
 
-		// Shard path
-		p := &vector.Path{}
-		p0x, p0y := c.project(0, 0, bx, by)
-		p1x, p1y := c.project(-7, 8, bx, by)
-		p2x, p2y := c.project(0, 20, bx, by)
-		p3x, p3y := c.project(7, 8, bx, by)
+	mx, my := c.project(0, 7, bx, by)
+	vector.FillCircle(screen, mx, my, 3.5, lavaClr, false)
+	vector.FillCircle(screen, mx, my, 6.0+pulse*3.0, glowClr, false)
 
-		p.MoveTo(p0x, p0y)
-		p.LineTo(p1x, p1y)
-		p.LineTo(p2x, p2y)
-		p.LineTo(p3x, p3y)
-		p.Close()
-
-		op := &ebiten.DrawTrianglesOptions{AntiAlias: false}
-		vertices, indices := p.AppendVerticesAndIndicesForFilling(nil, nil)
-		for i := range vertices {
-			vertices[i].ColorR = float32(purpClr.R) / 255
-			vertices[i].ColorG = float32(purpClr.G) / 255
-			vertices[i].ColorB = float32(purpClr.B) / 255
-			vertices[i].ColorA = 0.9
-		}
-		screen.DrawTriangles(vertices, indices, whitePixel, op)
-
-		// Glowing core line
-		cx1, cy1 := c.project(0, 3, bx, by)
-		cx2, cy2 := c.project(0, 17, bx, by)
-		vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 1.5, cyanClr, false)
-
-		// Outer spark glow
-		tipX, tipY := c.project(0, 20, bx, by)
-		vector.FillCircle(screen, tipX, tipY, 4.0+pulse*3.0, glowClr, false)
-		vector.FillCircle(screen, tipX, tipY, 1.2, color.White, false)
-
-	default:
-		// Electric Branch: Zig-zag purple/cyan lightning-like stalk
-		cyanClr := color.RGBA{0, 240, 255, 255}
-		purpClr := color.RGBA{140, 50, 210, 255}
-		sparkClr := color.RGBA{255, 255, 255, uint8(180 + 75*pulse)}
-
-		// Segment 1
-		x1, y1 := c.project(-4, 7, bx, by)
-		vector.StrokeLine(screen, bx, by, x1, y1, 2.0, purpClr, false)
-
-		// Segment 2
-		x2, y2 := c.project(3, 14, bx, by)
-		vector.StrokeLine(screen, x1, y1, x2, y2, 1.5, purpClr, false)
-
-		// Segment 3
-		x3, y3 := c.project(-2, 19, bx, by)
-		vector.StrokeLine(screen, x2, y2, x3, y3, 1.2, cyanClr, false)
-
-		// Arc Spark
-		vector.FillCircle(screen, x3, y3, 3.5, sparkClr, false)
-		if pulse > 0.8 {
-			// Random spark line jutting out
-			sx, sy := c.project(-2+float32(math.Sin(c.RandOffset))*4.0, 19+4.0, bx, by)
-			vector.StrokeLine(screen, x3, y3, sx, sy, 0.8, cyanClr, false)
-		}
-	}
-}
-
-func (c *Coral) drawThermo(screen *ebiten.Image, bx, by float32) {
-	// Volcanic magma-resistant corals in thermo cave
-	pulse := float32(math.Sin(c.SwayPhase * 1.2)) * 0.5 + 0.5 // Magma breathing pulse
-
-	switch c.Variant {
-	case 0:
-		// Obsidian Spikes: Sharp black basalt triangles with glowing lava cracks
-		blackClr := color.RGBA{30, 26, 26, 255}
-		rimClr := color.RGBA{50, 42, 42, 255}
-		glowClr := color.RGBA{255, 80, 10, uint8(180 + 75*pulse)}
-
-		// Spike 1 (large)
-		p1 := &vector.Path{}
-		p1a_x, p1a_y := c.project(-7, 0, bx, by)
-		p1b_x, p1b_y := c.project(-2, 18, bx, by)
-		p1c_x, p1c_y := c.project(3, 0, bx, by)
-		p1.MoveTo(p1a_x, p1a_y)
-		p1.LineTo(p1b_x, p1b_y)
-		p1.LineTo(p1c_x, p1c_y)
-		p1.Close()
-
-		op := &ebiten.DrawTrianglesOptions{AntiAlias: false}
-		vertices, indices := p1.AppendVerticesAndIndicesForFilling(nil, nil)
-		for i := range vertices {
-			vertices[i].ColorR = float32(blackClr.R) / 255
-			vertices[i].ColorG = float32(blackClr.G) / 255
-			vertices[i].ColorB = float32(blackClr.B) / 255
-			vertices[i].ColorA = 1.0
-		}
-		screen.DrawTriangles(vertices, indices, whitePixel, op)
-
-		// Stroke boundary to make it distinct
-		vector.StrokeLine(screen, p1a_x, p1a_y, p1b_x, p1b_y, 0.8, rimClr, false)
-		vector.StrokeLine(screen, p1b_x, p1b_y, p1c_x, p1c_y, 0.8, rimClr, false)
-
-		// Spike 2 (small)
-		p2 := &vector.Path{}
-		p2a_x, p2a_y := c.project(1, 0, bx, by)
-		p2b_x, p2b_y := c.project(6, 12, bx, by)
-		p2c_x, p2c_y := c.project(9, 0, bx, by)
-		p2.MoveTo(p2a_x, p2a_y)
-		p2.LineTo(p2b_x, p2b_y)
-		p2.LineTo(p2c_x, p2c_y)
-		p2.Close()
-
-		vertices2, indices2 := p2.AppendVerticesAndIndicesForFilling(nil, nil)
-		for i := range vertices2 {
-			vertices2[i].ColorR = float32(blackClr.R) / 255
-			vertices2[i].ColorG = float32(blackClr.G) / 255
-			vertices2[i].ColorB = float32(blackClr.B) / 255
-			vertices2[i].ColorA = 1.0
-		}
-		screen.DrawTriangles(vertices2, indices2, whitePixel, op)
-		vector.StrokeLine(screen, p2a_x, p2a_y, p2b_x, p2b_y, 0.8, rimClr, false)
-		vector.StrokeLine(screen, p2b_x, p2b_y, p2c_x, p2c_y, 0.8, rimClr, false)
-
-		// Glowing cracks in large spike
-		cx1, cy1 := c.project(-4, 4, bx, by)
-		cx2, cy2 := c.project(-2.5, 12, bx, by)
-		vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 1.2, glowClr, false)
-
-	default:
-		// Magma/Ember Vent Nodule: Round dark nodule venting pulsing lava sparks
-		ventClr := color.RGBA{40, 32, 32, 255}
-		lavaClr := color.RGBA{255, 60, 0, 255}
-		glowClr := color.RGBA{255, 100, 10, uint8(100 + 80*pulse)}
-
-		// Draw base dome
-		cx, cy := c.project(0, 5, bx, by)
-		vector.FillCircle(screen, cx, cy, 7.5, ventClr, false)
-		vector.StrokeCircle(screen, cx, cy, 7.5, 0.8, color.RGBA{65, 55, 55, 255}, false)
-
-		// Draw molten center mouth
-		mx, my := c.project(0, 7, bx, by)
-		vector.FillCircle(screen, mx, my, 3.5, lavaClr, false)
-		vector.FillCircle(screen, mx, my, 6.0+pulse*3.0, glowClr, false)
-
-		// Draw tiny rising embers
-		for i := 0; i < 3; i++ {
-			h := hashCoords(int(c.Pos.X)+i, int(c.Pos.Y))
-			eyOffset := float32(math.Mod(c.SwayPhase*10.0+float64(h%10), 12.0))
-			exOffset := float32(math.Sin(c.SwayPhase+float64(h))) * 3.0
-			ex, ey := c.project(exOffset, 7.0+eyOffset, bx, by)
-			vector.FillRect(screen, ex-0.6, ey-0.6, 1.2, 1.2, color.RGBA{255, 140, 30, uint8(255 * (1.0 - eyOffset/12.0))}, false)
-		}
+	for i := 0; i < 3; i++ {
+		h := hashCoords(int(c.Pos.X)+i, int(c.Pos.Y))
+		eyOffset := float32(math.Mod(c.SwayPhase*10.0+float64(h%10), 12.0))
+		exOffset := float32(math.Sin(c.SwayPhase+float64(h))) * 3.0
+		ex, ey := c.project(exOffset, 7.0+eyOffset, bx, by)
+		vector.FillRect(screen, ex-0.6, ey-0.6, 1.2, 1.2, color.RGBA{255, 140, 30, uint8(255 * (1.0 - eyOffset/12.0))}, false)
 	}
 }
 

@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"image/color"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
@@ -33,7 +35,12 @@ type CaveEntity interface {
 	GetPos() gvec.Vec2
 	SetPos(pos gvec.Vec2)
 	GetDimensions() gvec.Vec2
-	//GetType() EntityType
+	// DebugName is a stable label for counts / inspections (not player-facing lore).
+	DebugName() string
+	// MapColor is the overview / debug map marker color.
+	MapColor() color.RGBA
+	// ProvidesOxygen is true for entities that restore player O2 on contact.
+	ProvidesOxygen() bool
 }
 
 // PassiveCreature defines the interface for catchable cave creatures.

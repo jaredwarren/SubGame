@@ -258,6 +258,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 	reflect.TypeFor[Quartz]():     mineralMetadata(MaterialQuartz),
 	reflect.TypeFor[AbyssalOre](): mineralMetadata(MaterialAbyssalOre),
 	reflect.TypeFor[Nickel]():     mineralMetadata(MaterialNickel),
+	reflect.TypeFor[Tungsten]():   mineralMetadata(MaterialTungsten),
 	reflect.TypeFor[ScrapMetal](): {
 		Name:     MaterialScrapMetal.Name,
 		MaxStack: MaterialScrapMetal.MaxStack,

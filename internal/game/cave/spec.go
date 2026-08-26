@@ -79,22 +79,16 @@ func AmbientColor(t CaveType) [4]float32 {
 	return [4]float32{0.04, 0.06, 0.12, 0.85}
 }
 
-var caveRegistry = map[CaveType]*CaveSpec{}
-
-func registerCave(s *CaveSpec) {
-	caveRegistry[s.Type] = s
-}
-
-func init() {
-	registerCave(&CaveSpec{
+var caveRegistry = map[CaveType]*CaveSpec{
+	CaveOrganicShallow: {
 		Type:        CaveOrganicShallow,
 		Biome:       ShallowReefBiome,
 		Music:       "music/cave_shallow.mp3",
 		Ambient:     [4]float32{0.04, 0.06, 0.12, 0.85},
 		CoralBiome:  entity.CoralBiomeShallow,
 		CoralChance: 0.10,
-	})
-	registerCave(&CaveSpec{
+	},
+	CaveOrganicTrench: {
 		Type:        CaveOrganicTrench,
 		Biome:       AbyssalBlueBiome,
 		Music:       "music/cave_abyssal.mp3",
@@ -110,8 +104,8 @@ func init() {
 			{MinTY: 80, MaxTY: 9999, Chance: 0.10, HasFlora: true, Flora: FloraNerveMat, NeedFloor: true},
 			{MinTY: 80, MaxTY: 9999, Chance: 0.012, HasFauna: true, Fauna: FaunaElectroWeaver, NeedOpen: true, MinSpacingPX: 500},
 		},
-	})
-	registerCave(&CaveSpec{
+	},
+	CaveShockKelp: {
 		Type:        CaveShockKelp,
 		Biome:       KelpForestBiome,
 		Music:       "music/cave_kelp.mp3",
@@ -129,8 +123,8 @@ func init() {
 		Counts: []CountSpawn{
 			{Fauna: FaunaElectroWeaver, Min: 0, Max: 2},
 		},
-	})
-	registerCave(&CaveSpec{
+	},
+	CaveThermo: {
 		Type:        CaveThermo,
 		Biome:       ThermalBarrensBiome,
 		Music:       "music/cave_volcanic.mp3",
@@ -141,8 +135,8 @@ func init() {
 			{Fauna: FaunaThermoclineRammer, Min: 1, Max: 2, NeedOpen: true},
 			{Fauna: FaunaBrimstoneSiphon, Min: 4, Max: 6, NeedWall: true},
 		},
-	})
-	registerCave(&CaveSpec{
+	},
+	CaveWreckage: {
 		Type:        CaveWreckage,
 		Biome:       nil,
 		Music:       "music/cave_wreckage.mp3",
@@ -155,12 +149,12 @@ func init() {
 		Counts: []CountSpawn{
 			{Fauna: FaunaElectroWeaver, Min: 1, Max: 2, MinTY: 80, NeedOpen: true, MinTileSpacing: 5},
 		},
-	})
-	registerCave(&CaveSpec{
+	},
+	CaveVoid: {
 		Type:    CaveVoid,
 		Music:   "music/cave_abyssal.mp3",
 		Ambient: [4]float32{0.01, 0.01, 0.03, 0.97},
-	})
+	},
 }
 
 // GenerateEntitiesFromSpec runs deep-cave spawn tables (banded/count/anchored + coral).
@@ -229,7 +223,7 @@ func generateBiomeTileEntities(biome *CaveBiomeSpec, grid [][]bool, coralBiome i
 					entities = append(entities, ent)
 				}
 			}
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, rules.CoralChance, coralBiome, 3, r)
+			entities = MaybeSpawnCoral(entities, grid, tx, ty, rules.CoralChance, coralBiome, entity.CoralVariantCount(coralBiome), r)
 		}
 	}
 	return entities
@@ -247,7 +241,7 @@ func applyCoralOnly(grid [][]bool, chance float64, coralBiome int, r *rand.Rand)
 			if grid[tx][ty] {
 				continue
 			}
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, chance, coralBiome, 2, r)
+			entities = MaybeSpawnCoral(entities, grid, tx, ty, chance, coralBiome, entity.CoralBiomeVariantCount, r)
 		}
 	}
 	return entities

@@ -336,6 +336,9 @@ func DrawMineralShape(screen *ebiten.Image, cx, cy float32, dirVec, perpVec [2]f
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, true)
 	case "Nickel":
 		drawCubicCluster(screen, cx, cy, dirVec, perpVec, scale, mineralColor, shadowColor, highlightColor)
+	case "Tungsten":
+		// Dense gunmetal cubes — heavier look than Nickel's olive cubes.
+		drawCubicCluster(screen, cx, cy, dirVec, perpVec, scale*1.05, mineralColor, shadowColor, highlightColor)
 	default: // Titanium / default
 		drawCrystalCluster(screen, cx, cy, dirVec, perpVec, scale, shadowColor, highlightColor, false)
 	}

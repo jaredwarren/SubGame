@@ -112,6 +112,7 @@ var debugItemList = []debugItemEntry{
 	{Name: "Copper", Category: 0},
 	{Name: "Quartz", Category: 0},
 	{Name: "Nickel", Category: 0},
+	{Name: "Tungsten", Category: 0},
 	{Name: "Abyssal Ore", Category: 0},
 	{Name: "Scrap Metal", Category: 0},
 	{Name: "Electronic Waste", Category: 0},

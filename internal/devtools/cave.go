@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -47,22 +46,6 @@ type CaveReport struct {
 	png            []byte
 }
 
-type caveKind struct {
-	ID   string
-	Name string
-}
-
-var caveKinds = []caveKind{
-	{ID: "shallow", Name: "Shallow Seabed"},
-	{ID: "trench_shallow", Name: "Trench (shallow layer)"},
-	{ID: "trench", Name: "Organic Trench (deep)"},
-	{ID: "wreckage", Name: "Wreckage Corridor"},
-	{ID: "void", Name: "Void"},
-	{ID: "shock_kelp_shallow", Name: "Shock Kelp (shallow layer)"},
-	{ID: "shock_kelp", Name: "Shock Kelp (deep)"},
-	{ID: "thermo", Name: "Thermo Cave"},
-}
-
 var caveBiomes = []namedOpt{
 	{ID: "shallow_reef", Name: "Shallow Coral Reef"},
 	{ID: "kelp_forest", Name: "Kelp Forest"},
@@ -85,6 +68,15 @@ var (
 	}
 )
 
+func caveKindOptions() []namedOpt {
+	kinds := cave.AllKinds()
+	out := make([]namedOpt, len(kinds))
+	for i, k := range kinds {
+		out[i] = namedOpt{ID: k.ID(), Name: k.Name()}
+	}
+	return out
+}
+
 func inspectCave(kindID, biomeID string, seed int64) (*CaveReport, error) {
 	key := fmt.Sprintf("%s|%s|%d", kindID, biomeID, seed)
 	caveMu.Lock()
@@ -94,7 +86,7 @@ func inspectCave(kindID, biomeID string, seed int64) (*CaveReport, error) {
 	}
 
 	start := time.Now()
-	c, err := buildCave(kindID, biomeID, seed)
+	c, err := cave.BuildKind(kindID, biomeSpec(biomeID), seed)
 	if err != nil {
 		return nil, err
 	}
@@ -152,10 +144,8 @@ func inspectCave(kindID, biomeID string, seed int64) (*CaveReport, error) {
 }
 
 func caveKindName(id string) string {
-	for _, k := range caveKinds {
-		if k.ID == id {
-			return k.Name
-		}
+	if k := cave.Kind(id); k != nil {
+		return k.Name()
 	}
 	return id
 }
@@ -167,44 +157,10 @@ func biomeSpec(id string) *cave.CaveBiomeSpec {
 	return cave.DefaultShallowReefBiome
 }
 
-func buildCave(kindID, biomeID string, seed int64) (cave.Cave, error) {
-	r := rand.New(rand.NewSource(seed))
-	dist, left, right := 8.0, true, true
-	spec := biomeSpec(biomeID)
-
-	switch kindID {
-	case "shallow":
-		grid := cave.GenerateShallowSeabedGrid(r, dist, left, right)
-		return cave.NewShallowSeabedCaveWithBiome(grid, spec), nil
-	case "trench_shallow":
-		grid := cave.GenerateTrenchShallowGrid(r, dist, left, right)
-		return cave.NewTrenchShallowCave(grid), nil
-	case "trench":
-		grid := cave.GenerateOrganicTrenchGrid(r)
-		return cave.NewOrganicTrenchCave(grid), nil
-	case "wreckage":
-		grid := cave.GenerateWreckageGrid(r)
-		return cave.NewWreckageCorridorCave(grid, 0), nil
-	case "void":
-		return cave.NewVoidCave(), nil
-	case "shock_kelp_shallow":
-		grid := cave.GenerateShockKelpShallowGrid(r, dist, left, right)
-		return cave.NewShockKelpShallowCave(grid), nil
-	case "shock_kelp":
-		grid := cave.GenerateShockKelpCaveGrid(r)
-		return cave.NewShockKelpCave(grid), nil
-	case "thermo":
-		grid := cave.GenerateThermoCaveGrid(r)
-		return cave.NewThermoCave(grid), nil
-	default:
-		return nil, fmt.Errorf("unknown cave type %q", kindID)
-	}
-}
-
 func countEntities(ents []entity.CaveEntity) map[string]int {
 	m := map[string]int{}
 	for _, e := range ents {
-		bump(m, entityKind(e))
+		bump(m, e.DebugName())
 	}
 	return m
 }
@@ -220,7 +176,7 @@ func countResources(nodes []resource.Resource) map[string]int {
 func countO2(ents []entity.CaveEntity, deepOnly bool) int {
 	n := 0
 	for _, e := range ents {
-		if _, ok := e.(*entity.ShatterBulb); !ok {
+		if !e.ProvidesOxygen() {
 			continue
 		}
 		ty := int(e.GetPos().Y) / config.TileSize
@@ -230,76 +186,6 @@ func countO2(ents []entity.CaveEntity, deepOnly bool) int {
 		n++
 	}
 	return n
-}
-
-func entityKind(e entity.CaveEntity) string {
-	switch e.(type) {
-	case *entity.ShatterBulb:
-		return "ShatterBulb"
-	case *entity.SandViper:
-		return "SandViper"
-	case *entity.FalseBulbSnare:
-		return "FalseBulbSnare"
-	case *entity.ThermoclineRammer:
-		return "ThermoclineRammer"
-	case *entity.BrimstoneSiphon:
-		return "BrimstoneSiphon"
-	case *entity.ShockKelp:
-		return "ShockKelp"
-	case *entity.ElectroWeaver:
-		return "ElectroWeaver"
-	case *entity.VoltaicLurker:
-		return "VoltaicLurker"
-	case *entity.PassiveFish:
-		return "PassiveFish"
-	case *entity.PassiveCrab:
-		return "PassiveCrab"
-	case *entity.Kelp:
-		return "Kelp"
-	case *entity.Coral:
-		return "Coral"
-	case *entity.NerveMat:
-		return "NerveMat"
-	default:
-		return fmt.Sprintf("%T", e)
-	}
-}
-
-func entityColor(e entity.CaveEntity) color.RGBA {
-	switch e.(type) {
-	case *entity.ShatterBulb:
-		return color.RGBA{60, 255, 210, 255}
-	case *entity.SandViper, *entity.FalseBulbSnare, *entity.ThermoclineRammer,
-		*entity.BrimstoneSiphon, *entity.ElectroWeaver, *entity.VoltaicLurker:
-		return color.RGBA{240, 160, 32, 255}
-	case *entity.PassiveFish, *entity.PassiveCrab:
-		return color.RGBA{136, 204, 255, 255}
-	case *entity.Kelp, *entity.Coral, *entity.ShockKelp, *entity.NerveMat:
-		return color.RGBA{106, 223, 60, 255}
-	default:
-		return color.RGBA{255, 255, 255, 255}
-	}
-}
-
-func resourceColor(name string) color.RGBA {
-	switch name {
-	case "Titanium":
-		return color.RGBA{200, 200, 208, 255}
-	case "Copper":
-		return color.RGBA{210, 110, 45, 255}
-	case "Quartz":
-		return color.RGBA{40, 210, 240, 255}
-	case "Abyssal Ore":
-		return color.RGBA{140, 40, 210, 255}
-	case "Nickel":
-		return color.RGBA{150, 165, 140, 255}
-	case "Scrap Metal":
-		return color.RGBA{140, 110, 95, 255}
-	case "Electronic Waste":
-		return color.RGBA{70, 130, 90, 255}
-	default:
-		return color.RGBA{0, 180, 255, 255}
-	}
 }
 
 func gridMetrics(grid [][]bool) (open, deadEnds, maxDepth int) {
@@ -435,12 +321,12 @@ func renderCavePNG(grid [][]bool, spec *cave.CaveBiomeSpec, ents []entity.CaveEn
 
 	for _, n := range nodes {
 		tx, ty := n.GetTilePos()
-		mark(tx, ty, resourceColor(n.GetName()))
+		mark(tx, ty, n.MapColor())
 	}
 	for _, e := range ents {
 		tx := int(e.GetPos().X) / config.TileSize
 		ty := int(e.GetPos().Y) / config.TileSize
-		mark(tx, ty, entityColor(e))
+		mark(tx, ty, e.MapColor())
 	}
 
 	var buf bytes.Buffer

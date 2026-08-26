@@ -27,16 +27,16 @@ func MaybeSpawnCoral(
 	gridW, gridH := len(grid), len(grid[0])
 	var attachments []string
 	if ty+1 < gridH && grid[tx][ty+1] {
-		attachments = append(attachments, "floor")
+		attachments = append(attachments, entity.CoralAttachFloor)
 	}
 	if ty-1 >= 0 && grid[tx][ty-1] {
-		attachments = append(attachments, "ceiling")
+		attachments = append(attachments, entity.CoralAttachCeiling)
 	}
 	if tx-1 >= 0 && grid[tx-1][ty] {
-		attachments = append(attachments, "left")
+		attachments = append(attachments, entity.CoralAttachLeft)
 	}
 	if tx+1 < gridW && grid[tx+1][ty] {
-		attachments = append(attachments, "right")
+		attachments = append(attachments, entity.CoralAttachRight)
 	}
 	if len(attachments) == 0 || r.Float64() >= chance {
 		return entities
@@ -53,14 +53,14 @@ func MaybeSpawnCoral(
 	cx := float64(tx * ts)
 	cy := float64(ty * ts)
 	switch attach {
-	case "floor":
+	case entity.CoralAttachFloor:
 		cx += float64(ts-coralSpriteSize) / 2.0
 		cy += float64(ts - coralSpriteSize)
-	case "ceiling":
+	case entity.CoralAttachCeiling:
 		cx += float64(ts-coralSpriteSize) / 2.0
-	case "left":
+	case entity.CoralAttachLeft:
 		cy += float64(ts-coralSpriteSize) / 2.0
-	case "right":
+	case entity.CoralAttachRight:
 		cx += float64(ts - coralSpriteSize)
 		cy += float64(ts-coralSpriteSize) / 2.0
 	}

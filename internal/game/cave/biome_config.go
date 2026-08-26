@@ -134,9 +134,10 @@ var (
 			{Type: FaunaPassiveFish, Weight: 20},
 		},
 		MineralSpawns: []SpawnEntry[resource.NodeType]{
-			{Type: resource.NodeQuartz, Weight: 40},
-			{Type: resource.NodeNickel, Weight: 30},
-			{Type: resource.NodeCopper, Weight: 30},
+			{Type: resource.NodeQuartz, Weight: 35},
+			{Type: resource.NodeNickel, Weight: 25},
+			{Type: resource.NodeTungsten, Weight: 20},
+			{Type: resource.NodeCopper, Weight: 20},
 		},
 	}
 
@@ -161,9 +162,10 @@ var (
 			{Type: FaunaPassiveCrab, Weight: 15},
 		},
 		MineralSpawns: []SpawnEntry[resource.NodeType]{
-			{Type: resource.NodeNickel, Weight: 45},
-			{Type: resource.NodeTitanium, Weight: 35},
-			{Type: resource.NodeCopper, Weight: 20},
+			{Type: resource.NodeNickel, Weight: 35},
+			{Type: resource.NodeTungsten, Weight: 25},
+			{Type: resource.NodeTitanium, Weight: 25},
+			{Type: resource.NodeCopper, Weight: 15},
 		},
 	}
 

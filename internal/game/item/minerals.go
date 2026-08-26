@@ -7,3 +7,4 @@ type AbyssalOre struct{ BaseItem[AbyssalOre] }
 type ScrapMetal struct{ BaseItem[ScrapMetal] }
 type ElectronicWaste struct{ BaseItem[ElectronicWaste] }
 type Nickel struct{ BaseItem[Nickel] }
+type Tungsten struct{ BaseItem[Tungsten] }

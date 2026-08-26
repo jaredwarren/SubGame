@@ -60,6 +60,14 @@ var (
 		WorldColor:     color.RGBA{150, 165, 140, 255},
 		WorldCoreColor: color.RGBA{222, 235, 208, 255},
 	}
+	MaterialTungsten = &MaterialDef{
+		Name:           "Tungsten",
+		MaxStack:       10,
+		Color:          color.RGBA{88, 102, 122, 255},
+		CoreColor:      color.RGBA{180, 198, 220, 255},
+		WorldColor:     color.RGBA{72, 86, 104, 255},
+		WorldCoreColor: color.RGBA{170, 190, 215, 255},
+	}
 	MaterialScrapMetal = &MaterialDef{
 		Name:     "Scrap Metal",
 		MaxStack: 10,
