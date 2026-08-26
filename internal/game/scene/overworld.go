@@ -50,6 +50,7 @@ type OverworldContext interface {
 	DestroyOverworldVehicle(v vehicle.Vehicle)
 	ActivatePlayerItem(it item.Item)
 	UseRepairTool()
+	NotifyQuestInventoryChanged(id item.ItemID)
 }
 
 // OverworldScene manages the top-down surface sailing view.

@@ -456,9 +456,11 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 	if hoveredCargoIdx != -1 {
 		slot := &vInv.Slots[hoveredCargoIdx]
 		if slot.Item != nil && p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+			id := slot.Item.GetID()
 			audio.Get().PlaySFX("sfx/hotbar_switch.wav")
 			vInv.Remove(slot.Item, 1)
 			p.RecalculateUpgrades()
+			g.NotifyQuestInventoryChanged(id)
 		}
 		return
 	}

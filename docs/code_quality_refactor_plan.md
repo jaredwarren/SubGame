@@ -357,11 +357,11 @@ world-gen.
 
 ### 6.5 Quest polling
 
-`game_update.go` (~34, ~79–99) calls `questManager.CheckProgress(g)` every
-tick; predicates like `CountInventoryItem` call `item.NewItemByName` and scan
-inventories each time. **Fix:** make progress event-driven — pickup/craft/
-depth-change events update counters; quests subscribe. Combines with §4's
-declarative task conditions.
+`game_update.go` called `questManager.CheckProgress(g)` every tick; predicates
+like `CountInventoryItem` scanned inventories each time. **Fixed (item 17):**
+progress is event-driven — pickup/craft/deploy/cave enter-exit queue
+`ProgressEvent`s; `HandleEvent` re-evaluates only matching tasks. Depth and
+near-base remain cheap per-tick polls.
 
 ### 6.6 One-time but worth fixing
 
@@ -488,13 +488,13 @@ for a single incidental commit:
     *Touch:* `vehicle/controller.go`, `motion.go`, `kit.go`, `countermeasures.go`,
     `skiff.go`, `scoutsub.go`, `heavymech.go`.
 
-17. **Event-driven quest progress** (§6.5): `CheckProgress` still runs every
-    tick even though conditions are declarative. Emit progress events on
-    inventory pickup, craft completion, depth milestones, vehicle deploy, and
-    cave enter/exit; have `QuestManager` subscribe and only re-evaluate affected
-    tasks. Combines with typed IDs (item 18 below — done).
-    *Touch:* `quest/quest.go`, `game_update.go`, inventory/craft/transition
-    hooks. Estimate: one PR.
+17. ~~**Event-driven quest progress**~~ — **done**: `ProgressEvent` +
+    `QuestManager.HandleEvent` re-evaluate only matching incomplete tasks.
+    Game queues events on cave enter/exit, craft, vehicle deploy, and inventory
+    gains; `updateQuests` drains the queue and cheaply polls depth / near-base
+    only (no per-tick inventory scans). `CheckProgress` remains as full resync.
+    *Touch:* `quest/events.go`, `quest/quest.go`, `game_update.go`,
+    craft/harvest/deploy/transfer hooks.
 
 18. ~~**Quest `ItemID` / `VehicleID` keys**~~ — **done**: `Condition` and
     `QuestContext` now use `item.ItemID` and `vehicle.VehicleID` instead of

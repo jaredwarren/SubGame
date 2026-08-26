@@ -12,6 +12,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
+	"github.com/jaredwarren/SubGame/internal/game/quest"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
@@ -111,7 +112,55 @@ func (g *Game) updateQuests() {
 	if g.currentState != StateOverworld && g.currentState != StateCave && g.currentState != StateBaseMenu && g.currentState != StatePause {
 		return
 	}
-	notifs := g.questManager.CheckProgress(g)
+
+	var notifs []quest.ProgressNotification
+
+	// Position-sensitive conditions: cheap polls (no inventory scans).
+	switch g.currentState {
+	case StateCave:
+		notifs = append(notifs, g.questManager.HandleEvent(g, quest.ProgressEvent{
+			Kind:  quest.EventDepth,
+			Depth: g.MaxDepthReached(),
+		})...)
+	case StateOverworld:
+		notifs = append(notifs, g.questManager.HandleEvent(g, quest.ProgressEvent{
+			Kind: quest.EventNearBase,
+		})...)
+	}
+
+	events := g.pendingQuestEvents
+	g.pendingQuestEvents = nil
+	for _, ev := range events {
+		notifs = append(notifs, g.questManager.HandleEvent(g, ev)...)
+	}
+
+	g.applyQuestNotifications(notifs)
+}
+
+// EmitQuestEvent queues a progress event for the next updateQuests drain.
+func (g *Game) EmitQuestEvent(ev quest.ProgressEvent) {
+	if g.questManager == nil {
+		return
+	}
+	g.pendingQuestEvents = append(g.pendingQuestEvents, ev)
+}
+
+// NotifyQuestInventoryChanged signals that player inventory gained/lost items.
+func (g *Game) NotifyQuestInventoryChanged(id item.ItemID) {
+	g.EmitQuestEvent(quest.ProgressEvent{Kind: quest.EventInventory, ItemID: id})
+}
+
+// NotifyQuestCrafted signals a successful fabricator craft.
+func (g *Game) NotifyQuestCrafted(id item.ItemID) {
+	g.EmitQuestEvent(quest.ProgressEvent{Kind: quest.EventCrafted, ItemID: id})
+}
+
+// NotifyQuestVehicleDeployed signals a vehicle was placed in the world.
+func (g *Game) NotifyQuestVehicleDeployed(id vehicle.VehicleID) {
+	g.EmitQuestEvent(quest.ProgressEvent{Kind: quest.EventVehicle, VehicleID: id})
+}
+
+func (g *Game) applyQuestNotifications(notifs []quest.ProgressNotification) {
 	for _, n := range notifs {
 		if n.Completed {
 			audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
@@ -527,6 +576,7 @@ func (g *Game) ActivatePlayerItem(it item.Item) {
 		audio.Get().PlaySFX("sfx/vehicle_exit.wav")
 		g.player.RecalculateUpgrades()
 		g.showInventory = false
+		g.NotifyQuestVehicleDeployed(veh.GetID())
 	}
 }
 

@@ -216,6 +216,7 @@ func (g *Game) isClearOverworldDeploy(pos, dims gvec.Vec2) bool {
 
 // TransitionTo switches the active scene, calling lifecycle hooks on the old and new scenes.
 func (g *Game) TransitionTo(next Scene) {
+	prevState := g.currentState
 	if g.currentScene != nil {
 		g.currentScene.OnExit(g)
 	}
@@ -226,6 +227,18 @@ func (g *Game) TransitionTo(next Scene) {
 	g.currentState = g.stateForScene(next)
 	g.transitionedThisFrame = true
 	g.updateSceneAudio(next)
+
+	// Quest hooks for scene changes that bypass EnterCave/ExitCave (tests, PDA returns).
+	switch g.currentState {
+	case StateCave:
+		if prevState != StateCave {
+			g.EmitQuestEvent(quest.ProgressEvent{Kind: quest.EventCaveEnter})
+		}
+	case StateOverworld:
+		if prevState == StateCave {
+			g.EmitQuestEvent(quest.ProgressEvent{Kind: quest.EventCaveExit})
+		}
+	}
 }
 
 func (g *Game) updateSceneAudio(next Scene) {
@@ -742,6 +755,7 @@ func (g *Game) loadSaveFromPath(path string) error {
 	if g.questManager == nil {
 		g.questManager = quest.NewQuestManager()
 	}
+	g.pendingQuestEvents = nil
 	if len(data.Quests.Categories) > 0 || len(data.Quests.Quests) > 0 {
 		g.questManager.DeserializeState(data.Quests)
 	}

@@ -66,6 +66,7 @@ type Effects struct {
 type Progress struct {
 	storyManager       *story.StoryManager
 	questManager       *quest.QuestManager
+	pendingQuestEvents []quest.ProgressEvent
 	pdaPriorState      State
 	menuOpenedAnywhere bool
 	craftingRecipes    []scene.Recipe
@@ -99,6 +100,7 @@ func (g *Game) resetEffects() {
 func (g *Game) resetProgressManagers(w *world.World, spawnTX, spawnTY int) {
 	g.storyManager = story.NewStoryManager()
 	g.questManager = quest.NewQuestManager()
+	g.pendingQuestEvents = nil
 	g.craftingRecipes = scene.DefaultCraftingRecipes()
 	g.explorationTracker = exploration.NewTracker(w.Width, w.Height)
 	g.explorationTracker.Reveal(spawnTX, spawnTY, exploration.RevealRadius)

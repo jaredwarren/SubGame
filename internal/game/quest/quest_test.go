@@ -74,28 +74,28 @@ func TestQuestManager_Progression(t *testing.T) {
 	}
 
 	// 1. Initial check - nothing completed
-	notifs := qm.CheckProgress(ctx)
+	notifs := qm.HandleEvent(ctx, ProgressEvent{Kind: EventResync})
 	if len(notifs) != 0 {
 		t.Fatalf("expected 0 notifications on empty state, got %d", len(notifs))
 	}
 
 	// 2. Dive into cave
 	ctx.inCave = true
-	notifs = qm.CheckProgress(ctx)
+	notifs = qm.HandleEvent(ctx, ProgressEvent{Kind: EventCaveEnter})
 	if len(notifs) == 0 || !trainingQuest.GetTask("train_dive").Completed {
 		t.Fatal("expected train_dive task to complete upon entering cave")
 	}
 
 	// 3. Mine 5 titanium -> partial progress notification
 	ctx.items[item.IDTitanium] = 5
-	notifs = qm.CheckProgress(ctx)
+	notifs = qm.HandleEvent(ctx, ProgressEvent{Kind: EventInventory, ItemID: item.IDTitanium})
 	if len(notifs) == 0 || trainingQuest.GetTask("train_titanium").Completed {
 		t.Fatal("expected partial titanium progress notification, task should not be completed yet")
 	}
 
 	// 4. Mine 10 titanium -> task completes
 	ctx.items[item.IDTitanium] = 10
-	notifs = qm.CheckProgress(ctx)
+	notifs = qm.HandleEvent(ctx, ProgressEvent{Kind: EventInventory, ItemID: item.IDTitanium})
 	if !trainingQuest.GetTask("train_titanium").Completed {
 		t.Fatal("expected train_titanium task to be completed with 10 items")
 	}
@@ -103,21 +103,21 @@ func TestQuestManager_Progression(t *testing.T) {
 	// 5. Surface and return to base
 	ctx.inCave = false
 	ctx.distToBase = 50.0
-	notifs = qm.CheckProgress(ctx)
+	notifs = qm.HandleEvent(ctx, ProgressEvent{Kind: EventNearBase})
 	if !trainingQuest.GetTask("train_return").Completed {
 		t.Fatal("expected train_return task to be completed when close to base on overworld")
 	}
 
 	// 6. Craft Skiff Kit
 	ctx.craftedItems[item.IDSkiffKit] = true
-	notifs = qm.CheckProgress(ctx)
+	notifs = qm.HandleEvent(ctx, ProgressEvent{Kind: EventCrafted, ItemID: item.IDSkiffKit})
 	if !trainingQuest.GetTask("train_skiff_craft").Completed {
 		t.Fatal("expected train_skiff_craft to complete")
 	}
 
 	// 7. Deploy Skiff
 	ctx.vehicles[vehicle.VehicleSkiff] = true
-	notifs = qm.CheckProgress(ctx)
+	notifs = qm.HandleEvent(ctx, ProgressEvent{Kind: EventVehicle, VehicleID: vehicle.VehicleSkiff})
 	if !trainingQuest.GetTask("train_skiff_deploy").Completed {
 		t.Fatal("expected train_skiff_deploy to complete")
 	}

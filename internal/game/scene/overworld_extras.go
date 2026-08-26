@@ -142,6 +142,7 @@ func (cc crateContext) AddLoot(loot item.Item) bool {
 	added := p.Inventory.AddItem(loot, 1)
 	if added {
 		p.RecalculateUpgrades()
+		cc.g.NotifyQuestInventoryChanged(loot.GetID())
 	}
 	return added
 }

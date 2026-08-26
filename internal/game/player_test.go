@@ -1004,6 +1004,7 @@ func TestTutorial_Flow(t *testing.T) {
 
 	// 3. Add 1 titanium (bringing count to 10)
 	g.player.Inventory.AddItem(&item.Titanium{}, 1)
+	g.NotifyQuestInventoryChanged(item.IDTitanium)
 	g.updateQuests()
 	if !trainingQuest.GetTask("train_titanium").Completed {
 		t.Error("expected train_titanium task to complete with 10 titanium")
@@ -1037,7 +1038,10 @@ func TestTutorial_Flow(t *testing.T) {
 	for _, ing := range skiffRecipe.Ingredients {
 		g.player.Inventory.Remove(ing.NewItem(), ing.Quantity)
 	}
-	g.player.Inventory.AddItem(skiffRecipe.NewResult(), 1)
+	result := skiffRecipe.NewResult()
+	g.player.Inventory.AddItem(result, 1)
+	g.NotifyQuestCrafted(result.GetID())
+	g.NotifyQuestInventoryChanged(result.GetID())
 	g.updateQuests()
 	if !trainingQuest.GetTask("train_skiff_craft").Completed {
 		t.Error("expected train_skiff_craft task to complete after crafting")

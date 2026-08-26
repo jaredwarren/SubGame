@@ -103,6 +103,8 @@ type StoryAccess interface {
 	GetStoryManager() *story.StoryManager
 	GetQuestManager() *quest.QuestManager
 	GetCraftingRecipes() []Recipe
+	NotifyQuestInventoryChanged(id item.ItemID)
+	NotifyQuestCrafted(id item.ItemID)
 }
 
 type TimeAccess interface {

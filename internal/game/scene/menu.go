@@ -32,6 +32,8 @@ type MenuContext interface {
 	GetCraftingRecipes() []Recipe
 	GetStoryManager() *story.StoryManager
 	GetQuestManager() *quest.QuestManager
+	NotifyQuestInventoryChanged(id item.ItemID)
+	NotifyQuestCrafted(id item.ItemID)
 	GetTicks() float64
 	GetCurrentState() State
 	GetPDAPriorState() State
@@ -272,6 +274,8 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 									b.Power -= 10.0
 									p.RecalculateUpgrades()
 									audio.Get().PlaySFX("sfx/fabricator_success.wav")
+									g.NotifyQuestCrafted(newItm.GetID())
+									g.NotifyQuestInventoryChanged(newItm.GetID())
 								} else {
 									audio.Get().PlaySFX("sfx/ui_error.wav")
 								}
@@ -306,8 +310,10 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 				slot := &b.Storage.Slots[hoveredVaultIdx]
 				if slot.Item != nil {
 					if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
+						id := slot.Item.GetID()
 						b.Storage.Remove(slot.Item, 1)
 						p.RecalculateUpgrades()
+						g.NotifyQuestInventoryChanged(id)
 					}
 				}
 			}

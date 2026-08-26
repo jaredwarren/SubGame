@@ -62,6 +62,7 @@ type CaveContext interface {
 	IsFlashlightOn() bool
 	GetStoryManager() *story.StoryManager
 	GetCraftingRecipes() []Recipe
+	NotifyQuestInventoryChanged(id item.ItemID)
 	IsPlayerSlowed() bool
 	GetParticles() []*particle.Particle
 	GetCaveVehicles(key string) []vehicle.Vehicle

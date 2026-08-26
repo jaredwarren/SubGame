@@ -239,8 +239,14 @@ type ProgressNotification struct {
 	Completed bool
 }
 
-// CheckProgress updates all quest objectives against current game state and returns any new notifications.
+// CheckProgress re-evaluates every incomplete task against current game state.
+// Prefer HandleEvent for runtime updates so inventory scans only run when needed.
 func (qm *QuestManager) CheckProgress(ctx QuestContext) []ProgressNotification {
+	return qm.HandleEvent(ctx, ProgressEvent{Kind: EventResync})
+}
+
+// HandleEvent re-evaluates incomplete tasks that match ev and returns notifications.
+func (qm *QuestManager) HandleEvent(ctx QuestContext, ev ProgressEvent) []ProgressNotification {
 	var notifications []ProgressNotification
 
 	for _, cat := range qm.Categories {
@@ -249,13 +255,14 @@ func (qm *QuestManager) CheckProgress(ctx QuestContext) []ProgressNotification {
 				if t.Completed {
 					continue
 				}
+				cond, ok := taskConditions[TaskID(t.ID)]
+				if !ok || !conditionMatchesEvent(cond, ev) {
+					continue
+				}
 
 				oldCompleted := t.Completed
 				oldCount := t.CurrentCount
-
-				if cond, ok := taskConditions[TaskID(t.ID)]; ok {
-					evaluateCondition(cond, t, q, ctx)
-				}
+				evaluateCondition(cond, t, q, ctx)
 
 				if !oldCompleted && t.Completed {
 					notifications = append(notifications, ProgressNotification{
@@ -270,7 +277,6 @@ func (qm *QuestManager) CheckProgress(ctx QuestContext) []ProgressNotification {
 				}
 			}
 
-			// Check quest overall completion
 			if !q.Completed && q.IsAllTasksCompleted() {
 				q.Completed = true
 				notifications = append(notifications, ProgressNotification{
