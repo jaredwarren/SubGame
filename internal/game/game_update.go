@@ -505,28 +505,32 @@ func (g *Game) TransferToVehicle(it item.Item) {
 		return
 	}
 
+	removeItem := func() {
+		if !g.player.Inventory.Remove(it, 1) && g.player.Hotbar != nil {
+			g.player.Hotbar.Remove(it, 1)
+		}
+		g.player.RecalculateUpgrades()
+	}
+
 	if _, isPowerCell := it.(*item.PowerCell); isPowerCell {
 		if v.GetBattery() < v.GetMaxBattery() {
 			v.RechargeBattery(100.0)
-			g.player.Inventory.Remove(it, 1)
-			g.player.RecalculateUpgrades()
+			removeItem()
 			return
 		}
 	}
 
 	if vUpg := v.GetUpgrades(); vUpg != nil {
-		if _, ok := it.(item.VehicleUpgradeItem); ok {
+		if vUpgItem, ok := it.(item.VehicleUpgradeItem); ok && vUpgItem.IsVehicleUpgrade() {
 			if vUpg.AddItem(item.Clone(it), 1) {
-				g.player.Inventory.Remove(it, 1)
-				g.player.RecalculateUpgrades()
+				removeItem()
 				return
 			}
 		}
 	}
 
-	if v.GetCargo().AddItem(item.Clone(it), 1) {
-		g.player.Inventory.Remove(it, 1)
-		g.player.RecalculateUpgrades()
+	if v.GetCargo() != nil && v.GetCargo().AddItem(item.Clone(it), 1) {
+		removeItem()
 	}
 }
 
@@ -781,6 +785,56 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 		case vehicle.ActivateSonarCmd:
 			g.Sonar.Activate(c)
 			audio.Get().PlaySFX("sfx/sub_sonar_ping.wav")
+		case vehicle.ActivateSurfaceSonarCmd:
+			g.Sonar.Activate(vehicle.ActivateSonarCmd{
+				Source: c.Source,
+				Pulse:  c.Pulse,
+				Bright: true,
+			})
+			audio.Get().PlaySFX("sfx/sub_sonar_ping.wav")
+
+			tx := int(c.Source.X) / config.TileSize
+			ty := int(c.Source.Y) / config.TileSize
+			if g.explorationTracker != nil {
+				g.explorationTracker.Reveal(tx, ty, c.FogRevealRadius)
+			}
+
+			detectedCount := 0
+			if g.world != nil && g.explorationTracker != nil {
+				r2 := c.POIDetectionRadius * c.POIDetectionRadius
+				minX := max(0, tx-c.POIDetectionRadius)
+				maxX := min(g.world.Width-1, tx+c.POIDetectionRadius)
+				minY := max(0, ty-c.POIDetectionRadius)
+				maxY := min(g.world.Height-1, ty+c.POIDetectionRadius)
+
+				for py := minY; py <= maxY; py++ {
+					dy := py - ty
+					for px := minX; px <= maxX; px++ {
+						dx := px - tx
+						if dx*dx+dy*dy > r2 {
+							continue
+						}
+						tt := g.world.OverworldMap[px][py]
+						switch tt {
+						case world.TileShockKelpCave, world.TileThermoCave, world.TileTrench, world.TileWreckage:
+							if !g.explorationTracker.IsVisited(px, py) {
+								g.explorationTracker.MarkPOIDiscovered(px, py)
+								detectedCount++
+							}
+						}
+					}
+				}
+			}
+
+			if detectedCount > 0 {
+				if detectedCount == 1 {
+					g.SetMineWarning("Sector Scanned: 1 site located", 180, 1)
+				} else {
+					g.SetMineWarning(fmt.Sprintf("Sector Scanned: %d sites located", detectedCount), 180, 1)
+				}
+			} else {
+				g.SetMineWarning("Sector Scanned: No sites in range", 180, 1)
+			}
 		case vehicle.RemoveCaveNodeCmd:
 			nodes := g.caveState.Nodes
 			for i, node := range nodes {

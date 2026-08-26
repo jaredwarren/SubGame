@@ -35,33 +35,37 @@ type skiffWakePoint struct {
 
 // Skiff is the starting surface boat — solar-powered, surface-only.
 type Skiff struct {
-	Pos        gvec.Vec2
-	Vel        gvec.Vec2
-	Dimensions gvec.Vec2
-	Facing     float64
-	Health     float64
-	MaxHealth  float64
-	Battery    float64
-	MaxBattery float64
-	Cargo      *item.Inventory
-	wake       []skiffWakePoint
-	spawnTimer int
-	lightMult  float64
+	Pos           gvec.Vec2
+	Vel           gvec.Vec2
+	Dimensions    gvec.Vec2
+	Facing        float64
+	Health        float64
+	MaxHealth     float64
+	Battery       float64
+	MaxBattery    float64
+	Cargo         *item.Inventory
+	Upgrades      *item.Inventory
+	wake          []skiffWakePoint
+	spawnTimer    int
+	lightMult     float64
+	sonarCooldown int
 }
 
 // NewSkiff creates a Skiff at the given world position.
 func NewSkiff(x, y float64) *Skiff {
 	d := SkiffArchetype
 	return &Skiff{
-		Pos:        gvec.Vec2{X: x, Y: y},
-		Dimensions: d.Dims,
-		Health:     d.MaxHealth,
-		MaxHealth:  d.MaxHealth,
-		Battery:    d.MaxBattery,
-		MaxBattery: d.MaxBattery,
-		Cargo:      item.NewInventory(d.CargoSlots),
-		spawnTimer: 0,
-		lightMult:  1.0,
+		Pos:           gvec.Vec2{X: x, Y: y},
+		Dimensions:    d.Dims,
+		Health:        d.MaxHealth,
+		MaxHealth:     d.MaxHealth,
+		Battery:       d.MaxBattery,
+		MaxBattery:    d.MaxBattery,
+		Cargo:         item.NewInventory(d.CargoSlots),
+		Upgrades:      item.NewInventory(d.UpgradeSlots),
+		spawnTimer:    0,
+		lightMult:     1.0,
+		sonarCooldown: 0,
 	}
 }
 
@@ -73,7 +77,7 @@ func (s *Skiff) GetMaxHealth() float64        { return s.MaxHealth }
 func (s *Skiff) GetOxygen() float64           { return 100.0 }
 func (s *Skiff) GetDepthLimit() float64       { return 0.0 }
 func (s *Skiff) GetCargo() *item.Inventory    { return s.Cargo }
-func (s *Skiff) GetUpgrades() *item.Inventory { return nil }
+func (s *Skiff) GetUpgrades() *item.Inventory { return s.Upgrades }
 func (s *Skiff) GetPerspective() string       { return "overworld" }
 func (s *Skiff) GetName() string              { return "The Skiff" }
 func (s *Skiff) GetID() VehicleID             { return VehicleSkiff }
@@ -86,6 +90,7 @@ func (s *Skiff) ApplyForce(force gvec.Vec2) {
 }
 func (s *Skiff) GetKit() item.Item {
 	return &SkiffKit{
+		Upgrades: CloneInventory(s.Upgrades),
 		Health:   s.Health,
 		Battery:  s.Battery,
 		HasState: true,
@@ -94,6 +99,7 @@ func (s *Skiff) GetKit() item.Item {
 
 // SkiffKit represents the deployable kit for the Skiff.
 type SkiffKit struct {
+	Upgrades *item.Inventory
 	Health   float64
 	Battery  float64
 	HasState bool
@@ -115,6 +121,7 @@ func (k *SkiffKit) IsPlayerUpgrade() bool { return false }
 
 func (k *SkiffKit) Clone() item.Item {
 	return &SkiffKit{
+		Upgrades: CloneInventory(k.Upgrades),
 		Health:   k.Health,
 		Battery:  k.Battery,
 		HasState: k.HasState,
@@ -125,25 +132,33 @@ func (k *SkiffKit) GetItemState() (*item.SavedInventory, float64, float64, bool)
 	if !k.HasState {
 		return nil, 0, 0, false
 	}
-	return nil, k.Health, k.Battery, true
+	var savedUpg *item.SavedInventory
+	if k.Upgrades != nil {
+		s := k.Upgrades.SerializeState()
+		savedUpg = &s
+	}
+	return savedUpg, k.Health, k.Battery, true
 }
 
 func (k *SkiffKit) SetItemState(upgrades *item.SavedInventory, health float64, battery float64, hasState bool) {
 	k.HasState = hasState
 	k.Health = health
 	k.Battery = battery
+	if upgrades != nil {
+		k.Upgrades = item.DeserializeInventory(*upgrades)
+	} else {
+		k.Upgrades = nil
+	}
 }
 
 func (k *SkiffKit) Deploy(x, y float64) Vehicle {
 	skiff := NewSkiff(x, y)
-	if k.HasState {
-		if k.Health > 0 {
-			skiff.Health = k.Health
-		}
-		if k.Battery >= 0 {
-			skiff.Battery = k.Battery
-		}
-	}
+	RestoreKitState(&skiff.Health, &skiff.Battery, &skiff.Upgrades, KitVehicleState{
+		Upgrades: k.Upgrades,
+		Health:   k.Health,
+		Battery:  k.Battery,
+		HasState: k.HasState,
+	})
 	return skiff
 }
 
@@ -205,6 +220,42 @@ func (s *Skiff) Update(runtime Runtime) {
 	ApplyDragClamp(&s.Vel, d.Drag, maxSpeed)
 	s.checkCollisions(runtime)
 	s.maybeSpawnWake(moving, d)
+	s.trySonar(runtime, input, hasPower)
+}
+
+func (s *Skiff) hasSurfaceSonar() bool {
+	return item.HasItem[*item.SurfaceSonar](s.Upgrades, 1)
+}
+
+func (s *Skiff) trySonar(runtime Runtime, input InputSource, hasPower bool) {
+	if s.sonarCooldown > 0 {
+		s.sonarCooldown--
+	}
+	if !s.hasSurfaceSonar() {
+		return
+	}
+	if !hasPower || !input.IsKeyJustPressed(ebiten.KeyQ) {
+		return
+	}
+	d := SkiffArchetype.SurfaceSonar
+	if s.sonarCooldown > 0 || s.Battery < d.BatteryCost {
+		return
+	}
+	s.Battery -= d.BatteryCost
+	ClampBattery(&s.Battery, &s.MaxBattery)
+	s.sonarCooldown = d.CooldownTicks
+
+	cx := s.Pos.X + s.Dimensions.X/2.0
+	cy := s.Pos.Y + s.Dimensions.Y/2.0
+	runtime.Emit(ActivateSurfaceSonarCmd{
+		Source: gvec.Vec2{X: cx, Y: cy},
+		Pulse: SonarPulse{
+			DurationTicks: d.PulseDurationTicks,
+			RadiusStep:    d.PulseRadiusStep,
+		},
+		FogRevealRadius:    d.FogRevealRadius,
+		POIDetectionRadius: d.POIDetectionRadius,
+	})
 }
 
 func (s *Skiff) tickWake() {

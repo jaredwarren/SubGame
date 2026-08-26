@@ -82,6 +82,8 @@ func (g *Game) drawOverworldLayer(screen *ebiten.Image) {
 		g.overworldState.DrawFogOverlay(g, screen)
 	}
 
+	g.Sonar.Draw(screen, g.camera)
+
 	// Waypoint marker (Life Pod) and lost cargo pierce fog so navigation remains clear.
 	g.drawWaypointMarker(screen)
 	g.drawLostCargo(screen)

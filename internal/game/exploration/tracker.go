@@ -26,8 +26,9 @@ var FogColor = [4]uint8{0x0A, 0x0E, 0x14, 0xFF}
 
 // SavedExploration is the serialize-ready snapshot of exploration state.
 type SavedExploration struct {
-	Explored string   // base64(zlib(bitset bytes))
-	Visited  []string // "tx_ty:tileType"
+	Explored   string   // base64(zlib(bitset bytes))
+	Visited    []string // "tx_ty:tileType"
+	Discovered []string // "tx_ty" for POIs marked on chart
 }
 
 // Tracker records which overworld tiles have been charted and which dive
@@ -36,6 +37,7 @@ type Tracker struct {
 	width, height int
 	explored      []uint64
 	visited       map[string]world.TileType
+	discovered    map[string]bool
 	newlyRevealed []int
 	exploredCount int
 	lastTX        int
@@ -49,12 +51,13 @@ func NewTracker(w, h int) *Tracker {
 	bits := w * h
 	words := (bits + 63) / 64
 	return &Tracker{
-		width:   w,
-		height:  h,
-		explored: make([]uint64, words),
-		visited: make(map[string]world.TileType),
-		lastTX:  -1,
-		lastTY:  -1,
+		width:      w,
+		height:     h,
+		explored:   make([]uint64, words),
+		visited:    make(map[string]world.TileType),
+		discovered: make(map[string]bool),
+		lastTX:     -1,
+		lastTY:     -1,
 	}
 }
 
@@ -164,6 +167,25 @@ func (t *Tracker) IndexToTile(idx int) (tx, ty int) {
 	return idx % t.width, idx / t.width
 }
 
+// MarkPOIDiscovered records that an overworld POI at (tx,ty) has been detected by sonar.
+func (t *Tracker) MarkPOIDiscovered(tx, ty int) {
+	if tx < 0 || ty < 0 || tx >= t.width || ty >= t.height {
+		return
+	}
+	if t.discovered == nil {
+		t.discovered = make(map[string]bool)
+	}
+	t.discovered[fmt.Sprintf("%d_%d", tx, ty)] = true
+}
+
+// IsPOIDiscovered reports whether an overworld POI at (tx,ty) has been detected by sonar.
+func (t *Tracker) IsPOIDiscovered(tx, ty int) bool {
+	if t.discovered == nil {
+		return false
+	}
+	return t.discovered[fmt.Sprintf("%d_%d", tx, ty)]
+}
+
 // SerializeState encodes explored bits and visited sites for a future save system.
 func (t *Tracker) SerializeState() SavedExploration {
 	raw := make([]byte, len(t.explored)*8)
@@ -181,9 +203,14 @@ func (t *Tracker) SerializeState() SavedExploration {
 	for key, tt := range t.visited {
 		visited = append(visited, fmt.Sprintf("%s:%d", key, int(tt)))
 	}
+	discovered := make([]string, 0, len(t.discovered))
+	for key := range t.discovered {
+		discovered = append(discovered, key)
+	}
 	return SavedExploration{
-		Explored: base64.StdEncoding.EncodeToString(buf.Bytes()),
-		Visited:  visited,
+		Explored:   base64.StdEncoding.EncodeToString(buf.Bytes()),
+		Visited:    visited,
+		Discovered: discovered,
 	}
 }
 
@@ -243,6 +270,11 @@ func (t *Tracker) DeserializeState(s SavedExploration) {
 			continue
 		}
 		t.MarkVisited(tx, ty, world.TileType(ttVal))
+	}
+
+	t.discovered = make(map[string]bool)
+	for _, entry := range s.Discovered {
+		t.discovered[entry] = true
 	}
 }
 

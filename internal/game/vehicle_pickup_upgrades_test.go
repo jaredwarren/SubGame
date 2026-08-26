@@ -232,3 +232,59 @@ func TestVehicleKit_SaveLoadPersistence(t *testing.T) {
 		t.Errorf("deployed missing DecoyLauncher")
 	}
 }
+
+func TestSkiff_PickUpAndRedeployPreservesUpgrades(t *testing.T) {
+	g := NewGame()
+	g.currentState = StateOverworld
+
+	skiff := vehicle.NewSkiff(100, 100)
+	g.OverworldVehicles = append(g.OverworldVehicles, skiff)
+	g.ActiveVehicle = skiff
+
+	if skiff.GetUpgrades() == nil {
+		t.Fatal("skiff Upgrades should not be nil")
+	}
+	if len(skiff.GetUpgrades().Slots) != 3 {
+		t.Fatalf("expected 3 upgrade slots on Skiff, got %d", len(skiff.GetUpgrades().Slots))
+	}
+
+	skiff.GetUpgrades().AddItem(&item.SurfaceSonar{}, 1)
+	skiff.TakeDamage(30.0)
+	skiff.RechargeBattery(-20.0) // 80 battery
+
+	origHealth := skiff.GetHealth()
+	origBattery := skiff.GetBattery()
+
+	g.player.Inventory.Clear()
+	g.PickUpActiveVehicle()
+
+	var skiffKit *vehicle.SkiffKit
+	for _, slot := range g.player.Inventory.Slots {
+		if kit, ok := slot.Item.(*vehicle.SkiffKit); ok {
+			skiffKit = kit
+			break
+		}
+	}
+	if skiffKit == nil {
+		t.Fatal("expected SkiffKit in player inventory")
+	}
+	if skiffKit.Upgrades == nil || skiffKit.Upgrades.Count(&item.SurfaceSonar{}) != 1 {
+		t.Errorf("skiff kit upgrades mismatch: %+v", skiffKit.Upgrades)
+	}
+
+	// Redeploy the skiff
+	g.ActivatePlayerItem(skiffKit)
+	if len(g.OverworldVehicles) != 1 {
+		t.Fatalf("expected 1 overworld vehicle after redeploy, got %d", len(g.OverworldVehicles))
+	}
+	deployed := g.OverworldVehicles[0]
+	if deployed.GetUpgrades() == nil || deployed.GetUpgrades().Count(&item.SurfaceSonar{}) != 1 {
+		t.Errorf("deployed skiff missing SurfaceSonar upgrade")
+	}
+	if deployed.GetHealth() != origHealth {
+		t.Errorf("deployed skiff health = %.1f, want %.1f", deployed.GetHealth(), origHealth)
+	}
+	if deployed.GetBattery() != origBattery {
+		t.Errorf("deployed skiff battery = %.1f, want %.1f", deployed.GetBattery(), origBattery)
+	}
+}

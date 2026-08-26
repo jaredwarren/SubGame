@@ -128,6 +128,7 @@ var debugItemList = []debugItemEntry{
 
 	// 2: Vehicle Upgrades & Usables
 	{Name: "Sonar Amplifier", Category: 2},
+	{Name: "Surface Sonar Module", Category: 2},
 	{Name: "Decoy Launcher", Category: 2},
 	{Name: "Chemical Discharger", Category: 2},
 	{Name: "Thermal Generator", Category: 2},

@@ -603,6 +603,27 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillCircle(screen, cx, cy, 3, clr, false)
 		},
 	},
+	reflect.TypeFor[SurfaceSonar](): {
+		Name:     "Surface Sonar Module",
+		MaxStack: 1,
+		Color:    color.RGBA{40, 210, 245, 255},
+		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
+			name := "Surface Sonar Module"
+			clr := color.RGBA{40, 210, 245, 255}
+			if drawItemIconSprite(screen, name, cx, cy, size) {
+				return
+			}
+			// Base module casing
+			vector.FillRect(screen, cx-size/2.2, cy-size/2.2, size*0.9, size*0.9, color.RGBA{25, 45, 65, 255}, false)
+			vector.StrokeRect(screen, cx-size/2.2, cy-size/2.2, size*0.9, size*0.9, 1.5, clr, false)
+			// Concentric radar/sonar arcs
+			vector.StrokeCircle(screen, cx, cy+size/6.0, size/2.8, 1.5, clr, false)
+			vector.StrokeCircle(screen, cx, cy+size/6.0, size/4.5, 1.2, color.RGBA{140, 240, 255, 220}, false)
+			vector.FillCircle(screen, cx, cy+size/6.0, 2.5, color.RGBA{255, 255, 255, 255}, false)
+			// Surface water line
+			vector.StrokeLine(screen, cx-size/2.6, cy-size/8.0, cx+size/2.6, cy-size/8.0, 1.0, color.RGBA{100, 200, 255, 180}, false)
+		},
+	},
 	reflect.TypeFor[PowerCell](): {
 		Name:     "Power Cell",
 		MaxStack: 5,

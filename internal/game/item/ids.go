@@ -30,6 +30,7 @@ const (
 	IDDecoyLauncher      ItemID = "decoy_launcher"
 	IDChemicalDischarger ItemID = "chemical_discharger"
 	IDSonarAmplifier     ItemID = "sonar_amplifier"
+	IDSurfaceSonar       ItemID = "surface_sonar"
 	IDPowerCell          ItemID = "power_cell"
 	IDThermalGenerator   ItemID = "thermal_generator"
 	IDEscapeRocket       ItemID = "escape_rocket"
@@ -86,6 +87,8 @@ var displayNameToID = map[string]ItemID{
 	"ChemicalDischarger":          IDChemicalDischarger,
 	"Sonar Amplifier":             IDSonarAmplifier,
 	"SonarAmplifier":              IDSonarAmplifier,
+	"Surface Sonar Module":        IDSurfaceSonar,
+	"SurfaceSonar":                IDSurfaceSonar,
 	"Power Cell":                  IDPowerCell,
 	"PowerCell":                   IDPowerCell,
 	"Thermal Generator":           IDThermalGenerator,

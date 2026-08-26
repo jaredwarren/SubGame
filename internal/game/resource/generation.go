@@ -161,6 +161,7 @@ func GenerateWreckageResources(grid [][]bool, seed int64, shipIndex int) []Resou
 		"Storage Vault MKII Module",
 		"Sonar Amplifier",
 		"Thermal Generator",
+		"Surface Sonar Module",
 	}
 	t2Recipes := []string{
 		"Heavy Mech Kit",

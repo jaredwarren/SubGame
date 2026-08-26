@@ -327,6 +327,14 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 	if hoveredIdx != -1 {
 		slot := &p.Inventory.Slots[hoveredIdx]
 		if slot.Item != nil {
+			// Vehicle upgrades: if an active vehicle exists, install to vehicle!
+			if vUpg, ok := slot.Item.(item.VehicleUpgradeItem); ok && vUpg.IsVehicleUpgrade() {
+				if g.GetActiveVehicle() != nil {
+					audio.Get().PlaySFX("sfx/base_build.wav")
+					g.TransferToVehicle(slot.Item)
+					return
+				}
+			}
 			// Player upgrades (O2 tank, fins) go to equipment upgrades
 			if upg, ok := slot.Item.(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
 				audio.Get().PlaySFX("sfx/base_build.wav")
@@ -359,6 +367,14 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 			if _, isDeployable := slot.Item.(vehicle.Deployable); isDeployable {
 				g.ActivatePlayerItem(slot.Item)
 				return
+			}
+			// If active vehicle exists and item is a vehicle upgrade, transfer to vehicle
+			if vUpg, ok := slot.Item.(item.VehicleUpgradeItem); ok && vUpg.IsVehicleUpgrade() {
+				if g.GetActiveVehicle() != nil {
+					audio.Get().PlaySFX("sfx/base_build.wav")
+					g.TransferToVehicle(slot.Item)
+					return
+				}
 			}
 			// Move item from hotbar back to main inventory
 			if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
@@ -414,10 +430,21 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 	if hoveredPlayerIdx != -1 {
 		slot := &p.Inventory.Slots[hoveredPlayerIdx]
 		if slot.Item != nil {
-			// Player upgrades go directly to upgrades/vehicle if vehicle open
-			if upg, ok := slot.Item.(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
+			// Vehicle upgrades and power cells go directly to the vehicle!
+			if vUpg, ok := slot.Item.(item.VehicleUpgradeItem); ok && vUpg.IsVehicleUpgrade() {
 				audio.Get().PlaySFX("sfx/base_build.wav")
 				g.TransferToVehicle(slot.Item)
+				return
+			}
+			if _, isPowerCell := slot.Item.(*item.PowerCell); isPowerCell {
+				audio.Get().PlaySFX("sfx/base_build.wav")
+				g.TransferToVehicle(slot.Item)
+				return
+			}
+			// Player upgrades (fins, O2 tank) equip to player
+			if upg, ok := slot.Item.(item.PlayerUpgradeItem); ok && upg.IsPlayerUpgrade() {
+				audio.Get().PlaySFX("sfx/base_build.wav")
+				g.ActivatePlayerItem(slot.Item)
 				return
 			}
 			// Try to move to hotbar first
@@ -426,7 +453,7 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 				p.Inventory.Remove(slot.Item, 1)
 				p.RecalculateUpgrades()
 			} else {
-				// Otherwise transfer to vehicle
+				// Otherwise transfer to vehicle cargo
 				audio.Get().PlaySFX("sfx/hotbar_switch.wav")
 				g.TransferToVehicle(slot.Item)
 			}
@@ -439,6 +466,17 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 	if hoveredHotbarIdx != -1 {
 		slot := &p.Hotbar.Slots[hoveredHotbarIdx]
 		if slot.Item != nil {
+			// Vehicle upgrades or power cells in hotbar go directly to vehicle!
+			if vUpg, ok := slot.Item.(item.VehicleUpgradeItem); ok && vUpg.IsVehicleUpgrade() {
+				audio.Get().PlaySFX("sfx/base_build.wav")
+				g.TransferToVehicle(slot.Item)
+				return
+			}
+			if _, isPowerCell := slot.Item.(*item.PowerCell); isPowerCell {
+				audio.Get().PlaySFX("sfx/base_build.wav")
+				g.TransferToVehicle(slot.Item)
+				return
+			}
 			// Transfer from hotbar back to player inventory
 			if p.Inventory.AddItem(item.Clone(slot.Item), 1) {
 				audio.Get().PlaySFX("sfx/hotbar_switch.wav")

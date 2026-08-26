@@ -6,9 +6,10 @@ import "github.com/jaredwarren/SubGame/internal/game/vehicle"
 // without an import cycle). Re-exported for a single browseable catalog.
 
 type (
-	SkiffDef     = vehicle.SkiffDef
-	ScoutSubDef  = vehicle.ScoutSubDef
-	HeavyMechDef = vehicle.HeavyMechDef
+	SkiffDef        = vehicle.SkiffDef
+	SurfaceSonarDef = vehicle.SurfaceSonarDef
+	ScoutSubDef     = vehicle.ScoutSubDef
+	HeavyMechDef    = vehicle.HeavyMechDef
 )
 
 var (

@@ -221,12 +221,12 @@ func (m *BaseMenuScene) drawMapIcons(g MenuContext, screen *ebiten.Image, mapX, 
 		nearestWreckTX, nearestWreckTY = nearestWreckage(m.mapPOIs, baseTX, baseTY)
 	}
 
-	// Dive-site markers (explored only; nearest wreck handled separately so it can pierce fog)
+	// Dive-site markers (explored or detected by surface sonar; nearest wreck handled separately)
 	for _, poi := range m.mapPOIs {
 		if poi.TX == nearestWreckTX && poi.TY == nearestWreckTY {
 			continue
 		}
-		if !tracker.IsExplored(poi.TX, poi.TY) {
+		if !tracker.IsExplored(poi.TX, poi.TY) && !tracker.IsPOIDiscovered(poi.TX, poi.TY) {
 			continue
 		}
 		px, py := toScreen(poi.TX, poi.TY)
@@ -234,6 +234,7 @@ func (m *BaseMenuScene) drawMapIcons(g MenuContext, screen *ebiten.Image, mapX, 
 			drawVisitedPOIIcon(screen, px, py, poi.Type)
 		} else {
 			drawUnvisitedPOIMarker(screen, px, py)
+			drawColoredDebugText(screen, "?", int(px)-3, int(py)-12, color.RGBA{255, 255, 255, 255})
 		}
 	}
 

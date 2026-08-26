@@ -9,6 +9,9 @@ type ChemicalDischarger struct {
 type SonarAmplifier struct {
 	VehicleUpgradeNode[SonarAmplifier]
 }
+type SurfaceSonar struct {
+	VehicleUpgradeNode[SurfaceSonar]
+}
 type PowerCell struct{ BaseItem[PowerCell] }
 type ThermalGenerator struct {
 	VehicleUpgradeNode[ThermalGenerator]

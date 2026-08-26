@@ -43,6 +43,14 @@ type ActivateSonarCmd struct {
 	Bright bool
 }
 
+// ActivateSurfaceSonarCmd fires an overworld sonar ping that reveals fog and marks nearby POIs.
+type ActivateSurfaceSonarCmd struct {
+	Source             gvec.Vec2
+	Pulse              SonarPulse
+	FogRevealRadius    int
+	POIDetectionRadius int
+}
+
 // RemoveCaveNodeCmd removes the resource node at tile position (TX, TY).
 type RemoveCaveNodeCmd struct {
 	TX, TY int
@@ -87,8 +95,9 @@ type SpawnDeterrentCloudCmd struct {
 	Pos gvec.Vec2
 }
 
-func (ActivateSonarCmd) gameCommand()      {}
-func (RemoveCaveNodeCmd) gameCommand()     {}
+func (ActivateSonarCmd) gameCommand()        {}
+func (ActivateSurfaceSonarCmd) gameCommand() {}
+func (RemoveCaveNodeCmd) gameCommand()       {}
 func (UnlockRecipeCmd) gameCommand()       {}
 func (SpawnBubbleCmd) gameCommand()        {}
 func (SpawnDebrisCmd) gameCommand()        {}

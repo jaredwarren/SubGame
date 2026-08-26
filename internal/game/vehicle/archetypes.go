@@ -2,12 +2,24 @@ package vehicle
 
 import "github.com/jaredwarren/SubGame/internal/gvec"
 
+// SurfaceSonarDef holds balance stats for the Skiff's overworld sonar upgrade.
+type SurfaceSonarDef struct {
+	BatteryCost        float64 // battery drained per pulse (25.0 = 25%)
+	FogRevealRadius    int     // tile radius cleared of fog
+	POIDetectionRadius int     // tile radius for detecting unvisited dive sites
+	PulseDurationTicks int     // duration of animated sonar ring
+	PulseRadiusStep    float64 // speed of expanding ring (px per tick)
+	CooldownTicks      int     // cooldown ticks between scans
+}
+
 // SkiffDef holds balance stats for the surface Skiff.
 type SkiffDef struct {
 	Dims              gvec.Vec2
 	MaxHealth         float64
 	MaxBattery        float64
 	CargoSlots        int
+	UpgradeSlots      int
+	SurfaceSonar      SurfaceSonarDef
 	TurnSpeed         float64
 	Accel             float64
 	MaxSpeed          float64
@@ -69,6 +81,15 @@ var SkiffArchetype = &SkiffDef{
 	MaxHealth:         150.0,
 	MaxBattery:        100.0,
 	CargoSlots:        24,
+	UpgradeSlots:      3,
+	SurfaceSonar: SurfaceSonarDef{
+		BatteryCost:        25.0,
+		FogRevealRadius:    18,
+		POIDetectionRadius: 35,
+		PulseDurationTicks: 120,
+		PulseRadiusStep:    6.5,
+		CooldownTicks:      60,
+	},
 	TurnSpeed:         0.04,
 	Accel:             0.20,
 	MaxSpeed:          6.0,
