@@ -30,12 +30,34 @@ func (g *Game) Update() error {
 		g.nextScene = nil
 	}
 
+	// Toggle Debug Menu with ` / ~, F1, F3, F12, or Ctrl/Cmd+D
+	ctrlPressed := g.Input.IsKeyPressed(ebiten.KeyControl) || g.Input.IsKeyPressed(ebiten.KeyMeta)
+	if g.Input.IsKeyJustPressed(ebiten.KeyGraveAccent) || g.Input.IsKeyJustPressed(ebiten.KeyF1) || g.Input.IsKeyJustPressed(ebiten.KeyF3) || g.Input.IsKeyJustPressed(ebiten.KeyF12) || (ctrlPressed && g.Input.IsKeyJustPressed(ebiten.KeyD)) {
+		g.showDebugMenu = !g.showDebugMenu
+		if g.showDebugMenu {
+			audio.Get().PlaySFX("sfx/ui_click.wav")
+			g.applyActiveCheats()
+			return nil
+		}
+	}
+
+	if g.showDebugMenu && g.debugMenu != nil {
+		if err := g.debugMenu.Update(g); err != nil {
+			return err
+		}
+		g.applyActiveCheats()
+		return nil
+	}
+
 	g.advanceTimers()
 	g.drainExplorationUpdates()
 	g.updateEffects()
 	g.updateQuests()
 	g.handleInput()
 	g.baseStation.UpdatePower(g.TimeOfDay)
+
+	// Apply cheat overrides during active gameplay
+	g.applyActiveCheats()
 
 	// Inventory screen consumes all clicks; skip normal game logic while open.
 	if g.showInventory {
@@ -71,7 +93,7 @@ func (g *Game) Update() error {
 	g.updateLostCargo()
 	g.updateAudioAlerts()
 
-	if g.player.CurrentHealth <= 0 {
+	if g.player.CurrentHealth <= 0 && !g.GodMode {
 		// Drop cargo once at the moment of death; stay on GameOver without re-dropping.
 		if g.currentState == StateOverworld || g.currentState == StateCave {
 			audio.Get().PlaySFX("sfx/player_drown.wav")
@@ -155,12 +177,34 @@ func (g *Game) updateAudioAlerts() {
 // advanceTimers increments all per-frame counters and timers.
 func (g *Game) advanceTimers() {
 	g.Ticks += 1.0
-	g.TimeOfDay += 1.0
-	if g.TimeOfDay >= 14400 {
-		g.TimeOfDay = 0.0
+	if !g.FreezeTimeOfDay {
+		g.TimeOfDay += 1.0
+		if g.TimeOfDay >= 14400 {
+			g.TimeOfDay = 0.0
+		}
 	}
 	if g.MineWarning.Timer > 0 {
 		g.MineWarning.Timer--
+	}
+}
+
+func (g *Game) applyActiveCheats() {
+	if g.GodMode {
+		g.player.CurrentHealth = g.player.MaxHealth
+	}
+	if g.InfiniteOxygen {
+		g.player.CurrentOxygen = g.player.MaxOxygen
+	}
+	if g.InfiniteStamina {
+		g.player.CurrentStamina = g.player.MaxStamina
+	}
+	if g.ActiveVehicle != nil {
+		if g.InfiniteVehicleBattery {
+			g.ActiveVehicle.RechargeBattery(g.ActiveVehicle.GetMaxBattery())
+		}
+		if g.InfiniteVehicleHull {
+			g.ActiveVehicle.Repair(g.ActiveVehicle.GetMaxHealth())
+		}
 	}
 }
 
@@ -376,8 +420,16 @@ func (g *Game) debugRevealAllMapPOIs() {
 
 func (g *Game) debugSpawnVehicle(v vehicle.Vehicle) {
 	if g.currentState == StateOverworld {
+		if v.GetPerspective() != "overworld" {
+			g.SetMineWarning(fmt.Sprintf("Cannot spawn %s in overworld! Must spawn in cave.", v.GetName()), 120, 2)
+			return
+		}
 		g.OverworldVehicles = append(g.OverworldVehicles, v)
 	} else {
+		if v.GetPerspective() != "cave" {
+			g.SetMineWarning(fmt.Sprintf("Cannot spawn %s in caves! Must spawn in overworld.", v.GetName()), 120, 2)
+			return
+		}
 		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], v)
 	}
 	g.ActiveVehicle = v
@@ -453,15 +505,26 @@ func (g *Game) ActivatePlayerItem(it item.Item) {
 		deployX, deployY := g.player.Pos.X, g.player.Pos.Y
 		veh := deployable.Deploy(deployX, deployY)
 		if g.currentState == StateOverworld {
+			if veh.GetPerspective() != "overworld" {
+				g.SetMineWarning(fmt.Sprintf("Cannot deploy %s on the surface! Deploy inside a cave trench.", veh.GetName()), 120, 2)
+				audio.Get().PlaySFX("sfx/ui_error.wav")
+				return
+			}
 			// Surface vehicles (e.g. Skiff) must land on clear water, not land/lifepod.
 			veh.SetPos(g.findNearestClearWaterDeployPos(g.player.Pos, veh.GetDimensions()))
 			g.OverworldVehicles = append(g.OverworldVehicles, veh)
 		} else {
+			if veh.GetPerspective() != "cave" {
+				g.SetMineWarning(fmt.Sprintf("Cannot deploy %s in caves! Deploy on the surface.", veh.GetName()), 120, 2)
+				audio.Get().PlaySFX("sfx/ui_error.wav")
+				return
+			}
 			g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], veh)
 		}
 		if !g.player.Inventory.Remove(it, 1) {
 			g.player.Hotbar.Remove(it, 1)
 		}
+		audio.Get().PlaySFX("sfx/vehicle_exit.wav")
 		g.player.RecalculateUpgrades()
 		g.showInventory = false
 	}

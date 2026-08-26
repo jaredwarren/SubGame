@@ -50,6 +50,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.currentState == StateOverworld || g.currentState == StateCave || g.currentState == StateBaseMenu || g.currentState == StatePause {
 		g.drawWarningBanner(screen)
 	}
+
+	if g.showDebugMenu && g.debugMenu != nil {
+		g.debugMenu.Draw(screen, g)
+	}
 }
 
 // drawOverworldLayer renders vehicles, the base station, and interaction prompts.

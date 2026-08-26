@@ -68,6 +68,18 @@ type Game struct {
 
 	hud             *HUD
 	showInventory   bool
+	showDebugMenu   bool
+	debugMenu       *scene.DebugMenuScene
+
+	// Cheats & Debug Flags
+	GodMode                bool
+	InfiniteOxygen         bool
+	InfiniteStamina        bool
+	SuperSpeed             bool
+	FreezeTimeOfDay        bool
+	InfiniteVehicleBattery bool
+	InfiniteVehicleHull    bool
+
 	DebugDisableLightShader bool
 	DebugDisableWaterShader bool
 
@@ -89,6 +101,7 @@ func NewGame() *Game {
 	g := &Game{
 		currentState: StateTitle,
 		hud:          NewHUD(),
+		debugMenu:    scene.NewDebugMenuScene(),
 		Session:      Session{Input: NewEbitenInput()},
 	}
 	g.initSessionFromSeed(sessionConfig{

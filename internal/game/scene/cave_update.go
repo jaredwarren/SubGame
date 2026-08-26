@@ -263,7 +263,6 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 	if activeItem != nil {
 		if _, isDeployable := activeItem.(vehicle.Deployable); isDeployable {
 			g.ActivatePlayerItem(activeItem)
-			audio.Get().PlaySFX("sfx/vehicle_exit.wav")
 			return
 		}
 		if _, ok := activeItem.(*item.RepairTool); ok {

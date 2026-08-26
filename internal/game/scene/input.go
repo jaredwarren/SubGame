@@ -49,8 +49,16 @@ func (e *EbitenInput) Update() {
 		ebiten.KeyShift, ebiten.KeySpace, ebiten.KeyT, ebiten.KeyTab, ebiten.KeyEscape,
 		ebiten.KeyO, ebiten.KeyC, ebiten.KeyM, ebiten.KeyG, ebiten.KeyF, ebiten.KeyE, ebiten.KeyI,
 		ebiten.KeyQ, ebiten.KeyEnter, ebiten.Key1, ebiten.Key2, ebiten.Key3, ebiten.Key4, ebiten.Key5,
+		ebiten.Key6, ebiten.Key7, ebiten.Key8, ebiten.Key9, ebiten.Key0,
 		ebiten.KeyY, ebiten.KeyU, ebiten.KeyP, ebiten.KeyBackspace, ebiten.KeyJ,
-		ebiten.KeyControl, ebiten.KeyMeta,
+		ebiten.KeyZ, ebiten.KeyX, ebiten.KeyV, ebiten.KeyB, ebiten.KeyN, ebiten.KeyH, ebiten.KeyK, ebiten.KeyL, ebiten.KeyR,
+		ebiten.KeyGraveAccent,
+		ebiten.KeyF1, ebiten.KeyF2, ebiten.KeyF3, ebiten.KeyF4, ebiten.KeyF5, ebiten.KeyF6,
+		ebiten.KeyF7, ebiten.KeyF8, ebiten.KeyF9, ebiten.KeyF10, ebiten.KeyF11, ebiten.KeyF12,
+		ebiten.KeyControl, ebiten.KeyMeta, ebiten.KeyAlt,
+		ebiten.KeySlash, ebiten.KeyBackslash, ebiten.KeyMinus, ebiten.KeyEqual,
+		ebiten.KeyBracketLeft, ebiten.KeyBracketRight, ebiten.KeySemicolon, ebiten.KeyApostrophe,
+		ebiten.KeyComma, ebiten.KeyPeriod,
 	}
 
 	for _, k := range keys {
@@ -58,9 +66,23 @@ func (e *EbitenInput) Update() {
 		e.pressedKeys[k] = ebiten.IsKeyPressed(k)
 	}
 
+	// Also dynamically capture any additional just-pressed keys
+	var dynamicJustPressed []ebiten.Key
+	dynamicJustPressed = inpututil.AppendJustPressedKeys(dynamicJustPressed)
+	for _, k := range dynamicJustPressed {
+		e.justPressedKeys[k] = true
+	}
+
+	var dynamicPressed []ebiten.Key
+	dynamicPressed = inpututil.AppendPressedKeys(dynamicPressed)
+	for _, k := range dynamicPressed {
+		e.pressedKeys[k] = true
+	}
+
 	buttons := []ebiten.MouseButton{
 		ebiten.MouseButtonLeft,
 		ebiten.MouseButtonRight,
+		ebiten.MouseButtonMiddle,
 	}
 	for _, b := range buttons {
 		e.justPressedMouse[b] = inpututil.IsMouseButtonJustPressed(b)

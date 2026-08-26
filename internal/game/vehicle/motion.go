@@ -100,7 +100,7 @@ func ApplyWaterline(posY float64, velY, timeOfDay float64, moving, thrustersActi
 	if posY < opts.Waterline {
 		return velY + opts.SurfacePush
 	}
-	bobActive := moving
+	bobActive := !moving
 	if opts.BobWhenThruster {
 		bobActive = thrustersActive
 	}

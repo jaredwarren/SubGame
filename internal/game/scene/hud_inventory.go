@@ -335,7 +335,6 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 			}
 			// Deployable vehicle kits should also deploy directly!
 			if _, isDeployable := slot.Item.(vehicle.Deployable); isDeployable {
-				audio.Get().PlaySFX("sfx/vehicle_exit.wav")
 				g.ActivatePlayerItem(slot.Item)
 				return
 			}
@@ -358,7 +357,6 @@ func (h *HUD) HandlePlayerInventoryClicks(g GameContext) {
 		slot := &p.Hotbar.Slots[hoveredHotbarIdx]
 		if slot.Item != nil {
 			if _, isDeployable := slot.Item.(vehicle.Deployable); isDeployable {
-				audio.Get().PlaySFX("sfx/vehicle_exit.wav")
 				g.ActivatePlayerItem(slot.Item)
 				return
 			}

@@ -15,31 +15,6 @@ func NewInventory(size int) *Inventory {
 	}
 }
 
-var normalizationCache = make(map[reflect.Type]reflect.Type)
-
-func normalizeType(t reflect.Type) reflect.Type {
-	if t == nil {
-		return nil
-	}
-	if cached, exists := normalizationCache[t]; exists {
-		return cached
-	}
-
-	normalized := t
-	if t.Kind() == reflect.Pointer && t.Elem().Kind() == reflect.Struct {
-		instance := reflect.New(t.Elem()).Interface()
-		if provider, ok := instance.(BaseItemProvider); ok {
-			baseItem := provider.GetBaseItem()
-			if baseItem != nil {
-				normalized = reflect.TypeOf(baseItem)
-			}
-		}
-	}
-
-	normalizationCache[t] = normalized
-	return normalized
-}
-
 // HasItem is a generic query helper.
 func HasItem[T any](inv *Inventory, qty int) bool {
 	if inv == nil {
@@ -56,16 +31,17 @@ func (inv *Inventory) AddItem(item Item, qty int) bool {
 		return false
 	}
 
-	if provider, ok := item.(BaseItemProvider); ok && provider.GetBaseItem() == nil {
-		return false
+	if provider, ok := item.(BaseItemProvider); ok {
+		base := provider.GetBaseItem()
+		if base == nil {
+			return false
+		}
+		item = base
 	}
 
-	t := normalizeType(reflect.TypeOf(item))
+	t := reflect.TypeOf(item)
 	if t == nil {
 		return false
-	}
-	if t != reflect.TypeOf(item) {
-		item = NewItemFromType(t)
 	}
 
 	maxStack := item.GetMaxStack()
@@ -76,7 +52,7 @@ func (inv *Inventory) AddItem(item Item, qty int) bool {
 	for i := range inv.Slots {
 		if inv.Slots[i].Item == nil {
 			availableSpace += maxStack
-		} else if normalizeType(reflect.TypeOf(inv.Slots[i].Item)) == t {
+		} else if reflect.TypeOf(inv.Slots[i].Item) == t {
 			availableSpace += maxStack - inv.Slots[i].Quantity
 		}
 	}
@@ -86,7 +62,7 @@ func (inv *Inventory) AddItem(item Item, qty int) bool {
 
 	// 1. First, attempt to fill existing stacks of this item
 	for i := range inv.Slots {
-		if inv.Slots[i].Item != nil && normalizeType(reflect.TypeOf(inv.Slots[i].Item)) == t && inv.Slots[i].Quantity < maxStack {
+		if inv.Slots[i].Item != nil && reflect.TypeOf(inv.Slots[i].Item) == t && inv.Slots[i].Quantity < maxStack {
 			space := maxStack - inv.Slots[i].Quantity
 			if qty <= space {
 				inv.Slots[i].Quantity += qty
@@ -127,14 +103,13 @@ func (inv *Inventory) AddItem(item Item, qty int) bool {
 // RemoveItem consumes a specific quantity of an item type from the inventory.
 // Returns true if the items were successfully removed.
 func (inv *Inventory) RemoveItem(t reflect.Type, qty int) bool {
-	t = normalizeType(t)
-	if inv == nil || !inv.HasItem(t, qty) {
+	if inv == nil || t == nil || !inv.HasItem(t, qty) {
 		return false
 	}
 
 	// Remove from stacks starting from the end
 	for i := len(inv.Slots) - 1; i >= 0; i-- {
-		if inv.Slots[i].Item != nil && normalizeType(reflect.TypeOf(inv.Slots[i].Item)) == t {
+		if inv.Slots[i].Item != nil && reflect.TypeOf(inv.Slots[i].Item) == t {
 			if inv.Slots[i].Quantity >= qty {
 				inv.Slots[i].Quantity -= qty
 				if inv.Slots[i].Quantity == 0 {
@@ -154,8 +129,7 @@ func (inv *Inventory) RemoveItem(t reflect.Type, qty int) bool {
 
 // HasItem checks if the inventory contains at least the specified quantity of an item type.
 func (inv *Inventory) HasItem(t reflect.Type, qty int) bool {
-	t = normalizeType(t)
-	if inv == nil {
+	if inv == nil || t == nil {
 		return false
 	}
 	return inv.CountOf(t) >= qty
@@ -163,13 +137,12 @@ func (inv *Inventory) HasItem(t reflect.Type, qty int) bool {
 
 // CountOf returns the current quantity for a given item type.
 func (inv *Inventory) CountOf(t reflect.Type) int {
-	t = normalizeType(t)
-	if inv == nil {
+	if inv == nil || t == nil {
 		return 0
 	}
 	sum := 0
 	for _, slot := range inv.Slots {
-		if slot.Item != nil && normalizeType(reflect.TypeOf(slot.Item)) == t {
+		if slot.Item != nil && reflect.TypeOf(slot.Item) == t {
 			sum += slot.Quantity
 		}
 	}
@@ -181,6 +154,11 @@ func (inv *Inventory) Has(it Item, qty int) bool {
 	if it == nil {
 		return false
 	}
+	if provider, ok := it.(BaseItemProvider); ok {
+		if base := provider.GetBaseItem(); base != nil {
+			it = base
+		}
+	}
 	return inv.HasItem(reflect.TypeOf(it), qty)
 }
 
@@ -188,6 +166,11 @@ func (inv *Inventory) Has(it Item, qty int) bool {
 func (inv *Inventory) Remove(it Item, qty int) bool {
 	if it == nil || inv == nil {
 		return false
+	}
+	if provider, ok := it.(BaseItemProvider); ok {
+		if base := provider.GetBaseItem(); base != nil {
+			it = base
+		}
 	}
 	for i := len(inv.Slots) - 1; i >= 0; i-- {
 		if inv.Slots[i].Item == it {
@@ -211,6 +194,11 @@ func (inv *Inventory) Remove(it Item, qty int) bool {
 func (inv *Inventory) Count(it Item) int {
 	if it == nil {
 		return 0
+	}
+	if provider, ok := it.(BaseItemProvider); ok {
+		if base := provider.GetBaseItem(); base != nil {
+			it = base
+		}
 	}
 	return inv.CountOf(reflect.TypeOf(it))
 }
@@ -237,13 +225,13 @@ func (inv *Inventory) Resize(newSize int) []ItemStack {
 				continue
 			}
 
-			t := normalizeType(reflect.TypeOf(slot.Item))
+			t := reflect.TypeOf(slot.Item)
 			maxStack := slot.Item.GetMaxStack()
 			qtyToAdd := slot.Quantity
 
 			// Try to top up existing stacks of this item in the surviving range
 			for j := 0; j < newSize; j++ {
-				if inv.Slots[j].Item != nil && normalizeType(reflect.TypeOf(inv.Slots[j].Item)) == t && inv.Slots[j].Quantity < maxStack {
+				if inv.Slots[j].Item != nil && reflect.TypeOf(inv.Slots[j].Item) == t && inv.Slots[j].Quantity < maxStack {
 					space := maxStack - inv.Slots[j].Quantity
 					if qtyToAdd <= space {
 						inv.Slots[j].Quantity += qtyToAdd
@@ -260,13 +248,14 @@ func (inv *Inventory) Resize(newSize int) []ItemStack {
 			if qtyToAdd > 0 {
 				for j := 0; j < newSize; j++ {
 					if inv.Slots[j].Item == nil {
-						if qtyToAdd <= maxStack {
-							inv.Slots[j] = ItemStack{Item: slot.Item, Quantity: qtyToAdd}
-							qtyToAdd = 0
+						add := qtyToAdd
+						if add > maxStack {
+							add = maxStack
+						}
+						inv.Slots[j] = ItemStack{Item: slot.Item, Quantity: add}
+						qtyToAdd -= add
+						if qtyToAdd <= 0 {
 							break
-						} else {
-							inv.Slots[j] = ItemStack{Item: slot.Item, Quantity: maxStack}
-							qtyToAdd -= maxStack
 						}
 					}
 				}
@@ -346,9 +335,11 @@ func (inv *Inventory) ExtractAll() []ItemStack {
 	return stacks
 }
 
-// InsertStacks packs stacks into empty/matching capacity. Returns leftovers that did not fit.
+// InsertStacks places items from stacks into available inventory slots,
+// merging with existing matching stacks and filling empty slots.
+// Returns any leftover item stacks that did not fit.
 func (inv *Inventory) InsertStacks(stacks []ItemStack) []ItemStack {
-	if inv == nil {
+	if inv == nil || len(stacks) == 0 {
 		return stacks
 	}
 	var leftover []ItemStack
@@ -356,10 +347,16 @@ func (inv *Inventory) InsertStacks(stacks []ItemStack) []ItemStack {
 		if stack.Item == nil || stack.Quantity <= 0 {
 			continue
 		}
+		it := stack.Item
+		if provider, ok := it.(BaseItemProvider); ok {
+			if base := provider.GetBaseItem(); base != nil {
+				it = base
+			}
+		}
 		remaining := stack.Quantity
 		// Prefer stacking onto existing stacks of the same type.
-		t := normalizeType(reflect.TypeOf(stack.Item))
-		maxStack := stack.Item.GetMaxStack()
+		t := reflect.TypeOf(it)
+		maxStack := it.GetMaxStack()
 		for i := range inv.Slots {
 			if remaining <= 0 {
 				break
@@ -367,7 +364,7 @@ func (inv *Inventory) InsertStacks(stacks []ItemStack) []ItemStack {
 			if inv.Slots[i].Item == nil {
 				continue
 			}
-			if normalizeType(reflect.TypeOf(inv.Slots[i].Item)) != t {
+			if reflect.TypeOf(inv.Slots[i].Item) != t {
 				continue
 			}
 			space := maxStack - inv.Slots[i].Quantity

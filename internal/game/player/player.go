@@ -49,6 +49,7 @@ type Player struct {
 	IsDamaged       bool
 	DamageAnimTimer int
 	StunTimer       int
+	SuperSpeed      bool
 }
 
 // NewPlayer initializes a player with default stats and empty inventory.
@@ -179,6 +180,17 @@ func (p *Player) RecalculateUpgrades() {
 		}
 	}
 
+	if p.SuperSpeed {
+		scaled := make(map[string]item.Speed, len(p.Speed))
+		for k, s := range p.Speed {
+			scaled[k] = item.Speed{
+				Drag:         s.Drag,
+				Acceleration: s.Acceleration * 2.5,
+				TopSpeed:     s.TopSpeed * 2.5,
+			}
+		}
+		p.Speed = scaled
+	}
 }
 
 // UpdateAnimation increments frame counts and ticks for player visual animations.

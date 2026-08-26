@@ -97,6 +97,7 @@ func (g *Game) EnterCave(tx, ty int) {
 
 // ExitCave handles the transition from Cave to Overworld.
 func (g *Game) ExitCave() {
+	g.ActiveVehicle = nil // Ensure player is on foot when returning to overworld
 	targetX := g.lastOverworldX
 	targetY := g.lastOverworldY - config.TileSize*0.6
 

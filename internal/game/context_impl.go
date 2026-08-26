@@ -20,8 +20,9 @@ import (
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
-// compile-time assertion: *Game must satisfy scene.GameContext and quest.QuestContext
+// compile-time assertion: *Game must satisfy scene.GameContext, scene.DebugContext, and quest.QuestContext
 var _ scene.GameContext = (*Game)(nil)
+var _ scene.DebugContext = (*Game)(nil)
 var _ quest.QuestContext = (*Game)(nil)
 
 // --- Scene navigation ---

@@ -61,6 +61,66 @@ func TestActivatePlayerItem_SkiffDeploysOnClearWater(t *testing.T) {
 	}
 }
 
+func TestActivatePlayerItem_CaveVehiclesBlockedInOverworld(t *testing.T) {
+	g := NewGame()
+	g.currentState = StateOverworld
+	g.OverworldVehicles = nil
+
+	subKit := &vehicle.ScoutSubKit{}
+	mechKit := &vehicle.HeavyMechKit{}
+
+	g.player.Inventory.Clear()
+	g.player.Inventory.AddItem(subKit, 1)
+	g.player.Inventory.AddItem(mechKit, 1)
+
+	// Attempting to deploy Scout Sub in overworld
+	g.ActivatePlayerItem(subKit)
+
+	if len(g.OverworldVehicles) != 0 {
+		t.Fatalf("expected 0 overworld vehicles, got %d", len(g.OverworldVehicles))
+	}
+	if g.player.Inventory.Count(subKit) != 1 {
+		t.Errorf("expected ScoutSubKit to remain in inventory, count was %d", g.player.Inventory.Count(subKit))
+	}
+	if g.MineWarning.Message == "" {
+		t.Error("expected mine warning to be set when deploying Scout Sub in overworld")
+	}
+
+	// Attempting to deploy Heavy Mech in overworld
+	g.ActivatePlayerItem(mechKit)
+
+	if len(g.OverworldVehicles) != 0 {
+		t.Fatalf("expected 0 overworld vehicles, got %d", len(g.OverworldVehicles))
+	}
+	if g.player.Inventory.Count(mechKit) != 1 {
+		t.Errorf("expected HeavyMechKit to remain in inventory, count was %d", g.player.Inventory.Count(mechKit))
+	}
+}
+
+func TestActivatePlayerItem_SkiffBlockedInCave(t *testing.T) {
+	g := NewGame()
+	g.currentState = StateCave
+	g.activeTrenchKey = "0_0"
+	g.CaveVehicles[g.activeTrenchKey] = nil
+
+	skiffKit := &vehicle.SkiffKit{}
+	g.player.Inventory.Clear()
+	g.player.Inventory.AddItem(skiffKit, 1)
+
+	// Attempting to deploy Skiff in cave
+	g.ActivatePlayerItem(skiffKit)
+
+	if len(g.CaveVehicles[g.activeTrenchKey]) != 0 {
+		t.Fatalf("expected 0 cave vehicles, got %d", len(g.CaveVehicles[g.activeTrenchKey]))
+	}
+	if g.player.Inventory.Count(skiffKit) != 1 {
+		t.Errorf("expected SkiffKit to remain in inventory, count was %d", g.player.Inventory.Count(skiffKit))
+	}
+	if g.MineWarning.Message == "" {
+		t.Error("expected mine warning to be set when deploying Skiff in cave")
+	}
+}
+
 func landTileNearWater(g *Game) gvec.Vec2 {
 	w := g.world
 	// Prefer a land tile adjacent to water near the spawn/lifepod area.
