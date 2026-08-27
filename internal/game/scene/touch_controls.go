@@ -19,6 +19,7 @@ const (
 	TouchContextOnFoot // overworld on foot — Dive/Interact
 	TouchContextCave   // cave on foot — Use (mine / tools)
 	TouchContextDriving
+	TouchContextCaveDriving
 	TouchContextInventory
 	TouchContextMenu
 )
@@ -30,6 +31,13 @@ const (
 	stickDeadzone    = 0.25
 	stickSprintMag   = 0.92
 	buttonHitPadding = 10.0
+
+	// uiDragThreshold is how far a finger must move in the menu before the
+	// gesture becomes a scroll instead of a tap. Menu lists only listen to
+	// mouse-wheel deltas, so drag motion is converted to wheel units
+	// (pixels / uiDragWheelScale) to match ScrollY -= wy * 15.
+	uiDragThreshold  = 10.0
+	uiDragWheelScale = 15.0
 )
 
 var (
@@ -54,9 +62,13 @@ type touchButton struct {
 	contexts   []TouchContext
 	touchID    ebiten.TouchID
 	held       bool
+	condition  func() bool
 }
 
 func (b *touchButton) visibleIn(ctx TouchContext) bool {
+	if b.condition != nil && !b.condition() {
+		return false
+	}
 	for _, c := range b.contexts {
 		if c == ctx {
 			return true
@@ -75,6 +87,11 @@ func (b *touchButton) hit(x, y float64) bool {
 type TouchControls struct {
 	active  bool // touch mode: shown after any touch, hidden on keyboard/mouse input
 	context TouchContext
+
+	canEnterVehicle   bool
+	canEnterLifePod   bool
+	hasVehicleSonar   bool
+	hasVehicleSpecial bool
 
 	// Thumbstick state. The stick anchors where the touch begins inside the
 	// bottom-left zone and follows that touch until release.
@@ -99,6 +116,16 @@ type TouchControls struct {
 	tapConsumed bool
 	tapPos      gvec.Vec2
 
+	// Menu UI drag: press is held until release so a finger swipe can scroll
+	// list tabs (fabricator / quests / logs) without firing a click. If the
+	// finger never exceeds uiDragThreshold, release synthesizes a tap.
+	uiDragActive   bool
+	uiDragTouch    ebiten.TouchID
+	uiDragStart    gvec.Vec2
+	uiDragLast     gvec.Vec2
+	uiDragMoved    bool
+	uiScrollWheelY float64 // synthesized wheel Y for this frame (matches ebiten.Wheel)
+
 	touchIDs    []ebiten.TouchID
 	justTouched []ebiten.TouchID
 	keyScratch  []ebiten.Key
@@ -108,34 +135,56 @@ type TouchControls struct {
 func NewTouchControls() *TouchControls {
 	onFoot := []TouchContext{TouchContextOnFoot}
 	cave := []TouchContext{TouchContextCave}
-	driving := []TouchContext{TouchContextDriving}
+	driving := []TouchContext{TouchContextDriving, TouchContextCaveDriving}
+	overworldDriving := []TouchContext{TouchContextDriving}
+	caveOrCaveDriving := []TouchContext{TouchContextCave, TouchContextCaveDriving}
 	onFootOrCave := []TouchContext{TouchContextOnFoot, TouchContextCave}
-	gameplay := []TouchContext{TouchContextOnFoot, TouchContextCave, TouchContextDriving}
+	gameplay := []TouchContext{TouchContextOnFoot, TouchContextCave, TouchContextDriving, TouchContextCaveDriving}
 
-	return &TouchControls{
+	tc := &TouchControls{
 		virtualHeld: make(map[ebiten.Key]bool),
 		virtualJust: make(map[ebiten.Key]bool),
-		buttons: []*touchButton{
-			// Primary action: dive on overworld, use/mine in caves, exit while driving.
-			{cx: 1185, cy: 615, r: 48, key: ebiten.KeyE, icon: makeTouchIcon(drawIconDive), contexts: onFoot},
-			{cx: 1185, cy: 615, r: 48, mouseLeft: true, nearestUse: true, icon: makeTouchIcon(drawIconUse), contexts: cave},
-			{cx: 1185, cy: 615, r: 48, key: ebiten.KeyF, icon: makeTouchIcon(drawIconExit), contexts: driving},
-			// Secondary arc.
-			{cx: 1078, cy: 655, r: 34, key: ebiten.KeyTab, icon: makeTouchIcon(drawIconInventory), contexts: gameplay},
-			{cx: 1053, cy: 560, r: 34, key: ebiten.KeyM, icon: makeTouchIcon(drawIconMap), contexts: onFootOrCave},
-			{cx: 1108, cy: 478, r: 34, key: ebiten.KeyJ, icon: makeTouchIcon(drawIconPDA), contexts: onFootOrCave},
-			{cx: 1053, cy: 560, r: 34, key: ebiten.KeyQ, icon: makeTouchIcon(drawIconSonar), contexts: driving},
-			{cx: 1108, cy: 478, r: 34, key: ebiten.KeySpace, icon: makeTouchIcon(drawIconAction), contexts: driving},
-			// Corner buttons.
-			{cx: 1240, cy: 40, r: 26, key: ebiten.KeyEscape, icon: makeTouchIcon(drawIconPause), contexts: gameplay},
-			{cx: 1240, cy: 40, r: 26, key: ebiten.KeyEscape, icon: makeTouchIcon(drawIconClose), contexts: []TouchContext{TouchContextInventory}},
-			{cx: 1240, cy: 40, r: 26, key: ebiten.KeyE, icon: makeTouchIcon(drawIconClose), contexts: []TouchContext{TouchContextMenu}},
-		},
 	}
+
+	tc.buttons = []*touchButton{
+		// Primary action: dive on overworld, use/mine in caves, exit while driving.
+		{cx: 1185, cy: 615, r: 48, key: ebiten.KeyE, icon: makeTouchIcon(drawIconDive), contexts: onFoot},
+		{cx: 1185, cy: 615, r: 48, mouseLeft: true, nearestUse: true, icon: makeTouchIcon(drawIconUse), contexts: cave},
+		{cx: 1185, cy: 615, r: 48, key: ebiten.KeyF, icon: makeTouchIcon(drawIconExit), contexts: driving},
+		// Cave sprint (hold Shift). Stick no longer auto-sprints in caves.
+		{cx: 1185, cy: 505, r: 36, key: ebiten.KeyShift, icon: makeTouchIcon(drawIconSprint), contexts: cave},
+		// Secondary arc.
+		{cx: 1078, cy: 655, r: 34, key: ebiten.KeyTab, icon: makeTouchIcon(drawIconInventory), contexts: gameplay},
+		{cx: 1053, cy: 560, r: 34, key: ebiten.KeyM, icon: makeTouchIcon(drawIconMap), contexts: onFoot},
+		{cx: 1053, cy: 560, r: 34, key: ebiten.KeyJ, icon: makeTouchIcon(drawIconPDA), contexts: caveOrCaveDriving},
+		{cx: 1108, cy: 478, r: 34, key: ebiten.KeyF, icon: makeTouchIcon(drawIconEnterVehicle), contexts: onFootOrCave, condition: func() bool { return tc.canEnterVehicle }},
+		{cx: 1000, cy: 460, r: 34, key: ebiten.KeyE, icon: makeTouchIcon(drawIconFabricator), contexts: onFoot, condition: func() bool { return tc.canEnterLifePod }},
+		{cx: 1053, cy: 560, r: 34, key: ebiten.KeyQ, icon: makeTouchIcon(drawIconSonar), contexts: driving, condition: func() bool { return tc.hasVehicleSonar }},
+		{cx: 1108, cy: 478, r: 34, key: ebiten.KeySpace, icon: makeTouchIcon(drawIconAction), contexts: driving, condition: func() bool { return tc.hasVehicleSpecial }},
+		{cx: 1000, cy: 460, r: 34, key: ebiten.KeyM, icon: makeTouchIcon(drawIconMap), contexts: overworldDriving},
+		// Corner buttons.
+		{cx: 1240, cy: 40, r: 26, key: ebiten.KeyEscape, icon: makeTouchIcon(drawIconPause), contexts: gameplay},
+		{cx: 1240, cy: 40, r: 26, key: ebiten.KeyEscape, icon: makeTouchIcon(drawIconClose), contexts: []TouchContext{TouchContextInventory}},
+		{cx: 1240, cy: 40, r: 26, key: ebiten.KeyE, icon: makeTouchIcon(drawIconClose), contexts: []TouchContext{TouchContextMenu}},
+	}
+
+	return tc
 }
 
 // SetContext selects the button set for the current game state. Call before Update.
 func (t *TouchControls) SetContext(ctx TouchContext) { t.context = ctx }
+
+// SetCanEnterVehicle updates whether the player is close enough to enter a vehicle.
+func (t *TouchControls) SetCanEnterVehicle(can bool) { t.canEnterVehicle = can }
+
+// SetCanEnterLifePod updates whether the player is close enough to enter the Life Pod.
+func (t *TouchControls) SetCanEnterLifePod(can bool) { t.canEnterLifePod = can }
+
+// SetVehicleCapabilities updates whether the active vehicle has sonar and/or special upgrades.
+func (t *TouchControls) SetVehicleCapabilities(hasSonar, hasSpecial bool) {
+	t.hasVehicleSonar = hasSonar
+	t.hasVehicleSpecial = hasSpecial
+}
 
 // Active reports whether touch mode is engaged (controls visible, synthetic cursor in use).
 func (t *TouchControls) Active() bool { return t.active }
@@ -166,6 +215,17 @@ func (t *TouchControls) TapCursor() (gvec.Vec2, bool) {
 	}
 	return gvec.Vec2{}, false
 }
+
+// UIPointer returns the active menu finger position while a UI drag/tap is held.
+func (t *TouchControls) UIPointer() (gvec.Vec2, bool) {
+	if t.uiDragActive {
+		return t.uiDragLast, true
+	}
+	return gvec.Vec2{}, false
+}
+
+// UIScrollWheelY returns wheel-Y synthesized from a menu finger drag this frame.
+func (t *TouchControls) UIScrollWheelY() float64 { return t.uiScrollWheelY }
 
 // ConsumeTap suppresses this frame's tap so it does not become a left-click.
 func (t *TouchControls) ConsumeTap() { t.tapConsumed = true }
@@ -199,6 +259,7 @@ func (t *TouchControls) Update() {
 	t.tapConsumed = false
 	t.virtualLeftClick = false
 	t.preferNearestUse = false
+	t.uiScrollWheelY = 0
 
 	// Physical keyboard/mouse input hides the touch overlay.
 	t.keyScratch = inpututil.AppendJustPressedKeys(t.keyScratch[:0])
@@ -215,9 +276,17 @@ func (t *TouchControls) Update() {
 	}
 	t.touchIDs = ebiten.AppendTouchIDs(t.touchIDs[:0])
 
-	gameplay := t.context == TouchContextOnFoot || t.context == TouchContextCave || t.context == TouchContextDriving
+	gameplay := t.context == TouchContextOnFoot || t.context == TouchContextCave || t.context == TouchContextDriving || t.context == TouchContextCaveDriving
+	menuUI := t.context == TouchContextMenu
 
-	// Route new touches: stick zone → stick, button hit → button, else tap.
+	// Leaving the menu cancels an in-progress UI drag without synthesizing a tap.
+	if t.uiDragActive && !menuUI {
+		t.uiDragActive = false
+		t.uiDragMoved = false
+	}
+
+	// Route new touches: stick zone → stick, button hit → button, else tap
+	// (or deferred menu drag/tap).
 	for _, id := range t.justTouched {
 		xi, yi := ebiten.TouchPosition(id)
 		x, y := float64(xi), float64(yi)
@@ -243,8 +312,42 @@ func (t *TouchControls) Update() {
 			}
 			continue
 		}
+		if menuUI && !t.uiDragActive {
+			t.uiDragActive = true
+			t.uiDragTouch = id
+			t.uiDragStart = gvec.Vec2{X: x, Y: y}
+			t.uiDragLast = t.uiDragStart
+			t.uiDragMoved = false
+			continue
+		}
 		t.tapPending = true
 		t.tapPos = gvec.Vec2{X: x, Y: y}
+	}
+
+	// Track menu finger: drag past threshold → scroll; release without move → tap.
+	if t.uiDragActive {
+		if !t.touchAlive(t.uiDragTouch) {
+			if !t.uiDragMoved {
+				t.tapPending = true
+				t.tapPos = t.uiDragStart
+			}
+			t.uiDragActive = false
+			t.uiDragMoved = false
+		} else {
+			xi, yi := ebiten.TouchPosition(t.uiDragTouch)
+			pos := gvec.Vec2{X: float64(xi), Y: float64(yi)}
+			dy := pos.Y - t.uiDragLast.Y
+			t.uiDragLast = pos
+			if !t.uiDragMoved {
+				if math.Hypot(pos.X-t.uiDragStart.X, pos.Y-t.uiDragStart.Y) >= uiDragThreshold {
+					t.uiDragMoved = true
+				}
+			}
+			if t.uiDragMoved && dy != 0 {
+				// Finger down → content follows → ScrollY decreases → positive wheel.
+				t.uiScrollWheelY = dy / uiDragWheelScale
+			}
+		}
 	}
 
 	// Track or release the stick touch.
@@ -275,7 +378,8 @@ func (t *TouchControls) Update() {
 		}
 	}
 
-	// Map stick deflection to WASD (+Shift sprint at full deflection).
+	// Map stick deflection to WASD. Full deflection sprints on overworld/driving;
+	// caves use a dedicated Sprint button so normal swimming does not drain stamina.
 	// The Skiff reads StickAxes directly for aim-steering; other craft still use WASD.
 	if t.stickActive {
 		mag := math.Hypot(t.stickVec.X, t.stickVec.Y)
@@ -294,7 +398,7 @@ func (t *TouchControls) Update() {
 			if ny > 0.4 {
 				t.virtualHeld[ebiten.KeyS] = true
 			}
-			if mag > stickSprintMag {
+			if mag > stickSprintMag && t.context != TouchContextCave && t.context != TouchContextCaveDriving {
 				t.virtualHeld[ebiten.KeyShift] = true
 			}
 		}
@@ -325,7 +429,7 @@ func (t *TouchControls) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	if t.context == TouchContextOnFoot || t.context == TouchContextCave || t.context == TouchContextDriving {
+	if t.context == TouchContextOnFoot || t.context == TouchContextCave || t.context == TouchContextDriving || t.context == TouchContextCaveDriving {
 		origin := gvec.Vec2{X: 170, Y: 565}
 		if t.stickActive {
 			origin = t.stickOrigin
@@ -406,6 +510,17 @@ func drawIconUse(dst *ebiten.Image) {
 	vector.StrokeLine(dst, 16, 18, 38, 18, 3, c, true)
 }
 
+// drawIconSprint draws a double chevron (>>) for hold-to-sprint.
+func drawIconSprint(dst *ebiten.Image) {
+	c := touchIconColor
+	// Left chevron.
+	vector.StrokeLine(dst, 10, 14, 22, 24, 3.5, c, true)
+	vector.StrokeLine(dst, 22, 24, 10, 34, 3.5, c, true)
+	// Right chevron.
+	vector.StrokeLine(dst, 24, 14, 36, 24, 3.5, c, true)
+	vector.StrokeLine(dst, 36, 24, 24, 34, 3.5, c, true)
+}
+
 // drawIconExit draws a doorway bracket with an arrow leaving it.
 func drawIconExit(dst *ebiten.Image) {
 	c := touchIconColor
@@ -417,6 +532,42 @@ func drawIconExit(dst *ebiten.Image) {
 	vector.StrokeLine(dst, 16, 24, 40, 24, 3, c, true)
 	vector.StrokeLine(dst, 40, 24, 31, 15, 3, c, true)
 	vector.StrokeLine(dst, 40, 24, 31, 33, 3, c, true)
+}
+
+// drawIconEnterVehicle draws a doorway/hatch frame with an arrow entering it.
+func drawIconEnterVehicle(dst *ebiten.Image) {
+	c := touchIconColor
+	// Door frame open to the left.
+	vector.StrokeLine(dst, 28, 8, 40, 8, 3, c, true)
+	vector.StrokeLine(dst, 40, 8, 40, 40, 3, c, true)
+	vector.StrokeLine(dst, 40, 40, 28, 40, 3, c, true)
+	// Arrow pointing in.
+	vector.StrokeLine(dst, 8, 24, 32, 24, 3, c, true)
+	vector.StrokeLine(dst, 23, 15, 32, 24, 3, c, true)
+	vector.StrokeLine(dst, 23, 33, 32, 24, 3, c, true)
+}
+
+// drawIconFabricator draws a life-pod / fabricator unit with a crafting cube.
+func drawIconFabricator(dst *ebiten.Image) {
+	c := touchIconColor
+	// Outer capsule / unit frame.
+	vector.StrokeRect(dst, 11, 8, 26, 32, 2.5, c, true)
+	// Top pod beacon / hatch cap.
+	vector.StrokeLine(dst, 18, 8, 18, 5, 2, c, true)
+	vector.StrokeLine(dst, 30, 8, 30, 5, 2, c, true)
+	vector.StrokeLine(dst, 18, 5, 30, 5, 2, c, true)
+	// Internal synthesis / crafting cube (isometric).
+	// Top face.
+	vector.StrokeLine(dst, 24, 15, 31, 19, 1.8, c, true)
+	vector.StrokeLine(dst, 31, 19, 24, 23, 1.8, c, true)
+	vector.StrokeLine(dst, 24, 23, 17, 19, 1.8, c, true)
+	vector.StrokeLine(dst, 17, 19, 24, 15, 1.8, c, true)
+	// Bottom edges.
+	vector.StrokeLine(dst, 17, 19, 17, 28, 1.8, c, true)
+	vector.StrokeLine(dst, 31, 19, 31, 28, 1.8, c, true)
+	vector.StrokeLine(dst, 24, 23, 24, 32, 1.8, c, true)
+	vector.StrokeLine(dst, 17, 28, 24, 32, 1.8, c, true)
+	vector.StrokeLine(dst, 31, 28, 24, 32, 1.8, c, true)
 }
 
 // drawIconInventory draws a 2x2 grid of slots.
@@ -515,6 +666,11 @@ func (c *CombinedInput) Cursor() gvec.Vec2 {
 		c.haveCursor = true
 		return pos
 	}
+	if pos, ok := c.touch.UIPointer(); ok {
+		c.lastCursor = pos
+		c.haveCursor = true
+		return pos
+	}
 	if dir, ok := c.touch.StickFacing(); ok {
 		c.lastCursor = gvec.Vec2{
 			X: float64(config.ScreenWidth)/2.0 + dir.X*120.0,
@@ -565,7 +721,13 @@ func (c *CombinedInput) StickAxes() (gvec.Vec2, bool) {
 	return c.touch.StickAxes()
 }
 
-func (c *CombinedInput) Wheel() (float64, float64) { return c.base.Wheel() }
+func (c *CombinedInput) Wheel() (float64, float64) {
+	wx, wy := c.base.Wheel()
+	if c.touch != nil {
+		wy += c.touch.UIScrollWheelY()
+	}
+	return wx, wy
+}
 
 func (c *CombinedInput) AppendInputChars(runes []rune) []rune {
 	return c.base.AppendInputChars(runes)

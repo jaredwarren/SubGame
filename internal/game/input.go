@@ -22,12 +22,13 @@ type TouchContext = scene.TouchContext
 
 // Touch context values selecting which virtual controls are shown.
 const (
-	TouchContextHidden    = scene.TouchContextHidden
-	TouchContextOnFoot    = scene.TouchContextOnFoot
-	TouchContextCave      = scene.TouchContextCave
-	TouchContextDriving   = scene.TouchContextDriving
-	TouchContextInventory = scene.TouchContextInventory
-	TouchContextMenu      = scene.TouchContextMenu
+	TouchContextHidden      = scene.TouchContextHidden
+	TouchContextOnFoot      = scene.TouchContextOnFoot
+	TouchContextCave        = scene.TouchContextCave
+	TouchContextDriving     = scene.TouchContextDriving
+	TouchContextCaveDriving = scene.TouchContextCaveDriving
+	TouchContextInventory   = scene.TouchContextInventory
+	TouchContextMenu        = scene.TouchContextMenu
 )
 
 // NewEbitenInput creates a new EbitenInput.

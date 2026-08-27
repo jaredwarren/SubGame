@@ -22,6 +22,9 @@ import (
 func (g *Game) Update() error {
 	if g.touch != nil {
 		g.touch.SetContext(g.touchContext())
+		g.touch.SetCanEnterVehicle(g.canEnterVehicleNearby())
+		g.touch.SetCanEnterLifePod(g.canEnterLifePodNearby())
+		g.touch.SetVehicleCapabilities(g.activeVehicleHasSonar(), g.activeVehicleHasSpecial())
 	}
 	g.Input.Update()
 	audio.Get().Update()
@@ -302,7 +305,7 @@ func (g *Game) touchContext() TouchContext {
 			return TouchContextInventory
 		}
 		if g.ActiveVehicle != nil {
-			return TouchContextDriving
+			return TouchContextCaveDriving
 		}
 		return TouchContextCave
 	case StateBaseMenu:
@@ -392,6 +395,8 @@ func (g *Game) handleInput() {
 	}
 	if g.currentState == StateOverworld && g.baseStation.DistanceToPlayer(g.player) < 100.0 && g.Input.IsKeyJustPressed(ebiten.KeyE) {
 		audio.Get().PlaySFX("sfx/airlock_cycle.wav")
+		g.menuOpenedAnywhere = false
+		g.baseMenu.ActiveTab = 1
 		g.TransitionTo(g.baseMenu)
 	}
 	if g.Input.IsKeyJustPressed(ebiten.KeyJ) {
@@ -856,6 +861,74 @@ func (g *Game) checkVehicleEntry() {
 			g.ActiveVehicle = v
 			return
 		}
+	}
+}
+
+// canEnterVehicleNearby reports whether an idle vehicle in the current scene is
+// within boarding distance (< 60 units) of the player.
+func (g *Game) canEnterVehicleNearby() bool {
+	if g.ActiveVehicle != nil || g.justExited || g.player == nil {
+		return false
+	}
+	candidates := g.getVehiclesForCurrentScene()
+	for _, v := range candidates {
+		vPos := v.GetPos()
+		vDims := v.GetDimensions()
+		dist := math.Hypot(vPos.X+vDims.X/2.0-g.player.Pos.X-g.player.Width/2.0,
+			vPos.Y+vDims.Y/2.0-g.player.Pos.Y-g.player.Height/2.0)
+		if dist < 60.0 {
+			return true
+		}
+	}
+	return false
+}
+
+// canEnterLifePodNearby reports whether the player is on foot in the overworld and
+// within interaction distance (< 100 units) of the Life Pod.
+func (g *Game) canEnterLifePodNearby() bool {
+	if g.currentState != StateOverworld || g.ActiveVehicle != nil || g.player == nil || g.baseStation == nil {
+		return false
+	}
+	return g.baseStation.DistanceToPlayer(g.player) < 100.0
+}
+
+// activeVehicleHasSonar reports whether the vehicle currently being piloted has a
+// functional sonar upgrade installed.
+func (g *Game) activeVehicleHasSonar() bool {
+	if g.ActiveVehicle == nil {
+		return false
+	}
+	upg := g.ActiveVehicle.GetUpgrades()
+	if upg == nil {
+		return false
+	}
+	switch g.ActiveVehicle.GetID() {
+	case vehicle.VehicleSkiff:
+		return item.HasItem[*item.SurfaceSonar](upg, 1)
+	case vehicle.VehicleScoutSub:
+		return item.HasItem[*item.SonarAmplifier](upg, 1)
+	default:
+		return false
+	}
+}
+
+// activeVehicleHasSpecial reports whether the vehicle currently being piloted has a
+// special action upgrade installed (decoy launcher or chemical discharger).
+func (g *Game) activeVehicleHasSpecial() bool {
+	if g.ActiveVehicle == nil {
+		return false
+	}
+	upg := g.ActiveVehicle.GetUpgrades()
+	if upg == nil {
+		return false
+	}
+	switch g.ActiveVehicle.GetID() {
+	case vehicle.VehicleScoutSub:
+		return item.HasItem[*item.DecoyLauncher](upg, 1) || item.HasItem[*item.ChemicalDischarger](upg, 1)
+	case vehicle.VehicleHeavyMech:
+		return item.HasItem[*item.DecoyLauncher](upg, 1) || item.HasItem[*item.ChemicalDischarger](upg, 1)
+	default:
+		return false
 	}
 }
 
