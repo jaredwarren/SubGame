@@ -136,13 +136,18 @@ func (cc crateContext) IsPiloting() bool {
 func (cc crateContext) AddLoot(loot item.Item) bool {
 	v := cc.g.GetActiveVehicle()
 	if v != nil {
-		return v.GetCargo().AddItem(loot, 1)
+		added := v.GetCargo().AddItem(loot, 1)
+		if added {
+			cc.g.AddItemToast(loot, 1)
+		}
+		return added
 	}
 	p := cc.g.GetPlayer()
 	added := p.Inventory.AddItem(loot, 1)
 	if added {
 		p.RecalculateUpgrades()
 		cc.g.NotifyQuestInventoryChanged(loot.GetID())
+		cc.g.AddItemToast(loot, 1)
 	}
 	return added
 }

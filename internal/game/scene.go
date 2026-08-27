@@ -19,6 +19,7 @@ type BaseMenuScene = scene.BaseMenuScene
 type GameOverScene = scene.GameOverScene
 type GameWonScene = scene.GameWonScene
 type HUD = scene.HUD
+type ToastManager = scene.ToastManager
 
 // Crafting types re-exported for tests in package game.
 type Recipe = scene.Recipe
@@ -35,6 +36,7 @@ func NewBaseMenuScene() *BaseMenuScene { return scene.NewBaseMenuScene() }
 func NewGameOverScene() *GameOverScene { return scene.NewGameOverScene() }
 func NewGameWonScene() *GameWonScene   { return scene.NewGameWonScene() }
 func NewHUD() *HUD                    { return scene.NewHUD() }
+func NewToastManager() *ToastManager  { return scene.NewToastManager() }
 
 func NewOverworldScene(w *world.World) *OverworldScene {
 	return scene.NewOverworldScene(w)

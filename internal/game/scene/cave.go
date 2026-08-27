@@ -53,6 +53,7 @@ type CaveContext interface {
 	TransitionToPDA()
 	SetCurrentState(s State)
 	SetMineWarning(msg string, duration, level int)
+	AddItemToast(it item.Item, qty int)
 	GetWeaverTrackingTimer() float64
 	SetWeaverTrackingTimer(v float64)
 

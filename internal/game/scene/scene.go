@@ -117,6 +117,7 @@ type UIAccess interface {
 	SetInventoryOpen(v bool)
 	GetMineWarning() (msg string, timer int)
 	SetMineWarning(msg string, duration, level int)
+	AddItemToast(it item.Item, qty int)
 	IsMenuOpenedAnywhere() bool
 }
 

@@ -44,6 +44,7 @@ type MenuContext interface {
 	TransitionToGameWon()
 	SetCurrentState(s State)
 	SetMineWarning(msg string, duration, level int)
+	AddItemToast(it item.Item, qty int)
 	SaveGame() error
 }
 
@@ -276,6 +277,7 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 									audio.Get().PlaySFX("sfx/fabricator_success.wav")
 									g.NotifyQuestCrafted(newItm.GetID())
 									g.NotifyQuestInventoryChanged(newItm.GetID())
+									g.AddItemToast(newItm, resQty)
 								} else {
 									audio.Get().PlaySFX("sfx/ui_error.wav")
 								}

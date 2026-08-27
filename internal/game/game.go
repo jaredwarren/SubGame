@@ -67,6 +67,7 @@ type Game struct {
 	Progress
 
 	hud             *HUD
+	toasts          *ToastManager
 	touch           *TouchControls
 	showInventory   bool
 	showDebugMenu   bool
@@ -103,6 +104,7 @@ func NewGame() *Game {
 	g := &Game{
 		currentState: StateTitle,
 		hud:          NewHUD(),
+		toasts:       NewToastManager(),
 		touch:        touch,
 		debugMenu:    scene.NewDebugMenuScene(),
 		Session:      Session{Input: NewCombinedInput(NewEbitenInput(), touch)},

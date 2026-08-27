@@ -45,6 +45,7 @@ type OverworldContext interface {
 	SpawnBubble(x, y float64)
 	TriggerScreenShake(duration int, intensity float64)
 	SetMineWarning(msg string, duration, level int)
+	AddItemToast(it item.Item, qty int)
 	GetDeathReason() string
 	SetDeathReason(reason string)
 	DestroyOverworldVehicle(v vehicle.Vehicle)

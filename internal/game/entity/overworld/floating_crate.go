@@ -94,8 +94,6 @@ func (c *FloatingCrate) Update(g CrateContext) {
 			// FX
 			g.SpawnDebris(c.Pos.X, c.Pos.Y, color.RGBA{139, 90, 43, 255})
 			g.TriggerScreenShake(10, 1.5)
-
-			g.SetMineWarning("Salvaged: "+loot.GetName()+"!", 120, 1)
 		} else {
 			g.SetMineWarning("Inventory full! Cannot salvage crate.", 60, 2)
 		}

@@ -239,6 +239,9 @@ func (g *Game) advanceTimers() {
 	if g.MineWarning.Timer > 0 {
 		g.MineWarning.Timer--
 	}
+	if g.toasts != nil {
+		g.toasts.Update()
+	}
 }
 
 func (g *Game) applyActiveCheats() {
@@ -960,6 +963,8 @@ func (g *Game) drainVehicleCommands(rt *vehicleRuntimeAdapter) {
 			g.caveState.Entities = append(g.caveState.Entities, cloud)
 			g.SetCaveEntities(g.GetActiveTrenchKey(), g.caveState.Entities)
 			audio.Get().PlaySFX("sfx/deterrent_disperse.wav")
+		case vehicle.AddItemToastCmd:
+			g.AddItemToast(c.Item, c.Quantity)
 		}
 	}
 	rt.cmds = rt.cmds[:0]
@@ -1048,11 +1053,10 @@ func (g *Game) PickUpActiveVehicle() {
 	g.removeVehicle(v)
 	g.ActiveVehicle = nil
 	g.showInventory = false
+	g.AddItemToast(kit, 1)
 
 	if hadOverflow {
 		g.SetMineWarning("Picked up "+v.GetName()+"! Excess cargo dropped in cargo crate.", 150, 1)
-	} else {
-		g.SetMineWarning("Picked up "+v.GetName()+"!", 120, 1)
 	}
 }
 

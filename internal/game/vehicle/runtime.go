@@ -95,16 +95,23 @@ type SpawnDeterrentCloudCmd struct {
 	Pos gvec.Vec2
 }
 
+// AddItemToastCmd requests the game to display an item pickup toast popup.
+type AddItemToastCmd struct {
+	Item     item.Item
+	Quantity int
+}
+
 func (ActivateSonarCmd) gameCommand()        {}
 func (ActivateSurfaceSonarCmd) gameCommand() {}
 func (RemoveCaveNodeCmd) gameCommand()       {}
-func (UnlockRecipeCmd) gameCommand()       {}
-func (SpawnBubbleCmd) gameCommand()        {}
-func (SpawnDebrisCmd) gameCommand()        {}
-func (TriggerShakeCmd) gameCommand()       {}
-func (SetWarningCmd) gameCommand()         {}
-func (SpawnDecoyCmd) gameCommand()         {}
-func (SpawnDeterrentCloudCmd) gameCommand() {}
+func (UnlockRecipeCmd) gameCommand()         {}
+func (SpawnBubbleCmd) gameCommand()          {}
+func (SpawnDebrisCmd) gameCommand()          {}
+func (TriggerShakeCmd) gameCommand()         {}
+func (SetWarningCmd) gameCommand()           {}
+func (SpawnDecoyCmd) gameCommand()           {}
+func (SpawnDeterrentCloudCmd) gameCommand()   {}
+func (AddItemToastCmd) gameCommand()         {}
 
 // Runtime exposes world/game state that vehicles need without importing package game.
 // Synchronous queries return values immediately; mutations are submitted via Emit

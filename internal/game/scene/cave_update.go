@@ -386,7 +386,7 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 					if p.Inventory.AddItem(harvestedItem, 1) {
 						ent.SetActive(false)
 						c.Entities = append(c.Entities[:i], c.Entities[i+1:]...)
-						g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90, 1)
+						g.AddItemToast(harvestedItem, 1)
 						audio.Get().PlaySFX("sfx/item_pickup.wav")
 						g.NotifyQuestInventoryChanged(harvestedItem.GetID())
 						unlocked := g.GetStoryManager().TriggerEvent("catch", harvestedItem.GetName())
@@ -475,7 +475,7 @@ func (c *CaveScene) interactNearest(g CaveContext, p *player.Player, entityRunti
 		if p.Inventory.AddItem(harvestedItem, 1) {
 			ent.SetActive(false)
 			c.Entities = append(c.Entities[:bestCatchIdx], c.Entities[bestCatchIdx+1:]...)
-			g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90, 1)
+			g.AddItemToast(harvestedItem, 1)
 			audio.Get().PlaySFX("sfx/item_pickup.wav")
 			g.NotifyQuestInventoryChanged(harvestedItem.GetID())
 			unlocked := g.GetStoryManager().TriggerEvent("catch", harvestedItem.GetName())
@@ -541,6 +541,7 @@ func (c *CaveScene) strikeMineNode(g CaveContext, p *player.Player, i int, node 
 			p.Inventory.AddItem(node, 1)
 			audio.Get().PlaySFX("sfx/item_pickup.wav")
 			g.NotifyQuestInventoryChanged(node.GetID())
+			g.AddItemToast(node, 1)
 			unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
 			if unlocked != nil {
 				g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)

@@ -51,6 +51,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawWarningBanner(screen)
 	}
 
+	if (g.currentState == StateOverworld || g.currentState == StateCave || g.currentState == StateBaseMenu) && g.toasts != nil {
+		g.toasts.Draw(screen)
+	}
+
 	if g.showDebugMenu && g.debugMenu != nil {
 		g.debugMenu.Draw(screen, g)
 	}

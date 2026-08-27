@@ -220,6 +220,12 @@ func (g *Game) SetMineWarning(msg string, duration, level int) {
 	g.MineWarning.Level = level
 }
 
+func (g *Game) AddItemToast(it item.Item, qty int) {
+	if g.toasts != nil {
+		g.toasts.Add(it, qty)
+	}
+}
+
 // TriggerScreenShake is defined in game.go.
 
 // --- Death state ---

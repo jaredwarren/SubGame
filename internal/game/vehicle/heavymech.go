@@ -200,6 +200,7 @@ func (m *HeavyMech) tickDrill(runtime Runtime) {
 				} else {
 					if m.Cargo.AddItem(m.TargetDrillNode, 1) {
 						runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
+						runtime.Emit(AddItemToastCmd{Item: m.TargetDrillNode, Quantity: 1})
 					} else {
 						m.TargetDrillNode.SetHitsToMine(1)
 						runtime.Emit(SetWarningCmd{
