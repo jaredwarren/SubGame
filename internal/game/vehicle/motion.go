@@ -35,6 +35,88 @@ func ApplyDragClamp(vel *gvec.Vec2, drag, maxSpeed float64) {
 	}
 }
 
+// ApplyLateralDrag decays velocity perpendicular to facing so the craft tracks
+// its heading instead of sliding sideways.
+func ApplyLateralDrag(vel *gvec.Vec2, facing, keep float64) {
+	if keep >= 1 {
+		return
+	}
+	if keep < 0 {
+		keep = 0
+	}
+	fx := math.Cos(facing)
+	fy := math.Sin(facing)
+	fwd := vel.X*fx + vel.Y*fy
+	latX := vel.X - fwd*fx
+	latY := vel.Y - fwd*fy
+	vel.X = fwd*fx + latX*keep
+	vel.Y = fwd*fy + latY*keep
+}
+
+// TurnScaleForSpeed returns a 0–1 multiplier that is idleScale at rest and 1 at maxSpeed.
+func TurnScaleForSpeed(speed, maxSpeed, idleScale float64) float64 {
+	if maxSpeed <= 0 {
+		return 1
+	}
+	frac := speed / maxSpeed
+	if frac < 0 {
+		frac = 0
+	}
+	if frac > 1 {
+		frac = 1
+	}
+	return idleScale + (1-idleScale)*frac
+}
+
+const analogStickDeadzone = 0.18
+
+type analogStickInput interface {
+	StickAxes() (gvec.Vec2, bool)
+}
+
+// AnalogAimAxes returns stick direction as a desired facing angle and magnitude as
+// throttle. ok is true whenever a stick touch is held (even in the deadzone) so
+// callers can ignore digital WASD for that frame.
+func AnalogAimAxes(input InputSource) (desiredFacing, throttle float64, ok bool) {
+	a, ok := input.(analogStickInput)
+	if !ok {
+		return 0, 0, false
+	}
+	vec, held := a.StickAxes()
+	if !held {
+		return 0, 0, false
+	}
+	mag := math.Hypot(vec.X, vec.Y)
+	if mag <= analogStickDeadzone {
+		return 0, 0, true
+	}
+	t := (mag - analogStickDeadzone) / (1 - analogStickDeadzone)
+	if t > 1 {
+		t = 1
+	}
+	return math.Atan2(vec.Y, vec.X), t, true
+}
+
+// SteerToward rotates facing toward desired by at most maxStep radians (shortest path).
+func SteerToward(facing *float64, desired, maxStep float64) {
+	delta := desired - *facing
+	for delta > math.Pi {
+		delta -= 2 * math.Pi
+	}
+	for delta < -math.Pi {
+		delta += 2 * math.Pi
+	}
+	if math.Abs(delta) <= maxStep {
+		*facing = desired
+		return
+	}
+	if delta > 0 {
+		*facing += maxStep
+	} else {
+		*facing -= maxStep
+	}
+}
+
 // DrainBatteryOnMove subtracts drain when moving with power; returns whether power remains.
 func DrainBatteryOnMove(battery *float64, moving, hasPower bool, drain float64) bool {
 	if moving && hasPower {

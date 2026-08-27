@@ -3,13 +3,21 @@ package save
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/quest"
 )
+
+// storageBackend abstracts save persistence so desktop builds use files and
+// WASM builds use the browser's localStorage (see storage_file.go / storage_js.go).
+type storageBackend interface {
+	read(name string) ([]byte, error)
+	write(name string, data []byte) error
+	remove(name string) error
+	exists(name string) bool
+}
 
 const (
 	DefaultSaveFileName = "save.json"
@@ -125,8 +133,7 @@ func HasAnySaveFile() bool {
 			return true
 		}
 	}
-	_, err := os.Stat(DefaultSaveFileName)
-	return err == nil
+	return store.exists(DefaultSaveFileName)
 }
 
 // HasSaveFile checks whether any save file exists on disk.
@@ -135,8 +142,7 @@ func HasSaveFile() bool {
 }
 
 func slotExists(slot int) bool {
-	_, err := os.Stat(GetSlotPath(slot))
-	return err == nil
+	return store.exists(GetSlotPath(slot))
 }
 
 func validSlot(slot int) bool {
@@ -146,26 +152,28 @@ func validSlot(slot int) bool {
 // migrateLegacySave moves save.json into slot 1 when slot 1 is empty.
 func migrateLegacySave() {
 	legacyPath := DefaultSaveFileName
-	if _, err := os.Stat(legacyPath); err != nil {
+	if !store.exists(legacyPath) || store.exists(GetSlotPath(1)) {
 		return
 	}
-	slot1Path := GetSlotPath(1)
-	if _, err := os.Stat(slot1Path); err == nil {
+	data, err := store.read(legacyPath)
+	if err != nil {
 		return
 	}
-	_ = os.Rename(legacyPath, slot1Path)
+	if store.write(GetSlotPath(1), data) == nil {
+		_ = store.remove(legacyPath)
+	}
 }
 
 // probeSlot returns metadata for one slot without loading the full save.
 func probeSlot(slot int) SlotInfo {
 	info := SlotInfo{Slot: slot}
 	path := GetSlotPath(slot)
-	if _, err := os.Stat(path); err != nil {
+	if !store.exists(path) {
 		return info
 	}
 	info.Occupied = true
 
-	bytes, err := os.ReadFile(path)
+	bytes, err := store.read(path)
 	if err != nil {
 		return info
 	}
@@ -194,10 +202,10 @@ func DeleteSlot(slot int) error {
 		return fmt.Errorf("invalid save slot: %d", slot)
 	}
 	path := GetSlotPath(slot)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if !store.exists(path) {
 		return nil
 	}
-	return os.Remove(path)
+	return store.remove(path)
 }
 
 // SaveToFile serializes SaveData into a JSON file atomically.
@@ -212,16 +220,12 @@ func SaveToFile(filePath string, data *SaveData) error {
 	if err != nil {
 		return err
 	}
-	tmpFile := filePath + ".tmp"
-	if err := os.WriteFile(tmpFile, bytes, 0644); err != nil {
-		return err
-	}
-	return os.Rename(tmpFile, filePath)
+	return store.write(filePath, bytes)
 }
 
 // LoadFromFile reads and deserializes a SaveData JSON file.
 func LoadFromFile(filePath string) (*SaveData, error) {
-	bytes, err := os.ReadFile(filePath)
+	bytes, err := store.read(filePath)
 	if err != nil {
 		return nil, err
 	}

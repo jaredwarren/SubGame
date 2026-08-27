@@ -182,8 +182,8 @@ func (wp *Whirlpool) Draw(screen *ebiten.Image, camX, camY float64) {
 	vector.FillCircle(screen, cx, cy, float32(18.0*wp.Alpha), color.RGBA{4, 8, 20, uint8(225 * wp.Alpha)}, false)
 
 	// Draw spiral arms
-	numArms := 6
-	pointsPerArm := 25
+	numArms := 5
+	pointsPerArm := 14
 	maxAngle := 3.2 * math.Pi
 
 	for arm := 0; arm < numArms; arm++ {

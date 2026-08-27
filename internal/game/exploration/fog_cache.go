@@ -65,11 +65,12 @@ func (t *Tracker) ensureFogDist() {
 	}
 }
 
-func (t *Tracker) refreshFogDistNear(cx, cy int) {
+func (t *Tracker) refreshFogDistNear(cx, cy, extra int) {
 	t.ensureFogDist()
 	search := int(math.Ceil(FogFalloffTiles)) + 1
-	for dy := -search; dy <= search; dy++ {
-		for dx := -search; dx <= search; dx++ {
+	r := search + extra
+	for dy := -r; dy <= r; dy++ {
+		for dx := -r; dx <= r; dx++ {
 			tx, ty := cx+dx, cy+dy
 			if tx < 0 || ty < 0 || tx >= t.width || ty >= t.height {
 				continue

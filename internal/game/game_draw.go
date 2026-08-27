@@ -54,6 +54,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.showDebugMenu && g.debugMenu != nil {
 		g.debugMenu.Draw(screen, g)
 	}
+
+	if g.touch != nil {
+		g.touch.Draw(screen)
+	}
 }
 
 // drawOverworldLayer renders vehicles, the base station, and interaction prompts.

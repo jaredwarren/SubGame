@@ -69,7 +69,11 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 	o.DrawExtras(g, screen)
 
 	if o.whirlpool != nil {
-		o.whirlpool.Draw(screen, camX, camY)
+		margin := o.whirlpool.Radius + 24
+		if o.whirlpool.Pos.X >= camX-margin && o.whirlpool.Pos.X <= camX+float64(config.ScreenWidth)+margin &&
+			o.whirlpool.Pos.Y >= camY-margin && o.whirlpool.Pos.Y <= camY+float64(config.ScreenHeight)+margin {
+			o.whirlpool.Draw(screen, camX, camY)
+		}
 	}
 
 	if !isPiloting {
@@ -186,7 +190,7 @@ func (o *OverworldScene) DrawFogOverlay(g OverworldContext, screen *ebiten.Image
 	startTileY := tileAt(camY, config.TileSize)
 	endTileY := tileAt(camY+float64(config.ScreenHeight), config.TileSize) + 1
 
-	const sub = 4 // sub-cells per tile for a smoother gradient
+	const sub = 2 // 2×2 sub-cells keeps a soft edge without thousands of FillRects
 	cell := float32(config.TileSize) / sub
 	falloff := exploration.FogFalloffTiles
 
@@ -500,7 +504,7 @@ func (o *OverworldScene) drawWaves(screen *ebiten.Image, startTileX, endTileX, s
 						tileRngVal = 1
 					}
 					tileRng := statelessRNG(tileRngVal)
-					if tileRng.float64() < 0.5 {
+					if tileRng.float64() < 0.18 {
 						rngVal := hashCoords(tx, ty) ^ 0x5555555555555555
 						if rngVal == 0 {
 							rngVal = 1
@@ -519,8 +523,8 @@ func (o *OverworldScene) drawWaves(screen *ebiten.Image, startTileX, endTileX, s
 
 						// Fade in and out
 						opacity := math.Sin(lifeFrac * math.Pi)
-						if opacity < 0 {
-							opacity = 0
+						if opacity < 0.12 {
+							continue
 						}
 
 						// Slow wind drift to the left and slightly down
@@ -567,54 +571,36 @@ func (o *OverworldScene) drawWaves(screen *ebiten.Image, startTileX, endTileX, s
 }
 
 func (o *OverworldScene) drawVehicleBeacons(screen *ebiten.Image, startTileX, endTileX, startTileY, endTileY int, g OverworldContext, camX, camY float64) {
-	// Precompute active cave vehicle coordinates to avoid Sprintf allocations per tile.
-	var cavesWithVehicles map[[2]int]bool
-	hasVoidDiveVehicle := false
-	if vehiclesMap := g.GetAllCaveVehicles(); len(vehiclesMap) > 0 {
-		cavesWithVehicles = make(map[[2]int]bool)
-		for key, vehicles := range vehiclesMap {
-			if len(vehicles) > 0 {
-				if key == "void_dive" {
-					hasVoidDiveVehicle = true
-				} else {
-					var cx, cy int
-					if _, err := fmt.Sscanf(key, "%d_%d", &cx, &cy); err == nil {
-						cavesWithVehicles[[2]int{cx, cy}] = true
-					}
-				}
-			}
+	drawBeacon := func(tx, ty int) {
+		if tx < startTileX || tx >= endTileX || ty < startTileY || ty >= endTileY {
+			return
 		}
+		sx := float32(tx*config.TileSize) - float32(camX)
+		sy := float32(ty*config.TileSize) - float32(camY)
+		cx := sx + float32(config.TileSize)/2.0
+		cy := sy + float32(config.TileSize)/2.0
+		pulse := float32(math.Sin(g.GetTicks()*0.08)) * 3.5
+		radius := float32(12.0) + pulse
+		vector.StrokeCircle(screen, cx, cy, radius, 1.5, color.RGBA{0, 220, 255, 140}, false)
+		vector.FillCircle(screen, cx, cy, 5.0, color.RGBA{0, 120, 180, 220}, false)
+		vector.StrokeCircle(screen, cx, cy, 5.0, 1.0, color.RGBA{0, 240, 255, 255}, false)
+		vector.FillCircle(screen, cx, cy, 1.5, color.RGBA{255, 255, 255, 255}, false)
 	}
 
-	trenchKey := g.GetActiveTrenchKey()
-	trenchX, trenchY := g.GetActiveTrenchCoords()
-
-	for tx := startTileX; tx < endTileX; tx++ {
-		for ty := startTileY; ty < endTileY; ty++ {
-			sx := float32(tx*config.TileSize - int(camX))
-			sy := float32(ty*config.TileSize - int(camY))
-
-			hasVehicle := false
-			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
-				if cavesWithVehicles != nil && cavesWithVehicles[[2]int{tx, ty}] {
-					hasVehicle = true
-				}
-			} else if trenchKey == "void_dive" && tx == trenchX && ty == trenchY {
-				if hasVoidDiveVehicle {
-					hasVehicle = true
-				}
+	for key, vehicles := range g.GetAllCaveVehicles() {
+		if len(vehicles) == 0 {
+			continue
+		}
+		if key == "void_dive" {
+			if g.GetActiveTrenchKey() == "void_dive" {
+				trenchX, trenchY := g.GetActiveTrenchCoords()
+				drawBeacon(trenchX, trenchY)
 			}
-
-			if hasVehicle {
-				cx := sx + float32(config.TileSize)/2.0
-				cy := sy + float32(config.TileSize)/2.0
-				pulse := float32(math.Sin(g.GetTicks()*0.08)) * 3.5
-				radius := float32(12.0) + pulse
-				vector.StrokeCircle(screen, cx, cy, radius, 1.5, color.RGBA{0, 220, 255, 140}, false)
-				vector.FillCircle(screen, cx, cy, 5.0, color.RGBA{0, 120, 180, 220}, false)
-				vector.StrokeCircle(screen, cx, cy, 5.0, 1.0, color.RGBA{0, 240, 255, 255}, false)
-				vector.FillCircle(screen, cx, cy, 1.5, color.RGBA{255, 255, 255, 255}, false)
-			}
+			continue
+		}
+		var cx, cy int
+		if _, err := fmt.Sscanf(key, "%d_%d", &cx, &cy); err == nil {
+			drawBeacon(cx, cy)
 		}
 	}
 }
@@ -625,11 +611,11 @@ func drawWaveSegment(screen *ebiten.Image, camX, camY float64, x1, y1, x2, y2 fl
 	lx2 := float32(x2 - camX)
 	ly2 := float32(y2 - camY)
 	litColor := applyLight(clr, mult)
-	vector.StrokeLine(screen, lx1, ly1, lx2, ly2, thickness, litColor, true)
+	vector.StrokeLine(screen, lx1, ly1, lx2, ly2, thickness, litColor, false)
 }
 
 func drawWaveCurve(screen *ebiten.Image, camX, camY float64, targetWcx, targetWcy, halfLen, maxArcHeight float64, thickness float32, clr color.RGBA, mult float64) {
-	const segments = 6
+	const segments = 4
 	xStep := (halfLen * 2.0) / segments
 	var lastX, lastY float64
 

@@ -55,8 +55,8 @@ func (o *OverworldScene) InitializeExtras(g OverworldContext) {
 				// If this tile is close to land, spawn a school of fish
 				dist := o.World.LandDist[tx][ty]
 				if dist >= 1 && dist <= 3 {
-					// 4% chance per eligible tile to spawn a school of fish
-					if r.Float64() < 0.04 {
+					// Sparse shoreline schools — denser spawn tanks the overworld Update loop.
+					if r.Float64() < 0.012 {
 						schoolSize := r.Intn(3) + 3
 						schoolBaseX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
 						schoolBaseY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
@@ -306,8 +306,16 @@ func (o *OverworldScene) UpdateExtras(g OverworldContext) {
 		scene:        o,
 	}
 
-	// Update cosmetic fish
+	// Only simulate fish near the camera. Distant schools stay parked at their last pose.
+	cam := g.GetCamera()
+	fishMinX := cam.Pos.X - 200
+	fishMaxX := cam.Pos.X + float64(config.ScreenWidth) + 200
+	fishMinY := cam.Pos.Y - 200
+	fishMaxY := cam.Pos.Y + float64(config.ScreenHeight) + 200
 	for _, f := range o.fish {
+		if f.Pos.X < fishMinX || f.Pos.X > fishMaxX || f.Pos.Y < fishMinY || f.Pos.Y > fishMaxY {
+			continue
+		}
 		f.Update(fc)
 	}
 

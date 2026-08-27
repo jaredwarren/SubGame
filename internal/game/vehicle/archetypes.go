@@ -21,12 +21,14 @@ type SkiffDef struct {
 	UpgradeSlots      int
 	SurfaceSonar      SurfaceSonarDef
 	TurnSpeed         float64
+	TurnIdleScale     float64 // turn rate at rest as a fraction of TurnSpeed
 	Accel             float64
 	MaxSpeed          float64
 	NoPowerAccel      float64
 	NoPowerMaxSpeed   float64
 	ReverseAccelScale float64
 	Drag              float64
+	LateralKeep       float64 // per-frame keep factor on sideways velocity (lower = tracks heading more)
 	BatteryDrain      float64
 	WakeSpeedThresh   float64
 }
@@ -90,13 +92,15 @@ var SkiffArchetype = &SkiffDef{
 		PulseRadiusStep:    6.5,
 		CooldownTicks:      60,
 	},
-	TurnSpeed:         0.04,
+	TurnSpeed:         0.035,
+	TurnIdleScale:     0.55,
 	Accel:             0.20,
 	MaxSpeed:          6.0,
 	NoPowerAccel:      0.04,
 	NoPowerMaxSpeed:   1.5,
 	ReverseAccelScale: 0.4,
 	Drag:              0.94,
+	LateralKeep:       0.55,
 	BatteryDrain:      0.02,
 	WakeSpeedThresh:   0.4,
 }

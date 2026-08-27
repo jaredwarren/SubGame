@@ -11,3 +11,8 @@ save.json.tmp
 save_*.json
 save_*.json.tmp
 
+# Generated WASM build artifacts (rebuild with `make wasm`)
+web/game.wasm
+web/wasm_exec.js
+web/StartBackground.jpeg
+

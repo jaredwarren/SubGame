@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>SubGame</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  canvas {
+    touch-action: none;
+  }
+  #loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #7ec8e3;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 15px;
+    text-align: center;
+    line-height: 1.5;
+    width: min(320px, 90vw);
+  }
+  #bar {
+    margin-top: 14px;
+    height: 6px;
+    background: #1a2838;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #bar > i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: #7ec8e3;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+<div id="loading">
+  Loading SubGame&hellip;
+  <div id="bar"><i id="barFill"></i></div>
+  <div id="pct"></div>
+</div>
+<script src="wasm_exec.js"></script>
+<script>
+  // Works for both local serve and GitHub project pages (/SubGame/).
+  const base = document.querySelector("base")?.href
+    || new URL(".", window.location.href).href;
+
+  function asset(path) {
+    return new URL(path, base).href;
+  }
+
+  function setProgress(done, total) {
+    const fill = document.getElementById("barFill");
+    const pct = document.getElementById("pct");
+    if (!fill || !pct) return;
+    if (!total) {
+      pct.textContent = "Downloading…";
+      return;
+    }
+    const p = Math.min(100, Math.round((done / total) * 100));
+    fill.style.width = p + "%";
+    pct.textContent = p + "% (" + Math.round(done / 1e6) + " / " + Math.round(total / 1e6) + " MB)";
+  }
+
+  async function fetchWasm(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status + " fetching " + url);
+    const total = Number(res.headers.get("Content-Length")) || 0;
+    if (!res.body || !res.body.getReader) {
+      setProgress(total, total);
+      return res.arrayBuffer();
+    }
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      setProgress(received, total);
+    }
+    const out = new Uint8Array(received);
+    let offset = 0;
+    for (const c of chunks) {
+      out.set(c, offset);
+      offset += c.length;
+    }
+    return out.buffer;
+  }
+
+  (async () => {
+    const go = new Go();
+    const wasmURL = asset("game.wasm") + "?v=" + Date.now();
+    try {
+      const bytes = await fetchWasm(wasmURL);
+      document.getElementById("pct").textContent = "Compiling…";
+      const result = await WebAssembly.instantiate(bytes, go.importObject);
+      document.getElementById("loading").remove();
+      go.run(result.instance);
+    } catch (err) {
+      const el = document.getElementById("loading");
+      el.textContent = "Failed to load: " + err;
+    }
+  })();
+</script>
+</body>
+</html>

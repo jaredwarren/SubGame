@@ -25,6 +25,18 @@ func (a *vehicleInputAdapter) IsKeyPressed(k ebiten.Key) bool {
 	return a.input.IsKeyPressed(k)
 }
 
+// StickAxes forwards analog thumbstick state when the underlying input supports it
+// (CombinedInput / touch). Without this, AnalogTankAxes always falls back to digital WASD.
+func (a *vehicleInputAdapter) StickAxes() (gvec.Vec2, bool) {
+	type stickAxes interface {
+		StickAxes() (gvec.Vec2, bool)
+	}
+	if s, ok := a.input.(stickAxes); ok {
+		return s.StickAxes()
+	}
+	return gvec.Vec2{}, false
+}
+
 // vehicleRuntimeAdapter satisfies vehicle.Runtime. Query methods are synchronous
 // and read directly from *Game. Mutations are submitted via Emit and buffered in
 // cmds; game.Update() drains the queue after all vehicles have ticked.

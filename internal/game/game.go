@@ -67,6 +67,7 @@ type Game struct {
 	Progress
 
 	hud             *HUD
+	touch           *TouchControls
 	showInventory   bool
 	showDebugMenu   bool
 	debugMenu       *scene.DebugMenuScene
@@ -98,11 +99,13 @@ func NewGame() *Game {
 	item.LoadAssets()
 	base.LoadAssets()
 	scene.LoadAssets()
+	touch := NewTouchControls()
 	g := &Game{
 		currentState: StateTitle,
 		hud:          NewHUD(),
+		touch:        touch,
 		debugMenu:    scene.NewDebugMenuScene(),
-		Session:      Session{Input: NewEbitenInput()},
+		Session:      Session{Input: NewCombinedInput(NewEbitenInput(), touch)},
 	}
 	g.initSessionFromSeed(sessionConfig{
 		Seed:                  12345,

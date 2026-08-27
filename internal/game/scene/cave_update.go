@@ -14,6 +14,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/particle"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
@@ -221,30 +222,39 @@ func (c *CaveScene) updateEntities(g CaveContext, entityRuntime entity.Runtime) 
 
 func (c *CaveScene) updateVehicle(g CaveContext, inp InputSource, activeVehicle vehicle.Vehicle) {
 	if mech, ok := activeVehicle.(*vehicle.HeavyMech); ok && !mech.IsDrilling {
-		if inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		if !inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			return
+		}
+
+		px := mech.Pos.X + mech.Dimensions.X/2
+		py := mech.Pos.Y + mech.Dimensions.Y/2
+		const drillRange = 120.0
+
+		var target resource.Resource
+		if preferNearestUse(inp) {
+			target = nearestMineableNode(c.Nodes, px, py, drillRange)
+		} else {
 			cursor := inp.Cursor()
 			cam := g.GetCamera()
 			worldX := cam.Pos.X + cursor.X
 			worldY := cam.Pos.Y + cursor.Y
-
 			mtx := int(worldX) / config.TileSize
 			mty := int(worldY) / config.TileSize
-
-			for i := 0; i < len(c.Nodes); i++ {
-				node := c.Nodes[i]
+			for _, node := range c.Nodes {
 				nodeTx, nodeTy := node.GetTilePos()
 				if nodeTx == mtx && nodeTy == mty && node.GetHitsToMine() > 0 {
-					px := mech.Pos.X + mech.Dimensions.X/2
-					py := mech.Pos.Y + mech.Dimensions.Y/2
 					nx := float64(nodeTx*config.TileSize + config.TileSize/2)
 					ny := float64(nodeTy*config.TileSize + config.TileSize/2)
-					if math.Hypot(px-nx, py-ny) <= 120.0 {
-						mech.DrillStrike(node)
-						audio.Get().PlaySFXVaried("sfx/mech_drill_loop.wav", 0.7, 0.05)
-						break
+					if math.Hypot(px-nx, py-ny) <= drillRange {
+						target = node
 					}
+					break
 				}
 			}
+		}
+		if target != nil {
+			mech.DrillStrike(target)
+			audio.Get().PlaySFXVaried("sfx/mech_drill_loop.wav", 0.7, 0.05)
 		}
 	}
 }
@@ -252,6 +262,33 @@ func (c *CaveScene) updateVehicle(g CaveContext, inp InputSource, activeVehicle 
 func (c *CaveScene) updatePlayer(g CaveContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
 	c.handlePlayerMining(g, inp, p, entityRuntime)
 	c.handlePlayerMovement(g, inp, p)
+}
+
+func preferNearestUse(inp InputSource) bool {
+	type nearestUser interface{ PreferNearestUse() bool }
+	if n, ok := inp.(nearestUser); ok {
+		return n.PreferNearestUse()
+	}
+	return false
+}
+
+func nearestMineableNode(nodes []resource.Resource, px, py, maxDist float64) resource.Resource {
+	var best resource.Resource
+	bestDist := maxDist
+	for _, node := range nodes {
+		if node.GetHitsToMine() <= 0 {
+			continue
+		}
+		nodeTx, nodeTy := node.GetTilePos()
+		nx := float64(nodeTx*config.TileSize + config.TileSize/2)
+		ny := float64(nodeTy*config.TileSize + config.TileSize/2)
+		dist := math.Hypot(px-nx, py-ny)
+		if dist <= bestDist {
+			bestDist = dist
+			best = node
+		}
+	}
+	return best
 }
 
 func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
@@ -296,6 +333,15 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 	p.IsMining = true
 	p.MiningAnimTimer = 24
 
+	px := p.Pos.X + p.Width/2
+	py := p.Pos.Y + p.Height/2
+	const mineRange = 96.0
+
+	if preferNearestUse(inp) {
+		c.interactNearest(g, p, entityRuntime, px, py, mineRange)
+		return
+	}
+
 	cursor := inp.Cursor()
 	cam := g.GetCamera()
 	worldX := cam.Pos.X + cursor.X
@@ -310,9 +356,7 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 			pos := sb.GetPos()
 			dims := sb.GetDimensions()
 			if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
-				px := p.Pos.X + p.Width/2
-				py := p.Pos.Y + p.Height/2
-				if math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2)) <= 96.0 {
+				if math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2)) <= mineRange {
 					if bulb, ok := ent.(*entity.ShatterBulb); ok {
 						bulb.Pop(entityRuntime)
 						audio.Get().PlaySFX("sfx/shatter_bulb_pop.wav")
@@ -336,7 +380,7 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 			pos := ent.GetPos()
 			dims := ent.GetDimensions()
 			if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
-				playerCenter := gvec.Vec2{X: p.Pos.X + p.Width/2, Y: p.Pos.Y + p.Height/2}
+				playerCenter := gvec.Vec2{X: px, Y: py}
 				if creature.CanCatch(playerCenter) {
 					harvestedItem := creature.GetHarvestedItem()
 					if p.Inventory.AddItem(harvestedItem, 1) {
@@ -364,58 +408,146 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 		node := c.Nodes[i]
 		nodeTx, nodeTy := node.GetTilePos()
 		if nodeTx == mtx && nodeTy == mty && node.GetHitsToMine() > 0 {
-			px := p.Pos.X + p.Width/2
-			py := p.Pos.Y + p.Height/2
 			nx := float64(nodeTx*config.TileSize + config.TileSize/2)
 			ny := float64(nodeTy*config.TileSize + config.TileSize/2)
 
-			if math.Hypot(px-nx, py-ny) <= 96.0 {
-				if node.RequiresMech() {
-					g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120, 1)
-					audio.Get().PlaySFX("sfx/ui_error.wav")
-					continue
-				}
-				node.SetHitsToMine(node.GetHitsToMine() - 1)
-				audio.Get().PlaySFXVaried("sfx/mining_hit.wav", 0.75, 0.05)
-
-				nodeColor := color.RGBA{150, 150, 150, 255}
-				if cRgba, ok := node.GetColor().(color.RGBA); ok {
-					nodeColor = cRgba
-				}
-				g.SpawnDebris(nx, ny, nodeColor)
-
-				if node.GetHitsToMine() <= 0 {
-					audio.Get().PlaySFX("sfx/ore_break.wav")
-					if resName := node.GetRecipeResultName(); resName != "" {
-						recipes := g.GetCraftingRecipes()
-						for idx := range recipes {
-							if recipes[idx].NewResult().GetName() == resName {
-								recipes[idx].Unlocked = true
-								g.SetMineWarning("Unlocked: "+resName+"!", 120, 1)
-								audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
-								break
-							}
-						}
-						unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
-						if unlocked != nil {
-							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
-							audio.Get().PlaySFX("sfx/scanner_complete.wav")
-						}
-					} else {
-						p.Inventory.AddItem(node, 1)
-						audio.Get().PlaySFX("sfx/item_pickup.wav")
-						g.NotifyQuestInventoryChanged(node.GetID())
-						unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
-						if unlocked != nil {
-							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
-							audio.Get().PlaySFX("sfx/scanner_complete.wav")
-						}
-					}
-					c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)
-				}
+			if math.Hypot(px-nx, py-ny) <= mineRange {
+				c.strikeMineNode(g, p, i, node, nx, ny)
 				break
 			}
 		}
+	}
+}
+
+// interactNearest handles the touch Use button: act on the closest in-range
+// bulb, catchable creature, or ore node (priority: bulb → creature → ore).
+func (c *CaveScene) interactNearest(g CaveContext, p *player.Player, entityRuntime entity.Runtime, px, py, maxDist float64) {
+	playerCenter := gvec.Vec2{X: px, Y: py}
+
+	bestBulbDist := maxDist
+	var bestBulb *entity.ShatterBulb
+	for _, ent := range c.Entities {
+		sb, ok := ent.(*entity.ShatterBulb)
+		if !ok || !sb.IsActive() {
+			continue
+		}
+		pos := sb.GetPos()
+		dims := sb.GetDimensions()
+		dist := math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2))
+		if dist <= bestBulbDist {
+			bestBulbDist = dist
+			bestBulb = sb
+		}
+	}
+	if bestBulb != nil {
+		bestBulb.Pop(entityRuntime)
+		audio.Get().PlaySFX("sfx/shatter_bulb_pop.wav")
+		unlocked := g.GetStoryManager().TriggerEvent("pop", "shatter-bulb")
+		if unlocked != nil {
+			g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+			audio.Get().PlaySFX("sfx/scanner_complete.wav")
+		}
+		return
+	}
+
+	bestCatchDist := maxDist
+	bestCatchIdx := -1
+	for i, ent := range c.Entities {
+		if !ent.IsActive() {
+			continue
+		}
+		creature, ok := ent.(entity.PassiveCreature)
+		if !ok || !creature.CanCatch(playerCenter) {
+			continue
+		}
+		pos := ent.GetPos()
+		dims := ent.GetDimensions()
+		dist := math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2))
+		if dist <= bestCatchDist {
+			bestCatchDist = dist
+			bestCatchIdx = i
+		}
+	}
+	if bestCatchIdx >= 0 {
+		ent := c.Entities[bestCatchIdx]
+		creature := ent.(entity.PassiveCreature)
+		harvestedItem := creature.GetHarvestedItem()
+		if p.Inventory.AddItem(harvestedItem, 1) {
+			ent.SetActive(false)
+			c.Entities = append(c.Entities[:bestCatchIdx], c.Entities[bestCatchIdx+1:]...)
+			g.SetMineWarning("Caught "+harvestedItem.GetName()+"!", 90, 1)
+			audio.Get().PlaySFX("sfx/item_pickup.wav")
+			g.NotifyQuestInventoryChanged(harvestedItem.GetID())
+			unlocked := g.GetStoryManager().TriggerEvent("catch", harvestedItem.GetName())
+			if unlocked != nil {
+				g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+				audio.Get().PlaySFX("sfx/scanner_complete.wav")
+			}
+		} else {
+			g.SetMineWarning("Inventory full!", 90, 1)
+			audio.Get().PlaySFX("sfx/ui_error.wav")
+		}
+		return
+	}
+
+	node := nearestMineableNode(c.Nodes, px, py, maxDist)
+	if node == nil {
+		return
+	}
+	for i, n := range c.Nodes {
+		if n == node {
+			nodeTx, nodeTy := node.GetTilePos()
+			nx := float64(nodeTx*config.TileSize + config.TileSize/2)
+			ny := float64(nodeTy*config.TileSize + config.TileSize/2)
+			c.strikeMineNode(g, p, i, node, nx, ny)
+			return
+		}
+	}
+}
+
+func (c *CaveScene) strikeMineNode(g CaveContext, p *player.Player, i int, node resource.Resource, nx, ny float64) {
+	if node.RequiresMech() {
+		g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120, 1)
+		audio.Get().PlaySFX("sfx/ui_error.wav")
+		return
+	}
+	node.SetHitsToMine(node.GetHitsToMine() - 1)
+	audio.Get().PlaySFXVaried("sfx/mining_hit.wav", 0.75, 0.05)
+
+	nodeColor := color.RGBA{150, 150, 150, 255}
+	if cRgba, ok := node.GetColor().(color.RGBA); ok {
+		nodeColor = cRgba
+	}
+	g.SpawnDebris(nx, ny, nodeColor)
+
+	if node.GetHitsToMine() <= 0 {
+		audio.Get().PlaySFX("sfx/ore_break.wav")
+		if resName := node.GetRecipeResultName(); resName != "" {
+			recipes := g.GetCraftingRecipes()
+			for idx := range recipes {
+				if recipes[idx].NewResult().GetName() == resName {
+					recipes[idx].Unlocked = true
+					g.SetMineWarning("Unlocked: "+resName+"!", 120, 1)
+					audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
+					break
+				}
+			}
+			unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
+			if unlocked != nil {
+				g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+				audio.Get().PlaySFX("sfx/scanner_complete.wav")
+			}
+		} else {
+			p.Inventory.AddItem(node, 1)
+			audio.Get().PlaySFX("sfx/item_pickup.wav")
+			g.NotifyQuestInventoryChanged(node.GetID())
+			unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
+			if unlocked != nil {
+				g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
+				audio.Get().PlaySFX("sfx/scanner_complete.wav")
+			}
+		}
+		c.Nodes = append(c.Nodes[:i], c.Nodes[i+1:]...)
 	}
 }
 

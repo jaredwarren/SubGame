@@ -20,6 +20,9 @@ import (
 
 // Update advances all game logic by one tick.
 func (g *Game) Update() error {
+	if g.touch != nil {
+		g.touch.SetContext(g.touchContext())
+	}
 	g.Input.Update()
 	audio.Get().Update()
 	g.transitionedThisFrame = false
@@ -54,6 +57,7 @@ func (g *Game) Update() error {
 	g.drainExplorationUpdates()
 	g.updateEffects()
 	g.updateQuests()
+	g.handleWorldTaps()
 	g.handleInput()
 	g.baseStation.UpdatePower(g.TimeOfDay)
 
@@ -271,6 +275,90 @@ func (g *Game) updateEffects() {
 		g.SoundWave.Radius += 4.5
 	}
 	g.Particles = particle.UpdateParticles(g.Particles)
+}
+
+// touchContext maps the current game state to the virtual button set to show.
+func (g *Game) touchContext() TouchContext {
+	switch g.currentState {
+	case StateOverworld:
+		if g.showDebugMenu {
+			return TouchContextHidden
+		}
+		if g.showInventory {
+			return TouchContextInventory
+		}
+		if g.ActiveVehicle != nil {
+			return TouchContextDriving
+		}
+		return TouchContextOnFoot
+	case StateCave:
+		if g.showDebugMenu {
+			return TouchContextHidden
+		}
+		if g.showInventory {
+			return TouchContextInventory
+		}
+		if g.ActiveVehicle != nil {
+			return TouchContextDriving
+		}
+		return TouchContextCave
+	case StateBaseMenu:
+		return TouchContextMenu
+	default:
+		return TouchContextHidden
+	}
+}
+
+// handleWorldTaps turns unconsumed touch taps on world objects into actions:
+// tapping a nearby vehicle boards it (virtual F) and tapping the lifepod opens
+// the terminal (virtual E). Consumed taps never become left-clicks.
+func (g *Game) handleWorldTaps() {
+	if g.touch == nil {
+		return
+	}
+	tap, ok := g.touch.TapCursor()
+	if !ok {
+		return
+	}
+	if g.currentState != StateOverworld && g.currentState != StateCave {
+		return
+	}
+	if g.showInventory || g.showDebugMenu || g.ActiveVehicle != nil {
+		return
+	}
+
+	wx := tap.X + g.camera.Pos.X
+	wy := tap.Y + g.camera.Pos.Y
+	const pad = 12.0
+
+	for _, v := range g.getVehiclesForCurrentScene() {
+		vPos := v.GetPos()
+		vDims := v.GetDimensions()
+		if wx < vPos.X-pad || wx > vPos.X+vDims.X+pad || wy < vPos.Y-pad || wy > vPos.Y+vDims.Y+pad {
+			continue
+		}
+		g.touch.ConsumeTap()
+		dist := math.Hypot(vPos.X+vDims.X/2.0-g.player.Pos.X-g.player.Width/2.0,
+			vPos.Y+vDims.Y/2.0-g.player.Pos.Y-g.player.Height/2.0)
+		if dist < 60.0 {
+			g.touch.InjectJustPressed(ebiten.KeyF)
+		} else {
+			g.SetMineWarning("Move closer to board the "+v.GetName(), 90, 1)
+		}
+		return
+	}
+
+	if g.currentState == StateOverworld && g.baseStation != nil {
+		bPos, bSize := g.baseStation.Pos, g.baseStation.Size
+		if wx >= bPos.X-pad && wx <= bPos.X+bSize.X+pad && wy >= bPos.Y-pad && wy <= bPos.Y+bSize.Y+pad {
+			g.touch.ConsumeTap()
+			if g.baseStation.DistanceToPlayer(g.player) < 100.0 {
+				g.touch.InjectJustPressed(ebiten.KeyE)
+			} else {
+				g.SetMineWarning("Move closer to the Life Pod", 90, 1)
+			}
+		}
+	}
 }
 
 // handleInput processes all keyboard input that applies regardless of open panels.

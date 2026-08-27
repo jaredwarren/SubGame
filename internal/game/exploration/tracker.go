@@ -77,6 +77,7 @@ func (t *Tracker) Reveal(cx, cy, radius int) {
 	minY := cy - radius
 	maxY := cy + radius
 
+	revealed := false
 	for ty := minY; ty <= maxY; ty++ {
 		if ty < 0 || ty >= t.height {
 			continue
@@ -90,24 +91,29 @@ func (t *Tracker) Reveal(cx, cy, radius int) {
 			if dx*dx+dy*dy > r2 {
 				continue
 			}
-			t.markExplored(tx, ty)
+			if t.markExplored(tx, ty) {
+				revealed = true
+			}
 		}
+	}
+	if revealed {
+		t.refreshFogDistNear(cx, cy, radius)
 	}
 }
 
-func (t *Tracker) markExplored(tx, ty int) {
+func (t *Tracker) markExplored(tx, ty int) bool {
 	idx := ty*t.width + tx
 	word := idx / 64
 	bit := uint64(1) << uint(idx%64)
 	if t.explored[word]&bit != 0 {
-		return
+		return false
 	}
 	t.explored[word] |= bit
 	t.exploredCount++
 	if len(t.newlyRevealed) < 4096 {
 		t.newlyRevealed = append(t.newlyRevealed, idx)
 	}
-	t.refreshFogDistNear(tx, ty)
+	return true
 }
 
 // IsExplored reports whether tile (tx,ty) has been charted.

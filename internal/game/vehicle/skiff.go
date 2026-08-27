@@ -191,25 +191,45 @@ func (s *Skiff) Update(runtime Runtime) {
 
 	d := SkiffArchetype
 	input := runtime.Input()
-	if input.IsKeyPressed(ebiten.KeyA) || input.IsKeyPressed(ebiten.KeyArrowLeft) {
-		s.Facing -= d.TurnSpeed
-	}
-	if input.IsKeyPressed(ebiten.KeyD) || input.IsKeyPressed(ebiten.KeyArrowRight) {
-		s.Facing += d.TurnSpeed
+
+	throttle := 0.0
+	if desired, stickThrottle, analog := AnalogAimAxes(input); analog {
+		// Point the stick = go that way. Steer toward stick heading, thrust by push amount.
+		if stickThrottle > 0.01 {
+			SteerToward(&s.Facing, desired, d.TurnSpeed*2.2)
+			throttle = stickThrottle
+		}
+	} else {
+		steer := 0.0
+		if input.IsKeyPressed(ebiten.KeyA) || input.IsKeyPressed(ebiten.KeyArrowLeft) {
+			steer -= 1
+		}
+		if input.IsKeyPressed(ebiten.KeyD) || input.IsKeyPressed(ebiten.KeyArrowRight) {
+			steer += 1
+		}
+		if input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) {
+			throttle += 1
+		} else if input.IsKeyPressed(ebiten.KeyS) || input.IsKeyPressed(ebiten.KeyArrowDown) {
+			throttle -= 1
+		}
+		turnScale := TurnScaleForSpeed(s.Vel.Length(), d.MaxSpeed, d.TurnIdleScale)
+		s.Facing += d.TurnSpeed * steer * turnScale
 	}
 
 	hasPower := s.Battery > 0
 	accel, maxSpeed := ScaleForPower(d.Accel, d.MaxSpeed, d.NoPowerAccel, d.NoPowerMaxSpeed, hasPower)
 
 	moving := false
-	if input.IsKeyPressed(ebiten.KeyW) || input.IsKeyPressed(ebiten.KeyArrowUp) {
-		s.Vel.X += math.Cos(s.Facing) * accel
-		s.Vel.Y += math.Sin(s.Facing) * accel
+	fx := math.Cos(s.Facing)
+	fy := math.Sin(s.Facing)
+	if throttle > 0.01 {
+		s.Vel.X += fx * accel * throttle
+		s.Vel.Y += fy * accel * throttle
 		moving = true
-	} else if input.IsKeyPressed(ebiten.KeyS) || input.IsKeyPressed(ebiten.KeyArrowDown) {
+	} else if throttle < -0.01 {
 		reverse := accel * d.ReverseAccelScale
-		s.Vel.X -= math.Cos(s.Facing) * reverse
-		s.Vel.Y -= math.Sin(s.Facing) * reverse
+		s.Vel.X += fx * reverse * throttle
+		s.Vel.Y += fy * reverse * throttle
 		moving = true
 	}
 
@@ -217,6 +237,12 @@ func (s *Skiff) Update(runtime Runtime) {
 		hasPower = DrainBatteryOnMove(&s.Battery, moving, hasPower, d.BatteryDrain)
 	}
 
+	// Stronger grip while under power so the hull follows the bow instead of skating.
+	keep := d.LateralKeep
+	if moving && throttle > 0 {
+		keep *= 0.55
+	}
+	ApplyLateralDrag(&s.Vel, s.Facing, keep)
 	ApplyDragClamp(&s.Vel, d.Drag, maxSpeed)
 	s.checkCollisions(runtime)
 	s.maybeSpawnWake(moving, d)
