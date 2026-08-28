@@ -363,7 +363,6 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 				if math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2)) <= mineRange {
 					if bulb, ok := ent.(*entity.ShatterBulb); ok {
 						bulb.Pop(entityRuntime)
-						audio.Get().PlaySFX("sfx/shatter_bulb_pop.wav")
 						unlocked := g.GetStoryManager().TriggerEvent("pop", "shatter-bulb")
 						if unlocked != nil {
 							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
@@ -445,7 +444,6 @@ func (c *CaveScene) interactNearest(g CaveContext, p *player.Player, entityRunti
 	}
 	if bestBulb != nil {
 		bestBulb.Pop(entityRuntime)
-		audio.Get().PlaySFX("sfx/shatter_bulb_pop.wav")
 		unlocked := g.GetStoryManager().TriggerEvent("pop", "shatter-bulb")
 		if unlocked != nil {
 			g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)

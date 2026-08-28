@@ -84,7 +84,7 @@ func (g *Game) HorizontalTransition(newTx, newTy int, newTrenchKey string, newCa
 	if newCave != nil {
 		musicTrack = cave.MusicTrack(newCave.GetCaveType())
 	}
-	audio.Get().PlayMusic(musicTrack, 0.6)
+	audio.Get().PlayMusic(musicTrack, 0.3)
 }
 
 // --- Input ---

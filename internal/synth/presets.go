@@ -151,24 +151,34 @@ var SoundCatalog = map[string]PresetGenerator{
 	},
 
 	"sfx/player_hurt.wav": func(seed int64) *Buffer {
-		return SoundLayer{
-			Wave1:        WaveSawtooth,
-			Freq1:        160,
-			EndFreq1:     50,
+		thud := SoundLayer{
+			Wave1:        WaveSine,
+			Freq1:        120,
+			EndFreq1:     35,
 			FreqCurve1:   CurveExponential,
-			Volume1:      0.7,
+			Volume1:      0.85,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.22, SustainLvl: 0.0, ReleaseTime: 0.08, Curve: CurveExponential},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 300,
+			FilterEndCut: 80,
+			FilterQ:      1.8,
+		}.Generate(0.3, seed)
+
+		impact := SoundLayer{
 			EnableNoise:  true,
 			NoiseType:    WaveNoiseBrown,
-			NoiseVolume:  0.6,
-			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.22, SustainLvl: 0.0, ReleaseTime: 0.08, Curve: CurveExponential},
+			NoiseVolume:  0.7,
+			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.16, SustainLvl: 0.0, ReleaseTime: 0.05, Curve: CurveExponential},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 600,
-			FilterEndCut: 150,
-			FilterQ:      2.0,
-			Overdrive:    0.5,
-			BitDepth:     8,
-			Downsample:   2,
-		}.Generate(0.3, seed)
+			FilterCutoff: 450,
+			FilterEndCut: 120,
+			FilterQ:      1.5,
+			Overdrive:    0.2,
+			ReverbRoom:   0.4,
+			ReverbMix:    0.2,
+		}.Generate(0.28, seed+1)
+
+		return MixBuffers(thud, impact)
 	},
 
 	"sfx/player_drown.wav": func(seed int64) *Buffer {
@@ -192,22 +202,31 @@ var SoundCatalog = map[string]PresetGenerator{
 
 	"sfx/suit_breach.wav": func(seed int64) *Buffer {
 		alarm := SoundLayer{
-			Wave1:      WaveSquare,
-			Freq1:      1400,
-			Duty1:      0.5,
-			Volume1:    0.6,
-			Envelope:   AHDSR{AttackTime: 0.01, DecayTime: 0.1, SustainLvl: 0.0, ReleaseTime: 0.05},
-		}.Generate(0.15, seed)
+			Wave1:        WaveSine,
+			Freq1:        1760,
+			Volume1:      0.65,
+			EnableOsc2:   true,
+			Wave2:        WaveTriangle,
+			Freq2:        880,
+			Volume2:      0.4,
+			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.12, SustainLvl: 0.0, ReleaseTime: 0.04},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 1760,
+			FilterQ:      3.0,
+			ReverbRoom:   0.3,
+			ReverbMix:    0.2,
+		}.Generate(0.16, seed)
 
 		hiss := SoundLayer{
 			EnableNoise:  true,
-			NoiseType:    WaveNoiseWhite,
-			NoiseVolume:  0.7,
-			Envelope:     AHDSR{AttackTime: 0.02, DecayTime: 0.5, SustainLvl: 0.0, ReleaseTime: 0.1},
-			EnableFilter: FilterHighPass,
-			FilterCutoff: 2500,
-			FilterQ:      1.5,
-		}.Generate(0.6, seed+1)
+			NoiseType:    WaveNoisePink,
+			NoiseVolume:  0.75,
+			Envelope:     AHDSR{AttackTime: 0.01, DecayTime: 0.45, SustainLvl: 0.0, ReleaseTime: 0.1},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 2200,
+			FilterEndCut: 1200,
+			FilterQ:      2.0,
+		}.Generate(0.55, seed+1)
 
 		return MixBuffers(alarm, hiss)
 	},
@@ -258,77 +277,91 @@ var SoundCatalog = map[string]PresetGenerator{
 	// 4.2 Tools, Equipment & Usables SFX
 	// -----------------------------------------------------------------
 	"sfx/mining_hit.wav": func(seed int64) *Buffer {
-		strike := SoundLayer{
-			Wave1:        WaveSquare,
-			Freq1:        1200,
-			EndFreq1:     300,
-			Duty1:        0.25,
-			Volume1:      0.8,
-			EnableNoise:  true,
-			NoiseType:    WaveNoiseWhite,
-			NoiseVolume:  0.4,
-			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.08, SustainLvl: 0.0, ReleaseTime: 0.04, Curve: CurveExponential},
-			BitDepth:     8,
-			Downsample:   1,
-		}.Generate(0.15, seed)
-
-		ring := SoundLayer{
+		// Heavy solid rock "thunk" punch (low-frequency mass of stone impact)
+		thunk := SoundLayer{
 			Wave1:        WaveSine,
-			Freq1:        880,
-			Volume1:      0.6,
-			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.2, SustainLvl: 0.0, ReleaseTime: 0.1, Curve: CurveExponential},
-			EnableFilter: FilterBandPass,
-			FilterCutoff: 880,
-			FilterQ:      8.0,
-			ReverbRoom:   0.4,
-			ReverbMix:    0.3,
-		}.Generate(0.3, seed+1)
+			Freq1:        220,
+			EndFreq1:     55,
+			FreqCurve1:   CurveExponential,
+			Volume1:      1.0,
+			Envelope:     AHDSR{AttackTime: 0.001, DecayTime: 0.16, SustainLvl: 0.0, ReleaseTime: 0.05, Curve: CurveExponential},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 320,
+			FilterEndCut: 90,
+			FilterQ:      2.4,
+			Overdrive:    0.15,
+		}.Generate(0.20, seed)
 
-		return MixBuffers(strike, ring)
+		// Blunt steel-on-granite impact transient (dull "tock", no high chime)
+		strike := SoundLayer{
+			Wave1:        WaveTriangle,
+			Freq1:        460,
+			EndFreq1:     140,
+			FreqCurve1:   CurveExponential,
+			Volume1:      0.65,
+			Envelope:     AHDSR{AttackTime: 0.001, DecayTime: 0.028, SustainLvl: 0.0, ReleaseTime: 0.015, Curve: CurveExponential},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 520,
+			FilterQ:      2.0,
+		}.Generate(0.06, seed+1)
+
+		// Stone fracture grit and mineral crumble
+		grit := SoundLayer{
+			EnableNoise:  true,
+			NoiseType:    WaveNoiseBrown,
+			NoiseVolume:  0.8,
+			Envelope:     AHDSR{AttackTime: 0.001, DecayTime: 0.08, SustainLvl: 0.0, ReleaseTime: 0.03, Curve: CurveExponential},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 450,
+			FilterEndCut: 120,
+			FilterQ:      1.6,
+		}.Generate(0.12, seed+2)
+
+		return MixBuffers(MixBuffers(thunk, strike), grit)
 	},
 
 	"sfx/dig_crunch.wav": func(seed int64) *Buffer {
 		return SoundLayer{
 			EnableNoise:  true,
-			NoiseType:    WaveNoisePink,
-			NoiseVolume:  0.9,
-			Wave1:        WaveTriangle,
-			Freq1:        150,
+			NoiseType:    WaveNoiseBrown,
+			NoiseVolume:  0.85,
+			Wave1:        WaveSine,
+			Freq1:        130,
 			EndFreq1:     40,
 			Volume1:      0.4,
-			Envelope:     AHDSR{AttackTime: 0.01, DecayTime: 0.18, SustainLvl: 0.0, ReleaseTime: 0.06, Curve: CurveExponential},
+			Envelope:     AHDSR{AttackTime: 0.008, DecayTime: 0.18, SustainLvl: 0.0, ReleaseTime: 0.06, Curve: CurveExponential},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 800,
-			FilterEndCut: 200,
-			FilterQ:      1.8,
-			Overdrive:    0.3,
-			BitDepth:     6,
-			Downsample:   2,
-		}.Generate(0.25, seed)
+			FilterCutoff: 550,
+			FilterEndCut: 180,
+			FilterQ:      1.5,
+			ReverbRoom:   0.25,
+			ReverbMix:    0.15,
+		}.Generate(0.24, seed)
 	},
 
 	"sfx/ore_break.wav": func(seed int64) *Buffer {
 		shatter := SoundLayer{
 			EnableNoise:  true,
-			NoiseType:    WaveNoiseWhite,
-			NoiseVolume:  0.9,
-			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.35, SustainLvl: 0.0, ReleaseTime: 0.1, Curve: CurveExponential},
+			NoiseType:    WaveNoisePink,
+			NoiseVolume:  0.85,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.28, SustainLvl: 0.0, ReleaseTime: 0.08, Curve: CurveExponential},
 			EnableFilter: FilterBandPass,
-			FilterCutoff: 2400,
-			FilterEndCut: 400,
-			FilterQ:      3.0,
-			Overdrive:    0.4,
-		}.Generate(0.45, seed)
+			FilterCutoff: 2200,
+			FilterEndCut: 600,
+			FilterQ:      2.5,
+			ReverbRoom:   0.45,
+			ReverbMix:    0.25,
+		}.Generate(0.35, seed)
 
 		thud := SoundLayer{
 			Wave1:        WaveSine,
-			Freq1:        220,
-			EndFreq1:     40,
-			Volume1:      0.9,
-			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.25, SustainLvl: 0.0, ReleaseTime: 0.1},
+			Freq1:        180,
+			EndFreq1:     35,
+			Volume1:      0.85,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.26, SustainLvl: 0.0, ReleaseTime: 0.08, Curve: CurveExponential},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 200,
-			FilterQ:      2.0,
+			FilterCutoff: 260,
+			FilterQ:      1.8,
 		}.Generate(0.35, seed+1)
 
 		return MixBuffers(shatter, thud)
@@ -392,22 +425,26 @@ var SoundCatalog = map[string]PresetGenerator{
 	},
 
 	"sfx/flashlight_toggle.wav": func(seed int64) *Buffer {
-		return SoundLayer{
-			Wave1:        WaveSquare,
-			Freq1:        600,
-			EndFreq1:     120,
-			Duty1:        0.3,
-			Volume1:      0.8,
-			EnableNoise:  true,
-			NoiseType:    WaveNoiseWhite,
-			NoiseVolume:  0.5,
-			Envelope:     AHDSR{AttackTime: 0.001, DecayTime: 0.04, SustainLvl: 0.0, ReleaseTime: 0.02},
-			EnableFilter: FilterHighPass,
-			FilterCutoff: 500,
-			FilterQ:      2.0,
-			BitDepth:     8,
-			Downsample:   1,
-		}.Generate(0.08, seed)
+		click := SoundLayer{
+			Wave1:      WaveTriangle,
+			Freq1:      2400,
+			EndFreq1:   1100,
+			Volume1:    0.65,
+			Envelope:   AHDSR{AttackTime: 0.001, DecayTime: 0.02, SustainLvl: 0.0, ReleaseTime: 0.01},
+		}.Generate(0.04, seed)
+
+		charge := SoundLayer{
+			Wave1:        WaveSine,
+			Freq1:        680,
+			EndFreq1:     1200,
+			Volume1:      0.35,
+			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.04, SustainLvl: 0.0, ReleaseTime: 0.02},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 1600,
+			FilterQ:      1.5,
+		}.Generate(0.06, seed+1)
+
+		return MixBuffers(click, charge)
 	},
 
 	"sfx/repair_tool_loop.wav": func(seed int64) *Buffer {
@@ -519,9 +556,8 @@ var SoundCatalog = map[string]PresetGenerator{
 			Freq1:          85,
 			Volume1:        0.7,
 			EnableOsc2:     true,
-			Wave2:          WaveSquare,
+			Wave2:          WaveTriangle,
 			Freq2:          42.5,
-			Duty2:          0.3,
 			Volume2:        0.5,
 			EnableNoise:    true,
 			NoiseType:      WaveNoiseBrown,
@@ -532,7 +568,7 @@ var SoundCatalog = map[string]PresetGenerator{
 			FilterQ:        1.8,
 			VibratoFreq:    14.0,
 			VibratoDepth:   4.0,
-			Overdrive:      0.3,
+			Overdrive:      0.2,
 		}.Generate(0.8, seed)
 	},
 
@@ -654,20 +690,19 @@ var SoundCatalog = map[string]PresetGenerator{
 			Freq1:          90,
 			Volume1:        0.7,
 			EnableOsc2:     true,
-			Wave2:          WaveSquare,
+			Wave2:          WaveTriangle,
 			Freq2:          180,
-			Duty2:          0.2,
-			Volume2:        0.5,
+			Volume2:        0.45,
 			EnableNoise:    true,
-			NoiseType:      WaveNoiseWhite,
+			NoiseType:      WaveNoiseBrown,
 			NoiseVolume:    0.4,
 			VibratoFreq:    20.0,
 			VibratoDepth:   15.0,
 			Envelope:       AHDSR{AttackTime: 0.05, DecayTime: 0.4, SustainLvl: 0.7, ReleaseTime: 0.1},
 			EnableFilter:   FilterLowPass,
-			FilterCutoff:   900,
-			FilterQ:        2.5,
-			Overdrive:      0.6,
+			FilterCutoff:   750,
+			FilterQ:        2.0,
+			Overdrive:      0.4,
 		}.Generate(0.6, seed)
 	},
 
@@ -745,25 +780,41 @@ var SoundCatalog = map[string]PresetGenerator{
 
 	"sfx/vehicle_alarm.wav": func(seed int64) *Buffer {
 		b1 := SoundLayer{
-			Wave1:    WaveSquare,
-			Freq1:    880,
-			Duty1:    0.5,
-			Volume1:  0.7,
-			Envelope: AHDSR{AttackTime: 0.01, DecayTime: 0.12, SustainLvl: 0.0, ReleaseTime: 0.04},
+			Wave1:        WaveSine,
+			Freq1:        880,
+			Volume1:      0.7,
+			EnableOsc2:   true,
+			Wave2:        WaveTriangle,
+			Freq2:        1760,
+			Volume2:      0.25,
+			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.12, SustainLvl: 0.0, ReleaseTime: 0.03},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 1200,
+			FilterQ:      2.0,
+			ReverbRoom:   0.3,
+			ReverbMix:    0.2,
 		}.Generate(0.15, seed)
 
 		b2 := SoundLayer{
-			Wave1:    WaveSquare,
-			Freq1:    659.25, // E5
-			Duty1:    0.5,
-			Volume1:  0.7,
-			Envelope: AHDSR{AttackTime: 0.01, DecayTime: 0.12, SustainLvl: 0.0, ReleaseTime: 0.04},
-		}.Generate(0.15, seed+1)
+			Wave1:        WaveSine,
+			Freq1:        659.25, // E5
+			Volume1:      0.7,
+			EnableOsc2:   true,
+			Wave2:        WaveTriangle,
+			Freq2:        1318.5,
+			Volume2:      0.25,
+			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.14, SustainLvl: 0.0, ReleaseTime: 0.04},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 1000,
+			FilterQ:      2.0,
+			ReverbRoom:   0.3,
+			ReverbMix:    0.2,
+		}.Generate(0.16, seed+1)
 
 		buf := NewMonoBuffer(0.4)
 		copy(buf.SamplesLeft[0:], b1.SamplesLeft)
 		copy(buf.SamplesLeft[int(0.15*float64(SampleRate)):], b2.SamplesLeft)
-		buf.Normalize(0.9)
+		buf.Normalize(0.92)
 		return buf
 	},
 
@@ -837,22 +888,20 @@ var SoundCatalog = map[string]PresetGenerator{
 	"sfx/weaver_shock.wav": func(seed int64) *Buffer {
 		return SoundLayer{
 			Wave1:        WaveSawtooth,
-			Freq1:        80,
-			Volume1:      0.8,
+			Freq1:        110,
+			Volume1:      0.75,
 			EnableNoise:  true,
 			NoiseType:    WaveNoiseWhite,
-			NoiseVolume:  0.95,
+			NoiseVolume:  0.8,
 			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.35, SustainLvl: 0.0, ReleaseTime: 0.1, Curve: CurveExponential},
 			EnableFilter: FilterBandPass,
-			FilterCutoff: 1800,
-			FilterEndCut: 300,
-			FilterQ:      4.0,
-			Overdrive:    0.8,
-			BitDepth:     6,
-			Downsample:   2,
-			ReverbRoom:   0.6,
-			ReverbMix:    0.35,
-		}.Generate(0.5, seed)
+			FilterCutoff: 1600,
+			FilterEndCut: 400,
+			FilterQ:      3.5,
+			Overdrive:    0.3,
+			ReverbRoom:   0.5,
+			ReverbMix:    0.25,
+		}.Generate(0.45, seed)
 	},
 
 	"sfx/lurker_ambush.wav": func(seed int64) *Buffer {
@@ -894,21 +943,21 @@ var SoundCatalog = map[string]PresetGenerator{
 
 	"sfx/snare_snap.wav": func(seed int64) *Buffer {
 		return SoundLayer{
-			Wave1:        WaveSquare,
-			Freq1:        350,
-			EndFreq1:     50,
+			Wave1:        WaveTriangle,
+			Freq1:        420,
+			EndFreq1:     40,
 			FreqCurve1:   CurveExponential,
 			Volume1:      0.9,
 			EnableNoise:  true,
 			NoiseType:    WaveNoiseBrown,
-			NoiseVolume:  0.8,
-			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.18, SustainLvl: 0.0, ReleaseTime: 0.05},
+			NoiseVolume:  0.75,
+			Envelope:     AHDSR{AttackTime: 0.001, DecayTime: 0.16, SustainLvl: 0.0, ReleaseTime: 0.04},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 900,
-			FilterEndCut: 150,
-			FilterQ:      2.5,
-			Overdrive:    0.5,
-		}.Generate(0.25, seed)
+			FilterCutoff: 850,
+			FilterEndCut: 120,
+			FilterQ:      2.0,
+			Overdrive:    0.2,
+		}.Generate(0.22, seed)
 	},
 
 	"sfx/viper_burrow.wav": func(seed int64) *Buffer {
@@ -944,35 +993,65 @@ var SoundCatalog = map[string]PresetGenerator{
 	},
 
 	"sfx/shatter_bulb_pop.wav": func(seed int64) *Buffer {
-		pop := SoundLayer{
+		// Primary deep resonant bubble bloop (low-frequency Minnaert water cavity)
+		mainBubble := SoundLayer{
 			Wave1:        WaveSine,
-			Freq1:        600,
-			EndFreq1:     80,
+			Freq1:        130,
+			EndFreq1:     270,
 			FreqCurve1:   CurveExponential,
-			Volume1:      0.9,
-			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.12, SustainLvl: 0.0, ReleaseTime: 0.04},
+			Volume1:      0.95,
+			EnableOsc2:   true,
+			Wave2:        WaveSine,
+			Freq2:        65,
+			EndFreq2:     135,
+			Volume2:      0.65,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.16, SustainLvl: 0.0, ReleaseTime: 0.05, Curve: CurveExponential},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 700,
-			FilterQ:      3.0,
-		}.Generate(0.18, seed)
+			FilterCutoff: 420,
+			FilterEndCut: 160,
+			FilterQ:      3.2,
+			ReverbRoom:   0.4,
+			ReverbMix:    0.22,
+		}.Generate(0.24, seed)
 
-		gasWave := SoundLayer{
-			EnableNoise:  true,
-			NoiseType:    WaveNoisePink,
-			NoiseVolume:  0.7,
+		// Secondary resonant micro-bubble (fluid liquid "glug" closure)
+		echoBubble := SoundLayer{
 			Wave1:        WaveSine,
-			Freq1:        3200,
-			EndFreq1:     1200,
-			Volume1:      0.5,
-			Envelope:     AHDSR{AttackTime: 0.01, DecayTime: 0.4, SustainLvl: 0.0, ReleaseTime: 0.1},
-			EnableFilter: FilterHighPass,
-			FilterCutoff: 1500,
-			FilterQ:      2.0,
-			ReverbRoom:   0.6,
-			ReverbMix:    0.3,
-		}.Generate(0.5, seed+1)
+			Freq1:        200,
+			EndFreq1:     360,
+			FreqCurve1:   CurveExponential,
+			Volume1:      0.55,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.09, SustainLvl: 0.0, ReleaseTime: 0.03, Curve: CurveExponential},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 520,
+			FilterQ:      2.5,
+			ReverbRoom:   0.35,
+			ReverbMix:    0.18,
+		}.Generate(0.15, seed+1)
 
-		return MixBuffers(pop, gasWave)
+		// Subtle low-frequency water suction and fluid displacement
+		waterGulp := SoundLayer{
+			EnableNoise:  true,
+			NoiseType:    WaveNoiseBrown,
+			NoiseVolume:  0.4,
+			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.10, SustainLvl: 0.0, ReleaseTime: 0.04, Curve: CurveExponential},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 380,
+			FilterQ:      2.5,
+		}.Generate(0.16, seed+2)
+
+		// Combine layers with 35ms offset for authentic organic "bloop-glug"
+		buf := NewMonoBuffer(0.26)
+		copy(buf.SamplesLeft[0:], mainBubble.SamplesLeft)
+		offset := SampleRate * 35 / 1000 // 35ms
+		for i := 0; i < len(echoBubble.SamplesLeft) && offset+i < len(buf.SamplesLeft); i++ {
+			buf.SamplesLeft[offset+i] += echoBubble.SamplesLeft[i]
+		}
+		for i := 0; i < len(waterGulp.SamplesLeft) && i < len(buf.SamplesLeft); i++ {
+			buf.SamplesLeft[i] += waterGulp.SamplesLeft[i]
+		}
+		buf.Normalize(0.92)
+		return buf
 	},
 
 	"sfx/shock_kelp_hum.wav": func(seed int64) *Buffer {
@@ -995,18 +1074,17 @@ var SoundCatalog = map[string]PresetGenerator{
 		return SoundLayer{
 			EnableNoise:  true,
 			NoiseType:    WaveNoiseWhite,
-			NoiseVolume:  0.9,
-			Wave1:        WaveSquare,
-			Freq1:        350,
-			Duty1:        0.1,
-			Volume1:      0.6,
-			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.15, SustainLvl: 0.0, ReleaseTime: 0.05},
-			EnableFilter: FilterHighPass,
-			FilterCutoff: 1800,
+			NoiseVolume:  0.85,
+			Wave1:        WaveTriangle,
+			Freq1:        650,
+			EndFreq1:     180,
+			Volume1:      0.65,
+			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.14, SustainLvl: 0.0, ReleaseTime: 0.04},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 2200,
+			FilterEndCut: 800,
 			FilterQ:      3.0,
-			BitDepth:     6,
-			Downsample:   2,
-		}.Generate(0.22, seed)
+		}.Generate(0.2, seed)
 	},
 
 	"sfx/thermal_vent_hiss.wav": func(seed int64) *Buffer {
@@ -1091,44 +1169,45 @@ var SoundCatalog = map[string]PresetGenerator{
 	"sfx/crab_skitter.wav": func(seed int64) *Buffer {
 		return SoundLayer{
 			Wave1:        WaveTriangle,
-			Freq1:        800,
-			EndFreq1:     200,
-			Volume1:      0.7,
+			Freq1:        1200,
+			EndFreq1:     400,
+			Volume1:      0.65,
 			EnableNoise:  true,
 			NoiseType:    WaveNoiseWhite,
-			NoiseVolume:  0.4,
-			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.05, SustainLvl: 0.0, ReleaseTime: 0.02},
-			BitDepth:     6,
-			Downsample:   2,
-		}.Generate(0.08, seed)
+			NoiseVolume:  0.35,
+			Envelope:     AHDSR{AttackTime: 0.001, DecayTime: 0.04, SustainLvl: 0.0, ReleaseTime: 0.015},
+			EnableFilter: FilterHighPass,
+			FilterCutoff: 800,
+			FilterQ:      1.5,
+		}.Generate(0.06, seed)
 	},
 
 	"sfx/cargo_unlatch.wav": func(seed int64) *Buffer {
 		latch := SoundLayer{
-			Wave1:        WaveSquare,
-			Freq1:        220,
-			EndFreq1:     60,
+			Wave1:        WaveTriangle,
+			Freq1:        280,
+			EndFreq1:     70,
 			Volume1:      0.7,
-			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.1, SustainLvl: 0.0, ReleaseTime: 0.05},
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.08, SustainLvl: 0.0, ReleaseTime: 0.04},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 800,
-			FilterQ:      2.0,
-		}.Generate(0.18, seed)
+			FilterCutoff: 700,
+			FilterQ:      1.8,
+		}.Generate(0.15, seed)
 
 		chime := SoundLayer{
 			Wave1:      WaveSine,
 			Freq1:      880, // A5
 			EndFreq1:   1174.66, // D6
-			Volume1:    0.7,
-			Envelope:   AHDSR{AttackTime: 0.02, DecayTime: 0.35, SustainLvl: 0.0, ReleaseTime: 0.15},
-			ReverbRoom: 0.5,
-			ReverbMix:  0.3,
-		}.Generate(0.5, seed+1)
+			Volume1:    0.65,
+			Envelope:   AHDSR{AttackTime: 0.01, DecayTime: 0.3, SustainLvl: 0.0, ReleaseTime: 0.12},
+			ReverbRoom: 0.45,
+			ReverbMix:  0.25,
+		}.Generate(0.45, seed+1)
 
-		buf := NewMonoBuffer(0.55)
+		buf := NewMonoBuffer(0.5)
 		copy(buf.SamplesLeft[0:], latch.SamplesLeft)
-		copy(buf.SamplesLeft[int(0.08*float64(SampleRate)):], chime.SamplesLeft)
-		buf.Normalize(0.95)
+		copy(buf.SamplesLeft[SampleRate*7/100:], chime.SamplesLeft)
+		buf.Normalize(0.92)
 		return buf
 	},
 
@@ -1187,23 +1266,36 @@ var SoundCatalog = map[string]PresetGenerator{
 	},
 
 	"sfx/base_build.wav": func(seed int64) *Buffer {
-		return SoundLayer{
-			Wave1:        WaveSquare,
-			Freq1:        180,
-			EndFreq1:     60,
-			Duty1:        0.3,
-			Volume1:      0.8,
-			EnableNoise:  true,
-			NoiseType:    WaveNoiseBrown,
-			NoiseVolume:  0.6,
-			Envelope:     AHDSR{AttackTime: 0.01, DecayTime: 0.3, SustainLvl: 0.0, ReleaseTime: 0.1},
+		hum := SoundLayer{
+			Wave1:        WaveSine,
+			Freq1:        110,
+			EndFreq1:     330,
+			FreqCurve1:   CurveExponential,
+			Volume1:      0.7,
+			Envelope:     AHDSR{AttackTime: 0.05, DecayTime: 0.25, SustainLvl: 0.0, ReleaseTime: 0.05},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 600,
-			FilterEndCut: 150,
+			FilterCutoff: 650,
+			FilterQ:      1.5,
+		}.Generate(0.35, seed)
+
+		lock := SoundLayer{
+			Wave1:        WaveTriangle,
+			Freq1:        240,
+			EndFreq1:     50,
+			Volume1:      0.8,
+			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.18, SustainLvl: 0.0, ReleaseTime: 0.06},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 500,
 			FilterQ:      2.0,
-			ReverbRoom:   0.5,
-			ReverbMix:    0.25,
-		}.Generate(0.45, seed)
+			ReverbRoom:   0.4,
+			ReverbMix:    0.2,
+		}.Generate(0.26, seed+1)
+
+		buf := NewMonoBuffer(0.45)
+		copy(buf.SamplesLeft[0:], hum.SamplesLeft)
+		copy(buf.SamplesLeft[int(0.18*float64(SampleRate)):], lock.SamplesLeft)
+		buf.Normalize(0.92)
+		return buf
 	},
 
 	"sfx/base_deconstruct.wav": func(seed int64) *Buffer {
@@ -1286,64 +1378,84 @@ var SoundCatalog = map[string]PresetGenerator{
 
 	"sfx/power_alarm.wav": func(seed int64) *Buffer {
 		return SoundLayer{
-			Wave1:    WaveSquare,
-			Freq1:    440,
-			Duty1:    0.5,
-			Volume1:  0.7,
-			Envelope: AHDSR{AttackTime: 0.01, DecayTime: 0.15, SustainLvl: 0.0, ReleaseTime: 0.05},
+			Wave1:        WaveSine,
+			Freq1:        320,
+			Volume1:      0.75,
+			EnableOsc2:   true,
+			Wave2:        WaveTriangle,
+			Freq2:        480,
+			Volume2:      0.35,
+			Envelope:     AHDSR{AttackTime: 0.02, DecayTime: 0.18, SustainLvl: 0.0, ReleaseTime: 0.05},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 800,
+			FilterQ:      2.0,
+			ReverbRoom:   0.4,
+			ReverbMix:    0.25,
 		}.Generate(0.25, seed)
 	},
 
 	"sfx/storage_open.wav": func(seed int64) *Buffer {
-		return SoundLayer{
-			Wave1:        WaveSquare,
-			Freq1:        300,
-			EndFreq1:     600,
-			Duty1:        0.3,
-			Volume1:      0.6,
+		hiss := SoundLayer{
 			EnableNoise:  true,
 			NoiseType:    WaveNoisePink,
-			NoiseVolume:  0.4,
-			Envelope:     AHDSR{AttackTime: 0.01, DecayTime: 0.15, SustainLvl: 0.0, ReleaseTime: 0.05},
+			NoiseVolume:  0.5,
+			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.12, SustainLvl: 0.0, ReleaseTime: 0.04},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 1400,
+			FilterQ:      2.0,
+		}.Generate(0.18, seed)
+
+		latch := SoundLayer{
+			Wave1:        WaveSine,
+			Freq1:        480,
+			EndFreq1:     720,
+			Volume1:      0.6,
+			Envelope:     AHDSR{AttackTime: 0.01, DecayTime: 0.12, SustainLvl: 0.0, ReleaseTime: 0.04},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 1000,
+			FilterCutoff: 1200,
 			FilterQ:      1.5,
-		}.Generate(0.22, seed)
+		}.Generate(0.18, seed+1)
+
+		return MixBuffers(hiss, latch)
 	},
 
 	"sfx/storage_close.wav": func(seed int64) *Buffer {
-		return SoundLayer{
-			Wave1:        WaveSquare,
-			Freq1:        500,
-			EndFreq1:     150,
-			Duty1:        0.3,
-			Volume1:      0.7,
-			EnableNoise:  true,
-			NoiseType:    WaveNoiseBrown,
-			NoiseVolume:  0.5,
-			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.18, SustainLvl: 0.0, ReleaseTime: 0.05},
+		thud := SoundLayer{
+			Wave1:        WaveSine,
+			Freq1:        240,
+			EndFreq1:     55,
+			Volume1:      0.75,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.15, SustainLvl: 0.0, ReleaseTime: 0.05},
 			EnableFilter: FilterLowPass,
-			FilterCutoff: 800,
-			FilterQ:      1.5,
-		}.Generate(0.25, seed)
+			FilterCutoff: 450,
+			FilterQ:      1.8,
+		}.Generate(0.22, seed)
+
+		click := SoundLayer{
+			Wave1:      WaveTriangle,
+			Freq1:      900,
+			EndFreq1:   350,
+			Volume1:    0.5,
+			Envelope:   AHDSR{AttackTime: 0.001, DecayTime: 0.04, SustainLvl: 0.0, ReleaseTime: 0.02},
+		}.Generate(0.08, seed+1)
+
+		return MixBuffers(thud, click)
 	},
 
 	"sfx/eat_crunch.wav": func(seed int64) *Buffer {
 		return SoundLayer{
 			EnableNoise:  true,
 			NoiseType:    WaveNoisePink,
-			NoiseVolume:  0.8,
+			NoiseVolume:  0.75,
 			Wave1:        WaveTriangle,
-			Freq1:        200,
-			EndFreq1:     70,
-			Volume1:      0.4,
-			Envelope:     AHDSR{AttackTime: 0.005, DecayTime: 0.1, SustainLvl: 0.0, ReleaseTime: 0.04},
+			Freq1:        220,
+			EndFreq1:     60,
+			Volume1:      0.45,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.1, SustainLvl: 0.0, ReleaseTime: 0.03},
 			EnableFilter: FilterBandPass,
-			FilterCutoff: 900,
-			FilterQ:      3.0,
-			BitDepth:     8,
-			Downsample:   1,
-		}.Generate(0.16, seed)
+			FilterCutoff: 850,
+			FilterQ:      2.2,
+		}.Generate(0.15, seed)
 	},
 
 	"sfx/medkit_apply.wav": func(seed int64) *Buffer {
@@ -1376,13 +1488,11 @@ var SoundCatalog = map[string]PresetGenerator{
 	// -----------------------------------------------------------------
 	"sfx/ui_hover.wav": func(seed int64) *Buffer {
 		return SoundLayer{
-			Wave1:      WaveTriangle,
-			Freq1:      1200,
-			Volume1:    0.5,
-			Envelope:   AHDSR{AttackTime: 0.002, DecayTime: 0.025, SustainLvl: 0.0, ReleaseTime: 0.01},
-			BitDepth:   8,
-			Downsample: 1,
-		}.Generate(0.04, seed)
+			Wave1:      WaveSine,
+			Freq1:      1600,
+			Volume1:    0.4,
+			Envelope:   AHDSR{AttackTime: 0.001, DecayTime: 0.02, SustainLvl: 0.0, ReleaseTime: 0.008},
+		}.Generate(0.03, seed)
 	},
 
 	"sfx/ui_confirm.wav": func(seed int64) *Buffer {
@@ -1396,6 +1506,7 @@ var SoundCatalog = map[string]PresetGenerator{
 			ReverbRoom:   0.3,
 			ReverbMix:    0.15,
 		}.Generate(0.12, seed)
+
 	},
 
 	"sfx/ui_cancel.wav": func(seed int64) *Buffer {
@@ -1411,25 +1522,29 @@ var SoundCatalog = map[string]PresetGenerator{
 
 	"sfx/ui_error.wav": func(seed int64) *Buffer {
 		b1 := SoundLayer{
-			Wave1:    WaveSquare,
-			Freq1:    150,
-			Duty1:    0.5,
-			Volume1:  0.7,
-			Envelope: AHDSR{AttackTime: 0.005, DecayTime: 0.07, SustainLvl: 0.0, ReleaseTime: 0.02},
-		}.Generate(0.09, seed)
+			Wave1:        WaveSine,
+			Freq1:        240,
+			Volume1:      0.65,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.06, SustainLvl: 0.0, ReleaseTime: 0.02},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 600,
+			FilterQ:      1.5,
+		}.Generate(0.08, seed)
 
 		b2 := SoundLayer{
-			Wave1:    WaveSquare,
-			Freq1:    130,
-			Duty1:    0.5,
-			Volume1:  0.7,
-			Envelope: AHDSR{AttackTime: 0.005, DecayTime: 0.09, SustainLvl: 0.0, ReleaseTime: 0.03},
-		}.Generate(0.12, seed+1)
+			Wave1:        WaveSine,
+			Freq1:        180,
+			Volume1:      0.65,
+			Envelope:     AHDSR{AttackTime: 0.003, DecayTime: 0.08, SustainLvl: 0.0, ReleaseTime: 0.03},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 500,
+			FilterQ:      1.5,
+		}.Generate(0.11, seed+1)
 
-		buf := NewMonoBuffer(0.24)
+		buf := NewMonoBuffer(0.22)
 		copy(buf.SamplesLeft[0:], b1.SamplesLeft)
-		copy(buf.SamplesLeft[int(0.1*float64(SampleRate)):], b2.SamplesLeft)
-		buf.Normalize(0.9)
+		copy(buf.SamplesLeft[SampleRate*8/100:], b2.SamplesLeft)
+		buf.Normalize(0.88)
 		return buf
 	},
 
@@ -1466,16 +1581,23 @@ var SoundCatalog = map[string]PresetGenerator{
 	},
 
 	"sfx/hotbar_switch.wav": func(seed int64) *Buffer {
-		return SoundLayer{
-			Wave1:      WaveSquare,
-			Freq1:      800,
+		click := SoundLayer{
+			Wave1:      WaveTriangle,
+			Freq1:      2400,
 			EndFreq1:   1200,
-			Duty1:      0.2,
-			Volume1:    0.5,
-			Envelope:   AHDSR{AttackTime: 0.001, DecayTime: 0.03, SustainLvl: 0.0, ReleaseTime: 0.01},
-			BitDepth:   8,
-			Downsample: 1,
-		}.Generate(0.045, seed)
+			Volume1:    0.55,
+			Envelope:   AHDSR{AttackTime: 0.001, DecayTime: 0.02, SustainLvl: 0.0, ReleaseTime: 0.01},
+		}.Generate(0.035, seed)
+
+		body := SoundLayer{
+			Wave1:      WaveSine,
+			Freq1:      320,
+			EndFreq1:   160,
+			Volume1:    0.45,
+			Envelope:   AHDSR{AttackTime: 0.002, DecayTime: 0.03, SustainLvl: 0.0, ReleaseTime: 0.01},
+		}.Generate(0.035, seed+1)
+
+		return MixBuffers(click, body)
 	},
 
 	"sfx/map_open.wav": func(seed int64) *Buffer {

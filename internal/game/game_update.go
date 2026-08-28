@@ -114,6 +114,9 @@ func (g *Game) Update() error {
 
 	if g.ActiveVehicle == nil {
 		g.player.UpdateStats(g.currentState == StateCave, g.Input.IsKeyPressed(ebiten.KeyShift))
+	} else {
+		// Regenerate stamina and update player stats while resting/piloting a vehicle
+		g.player.UpdateStats(g.currentState == StateCave, false)
 	}
 	g.player.UpdateAnimation()
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/config"
+	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
@@ -1215,6 +1216,48 @@ func TestHotbarConsumableUsage(t *testing.T) {
 	if g.player.Hotbar.Slots[1].Quantity != 0 || g.player.Hotbar.Slots[1].Item != nil {
 		t.Fatalf("expected 0 CookedFish remaining in hotbar, got qty=%d, item=%v",
 			g.player.Hotbar.Slots[1].Quantity, g.player.Hotbar.Slots[1].Item)
+	}
+}
+
+func TestPlayer_StaminaRegeneratesInVehicle(t *testing.T) {
+	g := NewGame()
+	g.player.CurrentStamina = 20.0
+	g.player.MaxStamina = 100.0
+
+	// Deploy and mount a skiff
+	skiff := vehicle.NewSkiff(g.player.Pos.X, g.player.Pos.Y)
+	g.ActiveVehicle = skiff
+
+	initialStamina := g.player.CurrentStamina
+
+	// Run multiple game updates
+	for i := 0; i < 30; i++ {
+		g.Update()
+	}
+
+	if g.player.CurrentStamina <= initialStamina {
+		t.Fatalf("expected stamina to regenerate while in vehicle, was %f, now %f", initialStamina, g.player.CurrentStamina)
+	}
+}
+
+func TestPlayer_CollectOxygenBubble(t *testing.T) {
+	g := NewGame()
+	g.player.CurrentOxygen = 30.0
+	g.player.MaxOxygen = 100.0
+
+	// Create a ShatterBulb right at the player's position
+	bulb := entity.NewShatterBulb(g.player.Pos.X, g.player.Pos.Y)
+
+	// Update bulb with player overlap
+	ert := g.NewEntityRuntime()
+	bulb.Update(ert)
+	g.drainEntityCommands(ert.(*entityRuntimeAdapter))
+
+	if bulb.IsActive() {
+		t.Fatalf("expected bulb to be inactive after collection")
+	}
+	if g.player.CurrentOxygen <= 30.0 {
+		t.Fatalf("expected oxygen to be restored after collecting bubble, got %f", g.player.CurrentOxygen)
 	}
 }
 

@@ -213,7 +213,7 @@ Audio assets should be placed in `assets/audio/sfx/` (.wav format, 44.1kHz 16-bi
 
 ### 4.2 Tools, Equipment & Usables SFX
 - [x] **Mining Tool Strike (Pickaxe / Hand Drill)** (`assets/audio/sfx/mining_hit.wav`)
-  - **Sound Profile:** High-pitch metallic clink on solid mineral veins with underwater resonance.
+  - **Sound Profile:** Heavy acoustic hammer strike thunk on solid rock with low-frequency punch and gritty stone fracture.
   - **Logic / Triggers:** [cave_update.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/cave_update.go)
 - [x] **Digging Tool Crunch** (`assets/audio/sfx/dig_crunch.wav`)
   - **Sound Profile:** Gritty, granular sand/silt shovel digging sound.
@@ -298,8 +298,8 @@ Audio assets should be placed in `assets/audio/sfx/` (.wav format, 44.1kHz 16-bi
 - [x] **Sand Viper - Burrow Rustle & Ambush Strike Hiss** (`assets/audio/sfx/viper_burrow.wav`, `assets/audio/sfx/viper_strike.wav`)
   - **Sound Profile:** Sediment churning rustle in seabed rock followed by an aggressive aquatic venom strike hiss.
   - **Logic / Triggers:** [sand_viper.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/sand_viper.go)
-- [x] **Shatter-Bulb - Pop & High-Frequency Acoustic Burst** (`assets/audio/sfx/shatter_bulb_pop.wav`)
-  - **Sound Profile:** Hollow pressurized pop releasing O2 bubbles accompanied by a sharp acoustic wave (alerting nearby predators).
+- [x] **Oxygen Bubble Plant (Shatter-Bulb) - Deep Resonant Bubble Bloop & Liquid Cavity Pop** (`assets/audio/sfx/shatter_bulb_pop.wav`)
+  - **Sound Profile:** Deep, hollow resonant Minnaert bubble "bloop" and liquid water glug releasing O2 into player tanks.
   - **Logic / Triggers:** [shatter_bulb.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/entity/shatter_bulb.go)
 - [x] **Shock Kelp - Ambient Buzz & Contact Zap** (`assets/audio/sfx/shock_kelp_hum.wav`, `assets/audio/sfx/shock_kelp_zap.wav`)
   - **Sound Profile:** Subtle ambient electrical hum when near fronds; sharp static shock zap on player contact.

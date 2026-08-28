@@ -261,14 +261,14 @@ func (g *Game) updateSceneAudio(next Scene) {
 		audioMgr.PlayMusic("music/intro_cinematic.mp3", 0.7)
 	case g.overworldState:
 		audioMgr.SetSubmerged(false)
-		audioMgr.PlayMusic("music/overworld_surface.mp3", 0.5)
+		audioMgr.PlayMusic("music/overworld_surface.mp3", 0.25)
 	case g.caveState:
 		audioMgr.SetSubmerged(true)
 		musicTrack := "music/cave_shallow.mp3"
 		if g.caveState != nil && g.caveState.ActiveCave != nil {
 			musicTrack = cave.MusicTrack(g.caveState.ActiveCave.GetCaveType())
 		}
-		audioMgr.PlayMusic(musicTrack, 0.6)
+		audioMgr.PlayMusic(musicTrack, 0.3)
 	case g.gameOverState:
 		audioMgr.SetSubmerged(false)
 		audioMgr.PlayMusic("music/game_over_theme.mp3", 0.7)

@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/gvec"
@@ -271,6 +272,7 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 			}
 		case entity.RestoreOxygenCmd:
 			g.player.CurrentOxygen = min(g.player.MaxOxygen, g.player.CurrentOxygen+c.Amount)
+			audio.Get().PlaySFXVaried("sfx/shatter_bulb_pop.wav", 0.85, 0.06)
 		case entity.TriggerSoundWaveCmd:
 			g.SoundWave.Timer = 60
 			g.SoundWave.Radius = 0.0
