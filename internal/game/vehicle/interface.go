@@ -39,6 +39,14 @@ type Deployable interface {
 	Deploy(x, y float64) Vehicle
 }
 
+// HeadlightVehicle defines vehicles that support toggleable headlights.
+type HeadlightVehicle interface {
+	Vehicle
+	HasHeadlights() bool
+	IsHeadlightsOn() bool
+	ToggleHeadlights() bool
+}
+
 // TileSize matches the global tile size used for collision calculations.
 const TileSize = 64
 

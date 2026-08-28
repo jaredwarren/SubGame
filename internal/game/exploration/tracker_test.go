@@ -78,3 +78,30 @@ func TestVisitedAndSerializeRoundTrip(t *testing.T) {
 		t.Fatalf("explored fraction mismatch: got %v want %v", tr2.ExploredFraction(), tr.ExploredFraction())
 	}
 }
+
+func TestTrackerOverflowAndDrain(t *testing.T) {
+	tr := NewTracker(100, 100) // 10,000 tiles
+	if tr.Overflowed() {
+		t.Fatal("new tracker should not be overflowed")
+	}
+
+	// Reveal tiles until exceeding maxNewlyRevealed (8192)
+	// Radius 55 covers > 9000 tiles
+	tr.Reveal(50, 50, 55)
+
+	if !tr.Overflowed() {
+		t.Fatalf("expected tracker to overflow with >%d tiles revealed", maxNewlyRevealed)
+	}
+	if len(tr.newlyRevealed) != maxNewlyRevealed {
+		t.Fatalf("expected newlyRevealed to be capped at %d, got %d", maxNewlyRevealed, len(tr.newlyRevealed))
+	}
+
+	drained := tr.Drain()
+	if len(drained) != maxNewlyRevealed {
+		t.Fatalf("expected Drain to return %d tiles, got %d", maxNewlyRevealed, len(drained))
+	}
+	if tr.Overflowed() {
+		t.Fatal("Drain should reset overflowed status")
+	}
+}
+

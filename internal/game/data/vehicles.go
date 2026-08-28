@@ -8,6 +8,7 @@ import "github.com/jaredwarren/SubGame/internal/game/vehicle"
 type (
 	SkiffDef        = vehicle.SkiffDef
 	SurfaceSonarDef = vehicle.SurfaceSonarDef
+	SkiffLightDef   = vehicle.SkiffLightDef
 	ScoutSubDef     = vehicle.ScoutSubDef
 	HeavyMechDef    = vehicle.HeavyMechDef
 )

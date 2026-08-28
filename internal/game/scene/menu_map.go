@@ -114,7 +114,7 @@ func (m *BaseMenuScene) drawMapTab(g MenuContext, screen *ebiten.Image, panelX, 
 }
 
 func (m *BaseMenuScene) syncMapImage(w *world.World, tracker *exploration.Tracker) {
-	if m.mapImage == nil || m.mapSeed != w.Seed || len(m.mapPixels) != w.Width*w.Height*4 {
+	if m.mapImage == nil || m.mapSeed != w.Seed || len(m.mapPixels) != w.Width*w.Height*4 || tracker.Overflowed() {
 		m.rebuildMapImage(w, tracker)
 		_ = tracker.Drain() // drop backlog accumulated before first open
 		return

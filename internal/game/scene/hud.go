@@ -11,6 +11,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -221,6 +222,38 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 		drawStatBar(screen, float32(vHudX+15), float32(vHudY+30), vHudW-30, 14, hullRatio, color.RGBA{220, 80, 50, 255}, "HULL", activeVehicle.GetHealth(), activeVehicle.GetMaxHealth())
 		battRatio := activeVehicle.GetBattery() / activeVehicle.GetMaxBattery()
 		drawStatBar(screen, float32(vHudX+15), float32(vHudY+54), vHudW-30, 14, battRatio, color.RGBA{220, 180, 40, 255}, "BATT", activeVehicle.GetBattery(), activeVehicle.GetMaxBattery())
+
+		if hl, ok := activeVehicle.(vehicle.HeadlightVehicle); ok && hl.HasHeadlights() {
+			btnMinX, btnMinY, btnMaxX, btnMaxY := HUDVehicleLightButtonRect()
+			btnW := float32(btnMaxX - btnMinX)
+			btnH := float32(btnMaxY - btnMinY)
+			btnX := float32(btnMinX) + jx
+			btnY := float32(btnMinY) + jy
+
+			isOn := hl.IsHeadlightsOn()
+			bgClr := color.RGBA{22, 28, 42, 220}
+			borderClr := color.RGBA{70, 90, 120, 255}
+			label := "[L] LIGHT: OFF"
+
+			if isOn {
+				bgClr = color.RGBA{52, 44, 18, 235}
+				borderClr = color.RGBA{255, 215, 60, 255}
+				label = "[L] LIGHT: ON"
+			}
+
+			vector.FillRect(screen, btnX, btnY, btnW, btnH, bgClr, false)
+			vector.StrokeRect(screen, btnX, btnY, btnW, btnH, 1.2, borderClr, false)
+
+			// Small indicator bulb dot
+			indicatorClr := color.RGBA{120, 140, 160, 200}
+			if isOn {
+				indicatorClr = color.RGBA{255, 220, 60, 255}
+				vector.FillCircle(screen, btnX+12, btnY+btnH/2.0, 4.5, color.RGBA{255, 240, 160, 80}, true)
+			}
+			vector.FillCircle(screen, btnX+12, btnY+btnH/2.0, 3.0, indicatorClr, false)
+
+			ebitenutil.DebugPrintAt(screen, label, int(btnX)+22, int(btnY)+6)
+		}
 	}
 
 	if g.GetCurrentState() == StateCave && weaverTimer > 0 {
@@ -253,6 +286,28 @@ func drawStatBar(screen *ebiten.Image, x, y, w, h float32, ratio float64, barCol
 // DrawHUDHotbar renders the quick-select hotbar on the active HUD.
 func (h *HUD) DrawHUDHotbar(screen *ebiten.Image, g GameContext, p *player.Player) {
 	h.drawHotbar(screen, p)
+}
+
+const (
+	HUDVehicleLightBtnW = 125.0
+	HUDVehicleLightBtnH = 24.0
+)
+
+// HUDVehicleLightButtonRect returns screen-space bounding box for the driving headlight toggle button.
+func HUDVehicleLightButtonRect() (minX, minY, maxX, maxY float64) {
+	const vHudW = 240.0
+	const vHudH = 90.0
+	vHudX := float64(config.ScreenWidth - vHudW - 20)
+	vHudY := float64(config.ScreenHeight - vHudH - 20)
+	btnX := vHudX + vHudW - HUDVehicleLightBtnW
+	btnY := vHudY - HUDVehicleLightBtnH - 6.0
+	return btnX, btnY, btnX + HUDVehicleLightBtnW, btnY + HUDVehicleLightBtnH
+}
+
+// HUDVehicleLightButtonHit returns true if (x, y) coordinates fall within the driving light button.
+func HUDVehicleLightButtonHit(x, y float64) bool {
+	minX, minY, maxX, maxY := HUDVehicleLightButtonRect()
+	return x >= minX && x <= maxX && y >= minY && y <= maxY
 }
 
 const (

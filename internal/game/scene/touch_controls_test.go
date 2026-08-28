@@ -527,6 +527,36 @@ func TestTouchControls_HotbarTouch(t *testing.T) {
 	}
 }
 
+func TestHUDVehicleLightButtonHit(t *testing.T) {
+	minX, minY, maxX, maxY := HUDVehicleLightButtonRect()
+	midX := (minX + maxX) / 2.0
+	midY := (minY + maxY) / 2.0
+
+	if !HUDVehicleLightButtonHit(midX, midY) {
+		t.Fatalf("expected hit at center (%f, %f)", midX, midY)
+	}
+	if !HUDVehicleLightButtonHit(minX, minY) {
+		t.Fatalf("expected hit at top-left (%f, %f)", minX, minY)
+	}
+	if !HUDVehicleLightButtonHit(maxX, maxY) {
+		t.Fatalf("expected hit at bottom-right (%f, %f)", maxX, maxY)
+	}
+
+	// Outside button
+	if HUDVehicleLightButtonHit(minX-10, midY) {
+		t.Fatal("expected miss to the left of button")
+	}
+	if HUDVehicleLightButtonHit(maxX+10, midY) {
+		t.Fatal("expected miss to the right of button")
+	}
+	if HUDVehicleLightButtonHit(midX, minY-10) {
+		t.Fatal("expected miss above button")
+	}
+	if HUDVehicleLightButtonHit(midX, maxY+10) {
+		t.Fatal("expected miss below button")
+	}
+}
+
 
 
 

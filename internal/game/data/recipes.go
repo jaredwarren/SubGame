@@ -280,6 +280,17 @@ var CraftingRecipes = []Recipe{
 		Tier:     1,
 		Unlocked: false,
 	},
+	{
+		NewResult:      func() item.Item { return &item.SkiffLight{} },
+		ResultQuantity: 1,
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 3},
+			{NewItem: func() item.Item { return &item.Copper{} }, Quantity: 2},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
+		},
+		Tier:     0,
+		Unlocked: true,
+	},
 }
 
 // ResultName returns the crafted item's display name, or empty if unset.

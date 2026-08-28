@@ -5,6 +5,7 @@ import (
 	"image/color"
 	_ "image/png"
 	"math"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -23,7 +24,10 @@ const (
 const activeWakeStyle = WakeStyleVSegments
 
 var (
-	skiffSheet *ebiten.Image
+	skiffSheet             *ebiten.Image
+	skiffRadialLightImage  *ebiten.Image
+	skiffHeadlightImage    *ebiten.Image
+	skiffLightTexturesOnce sync.Once
 )
 
 type skiffWakePoint struct {
@@ -49,6 +53,7 @@ type Skiff struct {
 	spawnTimer    int
 	lightMult     float64
 	sonarCooldown int
+	HeadlightsOn  bool
 }
 
 // NewSkiff creates a Skiff at the given world position.
@@ -247,6 +252,47 @@ func (s *Skiff) Update(runtime Runtime) {
 	s.checkCollisions(runtime)
 	s.maybeSpawnWake(moving, d)
 	s.trySonar(runtime, input, hasPower)
+	s.updateHeadlights()
+}
+
+func (s *Skiff) HasHeadlights() bool {
+	return item.HasItem[*item.SkiffLight](s.Upgrades, 1)
+}
+
+func (s *Skiff) IsHeadlightsOn() bool {
+	return s.HeadlightsOn && s.HasHeadlights() && s.Battery > 0
+}
+
+func (s *Skiff) ToggleHeadlights() bool {
+	if !s.HasHeadlights() || s.Battery <= 0 {
+		s.HeadlightsOn = false
+		return false
+	}
+	s.HeadlightsOn = !s.HeadlightsOn
+	return s.HeadlightsOn
+}
+
+func (s *Skiff) updateHeadlights() {
+	if !s.HasHeadlights() {
+		s.HeadlightsOn = false
+		return
+	}
+	if s.HeadlightsOn {
+		if s.Battery <= 0 {
+			s.Battery = 0
+			s.HeadlightsOn = false
+			return
+		}
+		drain := SkiffArchetype.SkiffLight.BatteryDrain
+		if drain <= 0 {
+			drain = 0.02
+		}
+		s.Battery -= drain
+		if s.Battery <= 0 {
+			s.Battery = 0
+			s.HeadlightsOn = false
+		}
+	}
 }
 
 func (s *Skiff) hasSurfaceSonar() bool {
@@ -477,6 +523,9 @@ func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {
 		}
 	}
 
+	// Draw headlights and radial ambient glow on water surface before drawing boat hull
+	s.drawHeadlights(screen, camX, camY)
+
 	if skiffSheet != nil {
 		rect := image.Rect(348, 82, 676, 948)
 		sprite := skiffSheet.SubImage(rect).(*ebiten.Image)
@@ -504,6 +553,7 @@ func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {
 		op.ColorScale.Scale(mult, mult, mult, 1.0)
 
 		screen.DrawImage(sprite, op)
+		s.drawHeadlightLenses(screen, camX, camY)
 		return
 	}
 
@@ -559,6 +609,158 @@ func (s *Skiff) Draw(screen *ebiten.Image, camX, camY float64) {
 	vector.StrokeLine(screen, sp2x, sp2y, sp3x, sp3y, 0.8, color.RGBA{220, 240, 255, 180}, false)
 	vector.StrokeLine(screen, sp3x, sp3y, sp4x, sp4y, 0.8, color.RGBA{220, 240, 255, 180}, false)
 	vector.StrokeLine(screen, sp4x, sp4y, sp1x, sp1y, 0.8, color.RGBA{220, 240, 255, 180}, false)
+	s.drawHeadlightLenses(screen, camX, camY)
+}
+
+func ensureSkiffLightTextures() {
+	skiffLightTexturesOnce.Do(func() {
+		// 1. Generate 360-degree soft radial ambient light texture (128x128)
+		const radSize = 128
+		const radCenter = 64.0
+		const radR = 62.0
+
+		radImg := image.NewNRGBA(image.Rect(0, 0, radSize, radSize))
+		for y := 0; y < radSize; y++ {
+			for x := 0; x < radSize; x++ {
+				dx := float64(x) - radCenter
+				dy := float64(y) - radCenter
+				dist := math.Hypot(dx, dy)
+				if dist < radR {
+					falloff := 1.0 - (dist / radR)
+					// Smooth cubic decay
+					intensity := falloff * falloff * (3.0 - 2.0*falloff)
+					alpha := uint8(intensity * 48.0)
+					radImg.SetNRGBA(x, y, color.NRGBA{
+						R: 255,
+						G: 232,
+						B: 160,
+						A: alpha,
+					})
+				}
+			}
+		}
+		skiffRadialLightImage = ebiten.NewImageFromImage(radImg)
+
+		// 2. Generate smooth forward headlight cone texture (320x400)
+		// Origin at (0, 200) pointing right (+X)
+		const coneW = 320
+		const coneH = 400
+		const originY = 200.0
+		const maxDist = 290.0
+		const halfAngle = 0.70 // ~40 deg half-angle (~80 deg total cone spread)
+
+		coneImg := image.NewNRGBA(image.Rect(0, 0, coneW, coneH))
+		for y := 0; y < coneH; y++ {
+			for x := 0; x < coneW; x++ {
+				dx := float64(x)
+				dy := float64(y) - originY
+				dist := math.Hypot(dx, dy)
+				if dx > 0 && dist > 1.0 && dist < maxDist {
+					angle := math.Atan2(dy, dx)
+					absAngle := math.Abs(angle)
+					if absAngle < halfAngle {
+						// Distance falloff (quadratic)
+						distNorm := dist / maxDist
+						distFade := 1.0 - distNorm
+						distFade = distFade * distFade
+
+						// Angular edge feathering (smoothstep)
+						angNorm := absAngle / halfAngle
+						angFade := 1.0 - angNorm
+						angFade = angFade * angFade * (3.0 - 2.0*angFade)
+
+						// Soft dual beam emphasis for the two headlights
+						beam1 := math.Exp(-math.Pow((angle-0.12)*7.0, 2.0))
+						beam2 := math.Exp(-math.Pow((angle+0.12)*7.0, 2.0))
+						coreGlow := (beam1 + beam2) * 0.35
+
+						totalIntensity := distFade * (angFade*0.65 + coreGlow)
+						if totalIntensity > 1.0 {
+							totalIntensity = 1.0
+						}
+
+						alpha := uint8(totalIntensity * 60.0)
+						coneImg.SetNRGBA(x, y, color.NRGBA{
+							R: 255,
+							G: 240,
+							B: 185,
+							A: alpha,
+						})
+					}
+				}
+			}
+		}
+		skiffHeadlightImage = ebiten.NewImageFromImage(coneImg)
+	})
+}
+
+func (s *Skiff) drawHeadlights(screen *ebiten.Image, camX, camY float64) {
+	if !s.IsHeadlightsOn() {
+		return
+	}
+
+	ensureSkiffLightTextures()
+
+	cx := s.Pos.X + s.Dimensions.X/2.0 - camX
+	cy := s.Pos.Y + s.Dimensions.Y/2.0 - camY
+
+	cosF := math.Cos(s.Facing)
+	sinF := math.Sin(s.Facing)
+
+	d := SkiffArchetype.SkiffLight
+	radRadius := float32(d.RadialRadius)
+	if radRadius <= 0 {
+		radRadius = 65.0
+	}
+
+	// 1. Draw smooth forward headlight cone
+	if skiffHeadlightImage != nil {
+		bowX := cx + cosF*26.0
+		bowY := cy + sinF*26.0
+
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterLinear
+		op.GeoM.Translate(0, -200.0)
+		op.GeoM.Rotate(s.Facing)
+		op.GeoM.Translate(bowX, bowY)
+		op.Blend = ebiten.BlendLighter
+		screen.DrawImage(skiffHeadlightImage, op)
+	}
+
+	// 2. Draw smooth 360-degree radial ambient light around hull
+	if skiffRadialLightImage != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterLinear
+		scale := float64(radRadius*2.0) / 128.0
+		op.GeoM.Scale(scale, scale)
+		op.GeoM.Translate(cx-float64(radRadius), cy-float64(radRadius))
+		op.Blend = ebiten.BlendLighter
+		screen.DrawImage(skiffRadialLightImage, op)
+	}
+}
+
+func (s *Skiff) drawHeadlightLenses(screen *ebiten.Image, camX, camY float64) {
+	if !s.IsHeadlightsOn() {
+		return
+	}
+
+	cx := s.Pos.X + s.Dimensions.X/2.0 - camX
+	cy := s.Pos.Y + s.Dimensions.Y/2.0 - camY
+	cosF := math.Cos(s.Facing)
+	sinF := math.Sin(s.Facing)
+	bowX := cx + cosF*26.0
+	bowY := cy + sinF*26.0
+	perpX := -sinF
+	perpY := cosF
+
+	for _, side := range []float64{-5.0, 5.0} {
+		lx := float32(bowX + perpX*side)
+		ly := float32(bowY + perpY*side)
+		// Small soft glow halo
+		vector.FillCircle(screen, lx, ly, 3.0, color.NRGBA{R: 255, G: 235, B: 140, A: 100}, true)
+		// Small crisp bulb point
+		vector.FillCircle(screen, lx, ly, 1.2, color.NRGBA{R: 255, G: 255, B: 240, A: 220}, true)
+	}
 }
 
 func (s *Skiff) getLightMultiplier(timeOfDay float64) float64 {

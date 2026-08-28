@@ -39,12 +39,15 @@ type Tracker struct {
 	visited       map[string]world.TileType
 	discovered    map[string]bool
 	newlyRevealed []int
+	overflowed    bool
 	exploredCount int
 	lastTX        int
 	lastTY        int
 	hasLast       bool
 	fogDist       []float32
 }
+
+const maxNewlyRevealed = 8192
 
 // NewTracker creates an empty exploration tracker for a w×h tile world.
 func NewTracker(w, h int) *Tracker {
@@ -110,8 +113,10 @@ func (t *Tracker) markExplored(tx, ty int) bool {
 	}
 	t.explored[word] |= bit
 	t.exploredCount++
-	if len(t.newlyRevealed) < 4096 {
+	if len(t.newlyRevealed) < maxNewlyRevealed {
 		t.newlyRevealed = append(t.newlyRevealed, idx)
+	} else {
+		t.overflowed = true
 	}
 	return true
 }
@@ -159,7 +164,13 @@ func (t *Tracker) VisitedTile(tx, ty int) (world.TileType, bool) {
 func (t *Tracker) Drain() []int {
 	out := t.newlyRevealed
 	t.newlyRevealed = nil
+	t.overflowed = false
 	return out
+}
+
+// Overflowed reports whether newly revealed updates exceeded the backlog capacity.
+func (t *Tracker) Overflowed() bool {
+	return t.overflowed
 }
 
 // Width returns the tracker width in tiles.
@@ -227,6 +238,7 @@ func (t *Tracker) DeserializeState(s SavedExploration) {
 	t.explored = make([]uint64, (t.width*t.height+63)/64)
 	t.exploredCount = 0
 	t.newlyRevealed = nil
+	t.overflowed = false
 	t.visited = make(map[string]world.TileType)
 	t.hasLast = false
 	t.lastTX, t.lastTY = -1, -1

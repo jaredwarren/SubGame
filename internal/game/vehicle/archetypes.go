@@ -12,6 +12,15 @@ type SurfaceSonarDef struct {
 	CooldownTicks      int     // cooldown ticks between scans
 }
 
+// SkiffLightDef holds balance stats for the Skiff's headlights upgrade.
+type SkiffLightDef struct {
+	BatteryDrain       float64 // battery drained per tick while active (0.02 = 1.2/s)
+	RadialRadius       float64 // radius of 360-degree ambient hull glow in pixels
+	HeadlightRange     float64 // forward reach of headlights beam in pixels
+	HeadlightHalfAngle float64 // half-angle of the headlight cone in radians (~50 deg total)
+	FogBonusRadius     int     // additional tile radius revealed forward in fog
+}
+
 // SkiffDef holds balance stats for the surface Skiff.
 type SkiffDef struct {
 	Dims              gvec.Vec2
@@ -20,6 +29,7 @@ type SkiffDef struct {
 	CargoSlots        int
 	UpgradeSlots      int
 	SurfaceSonar      SurfaceSonarDef
+	SkiffLight        SkiffLightDef
 	TurnSpeed         float64
 	TurnIdleScale     float64 // turn rate at rest as a fraction of TurnSpeed
 	Accel             float64
@@ -91,6 +101,13 @@ var SkiffArchetype = &SkiffDef{
 		PulseDurationTicks: 120,
 		PulseRadiusStep:    6.5,
 		CooldownTicks:      60,
+	},
+	SkiffLight: SkiffLightDef{
+		BatteryDrain:       0.02,
+		RadialRadius:       65.0,
+		HeadlightRange:     290.0,
+		HeadlightHalfAngle: 0.70,
+		FogBonusRadius:     2,
 	},
 	TurnSpeed:         0.035,
 	TurnIdleScale:     0.55,

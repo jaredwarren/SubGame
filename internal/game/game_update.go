@@ -76,7 +76,6 @@ func (g *Game) Update() error {
 	}
 
 	g.advanceTimers()
-	g.drainExplorationUpdates()
 	g.updateEffects()
 	g.updateQuests()
 	g.handleWorldTaps()
@@ -289,12 +288,6 @@ func (g *Game) applyActiveCheats() {
 	}
 }
 
-func (g *Game) drainExplorationUpdates() {
-	if g.explorationTracker != nil {
-		g.explorationTracker.Drain()
-	}
-}
-
 // updateEffects ticks the sonar, sound wave, and particle systems.
 func (g *Game) updateEffects() {
 	g.Sonar.Update()
@@ -403,9 +396,16 @@ func (g *Game) handleInput() {
 			return
 		}
 	}
-	if g.Input.IsKeyJustPressed(ebiten.KeyT) {
-		g.FlashlightOn = !g.FlashlightOn
-		audio.Get().PlaySFX("sfx/flashlight_toggle.wav")
+	if g.Input.IsKeyJustPressed(ebiten.KeyT) || (g.ActiveVehicle != nil && g.Input.IsKeyJustPressed(ebiten.KeyL)) {
+		if g.ActiveVehicle != nil {
+			if hv, ok := g.ActiveVehicle.(vehicle.HeadlightVehicle); ok && hv.HasHeadlights() {
+				hv.ToggleHeadlights()
+				audio.Get().PlaySFX("sfx/flashlight_toggle.wav")
+			}
+		} else if g.Input.IsKeyJustPressed(ebiten.KeyT) {
+			g.FlashlightOn = !g.FlashlightOn
+			audio.Get().PlaySFX("sfx/flashlight_toggle.wav")
+		}
 	}
 	if (g.Input.IsKeyJustPressed(ebiten.KeyTab) || g.Input.IsKeyJustPressed(ebiten.KeyI)) && (g.currentState == StateOverworld || g.currentState == StateCave) {
 		g.showInventory = !g.showInventory
@@ -463,6 +463,16 @@ func (g *Game) handleInput() {
 				g.selectHotbarSlot(slot)
 				if ci, ok := g.Input.(*CombinedInput); ok {
 					ci.ConsumeTap()
+				}
+			} else if g.ActiveVehicle != nil {
+				if hv, ok := g.ActiveVehicle.(vehicle.HeadlightVehicle); ok && hv.HasHeadlights() {
+					if HUDVehicleLightButtonHit(cur.X, cur.Y) {
+						hv.ToggleHeadlights()
+						audio.Get().PlaySFX("sfx/flashlight_toggle.wav")
+						if ci, ok := g.Input.(*CombinedInput); ok {
+							ci.ConsumeTap()
+						}
+					}
 				}
 			}
 		}
@@ -970,6 +980,9 @@ func (g *Game) activeVehicleHasSpecial() bool {
 // (which has headlights) or is on foot actively holding a Flashlight tool.
 func (g *Game) hasFlashlightAvailable() bool {
 	if g.ActiveVehicle != nil {
+		if hv, ok := g.ActiveVehicle.(vehicle.HeadlightVehicle); ok {
+			return hv.HasHeadlights()
+		}
 		return true
 	}
 	if g.player == nil {

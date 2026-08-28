@@ -12,6 +12,9 @@ type SonarAmplifier struct {
 type SurfaceSonar struct {
 	VehicleUpgradeNode[SurfaceSonar]
 }
+type SkiffLight struct {
+	VehicleUpgradeNode[SkiffLight]
+}
 type PowerCell struct{ BaseItem[PowerCell] }
 type ThermalGenerator struct {
 	VehicleUpgradeNode[ThermalGenerator]

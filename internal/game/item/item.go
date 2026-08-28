@@ -624,6 +624,31 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.StrokeLine(screen, cx-size/2.6, cy-size/8.0, cx+size/2.6, cy-size/8.0, 1.0, color.RGBA{100, 200, 255, 180}, false)
 		},
 	},
+	reflect.TypeFor[SkiffLight](): {
+		Name:     "Skiff Light Module",
+		MaxStack: 1,
+		Color:    color.RGBA{255, 225, 75, 255},
+		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
+			name := "Skiff Light Module"
+			clr := color.RGBA{255, 225, 75, 255}
+			if drawItemIconSprite(screen, name, cx, cy, size) {
+				return
+			}
+			// Base module casing (dark navy blue)
+			vector.FillRect(screen, cx-size/2.2, cy-size/2.2, size*0.9, size*0.9, color.RGBA{25, 45, 65, 255}, false)
+			vector.StrokeRect(screen, cx-size/2.2, cy-size/2.2, size*0.9, size*0.9, 1.5, color.RGBA{70, 100, 140, 255}, false)
+			// Reflector dish
+			vector.FillCircle(screen, cx-size/8.0, cy, size/3.2, color.RGBA{38, 52, 74, 255}, false)
+			vector.StrokeCircle(screen, cx-size/8.0, cy, size/3.2, 1.2, color.RGBA{180, 195, 215, 255}, false)
+			// Bulb and glow
+			vector.FillCircle(screen, cx-size/8.0, cy, size/5.5, clr, false)
+			vector.FillCircle(screen, cx-size/8.0, cy, size/11.0, color.RGBA{255, 255, 255, 255}, false)
+			// Beaming light rays forward
+			vector.StrokeLine(screen, cx+size/8.0, cy-size/5.5, cx+size/2.1, cy-size/3.0, 1.4, clr, false)
+			vector.StrokeLine(screen, cx+size/6.0, cy, cx+size/1.9, cy, 1.8, clr, false)
+			vector.StrokeLine(screen, cx+size/8.0, cy+size/5.5, cx+size/2.1, cy+size/3.0, 1.4, clr, false)
+		},
+	},
 	reflect.TypeFor[PowerCell](): {
 		Name:     "Power Cell",
 		MaxStack: 5,

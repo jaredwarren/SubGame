@@ -194,6 +194,9 @@ func (g *Game) IsFlashlightOn() bool {
 		return false
 	}
 	if g.ActiveVehicle != nil {
+		if hv, ok := g.ActiveVehicle.(vehicle.HeadlightVehicle); ok {
+			return hv.IsHeadlightsOn()
+		}
 		return g.FlashlightOn
 	}
 	if _, ok := g.player.GetActiveItem().(*item.Flashlight); !ok {

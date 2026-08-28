@@ -51,3 +51,9 @@ var HUDHotbarSlotAt = scene.HUDHotbarSlotAt
 // HUDHotbarSlotRect returns the screen-space bounds for a given hotbar slot.
 var HUDHotbarSlotRect = scene.HUDHotbarSlotRect
 
+// HUDVehicleLightButtonHit returns true if (x, y) coordinates fall within the driving light button.
+var HUDVehicleLightButtonHit = scene.HUDVehicleLightButtonHit
+
+// HUDVehicleLightButtonRect returns screen-space bounding box for the driving headlight toggle button.
+var HUDVehicleLightButtonRect = scene.HUDVehicleLightButtonRect
+

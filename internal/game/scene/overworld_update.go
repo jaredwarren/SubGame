@@ -223,6 +223,19 @@ func revealExploration(g OverworldContext) {
 	tx := tileAt(p.Pos.X+p.Width/2.0, config.TileSize)
 	ty := tileAt(p.Pos.Y+p.Height/2.0, config.TileSize)
 	tracker.Reveal(tx, ty, exploration.RevealRadius)
+
+	// If driving a vehicle with headlights on, boost forward reveal along vehicle heading
+	if v := g.GetActiveVehicle(); v != nil {
+		if hl, ok := v.(vehicle.HeadlightVehicle); ok && hl.IsHeadlightsOn() {
+			facing := v.GetFacing()
+			forwardDist := 3.5 * float64(config.TileSize)
+			fx := (p.Pos.X + p.Width/2.0) + math.Cos(facing)*forwardDist
+			fy := (p.Pos.Y + p.Height/2.0) + math.Sin(facing)*forwardDist
+			ftx := tileAt(fx, config.TileSize)
+			fty := tileAt(fy, config.TileSize)
+			tracker.Reveal(ftx, fty, exploration.RevealRadius+1)
+		}
+	}
 }
 
 // CheckCollisions resolves player collisions against solid land tiles and the base station.
