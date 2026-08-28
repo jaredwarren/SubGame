@@ -88,10 +88,12 @@ type TouchControls struct {
 	active  bool // touch mode: shown after any touch, hidden on keyboard/mouse input
 	context TouchContext
 
-	canEnterVehicle   bool
-	canEnterLifePod   bool
-	hasVehicleSonar   bool
-	hasVehicleSpecial bool
+	canEnterVehicle        bool
+	canEnterLifePod        bool
+	hasVehicleSonar        bool
+	hasVehicleSpecial      bool
+	hasFlashlightAvailable bool
+	flashlightOn           bool
 
 	// Thumbstick state. The stick anchors where the touch begins inside the
 	// bottom-left zone and follows that touch until release.
@@ -108,6 +110,12 @@ type TouchControls struct {
 
 	virtualLeftClick bool
 	preferNearestUse bool
+
+	// Aim touch state: in cave mode, touching/dragging outside buttons and stick
+	// aims the flashlight toward the touch position.
+	aimActive bool
+	aimTouch  ebiten.TouchID
+	aimPos    gvec.Vec2
 
 	// A tap is a touch press not captured by the stick or a button. It acts
 	// as a left-click at the touch position unless consumed by world-tap
@@ -126,6 +134,10 @@ type TouchControls struct {
 	uiDragMoved    bool
 	uiScrollWheelY float64 // synthesized wheel Y for this frame (matches ebiten.Wheel)
 
+	hotbarTouched bool
+	hotbarSlot    int
+	hotbarPending int
+
 	touchIDs    []ebiten.TouchID
 	justTouched []ebiten.TouchID
 	keyScratch  []ebiten.Key
@@ -142,8 +154,10 @@ func NewTouchControls() *TouchControls {
 	gameplay := []TouchContext{TouchContextOnFoot, TouchContextCave, TouchContextDriving, TouchContextCaveDriving}
 
 	tc := &TouchControls{
-		virtualHeld: make(map[ebiten.Key]bool),
-		virtualJust: make(map[ebiten.Key]bool),
+		context:       TouchContextOnFoot,
+		hotbarPending: -1,
+		virtualHeld:   make(map[ebiten.Key]bool),
+		virtualJust:   make(map[ebiten.Key]bool),
 	}
 
 	tc.buttons = []*touchButton{
@@ -159,6 +173,7 @@ func NewTouchControls() *TouchControls {
 		{cx: 1053, cy: 560, r: 34, key: ebiten.KeyJ, icon: makeTouchIcon(drawIconPDA), contexts: caveOrCaveDriving},
 		{cx: 1108, cy: 478, r: 34, key: ebiten.KeyF, icon: makeTouchIcon(drawIconEnterVehicle), contexts: onFootOrCave, condition: func() bool { return tc.canEnterVehicle }},
 		{cx: 1000, cy: 460, r: 34, key: ebiten.KeyE, icon: makeTouchIcon(drawIconFabricator), contexts: onFoot, condition: func() bool { return tc.canEnterLifePod }},
+		{cx: 1000, cy: 460, r: 34, key: ebiten.KeyT, icon: makeTouchIcon(drawIconFlashlight), contexts: caveOrCaveDriving, condition: func() bool { return tc.hasFlashlightAvailable }},
 		{cx: 1053, cy: 560, r: 34, key: ebiten.KeyQ, icon: makeTouchIcon(drawIconSonar), contexts: driving, condition: func() bool { return tc.hasVehicleSonar }},
 		{cx: 1108, cy: 478, r: 34, key: ebiten.KeySpace, icon: makeTouchIcon(drawIconAction), contexts: driving, condition: func() bool { return tc.hasVehicleSpecial }},
 		{cx: 1000, cy: 460, r: 34, key: ebiten.KeyM, icon: makeTouchIcon(drawIconMap), contexts: overworldDriving},
@@ -184,6 +199,16 @@ func (t *TouchControls) SetCanEnterLifePod(can bool) { t.canEnterLifePod = can }
 func (t *TouchControls) SetVehicleCapabilities(hasSonar, hasSpecial bool) {
 	t.hasVehicleSonar = hasSonar
 	t.hasVehicleSpecial = hasSpecial
+}
+
+// SetHasFlashlightAvailable updates whether the player is currently holding a Flashlight or driving a vehicle with headlights.
+func (t *TouchControls) SetHasFlashlightAvailable(avail bool) {
+	t.hasFlashlightAvailable = avail
+}
+
+// SetFlashlightState updates whether the flashlight / headlights are actively toggled ON.
+func (t *TouchControls) SetFlashlightState(on bool) {
+	t.flashlightOn = on
 }
 
 // Active reports whether touch mode is engaged (controls visible, synthetic cursor in use).
@@ -230,11 +255,34 @@ func (t *TouchControls) UIScrollWheelY() float64 { return t.uiScrollWheelY }
 // ConsumeTap suppresses this frame's tap so it does not become a left-click.
 func (t *TouchControls) ConsumeTap() { t.tapConsumed = true }
 
+// ConsumeHotbarTouch returns the hotbar slot index touched this frame, if any.
+func (t *TouchControls) ConsumeHotbarTouch() (int, bool) {
+	if t.hotbarTouched {
+		t.hotbarTouched = false
+		return t.hotbarSlot, true
+	}
+	return -1, false
+}
+
+// TriggerHotbarSlot simulates a touch on a hotbar slot for testing.
+func (t *TouchControls) TriggerHotbarSlot(slot int) {
+	t.active = true
+	t.hotbarPending = slot
+}
+
 // StickFacing returns the stick direction (unit length) while it is engaged
 // past the deadzone, for cursor-facing movement.
 func (t *TouchControls) StickFacing() (gvec.Vec2, bool) {
 	if t.stickActive && math.Hypot(t.stickVec.X, t.stickVec.Y) > stickDeadzone {
 		return t.lastStickDir, true
+	}
+	return gvec.Vec2{}, false
+}
+
+// AimTouch returns the active screen touch position used to aim the flashlight in caves.
+func (t *TouchControls) AimTouch() (gvec.Vec2, bool) {
+	if t.aimActive {
+		return t.aimPos, true
 	}
 	return gvec.Vec2{}, false
 }
@@ -260,6 +308,12 @@ func (t *TouchControls) Update() {
 	t.virtualLeftClick = false
 	t.preferNearestUse = false
 	t.uiScrollWheelY = 0
+	t.hotbarTouched = false
+	if t.hotbarPending >= 0 {
+		t.hotbarTouched = true
+		t.hotbarSlot = t.hotbarPending
+		t.hotbarPending = -1
+	}
 
 	// Physical keyboard/mouse input hides the touch overlay.
 	t.keyScratch = inpututil.AppendJustPressedKeys(t.keyScratch[:0])
@@ -312,6 +366,13 @@ func (t *TouchControls) Update() {
 			}
 			continue
 		}
+		if gameplay && !menuUI {
+			if slot := HUDHotbarSlotAt(x, y); slot >= 0 {
+				t.hotbarTouched = true
+				t.hotbarSlot = slot
+				continue
+			}
+		}
 		if menuUI && !t.uiDragActive {
 			t.uiDragActive = true
 			t.uiDragTouch = id
@@ -319,6 +380,11 @@ func (t *TouchControls) Update() {
 			t.uiDragLast = t.uiDragStart
 			t.uiDragMoved = false
 			continue
+		}
+		if (t.context == TouchContextCave || t.context == TouchContextCaveDriving) && !t.aimActive {
+			t.aimActive = true
+			t.aimTouch = id
+			t.aimPos = gvec.Vec2{X: x, Y: y}
 		}
 		t.tapPending = true
 		t.tapPos = gvec.Vec2{X: x, Y: y}
@@ -365,6 +431,16 @@ func (t *TouchControls) Update() {
 				dy *= stickMaxRadius / mag
 			}
 			t.stickVec = gvec.Vec2{X: dx / stickMaxRadius, Y: dy / stickMaxRadius}
+		}
+	}
+
+	// Track or release the aim touch (for cave flashlight aiming).
+	if t.aimActive {
+		if (t.context != TouchContextCave && t.context != TouchContextCaveDriving) || !t.touchAlive(t.aimTouch) {
+			t.aimActive = false
+		} else {
+			xi, yi := ebiten.TouchPosition(t.aimTouch)
+			t.aimPos = gvec.Vec2{X: float64(xi), Y: float64(yi)}
 		}
 	}
 
@@ -446,15 +522,23 @@ func (t *TouchControls) Draw(screen *ebiten.Image) {
 			continue
 		}
 		fill := touchFillColor
+		stroke := touchStrokeCol
+		if b.key == ebiten.KeyT && t.flashlightOn {
+			fill = color.RGBA{140, 110, 20, 210}
+			stroke = color.RGBA{255, 230, 90, 255}
+		}
 		if b.held {
 			fill = touchFillHeld
 		}
 		vector.FillCircle(screen, float32(b.cx), float32(b.cy), float32(b.r), fill, true)
-		vector.StrokeCircle(screen, float32(b.cx), float32(b.cy), float32(b.r), 2, touchStrokeCol, true)
+		vector.StrokeCircle(screen, float32(b.cx), float32(b.cy), float32(b.r), 2, stroke, true)
 		if b.icon != nil {
 			op := &ebiten.DrawImageOptions{}
 			w, h := b.icon.Bounds().Dx(), b.icon.Bounds().Dy()
 			op.GeoM.Translate(b.cx-float64(w)/2.0, b.cy-float64(h)/2.0)
+			if b.key == ebiten.KeyT && t.flashlightOn {
+				op.ColorScale.Scale(1.2, 1.1, 0.6, 1.0)
+			}
 			screen.DrawImage(b.icon, op)
 		}
 	}
@@ -570,6 +654,28 @@ func drawIconFabricator(dst *ebiten.Image) {
 	vector.StrokeLine(dst, 31, 28, 24, 32, 1.8, c, true)
 }
 
+// drawIconFlashlight draws a flashlight with forward-projecting light rays.
+func drawIconFlashlight(dst *ebiten.Image) {
+	c := touchIconColor
+	// Flashlight body / handle.
+	vector.StrokeRect(dst, 10, 20, 14, 8, 2, c, true)
+	// Grip grooves.
+	vector.StrokeLine(dst, 14, 21, 14, 27, 1.5, c, true)
+	vector.StrokeLine(dst, 18, 21, 18, 27, 1.5, c, true)
+	// Top switch button.
+	vector.StrokeLine(dst, 15, 17, 19, 17, 2, c, true)
+	vector.StrokeLine(dst, 15, 17, 15, 20, 1.5, c, true)
+	vector.StrokeLine(dst, 19, 17, 19, 20, 1.5, c, true)
+	// Angled bezel / head.
+	vector.StrokeLine(dst, 24, 20, 31, 15, 2, c, true)
+	vector.StrokeLine(dst, 31, 15, 31, 33, 2.5, c, true)
+	vector.StrokeLine(dst, 31, 33, 24, 28, 2, c, true)
+	// Light beam rays.
+	vector.StrokeLine(dst, 35, 16, 43, 11, 2, c, true)
+	vector.StrokeLine(dst, 36, 24, 45, 24, 2, c, true)
+	vector.StrokeLine(dst, 35, 32, 43, 37, 2, c, true)
+}
+
 // drawIconInventory draws a 2x2 grid of slots.
 func drawIconInventory(dst *ebiten.Image) {
 	c := touchIconColor
@@ -641,6 +747,7 @@ type CombinedInput struct {
 	base  *EbitenInput
 	touch *TouchControls
 
+	aimOrigin  gvec.Vec2
 	lastCursor gvec.Vec2
 	haveCursor bool
 }
@@ -656,10 +763,20 @@ func (c *CombinedInput) Update() {
 	c.touch.Update()
 }
 
+// SetAimOrigin sets the screen coordinates of the player/vehicle from which synthetic cursor offsets originate.
+func (c *CombinedInput) SetAimOrigin(origin gvec.Vec2) {
+	c.aimOrigin = origin
+}
+
 // Cursor returns the physical cursor, or a synthetic one in touch mode.
 func (c *CombinedInput) Cursor() gvec.Vec2 {
 	if !c.touch.Active() {
 		return c.base.Cursor()
+	}
+	if pos, ok := c.touch.AimTouch(); ok {
+		c.lastCursor = pos
+		c.haveCursor = true
+		return pos
 	}
 	if pos, ok := c.touch.TapCursor(); ok {
 		c.lastCursor = pos
@@ -671,15 +788,19 @@ func (c *CombinedInput) Cursor() gvec.Vec2 {
 		c.haveCursor = true
 		return pos
 	}
+	origin := c.aimOrigin
+	if origin == (gvec.Vec2{}) {
+		origin = gvec.Vec2{X: float64(config.ScreenWidth) / 2.0, Y: float64(config.ScreenHeight) / 2.0}
+	}
 	if dir, ok := c.touch.StickFacing(); ok {
 		c.lastCursor = gvec.Vec2{
-			X: float64(config.ScreenWidth)/2.0 + dir.X*120.0,
-			Y: float64(config.ScreenHeight)/2.0 + dir.Y*120.0,
+			X: origin.X + dir.X*120.0,
+			Y: origin.Y + dir.Y*120.0,
 		}
 		c.haveCursor = true
 	}
 	if !c.haveCursor {
-		c.lastCursor = gvec.Vec2{X: float64(config.ScreenWidth) / 2.0, Y: float64(config.ScreenHeight) / 2.0}
+		c.lastCursor = origin
 		c.haveCursor = true
 	}
 	return c.lastCursor
@@ -719,6 +840,42 @@ func (c *CombinedInput) StickAxes() (gvec.Vec2, bool) {
 		return gvec.Vec2{}, false
 	}
 	return c.touch.StickAxes()
+}
+
+// StickFacing returns the thumbstick direction if engaged past the deadzone on touch.
+func (c *CombinedInput) StickFacing() (gvec.Vec2, bool) {
+	if c.touch == nil || !c.touch.Active() {
+		return gvec.Vec2{}, false
+	}
+	return c.touch.StickFacing()
+}
+
+// TouchActive reports whether touch controls are active.
+func (c *CombinedInput) TouchActive() bool {
+	return c.touch != nil && c.touch.Active()
+}
+
+// TapCursor returns the screen position of a tap this frame, if any.
+func (c *CombinedInput) TapCursor() (gvec.Vec2, bool) {
+	if c.touch == nil || !c.touch.Active() {
+		return gvec.Vec2{}, false
+	}
+	return c.touch.TapCursor()
+}
+
+// ConsumeTap suppresses this frame's tap on touch controls.
+func (c *CombinedInput) ConsumeTap() {
+	if c.touch != nil {
+		c.touch.ConsumeTap()
+	}
+}
+
+// AimTouch returns the active screen touch position used to aim the flashlight in caves.
+func (c *CombinedInput) AimTouch() (gvec.Vec2, bool) {
+	if c.touch == nil || !c.touch.Active() {
+		return gvec.Vec2{}, false
+	}
+	return c.touch.AimTouch()
 }
 
 func (c *CombinedInput) Wheel() (float64, float64) {

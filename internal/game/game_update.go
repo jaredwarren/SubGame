@@ -25,6 +25,25 @@ func (g *Game) Update() error {
 		g.touch.SetCanEnterVehicle(g.canEnterVehicleNearby())
 		g.touch.SetCanEnterLifePod(g.canEnterLifePodNearby())
 		g.touch.SetVehicleCapabilities(g.activeVehicleHasSonar(), g.activeVehicleHasSpecial())
+		g.touch.SetHasFlashlightAvailable(g.hasFlashlightAvailable())
+		g.touch.SetFlashlightState(g.IsFlashlightOn())
+	}
+	if ci, ok := g.Input.(*CombinedInput); ok {
+		if g.player != nil && g.camera != nil {
+			pScreen := gvec.Vec2{
+				X: g.player.Pos.X + g.player.Width/2.0 - g.camera.Pos.X,
+				Y: g.player.Pos.Y + g.player.Height/2.0 - g.camera.Pos.Y,
+			}
+			if g.ActiveVehicle != nil {
+				vPos := g.ActiveVehicle.GetPos()
+				vDims := g.ActiveVehicle.GetDimensions()
+				pScreen = gvec.Vec2{
+					X: vPos.X + vDims.X/2.0 - g.camera.Pos.X,
+					Y: vPos.Y + vDims.Y/2.0 - g.camera.Pos.Y,
+				}
+			}
+			ci.SetAimOrigin(pScreen)
+		}
 	}
 	g.Input.Update()
 	audio.Get().Update()
@@ -430,22 +449,30 @@ func (g *Game) handleInput() {
 	}
 
 	if !ctrlPressed && (g.currentState == StateOverworld || g.currentState == StateCave) {
-		prevSlot := g.player.ActiveSlot
-		if g.Input.IsKeyJustPressed(ebiten.Key1) {
-			g.player.ActiveSlot = 0
-		} else if g.Input.IsKeyJustPressed(ebiten.Key2) {
-			g.player.ActiveSlot = 1
-		} else if g.Input.IsKeyJustPressed(ebiten.Key3) {
-			g.player.ActiveSlot = 2
-		} else if g.Input.IsKeyJustPressed(ebiten.Key4) {
-			g.player.ActiveSlot = 3
-		} else if g.Input.IsKeyJustPressed(ebiten.Key5) {
-			g.player.ActiveSlot = 4
-		}
-		if g.player.ActiveSlot != prevSlot {
-			if _, ok := g.player.GetActiveItem().(*item.Flashlight); ok {
-				g.FlashlightOn = true
+		if g.touch != nil {
+			if slot, ok := g.touch.ConsumeHotbarTouch(); ok && slot >= 0 {
+				g.selectHotbarSlot(slot)
 			}
+		}
+		if g.Input.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			cur := g.Input.Cursor()
+			if slot := HUDHotbarSlotAt(cur.X, cur.Y); slot >= 0 {
+				g.selectHotbarSlot(slot)
+				if ci, ok := g.Input.(*CombinedInput); ok {
+					ci.ConsumeTap()
+				}
+			}
+		}
+		if g.Input.IsKeyJustPressed(ebiten.Key1) {
+			g.selectHotbarSlot(0)
+		} else if g.Input.IsKeyJustPressed(ebiten.Key2) {
+			g.selectHotbarSlot(1)
+		} else if g.Input.IsKeyJustPressed(ebiten.Key3) {
+			g.selectHotbarSlot(2)
+		} else if g.Input.IsKeyJustPressed(ebiten.Key4) {
+			g.selectHotbarSlot(3)
+		} else if g.Input.IsKeyJustPressed(ebiten.Key5) {
+			g.selectHotbarSlot(4)
 		}
 	}
 
@@ -643,7 +670,11 @@ func (g *Game) ActivatePlayerItem(it item.Item) {
 	if consumable, ok := it.(item.Consumable); ok {
 		g.player.CurrentHealth = min(g.player.CurrentHealth+consumable.GetHealthRestore(), g.player.MaxHealth)
 		g.player.CurrentStamina = min(g.player.CurrentStamina+consumable.GetStaminaRestore(), g.player.MaxStamina)
-		g.player.Inventory.Remove(it, 1)
+		if g.player.Hotbar == nil || !g.player.Hotbar.Remove(it, 1) {
+			g.player.Inventory.Remove(it, 1)
+		}
+		g.player.RecalculateUpgrades()
+		audio.Get().PlaySFX("sfx/item_pickup.wav")
 		g.SetMineWarning("Ate "+consumable.GetName()+"!", 90, 1)
 		return
 	}
@@ -929,6 +960,39 @@ func (g *Game) activeVehicleHasSpecial() bool {
 		return item.HasItem[*item.DecoyLauncher](upg, 1) || item.HasItem[*item.ChemicalDischarger](upg, 1)
 	default:
 		return false
+	}
+}
+
+// hasFlashlightAvailable reports whether the player is currently piloting a vehicle
+// (which has headlights) or is on foot actively holding a Flashlight tool.
+func (g *Game) hasFlashlightAvailable() bool {
+	if g.ActiveVehicle != nil {
+		return true
+	}
+	if g.player == nil {
+		return false
+	}
+	_, ok := g.player.GetActiveItem().(*item.Flashlight)
+	return ok
+}
+
+// selectHotbarSlot selects a hotbar slot index. If the slot is already selected and
+// contains a consumable, it consumes the item.
+func (g *Game) selectHotbarSlot(slot int) {
+	if g.player == nil || g.player.Hotbar == nil || slot < 0 || slot >= len(g.player.Hotbar.Slots) {
+		return
+	}
+	prevSlot := g.player.ActiveSlot
+	if prevSlot == slot {
+		if consumable, ok := g.player.Hotbar.Slots[slot].Item.(item.Consumable); ok {
+			g.ActivatePlayerItem(consumable)
+			return
+		}
+	}
+	g.player.ActiveSlot = slot
+	audio.Get().PlaySFX("sfx/hotbar_switch.wav")
+	if _, ok := g.player.GetActiveItem().(*item.Flashlight); ok {
+		g.FlashlightOn = true
 	}
 }
 

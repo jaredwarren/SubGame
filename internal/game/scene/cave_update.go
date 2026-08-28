@@ -307,6 +307,10 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 			audio.Get().PlaySFX("sfx/repair_tool_loop.wav")
 			return
 		}
+		if _, ok := activeItem.(item.Consumable); ok {
+			g.ActivatePlayerItem(activeItem)
+			return
+		}
 		if usable, ok := activeItem.(item.UsableItem); ok {
 			ctx := &caveUsableContext{
 				scene: c,
@@ -559,10 +563,60 @@ func (c *CaveScene) handlePlayerMovement(g CaveContext, inp InputSource, p *play
 	}
 
 	cam := g.GetCamera()
-	cursor := inp.Cursor()
 	pScreenX := p.Pos.X + p.Width/2.0 - cam.Pos.X
 	pScreenY := p.Pos.Y + p.Height/2.0 - cam.Pos.Y
-	p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+
+	type aimToucher interface {
+		AimTouch() (gvec.Vec2, bool)
+	}
+	type stickFacer interface {
+		StickFacing() (gvec.Vec2, bool)
+	}
+	type touchChecker interface {
+		TouchActive() bool
+	}
+	type tapChecker interface {
+		TapCursor() (gvec.Vec2, bool)
+	}
+
+	if at, ok := inp.(aimToucher); ok {
+		if pos, aiming := at.AimTouch(); aiming {
+			p.Facing = math.Atan2(pos.Y-pScreenY, pos.X-pScreenX)
+		} else if sf, ok := inp.(stickFacer); ok {
+			if dir, active := sf.StickFacing(); active {
+				p.Facing = math.Atan2(dir.Y, dir.X)
+			} else if tc, ok := inp.(touchChecker); ok && tc.TouchActive() {
+				if tap, ok := inp.(tapChecker); ok {
+					if pos, tapped := tap.TapCursor(); tapped {
+						p.Facing = math.Atan2(pos.Y-pScreenY, pos.X-pScreenX)
+					}
+				}
+				// When touch is active and stick is idle with no tap, retain p.Facing.
+			} else {
+				cursor := inp.Cursor()
+				p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+			}
+		} else {
+			cursor := inp.Cursor()
+			p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+		}
+	} else if sf, ok := inp.(stickFacer); ok {
+		if dir, active := sf.StickFacing(); active {
+			p.Facing = math.Atan2(dir.Y, dir.X)
+		} else if tc, ok := inp.(touchChecker); ok && tc.TouchActive() {
+			if tap, ok := inp.(tapChecker); ok {
+				if pos, tapped := tap.TapCursor(); tapped {
+					p.Facing = math.Atan2(pos.Y-pScreenY, pos.X-pScreenX)
+				}
+			}
+		} else {
+			cursor := inp.Cursor()
+			p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+		}
+	} else {
+		cursor := inp.Cursor()
+		p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+	}
 
 	speedProps := p.Speed["cave"]
 	swimForce := speedProps.Acceleration

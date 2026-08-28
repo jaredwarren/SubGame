@@ -138,9 +138,13 @@ func ClampBattery(battery, maxBattery *float64) {
 	}
 }
 
-// CursorFacing returns the angle from the player screen center toward the cursor.
+// CursorFacing returns the angle from the player screen center toward the cursor,
+// or the analog stick direction if engaged.
 func CursorFacing(rt Runtime) float64 {
 	input := rt.Input()
+	if desired, throttle, ok := AnalogAimAxes(input); ok && throttle > 0 {
+		return desired
+	}
 	cursor := input.Cursor()
 	center := rt.PlayerScreenCenter()
 	return math.Atan2(cursor.Y-center.Y, cursor.X-center.X)

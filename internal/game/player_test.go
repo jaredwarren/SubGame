@@ -1130,3 +1130,91 @@ func TestSaveLoad_CraftingAndInventoryHotkeys(t *testing.T) {
 		t.Error("expected inventory to close when Escape is pressed while inventory is open")
 	}
 }
+
+func TestHotbarSlotTouchAndClickSelection(t *testing.T) {
+	g := NewGame()
+	g.currentState = StateOverworld
+
+	// Initial slot is 0
+	if g.player.ActiveSlot != 0 {
+		t.Fatalf("expected initial active slot 0, got %d", g.player.ActiveSlot)
+	}
+
+	// Put a flashlight in slot 2
+	flashlight := &item.Flashlight{}
+	g.player.Hotbar.Slots[2].Item = flashlight
+	g.player.Hotbar.Slots[2].Quantity = 1
+
+	// Simulate touch on slot 2
+	g.touch.SetContext(TouchContextOnFoot)
+	g.touch.TriggerHotbarSlot(2)
+
+	g.Update()
+
+	if g.player.ActiveSlot != 2 {
+		t.Fatalf("expected active slot 2 after touch on slot 2, got %d", g.player.ActiveSlot)
+	}
+	if !g.FlashlightOn {
+		t.Fatal("expected FlashlightOn to be true after selecting slot 2 with flashlight")
+	}
+
+	// Simulate mouse click on slot 4
+	minX4, minY4, maxX4, maxY4 := HUDHotbarSlotRect(4)
+	mockInput := NewMockInput()
+	mockInput.CursorPos = gvec.Vec2{X: (minX4 + maxX4) / 2.0, Y: (minY4 + maxY4) / 2.0}
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+	g.Input = mockInput
+
+	g.Update()
+
+	if g.player.ActiveSlot != 4 {
+		t.Fatalf("expected active slot 4 after clicking slot 4, got %d", g.player.ActiveSlot)
+	}
+}
+
+func TestHotbarConsumableUsage(t *testing.T) {
+	g := NewGame()
+	g.currentState = StateOverworld
+
+	// Put CookedFish in slot 1
+	fish := &item.CookedFish{}
+	g.player.Hotbar.Slots[1].Item = fish
+	g.player.Hotbar.Slots[1].Quantity = 2
+
+	// Injure player
+	g.player.CurrentHealth = 40.0
+	g.player.CurrentStamina = 30.0
+
+	// Select slot 1
+	g.selectHotbarSlot(1)
+	if g.player.ActiveSlot != 1 {
+		t.Fatalf("expected active slot 1, got %d", g.player.ActiveSlot)
+	}
+
+	// Tapping already active slot should consume 1 CookedFish
+	g.selectHotbarSlot(1)
+
+	if g.player.CurrentHealth <= 40.0 {
+		t.Fatalf("expected health to increase after eating CookedFish, got %f", g.player.CurrentHealth)
+	}
+	if g.player.CurrentStamina <= 30.0 {
+		t.Fatalf("expected stamina to increase after eating CookedFish, got %f", g.player.CurrentStamina)
+	}
+	if g.player.Hotbar.Slots[1].Quantity != 1 {
+		t.Fatalf("expected 1 CookedFish remaining in hotbar, got %d", g.player.Hotbar.Slots[1].Quantity)
+	}
+
+	// Also test left-clicking in overworld consumes the remaining fish
+	mockInput := NewMockInput()
+	mockInput.JustPressedMouse[ebiten.MouseButtonLeft] = true
+	g.Input = mockInput
+
+	// Update overworld scene
+	g.overworldState.Update(g)
+
+	if g.player.Hotbar.Slots[1].Quantity != 0 || g.player.Hotbar.Slots[1].Item != nil {
+		t.Fatalf("expected 0 CookedFish remaining in hotbar, got qty=%d, item=%v",
+			g.player.Hotbar.Slots[1].Quantity, g.player.Hotbar.Slots[1].Item)
+	}
+}
+

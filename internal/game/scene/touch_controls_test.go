@@ -1,9 +1,13 @@
 package scene
 
 import (
+	"math"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jaredwarren/SubGame/internal/game/camera"
+	"github.com/jaredwarren/SubGame/internal/game/player"
+	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
 func TestCombinedInput_MergesUIScrollWheel(t *testing.T) {
@@ -255,6 +259,277 @@ func TestTouchControls_LifePodFabricatorButton(t *testing.T) {
 		t.Fatal("expected Life Pod button visible in TouchContextOnFoot when near Life Pod")
 	}
 }
+
+func TestCombinedInput_AimOriginAndStickFacing(t *testing.T) {
+	base := NewEbitenInput()
+	touch := NewTouchControls()
+	ci := NewCombinedInput(base, touch)
+
+	// Simulate touch engagement.
+	touch.active = true
+	touch.stickActive = true
+	touch.stickVec = gvec.Vec2{X: -1, Y: 0}
+	touch.lastStickDir = gvec.Vec2{X: -1, Y: 0}
+
+	dir, ok := ci.StickFacing()
+	if !ok || dir.X != -1 || dir.Y != 0 {
+		t.Fatalf("expected StickFacing to return (-1, 0), got: %+v, %v", dir, ok)
+	}
+
+	if !ci.TouchActive() {
+		t.Fatal("expected TouchActive to return true")
+	}
+
+	// AimOrigin near left edge of screen (e.g. player at x=50, y=300).
+	playerScreen := gvec.Vec2{X: 50, Y: 300}
+	ci.SetAimOrigin(playerScreen)
+
+	cur := ci.Cursor()
+	// Cursor should sit ahead of the player (50 - 120 = -70), NOT ahead of screen center (640 - 120 = 520).
+	expectedX := 50.0 - 120.0
+	expectedY := 300.0
+	if cur.X != expectedX || cur.Y != expectedY {
+		t.Fatalf("expected cursor at (%v, %v), got (%v, %v)", expectedX, expectedY, cur.X, cur.Y)
+	}
+
+	// Vector from player to cursor is pointing LEFT (negative X), NOT toward screen center.
+	dx := cur.X - playerScreen.X
+	if dx >= 0 {
+		t.Fatalf("expected dx to be negative (pointing left), got %v", dx)
+	}
+}
+
+type stubCaveContext struct {
+	CaveContext
+	cam camera.Camera
+}
+
+func (s *stubCaveContext) GetCamera() *camera.Camera { return &s.cam }
+func (s *stubCaveContext) IsPlayerSlowed() bool       { return false }
+func (s *stubCaveContext) SpawnBubble(x, y float64)  {}
+
+func TestCavePlayerMovement_FacingNearEdges(t *testing.T) {
+	cave := NewCaveScene()
+	p := player.NewPlayer(50, 200)
+
+	base := NewEbitenInput()
+	touch := NewTouchControls()
+	ci := NewCombinedInput(base, touch)
+
+	// Simulate touch engagement with stick pushed LEFT (-1, 0).
+	touch.active = true
+	touch.stickActive = true
+	touch.stickVec = gvec.Vec2{X: -1, Y: 0}
+	touch.lastStickDir = gvec.Vec2{X: -1, Y: 0}
+
+	ctx := &stubCaveContext{cam: camera.Camera{Pos: gvec.Vec2{X: 0, Y: 0}}}
+	ci.SetAimOrigin(gvec.Vec2{X: p.Pos.X + p.Width/2.0, Y: p.Pos.Y + p.Height/2.0})
+
+	cave.handlePlayerMovement(ctx, ci, p)
+
+	// math.Cos(p.Facing) must be negative (facing LEFT)!
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected player to face LEFT (cos < 0) when moving left near cave edge, but got facing angle %v (cos = %v)",
+			p.Facing, math.Cos(p.Facing))
+	}
+
+	// Release stick: facing should be retained, not flipped toward screen center.
+	touch.stickActive = false
+	cave.handlePlayerMovement(ctx, ci, p)
+
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected player to RETAIN left facing when releasing stick, but got facing angle %v (cos = %v)",
+			p.Facing, math.Cos(p.Facing))
+	}
+
+	// Push stick RIGHT: facing should flip to face RIGHT.
+	touch.stickActive = true
+	touch.stickVec = gvec.Vec2{X: 1, Y: 0}
+	touch.lastStickDir = gvec.Vec2{X: 1, Y: 0}
+	cave.handlePlayerMovement(ctx, ci, p)
+
+	if math.Cos(p.Facing) <= 0 {
+		t.Fatalf("expected player to face RIGHT (cos > 0) when moving right near cave edge, but got facing angle %v (cos = %v)",
+			p.Facing, math.Cos(p.Facing))
+	}
+}
+
+func TestTouchControls_FlashlightButton(t *testing.T) {
+	touch := NewTouchControls()
+
+	// When hasFlashlightAvailable is false, the button should NOT be visible anywhere.
+	touch.SetHasFlashlightAvailable(false)
+	for _, b := range touch.buttons {
+		if b.key == ebiten.KeyT {
+			if b.visibleIn(TouchContextCave) {
+				t.Fatal("Flashlight button should NOT be visible when hasFlashlightAvailable is false")
+			}
+			if b.visibleIn(TouchContextCaveDriving) {
+				t.Fatal("Flashlight button should NOT be visible when hasFlashlightAvailable is false")
+			}
+		}
+	}
+
+	// When hasFlashlightAvailable is true:
+	touch.SetHasFlashlightAvailable(true)
+	hasFlashlightCave := false
+	hasFlashlightCaveDriving := false
+	hasFlashlightOnFoot := false
+	hasFlashlightDriving := false
+
+	for _, b := range touch.buttons {
+		if b.key == ebiten.KeyT {
+			if b.visibleIn(TouchContextCave) {
+				hasFlashlightCave = true
+			}
+			if b.visibleIn(TouchContextCaveDriving) {
+				hasFlashlightCaveDriving = true
+			}
+			if b.visibleIn(TouchContextOnFoot) {
+				hasFlashlightOnFoot = true
+			}
+			if b.visibleIn(TouchContextDriving) {
+				hasFlashlightDriving = true
+			}
+		}
+	}
+
+	if !hasFlashlightCave {
+		t.Fatal("expected Flashlight toggle button (KeyT) visible in TouchContextCave when available")
+	}
+	if !hasFlashlightCaveDriving {
+		t.Fatal("expected Flashlight toggle button (KeyT) visible in TouchContextCaveDriving when available")
+	}
+	if hasFlashlightOnFoot {
+		t.Fatal("Flashlight toggle button should NOT be visible in TouchContextOnFoot")
+	}
+	if hasFlashlightDriving {
+		t.Fatal("Flashlight toggle button should NOT be visible in TouchContextDriving")
+	}
+}
+
+func TestCavePlayerMovement_AimTouchOverridesStick(t *testing.T) {
+	cave := NewCaveScene()
+	p := player.NewPlayer(200, 200)
+
+	base := NewEbitenInput()
+	touch := NewTouchControls()
+	ci := NewCombinedInput(base, touch)
+
+	// Simulate movement stick pointing LEFT (-1, 0).
+	touch.active = true
+	touch.stickActive = true
+	touch.stickVec = gvec.Vec2{X: -1, Y: 0}
+	touch.lastStickDir = gvec.Vec2{X: -1, Y: 0}
+
+	// But user touches/drags with second finger to the RIGHT (aiming at x=500, y=200).
+	touch.aimActive = true
+	touch.aimPos = gvec.Vec2{X: 500, Y: 200}
+
+	ctx := &stubCaveContext{cam: camera.Camera{Pos: gvec.Vec2{X: 0, Y: 0}}}
+	cave.handlePlayerMovement(ctx, ci, p)
+
+	// Player should aim at the aim touch point (to the RIGHT, cos > 0), even while swimming left!
+	if math.Cos(p.Facing) <= 0 {
+		t.Fatalf("expected player to aim toward aim touch (to the right, cos > 0), got facing angle %v (cos = %v)",
+			p.Facing, math.Cos(p.Facing))
+	}
+
+	// Release aim touch: should fall back to stick facing (LEFT, cos < 0).
+	touch.aimActive = false
+	cave.handlePlayerMovement(ctx, ci, p)
+
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected player to face stick direction (left, cos < 0) once aim touch is released, got facing angle %v (cos = %v)",
+			p.Facing, math.Cos(p.Facing))
+	}
+}
+
+func TestTouchControls_FlashlightToggleVisual(t *testing.T) {
+	touch := NewTouchControls()
+	touch.active = true
+	touch.SetContext(TouchContextCave)
+	touch.SetHasFlashlightAvailable(true)
+
+	// Verify button exists
+	var flashBtn *touchButton
+	for _, b := range touch.buttons {
+		if b.key == ebiten.KeyT && b.visibleIn(TouchContextCave) {
+			flashBtn = b
+			break
+		}
+	}
+	if flashBtn == nil {
+		t.Fatal("expected flashlight button visible in cave when available")
+	}
+
+	// Toggle state off
+	touch.SetFlashlightState(false)
+	if touch.flashlightOn {
+		t.Fatal("expected flashlightOn to be false")
+	}
+
+	// Toggle state on
+	touch.SetFlashlightState(true)
+	if !touch.flashlightOn {
+		t.Fatal("expected flashlightOn to be true")
+	}
+}
+
+func TestHUDHotbarSlotAt(t *testing.T) {
+	// Center of slot 0
+	minX0, minY0, maxX0, maxY0 := HUDHotbarSlotRect(0)
+	midX0 := (minX0 + maxX0) / 2.0
+	midY0 := (minY0 + maxY0) / 2.0
+	if slot := HUDHotbarSlotAt(midX0, midY0); slot != 0 {
+		t.Fatalf("expected slot 0 at (%f, %f), got %d", midX0, midY0, slot)
+	}
+
+	// Center of slot 2
+	minX2, minY2, maxX2, maxY2 := HUDHotbarSlotRect(2)
+	midX2 := (minX2 + maxX2) / 2.0
+	midY2 := (minY2 + maxY2) / 2.0
+	if slot := HUDHotbarSlotAt(midX2, midY2); slot != 2 {
+		t.Fatalf("expected slot 2 at (%f, %f), got %d", midX2, midY2, slot)
+	}
+
+	// Center of slot 4
+	minX4, minY4, maxX4, maxY4 := HUDHotbarSlotRect(4)
+	midX4 := (minX4 + maxX4) / 2.0
+	midY4 := (minY4 + maxY4) / 2.0
+	if slot := HUDHotbarSlotAt(midX4, midY4); slot != 4 {
+		t.Fatalf("expected slot 4 at (%f, %f), got %d", midX4, midY4, slot)
+	}
+
+	// Outside hotbar
+	if slot := HUDHotbarSlotAt(100, 100); slot != -1 {
+		t.Fatalf("expected -1 outside hotbar, got %d", slot)
+	}
+}
+
+func TestTouchControls_HotbarTouch(t *testing.T) {
+	touch := NewTouchControls()
+	touch.active = true
+	touch.SetContext(TouchContextOnFoot)
+
+	// Simulate touch routing on slot 3
+	touch.hotbarTouched = true
+	touch.hotbarSlot = 3
+
+	slot, ok := touch.ConsumeHotbarTouch()
+	if !ok || slot != 3 {
+		t.Fatalf("expected to consume hotbar touch for slot 3, got (%d, %v)", slot, ok)
+	}
+
+	// Second call should return false
+	if _, ok := touch.ConsumeHotbarTouch(); ok {
+		t.Fatal("expected ConsumeHotbarTouch to return false after consumption")
+	}
+}
+
+
+
+
 
 
 

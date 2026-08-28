@@ -44,3 +44,10 @@ func NewCombinedInput(base *EbitenInput, touch *TouchControls) *CombinedInput {
 
 // NewMockInput creates a new MockInput for testing.
 func NewMockInput() *MockInput { return scene.NewMockInput() }
+
+// HUDHotbarSlotAt returns the hotbar slot index (0..4) at screen coordinates (x, y), or -1 if none.
+var HUDHotbarSlotAt = scene.HUDHotbarSlotAt
+
+// HUDHotbarSlotRect returns the screen-space bounds for a given hotbar slot.
+var HUDHotbarSlotRect = scene.HUDHotbarSlotRect
+

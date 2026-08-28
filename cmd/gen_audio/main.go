@@ -15,6 +15,7 @@ func main() {
 	outDir := flag.String("output-dir", "assets/audio", "Target output directory for synthesized audio files")
 	filter := flag.String("filter", "", "Filter sounds by name substring")
 	seed := flag.Int64("seed", 12345, "Base random seed for procedural generation")
+	overwriteMusic := flag.Bool("overwrite-music", false, "Overwrite existing music files in assets/audio/music/")
 	flag.Parse()
 
 	startTime := time.Now()
@@ -33,6 +34,18 @@ func main() {
 		}
 
 		targetPath := filepath.Join(*outDir, relPath)
+		if strings.HasPrefix(relPath, "music/") && !*overwriteMusic {
+			if info, err := os.Stat(targetPath); err == nil && info.Size() > 0 {
+				// Don't overwrite existing music asset (e.g. AI-generated tracks)
+				continue
+			}
+			if strings.HasPrefix(relPath, "music/cave_") {
+				if info, err := os.Stat(filepath.Join(*outDir, "music/cave.mp3")); err == nil && info.Size() > 0 {
+					continue
+				}
+			}
+		}
+
 		parentDir := filepath.Dir(targetPath)
 		if err := os.MkdirAll(parentDir, 0755); err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating directory %s: %v\n", parentDir, err)

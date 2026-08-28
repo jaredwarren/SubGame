@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
 	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 	"github.com/jaredwarren/SubGame/assets"
 )
@@ -88,7 +89,7 @@ func (m *Manager) preloadCommonSFX() {
 		m.sfxRawCache[relKey] = data
 		m.sfxRawCache[entry.Name()] = data
 
-		pcm, decErr := decodeWAVPCM(data)
+		pcm, decErr := decodeAudioPCM(data)
 		if decErr != nil {
 			continue
 		}
@@ -113,6 +114,32 @@ func decodeWAVPCM(raw []byte) ([]byte, error) {
 	return pcm, nil
 }
 
+func decodeAudioPCM(raw []byte) ([]byte, error) {
+	// If it starts with standard RIFF header, decode with WAV decoder.
+	if bytes.HasPrefix(raw, []byte("RIFF")) {
+		return decodeWAVPCM(raw)
+	}
+
+	// Try MP3 decoder (e.g. ID3 tag or raw MPEG ADTS stream)
+	stream, err := mp3.DecodeWithSampleRate(SampleRate, bytes.NewReader(raw))
+	if err == nil {
+		length := stream.Length()
+		if length > 0 {
+			pcm := make([]byte, length)
+			if _, err := io.ReadFull(stream, pcm); err == nil {
+				return pcm, nil
+			}
+		}
+		pcm, readErr := io.ReadAll(stream)
+		if readErr == nil && len(pcm) > 0 {
+			return pcm, nil
+		}
+	}
+
+	// Fallback to WAV decoder
+	return decodeWAVPCM(raw)
+}
+
 func (m *Manager) loadRawBytes(relPath string) ([]byte, error) {
 	relPath = filepath.Clean(relPath)
 	if data, ok := m.sfxRawCache[relPath]; ok {
@@ -126,6 +153,14 @@ func (m *Manager) loadRawBytes(relPath string) ([]byte, error) {
 
 	data, err := assets.AudioFS.ReadFile(fsPath)
 	if err != nil {
+		// Fallback for cave biome variations to generic cave music
+		if strings.HasPrefix(fsPath, "audio/music/cave_") {
+			fallbackData, fbErr := assets.AudioFS.ReadFile("audio/music/cave.mp3")
+			if fbErr == nil {
+				m.sfxRawCache[relPath] = fallbackData
+				return fallbackData, nil
+			}
+		}
 		return nil, fmt.Errorf("audio file not found: %s (%w)", relPath, err)
 	}
 
@@ -145,7 +180,7 @@ func (m *Manager) getPCMLocked(relPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pcm, err := decodeWAVPCM(raw)
+	pcm, err := decodeAudioPCM(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -280,6 +315,47 @@ func (m *Manager) StopAllLoops() {
 	}
 }
 
+// createMusicPlayerLocked streams the audio file on demand instead of synchronously decoding
+// tens of megabytes into memory, preventing UI freezes on WebAssembly and mobile devices.
+func (m *Manager) createMusicPlayerLocked(name string) (*audio.Player, error) {
+	raw, err := m.loadRawBytes(name)
+	if err != nil {
+		return nil, err
+	}
+
+	var stream io.ReadSeeker
+	var length int64
+
+	if bytes.HasPrefix(raw, []byte("RIFF")) {
+		wavStream, err := wav.DecodeWithSampleRate(SampleRate, bytes.NewReader(raw))
+		if err != nil {
+			return nil, err
+		}
+		stream = wavStream
+		length = wavStream.Length()
+	} else {
+		mp3Stream, err := mp3.DecodeWithSampleRate(SampleRate, bytes.NewReader(raw))
+		if err == nil {
+			stream = mp3Stream
+			length = mp3Stream.Length()
+		} else {
+			wavStream, err := wav.DecodeWithSampleRate(SampleRate, bytes.NewReader(raw))
+			if err != nil {
+				return nil, err
+			}
+			stream = wavStream
+			length = wavStream.Length()
+		}
+	}
+
+	if length <= 0 {
+		return nil, fmt.Errorf("empty audio stream for %s", name)
+	}
+
+	loop := audio.NewInfiniteLoop(stream, length)
+	return m.context.NewPlayer(loop)
+}
+
 // PlayMusic plays or transitions to background music.
 func (m *Manager) PlayMusic(name string, volume float64) {
 	m.mu.Lock()
@@ -305,13 +381,7 @@ func (m *Manager) PlayMusic(name string, volume float64) {
 		return
 	}
 
-	pcm, err := m.getPCMLocked(name)
-	if err != nil {
-		return
-	}
-
-	loop := audio.NewInfiniteLoop(bytes.NewReader(pcm), int64(len(pcm)))
-	player, err := m.context.NewPlayer(loop)
+	player, err := m.createMusicPlayerLocked(name)
 	if err != nil {
 		return
 	}

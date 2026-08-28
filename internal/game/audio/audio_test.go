@@ -99,3 +99,28 @@ func TestVolumeAndMute(t *testing.T) {
 		t.Errorf("Expected manager to be unmuted")
 	}
 }
+
+func TestPlayMusicStreamingAndCaveFallback(t *testing.T) {
+	mgr := Get()
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	tracks := []string{
+		"music/main_title.mp3",
+		"music/overworld_surface.mp3",
+		"music/cave.mp3",
+		"music/cave_shallow.mp3", // Tests fallback to cave.mp3
+		"music/cave_abyssal.mp3", // Tests fallback to cave.mp3
+	}
+
+	for _, track := range tracks {
+		player, err := mgr.createMusicPlayerLocked(track)
+		if err != nil {
+			t.Fatalf("createMusicPlayerLocked(%s) failed: %v", track, err)
+		}
+		if player == nil {
+			t.Fatalf("expected non-nil player for %s", track)
+		}
+		_ = player.Close()
+	}
+}

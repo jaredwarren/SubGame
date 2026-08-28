@@ -252,26 +252,53 @@ func drawStatBar(screen *ebiten.Image, x, y, w, h float32, ratio float64, barCol
 
 // DrawHUDHotbar renders the quick-select hotbar on the active HUD.
 func (h *HUD) DrawHUDHotbar(screen *ebiten.Image, g GameContext, p *player.Player) {
+	h.drawHotbar(screen, p)
+}
+
+const (
+	HUDHotbarSlotSize = 40.0
+	HUDHotbarGap      = 8.0
+	HUDHotbarSlots    = 5
+	HUDHotbarBottomY  = 56.0
+)
+
+// HUDHotbarSlotRect returns the screen-space bounds for a given hotbar slot.
+func HUDHotbarSlotRect(slotIdx int) (minX, minY, maxX, maxY float64) {
+	w := float64(HUDHotbarSlots*(HUDHotbarSlotSize+HUDHotbarGap) - HUDHotbarGap)
+	startX := (float64(config.ScreenWidth) - w) / 2.0
+	startY := float64(config.ScreenHeight - HUDHotbarBottomY)
+
+	sx := startX + float64(slotIdx)*(HUDHotbarSlotSize+HUDHotbarGap)
+	return sx - HUDHotbarGap/2.0, startY - 12.0, sx + HUDHotbarSlotSize + HUDHotbarGap/2.0, float64(config.ScreenHeight)
+}
+
+// HUDHotbarSlotAt returns the hotbar slot index (0..4) at screen coordinates (x, y), or -1 if none.
+func HUDHotbarSlotAt(x, y float64) int {
+	for i := 0; i < HUDHotbarSlots; i++ {
+		minX, minY, maxX, maxY := HUDHotbarSlotRect(i)
+		if x >= minX && x <= maxX && y >= minY && y <= maxY {
+			return i
+		}
+	}
+	return -1
+}
+
+func (h *HUD) drawHotbar(screen *ebiten.Image, p *player.Player) {
 	if p.Hotbar == nil {
 		return
 	}
 
-	const (
-		slotSz = 40.0
-		gap    = 8.0
-		num    = 5
-	)
-	w := float32(num*(slotSz+gap) - gap)
+	w := float32(HUDHotbarSlots*(HUDHotbarSlotSize+HUDHotbarGap) - HUDHotbarGap)
 	// Center horizontally at bottom
 	x := (float32(config.ScreenWidth) - w) / 2.0
-	y := float32(config.ScreenHeight - 56.0)
+	y := float32(config.ScreenHeight - HUDHotbarBottomY)
 
 	// Draw container background
-	vector.FillRect(screen, x-10, y-10, w+20, slotSz+20, color.RGBA{18, 24, 38, 200}, false)
-	vector.StrokeRect(screen, x-10, y-10, w+20, slotSz+20, 1.5, color.RGBA{70, 90, 120, 255}, false)
+	vector.FillRect(screen, x-10, y-10, w+20, HUDHotbarSlotSize+20, color.RGBA{18, 24, 38, 200}, false)
+	vector.StrokeRect(screen, x-10, y-10, w+20, HUDHotbarSlotSize+20, 1.5, color.RGBA{70, 90, 120, 255}, false)
 
-	for i := 0; i < num; i++ {
-		sx := x + float32(i)*(slotSz+gap)
+	for i := 0; i < HUDHotbarSlots; i++ {
+		sx := x + float32(i)*(HUDHotbarSlotSize+HUDHotbarGap)
 		sy := y
 
 		// Highlight active slot
@@ -284,23 +311,25 @@ func (h *HUD) DrawHUDHotbar(screen *ebiten.Image, g GameContext, p *player.Playe
 			borderWidth = 1.8
 		}
 
-		vector.FillRect(screen, sx, sy, slotSz, slotSz, slotBg, false)
-		vector.StrokeRect(screen, sx, sy, slotSz, slotSz, borderWidth, slotBorder, false)
+		vector.FillRect(screen, sx, sy, HUDHotbarSlotSize, HUDHotbarSlotSize, slotBg, false)
+		vector.StrokeRect(screen, sx, sy, HUDHotbarSlotSize, HUDHotbarSlotSize, borderWidth, slotBorder, false)
 
-		slot := p.Hotbar.Slots[i]
-		if slot.Item != nil {
-			// Draw item icon
-			drawItemIcon(screen, sx, sy, slotSz, slot.Item)
-			if slot.Quantity > 1 {
-				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+4, int(sy)+int(slotSz)-15)
+		if i < len(p.Hotbar.Slots) {
+			slot := p.Hotbar.Slots[i]
+			if slot.Item != nil {
+				// Draw item icon
+				drawItemIcon(screen, sx, sy, HUDHotbarSlotSize, slot.Item)
+				if slot.Quantity > 1 {
+					ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", slot.Quantity), int(sx)+4, int(sy)+int(HUDHotbarSlotSize)-15)
+				}
+			} else {
+				// Virtual Mining Tool (Default outline)
+				drawMiningToolOutline(screen, sx, sy, HUDHotbarSlotSize)
 			}
-		} else {
-			// Virtual Mining Tool (Default outline)
-			drawMiningToolOutline(screen, sx, sy, slotSz)
 		}
 
 		// Draw slot index label
-		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", i+1), int(sx)+int(slotSz)/2-3, int(sy)-22)
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", i+1), int(sx)+int(HUDHotbarSlotSize)/2-3, int(sy)-22)
 	}
 }
 

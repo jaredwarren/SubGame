@@ -93,6 +93,10 @@ func (o *OverworldScene) update(g OverworldContext) error {
 				g.UseRepairTool()
 				return nil
 			}
+			if _, ok := activeItem.(item.Consumable); ok {
+				g.ActivatePlayerItem(activeItem)
+				return nil
+			}
 		}
 	}
 
