@@ -151,7 +151,7 @@ var faunaRegistry = map[FaunaID]*FaunaDef{
 		ID: FaunaElectroWeaver, Behavior: BehaviorElectroWeaver,
 		Dims: gvec.Vec2{X: 40, Y: 20},
 		DecoyRange: 500, TrackRange: 500, StrikeTimerFrames: 300, PlayerDamage: 45,
-		TeleportAwayDist: 350, ApproachDist: 100, ApproachSpeed: 1.5,
+		LungeSpeed: 8.5, CooldownFrames: 180, ApproachDist: 100, ApproachSpeed: 1.5,
 		OrbitSpeedClose: 1.2, IdleSpeed: 0.8, TimerDecay: 2, MoveStartTimer: 60,
 		AbyssalDepthTiles: 80, WarningDuration: 180, DecoyWarningDuration: 120,
 	},

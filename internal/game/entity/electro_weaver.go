@@ -12,12 +12,26 @@ import (
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
+// WeaverState represents the behavioral state of an ElectroWeaver.
+type WeaverState int
+
+const (
+	WeaverStateIdle WeaverState = iota
+	WeaverStateTracking
+	WeaverStateLunge
+	WeaverStateCooldown
+)
+
 // ElectroWeaver is a serpentine predator that tracks electrical sources and strikes.
 type ElectroWeaver struct {
 	BaseEntity
-	def    *ElectroWeaverDef
-	Timer  int
-	Facing float64
+	def           *ElectroWeaverDef
+	Timer         int
+	Facing        float64
+	State         WeaverState
+	LungeDir      gvec.Vec2
+	LungeTimer    int
+	CooldownTimer int
 }
 
 func (ent *ElectroWeaver) stats() *ElectroWeaverDef {
@@ -36,7 +50,8 @@ func NewElectroWeaver(x, y float64) *ElectroWeaver {
 			Dimensions: d.Dims,
 			Active:     true,
 		},
-		def: d,
+		def:   d,
+		State: WeaverStateIdle,
 	}
 }
 
@@ -57,6 +72,30 @@ type WeaverContext interface {
 
 func (ent *ElectroWeaver) Update(gr Runtime) {
 	ent.update(gr)
+}
+
+// hasLineOfSight performs step raycasting along the segment between from and to.
+// Returns false if any solid terrain blocks the path.
+func hasLineOfSight(g WeaverContext, from, to gvec.Vec2) bool {
+	dx := to.X - from.X
+	dy := to.Y - from.Y
+	dist := math.Hypot(dx, dy)
+	if dist < 4.0 {
+		return true
+	}
+	steps := int(dist / 16.0)
+	if steps < 2 {
+		steps = 2
+	}
+	for i := 1; i < steps; i++ {
+		t := float64(i) / float64(steps)
+		x := from.X + dx*t
+		y := from.Y + dy*t
+		if g.IsSolid(x-3, y-3, 6, 6) {
+			return false
+		}
+	}
+	return true
 }
 
 func (ent *ElectroWeaver) update(g WeaverContext) {
@@ -83,48 +122,174 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 	inAbyssal := (py/config.TileSize) >= d.AbyssalDepthTiles || g.IsShockKelpCave()
 	if !inAbyssal {
 		ent.Timer = 0
+		ent.State = WeaverStateIdle
+		g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
 		return
 	}
 
-	isElectricity := g.FlashlightOn() || g.SonarActive() || g.HasActiveVehicle() || isDecoy
+	// 1. Handle Lunge Strike State (high-speed physical charge; zero teleportation)
+	if ent.State == WeaverStateLunge {
+		ent.LungeTimer--
+		lungeSpeed := d.LungeSpeed
+		if lungeSpeed <= 0 {
+			lungeSpeed = 8.5
+		}
+		step := ent.LungeDir.Scale(lungeSpeed)
+		nextPos := ent.Pos.Add(step)
 
-	// Deterrent cloud occlusion + lights off breaking
-	if !isDecoy && !g.FlashlightOn() && g.CheckDeterrentOcclusion(gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: px, Y: py}) {
-		isElectricity = false
-		ent.Timer = 0
-	}
-
-	if isElectricity && dist < d.TrackRange {
-		ent.Timer++
-		g.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
-		if ent.Timer >= d.StrikeTimerFrames {
-			if isDecoy {
+		// Check collision with target
+		collided := false
+		if isDecoy {
+			if math.Hypot(targetX-(nextPos.X+ent.Dimensions.X/2), targetY-(nextPos.Y+ent.Dimensions.Y/2)) < 36.0 {
 				g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
 				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKES DECOY!", Duration: d.DecoyWarningDuration, Level: 1})
-
-				// Teleport back to cooldown (random angle, away from player)
-				angle := rand.Float64() * 2.0 * math.Pi
-				ent.Pos.X = px + math.Cos(angle)*d.TeleportAwayDist
-				ent.Pos.Y = py + math.Sin(angle)*d.TeleportAwayDist
-				ent.Timer = 0
-			} else {
+				collided = true
+			}
+		} else {
+			pPos := g.PlayerPos()
+			pDims := g.PlayerDims()
+			nextCX := nextPos.X + ent.Dimensions.X/2.0
+			nextCY := nextPos.Y + ent.Dimensions.Y/2.0
+			if (nextCX >= pPos.X-16 && nextCX <= pPos.X+pDims.X+16 &&
+				nextCY >= pPos.Y-16 && nextCY <= pPos.Y+pDims.Y+16) ||
+				math.Hypot(px-nextCX, py-nextCY) < 32.0 {
 				g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage, Kind: DamageElectric})
 				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: d.WarningDuration, Level: 3})
-				ent.Pos.X = g.PlayerPos().X + float64(rand.Intn(120)-60)
-				ent.Pos.Y = g.PlayerPos().Y + float64(rand.Intn(120)-60)
-				ent.Timer = 0
+				collided = true
 			}
 		}
+
+		if collided {
+			ent.State = WeaverStateCooldown
+			cooldownFrames := d.CooldownFrames
+			if cooldownFrames <= 0 {
+				cooldownFrames = 180
+			}
+			ent.CooldownTimer = cooldownFrames
+			ent.Timer = 0
+			ent.LungeTimer = 0
+			ent.Vel = ent.LungeDir.Scale(-d.IdleSpeed)
+			g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
+			return
+		}
+
+		// Wall collision during lunge
+		if g.IsSolid(nextPos.X, nextPos.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+			ent.State = WeaverStateCooldown
+			cooldownFrames := d.CooldownFrames
+			if cooldownFrames <= 0 {
+				cooldownFrames = 180
+			}
+			ent.CooldownTimer = cooldownFrames
+			ent.Timer = 0
+			ent.LungeTimer = 0
+			ent.Vel = ent.LungeDir.Scale(-d.IdleSpeed)
+			g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER MISSED!", Duration: 90, Level: 1})
+			g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
+			return
+		}
+
+		ent.Pos = nextPos
+		ent.Facing = math.Atan2(ent.LungeDir.Y, ent.LungeDir.X)
+
+		if ent.LungeTimer <= 0 {
+			ent.State = WeaverStateCooldown
+			cooldownFrames := d.CooldownFrames
+			if cooldownFrames <= 0 {
+				cooldownFrames = 180
+			}
+			ent.CooldownTimer = cooldownFrames
+			ent.Timer = 0
+			ent.Vel = ent.LungeDir.Scale(-d.IdleSpeed)
+			g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
+		}
+		return
+	}
+
+	// 2. Handle Cooldown State (smoothly retreats into the shadows)
+	if ent.State == WeaverStateCooldown {
+		ent.CooldownTimer--
+		ent.Timer = 0
+		g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
+
+		// Back away slowly from target
+		retreatVel := ent.LungeDir.Scale(-d.IdleSpeed)
+		if !g.IsSolid(ent.Pos.X+retreatVel.X, ent.Pos.Y+retreatVel.Y, ent.Dimensions.X, ent.Dimensions.Y) {
+			ent.Pos = ent.Pos.Add(retreatVel)
+		}
+
+		if ent.CooldownTimer <= 0 {
+			ent.State = WeaverStateIdle
+		}
+		return
+	}
+
+	// 3. Handle Idle & Tracking States (strict line of sight)
+	isElectricity := g.FlashlightOn() || g.SonarActive() || g.HasActiveVehicle() || isDecoy
+
+	// Deterrent cloud occlusion + lights off immediately breaks lock
+	if !isDecoy && !g.FlashlightOn() && g.CheckDeterrentOcclusion(gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: px, Y: py}) {
+		ent.Timer = 0
+		ent.State = WeaverStateIdle
+		g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
+		return
+	}
+
+	// Check line of sight
+	hasLoS := hasLineOfSight(g, gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: targetX, Y: targetY})
+	if !isDecoy && g.CheckDeterrentOcclusion(gvec.Vec2{X: ex, Y: ey}, gvec.Vec2{X: px, Y: py}) {
+		hasLoS = false
+	}
+
+	if isElectricity && dist < d.TrackRange && hasLoS {
+		ent.State = WeaverStateTracking
+		ent.Timer++
+		g.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
+
+		ent.Facing = math.Atan2(targetY-ey, targetX-ex)
+
+		// 100% Charge Reached -> Execute High-Speed Lunge Strike
+		if ent.Timer >= d.StrikeTimerFrames {
+			ent.State = WeaverStateLunge
+			ent.LungeTimer = 55 // up to 55 frames of charge at 8.5 speed = ~460px
+			if dist > 0.001 {
+				ent.LungeDir = gvec.Vec2{X: (targetX - ex) / dist, Y: (targetY - ey) / dist}
+			} else {
+				angle := rand.Float64() * math.Pi * 2
+				ent.LungeDir = gvec.Vec2{X: math.Cos(angle), Y: math.Sin(angle)}
+			}
+			ent.Facing = math.Atan2(ent.LungeDir.Y, ent.LungeDir.X)
+			ent.Timer = 0
+			g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
+
+			// If already right on top of target, resolve collision immediately
+			if isDecoy && dist < 36.0 {
+				g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
+				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKES DECOY!", Duration: d.DecoyWarningDuration, Level: 1})
+				ent.State = WeaverStateCooldown
+				ent.CooldownTimer = 180
+			} else if !isDecoy && dist < 32.0 {
+				g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage, Kind: DamageElectric})
+				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: d.WarningDuration, Level: 3})
+				ent.State = WeaverStateCooldown
+				ent.CooldownTimer = 180
+			}
+			return
+		}
 	} else {
+		// Line of sight lost or electricity turned off -> drain threat bar
 		if ent.Timer > 0 {
 			ent.Timer -= d.TimerDecay
-			if ent.Timer < 0 {
+			if ent.Timer <= 0 {
 				ent.Timer = 0
+				ent.State = WeaverStateIdle
 			}
+			g.Emit(UpdateWeaverTrackingTimerCmd{Value: float64(ent.Timer)})
 		}
 	}
 
-	if ent.Timer > d.MoveStartTimer {
+	// Movement during tracking vs idle
+	if ent.State == WeaverStateTracking && ent.Timer > d.MoveStartTimer {
 		dx := targetX - ex
 		dy := targetY - ey
 		dDist := math.Hypot(dx, dy)
@@ -154,6 +319,15 @@ func (ent *ElectroWeaver) Draw(screen *ebiten.Image, camera *camera.Camera, time
 	cx := sx + sw/2.0
 	cy := sy + sh/2.0
 
+	isLunging := (ent.State == WeaverStateLunge)
+
+	// Lunge high-voltage plasma aura
+	if isLunging {
+		auraRadius := float32(22.0)
+		vector.FillCircle(screen, cx, cy, auraRadius, color.RGBA{100, 200, 255, 60}, false)
+		vector.FillCircle(screen, cx, cy, auraRadius*0.6, color.RGBA{180, 240, 255, 120}, false)
+	}
+
 	for i := range 5 {
 		lag := float64(i) * 0.3
 		tVal := timeOfDay*0.08 - lag
@@ -161,19 +335,42 @@ func (ent *ElectroWeaver) Draw(screen *ebiten.Image, camera *camera.Camera, time
 		offY := math.Sin(tVal) * 4
 		segmentX := cx - float32(math.Cos(ent.Facing)*float64(i)*8.0) + float32(offX)
 		segmentY := cy - float32(math.Sin(ent.Facing)*float64(i)*8.0) + float32(offY)
+
 		segColor := color.RGBA{140 - uint8(i*18), 45, 205 - uint8(i*12), 255}
-		vector.FillCircle(screen, segmentX, segmentY, 6.0-float32(i)*0.8, segColor, false)
+		if isLunging {
+			segColor = color.RGBA{180 + uint8(i*15), 230, 255, 255}
+		}
+
+		segRadius := 6.0 - float32(i)*0.8
+		vector.FillCircle(screen, segmentX, segmentY, segRadius, segColor, false)
+
 		if i == 0 {
-			vector.FillCircle(screen, segmentX+float32(math.Cos(ent.Facing))*4, segmentY+float32(math.Sin(ent.Facing))*4, 2.0, color.RGBA{255, 255, 80, 255}, false)
+			eyeColor := color.RGBA{255, 255, 80, 255}
+			if isLunging {
+				eyeColor = color.RGBA{255, 60, 60, 255}
+			}
+			vector.FillCircle(screen, segmentX+float32(math.Cos(ent.Facing))*4, segmentY+float32(math.Sin(ent.Facing))*4, 2.0, eyeColor, false)
 		}
 	}
 
-	if ent.Timer > 0 {
-		sparkRatio := float64(ent.Timer) / float64(d.StrikeTimerFrames)
-		for s := 0; s < int(sparkRatio*5); s++ {
-			spx := cx + float32(rand.Intn(40)-20)
-			spy := cy + float32(rand.Intn(40)-20)
-			vector.StrokeLine(screen, cx, cy, spx, spy, 1.0, color.RGBA{160, 220, 255, 255}, false)
+	// Sparking electric discharge arcs
+	if isLunging || ent.Timer > 0 {
+		sparkCount := 3
+		if !isLunging {
+			sparkRatio := float64(ent.Timer) / float64(d.StrikeTimerFrames)
+			sparkCount = int(sparkRatio * 6)
+		} else {
+			sparkCount = 8
+		}
+
+		for s := 0; s < sparkCount; s++ {
+			spx := cx + float32(rand.Intn(48)-24)
+			spy := cy + float32(rand.Intn(48)-24)
+			sparkClr := color.RGBA{160, 230, 255, 240}
+			if isLunging {
+				sparkClr = color.RGBA{255, 255, 200, 255}
+			}
+			vector.StrokeLine(screen, cx, cy, spx, spy, 1.2, sparkClr, false)
 		}
 	}
 }

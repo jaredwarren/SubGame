@@ -3,6 +3,7 @@ package scene
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -257,9 +258,69 @@ func (h *HUD) Draw(screen *ebiten.Image, g GameContext) {
 	}
 
 	if g.GetCurrentState() == StateCave && weaverTimer > 0 {
-		vector.FillRect(screen, float32(config.ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, color.RGBA{24, 12, 10, 220}, false)
-		vector.StrokeRect(screen, float32(config.ScreenWidth)/2.0-180+jx, 15+jy, 360, 24, 1.2, color.RGBA{230, 75, 45, 255}, false)
-		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[WARNING: ELECTRICAL STATIC DETECTED (%.0f%%)]", (weaverTimer/300.0)*100.0), config.ScreenWidth/2-160+int(jx), 20+int(jy))
+		gaugeW := float32(260)
+		gaugeH := float32(32)
+		gx := float32(config.ScreenWidth)/2.0 - gaugeW/2.0 + jx
+		gy := float32(14) + jy
+
+		ratio := float32(math.Min(1.0, math.Max(0.0, weaverTimer/300.0)))
+		isCritical := ratio >= 0.85
+		flashTick := int(g.GetTimeOfDay()/8)%2 == 0
+
+		// Panel Border and Glow colors
+		panelBorderClr := color.RGBA{45, 175, 220, 240}
+		barFillClr := color.RGBA{35, 215, 245, 255}
+		titleText := "ELECTRICAL SURGE"
+		titleClr := color.RGBA{160, 225, 255, 255}
+
+		if isCritical {
+			if flashTick {
+				panelBorderClr = color.RGBA{255, 45, 55, 255}
+				barFillClr = color.RGBA{255, 60, 60, 255}
+				titleText = "CRITICAL SURGE IMMINENT!"
+				titleClr = color.RGBA{255, 80, 80, 255}
+			} else {
+				panelBorderClr = color.RGBA{255, 180, 30, 255}
+				barFillClr = color.RGBA{255, 190, 40, 255}
+				titleText = "CRITICAL SURGE IMMINENT!"
+				titleClr = color.RGBA{255, 220, 100, 255}
+			}
+		} else if ratio >= 0.60 {
+			panelBorderClr = color.RGBA{255, 190, 40, 240}
+			barFillClr = color.RGBA{255, 190, 45, 255}
+			titleText = "ELECTRICAL SURGE LOCKING"
+			titleClr = color.RGBA{255, 210, 110, 255}
+		}
+
+		// Dark high-tech panel background
+		vector.FillRect(screen, gx, gy, gaugeW, gaugeH, color.RGBA{12, 16, 26, 230}, false)
+		vector.StrokeRect(screen, gx, gy, gaugeW, gaugeH, 1.4, panelBorderClr, false)
+
+		// Header icon & label
+		drawColoredDebugText(screen, titleText, int(gx)+12, int(gy)+4, titleClr)
+
+		// Progress bar track
+		barX := gx + 12
+		barY := gy + 19
+		barW := gaugeW - 24
+		barH := float32(7)
+
+		vector.FillRect(screen, barX, barY, barW, barH, color.RGBA{6, 8, 14, 255}, false)
+		vector.StrokeRect(screen, barX, barY, barW, barH, 1.0, color.RGBA{35, 45, 65, 200}, false)
+
+		// Progress bar fill
+		fillW := barW * ratio
+		if fillW > 0 {
+			vector.FillRect(screen, barX, barY, fillW, barH, barFillClr, false)
+			// Glowing head pip
+			vector.FillCircle(screen, barX+fillW, barY+barH/2.0, 2.5, color.White, false)
+		}
+
+		// Graduation tick marks (25%, 50%, 75%)
+		for _, mark := range []float32{0.25, 0.50, 0.75} {
+			tx := barX + barW*mark
+			vector.StrokeLine(screen, tx, barY, tx, barY+barH, 1.0, color.RGBA{25, 35, 50, 200}, false)
+		}
 	}
 
 	if g.IsInventoryOpen() {
