@@ -259,6 +259,33 @@ func TestRechargingMechanics(t *testing.T) {
 	}
 }
 
+func TestScoutSub_DepthModuleMK1Upgrade(t *testing.T) {
+	sub := vehicle.NewScoutSub(0, 0)
+
+	// Base depth limit is 60m
+	if sub.GetDepthLimit() != 60.0 {
+		t.Fatalf("expected base depth limit 60.0, got %f", sub.GetDepthLimit())
+	}
+
+	depthModule := &item.ScoutSubDepthMK1{}
+	if !sub.GetUpgrades().AddItem(depthModule, 1) {
+		t.Fatalf("failed to add ScoutSubDepthMK1 to sub Upgrades")
+	}
+
+	// With module installed, depth limit is 120m
+	if sub.GetDepthLimit() != 120.0 {
+		t.Fatalf("expected upgraded depth limit 120.0, got %f", sub.GetDepthLimit())
+	}
+
+	// Remove module, drops back to 60m
+	if !sub.GetUpgrades().Remove(depthModule, 1) {
+		t.Fatalf("failed to remove ScoutSubDepthMK1")
+	}
+	if sub.GetDepthLimit() != 60.0 {
+		t.Fatalf("expected depth limit to revert to 60.0, got %f", sub.GetDepthLimit())
+	}
+}
+
 type mockInput struct {
 	vehicle.InputSource
 }

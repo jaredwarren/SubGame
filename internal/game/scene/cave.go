@@ -307,6 +307,14 @@ func (c *CaveScene) IsSolid(g CaveContext, x, y, w, h float64) bool {
 			if c.CaveGrid[tx][ty] {
 				return true
 			}
+			for _, n := range c.Nodes {
+				if n.RequiresMech() && n.GetName() == "Reinforced Blast Bulkhead" && n.GetHitsToMine() > 0 {
+					ntx, nty := n.GetTilePos()
+					if ntx == tx && nty == ty {
+						return true
+					}
+				}
+			}
 		}
 	}
 	return false

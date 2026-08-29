@@ -83,7 +83,20 @@ func (c *WreckageCorridorCave) DrawTiles(screen *ebiten.Image, camX, camY float6
 }
 
 func (c *WreckageCorridorCave) GenerateEntities(seed int64) []entity.CaveEntity {
-	return GenerateDeepEntitiesFromSpec(Spec(CaveWreckage), c.Grid, seed)
+	ents := GenerateDeepEntitiesFromSpec(Spec(CaveWreckage), c.Grid, seed)
+
+	var filtered []entity.CaveEntity
+	for _, ent := range ents {
+		if sb, ok := ent.(*entity.ShatterBulb); ok {
+			ty := int(sb.Pos.Y) / config.TileSize
+			// Zero O2 bubbles spawn below 40m depth for all wrecked ships
+			if ty >= 40 {
+				continue
+			}
+		}
+		filtered = append(filtered, ent)
+	}
+	return filtered
 }
 
 func (c *WreckageCorridorCave) GenerateResources(seed int64) []resource.Resource {
@@ -120,6 +133,13 @@ func GenerateWreckageGrid(r *rand.Rand) [][]bool {
 	// 2. Horizontal corridors (decks)
 	deckYs := []int{24, 52, 80, 108}
 	deckHeight := 4
+
+	// Top bridge corridor connecting upper deck 0 rooms to central shaft
+	for y := 2; y <= 3; y++ {
+		for x := 4; x < w-4; x++ {
+			grid[x][y] = false
+		}
+	}
 
 	for _, dy := range deckYs {
 		for y := dy; y < dy+deckHeight; y++ {

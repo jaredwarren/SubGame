@@ -152,10 +152,73 @@ func TestBlueprintNodeSpawning(t *testing.T) {
 
 	// Check duplicate prevention in the same ship
 	seen := make(map[string]bool)
+	hasScoutSub := false
 	for _, bp := range bpNodesShip0 {
 		if seen[bp.RecipeResultName] {
 			t.Errorf("Ship 0 spawned duplicate blueprint for: %s", bp.RecipeResultName)
 		}
 		seen[bp.RecipeResultName] = true
+		if bp.RecipeResultName == "Scout Sub Kit" {
+			hasScoutSub = true
+		}
+	}
+	if !hasScoutSub {
+		t.Errorf("Ship 0 did not spawn guaranteed Scout Sub Kit")
+	}
+
+	// Test Ship 1 (Heavy Mech Kit guaranteed on lower deck, Depth Module MK1 on upper deck)
+	nodesShip1 := GenerateWreckageResources(grid, 42, 1)
+	hasHeavyMech := false
+	hasDepthModule := false
+	for _, n := range nodesShip1 {
+		if rn, ok := n.(*ResourceNode); ok && rn.Type == NodeBlueprint {
+			if rn.RecipeResultName == "Heavy Mech Kit" {
+				hasHeavyMech = true
+				_, ty := rn.GetTilePos()
+				if ty <= 51 {
+					t.Errorf("Heavy Mech Kit in Ship 1 spawned on upper deck: Y = %d", ty)
+				}
+			}
+			if rn.RecipeResultName == "Scout Sub Depth Module MK1" {
+				hasDepthModule = true
+				_, ty := rn.GetTilePos()
+				if ty > 51 {
+					t.Errorf("Scout Sub Depth Module MK1 in Ship 1 spawned on lower deck: Y = %d", ty)
+				}
+			}
+		}
+	}
+	if !hasHeavyMech {
+		t.Errorf("Ship 1 did not spawn guaranteed Heavy Mech Kit")
+	}
+	if !hasDepthModule {
+		t.Errorf("Ship 1 did not spawn guaranteed Scout Sub Depth Module MK1")
+	}
+
+	// Verify Ship 2 spawns Escape Rocket and Reinforced Blast Bulkhead
+	hasEscapeRocket := false
+	hasBulkhead := false
+	for _, n := range nodesShip2 {
+		if rn, ok := n.(*ResourceNode); ok {
+			if rn.Type == NodeBlueprint && rn.RecipeResultName == "Escape Rocket" {
+				hasEscapeRocket = true
+				x, y := rn.GetTilePos()
+				t.Logf("Escape Rocket at (%d, %d)", x, y)
+			}
+			if rn.Type == NodeReinforcedBulkhead {
+				hasBulkhead = true
+				x, y := rn.GetTilePos()
+				t.Logf("Bulkhead at (%d, %d)", x, y)
+				if !rn.RequiresMech() {
+					t.Errorf("Reinforced Blast Bulkhead should require Heavy Mech")
+				}
+			}
+		}
+	}
+	if !hasEscapeRocket {
+		t.Errorf("Ship 2 did not spawn guaranteed Escape Rocket")
+	}
+	if !hasBulkhead {
+		t.Errorf("Ship 2 did not spawn Reinforced Blast Bulkhead")
 	}
 }

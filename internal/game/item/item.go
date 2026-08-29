@@ -714,6 +714,26 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 			vector.FillPath(screen, &flamePath, nil, &flameOpts)
 		},
 	},
+	reflect.TypeFor[ScoutSubDepthMK1](): {
+		Name:     "Scout Sub Depth Module MK1",
+		MaxStack: 1,
+		Color:    color.RGBA{0, 200, 240, 255},
+		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
+			name := "Scout Sub Depth Module MK1"
+			clr := color.RGBA{0, 200, 240, 255}
+			if drawItemIconSprite(screen, name, cx, cy, size) {
+				return
+			}
+			// Pressure module housing
+			vector.FillRect(screen, cx-size/2.2, cy-size/2.2, size*0.9, size*0.9, color.RGBA{30, 45, 60, 255}, false)
+			vector.StrokeRect(screen, cx-size/2.2, cy-size/2.2, size*0.9, size*0.9, 1.5, clr, false)
+			// Depth downward chevron / arrow
+			vector.StrokeLine(screen, cx-size/4.0, cy-size/6.0, cx, cy+size/6.0, 2.0, clr, false)
+			vector.StrokeLine(screen, cx+size/4.0, cy-size/6.0, cx, cy+size/6.0, 2.0, clr, false)
+			// Depth gauge line
+			vector.StrokeLine(screen, cx-size/3.0, cy+size/3.5, cx+size/3.0, cy+size/3.5, 1.5, color.RGBA{255, 255, 255, 220}, false)
+		},
+	},
 	reflect.TypeFor[SonicDecoy](): {
 		Name:     "Sonic Decoy",
 		MaxStack: 5,

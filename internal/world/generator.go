@@ -92,13 +92,67 @@ func (w *World) generateOverworld() {
 	})
 	for _, tt := range scatterTypes {
 		info := GetTileInfo(tt)
-		w.scatterFeature(r, tt, info.ScatterCount)
+		if tt == TileWreckage {
+			w.scatterWreckagesByBands(r)
+		} else {
+			w.scatterFeature(r, tt, info.ScatterCount)
+		}
 	}
 	w.clearTiles(TileTrench)
 
 	// Biome-local caves use a dedicated stream so later spawn-rate tweaks
 	// cannot shift wreckage (or other Seed+13 features).
 	w.scatterBiomeFeatures(rand.New(rand.NewSource(w.Seed + 17)))
+}
+
+// scatterWreckagesByBands places 3 wrecks in dedicated distance bands from Lifepod spawn:
+// - Ship 0 (Research Tender): 20–40 tiles
+// - Ship 1 (Submersible Transport): 60–100 tiles
+// - Ship 2 (AetherCorp Flagship): 120–180 tiles
+func (w *World) scatterWreckagesByBands(r *rand.Rand) {
+	spawnTX, spawnTY := w.FindLifepodSpawn()
+
+	type band struct {
+		minDist float64
+		maxDist float64
+	}
+	bands := []band{
+		{minDist: 20, maxDist: 40},
+		{minDist: 60, maxDist: 100},
+		{minDist: 120, maxDist: 180},
+	}
+
+	for _, b := range bands {
+		type pos struct{ x, y int }
+		var candidates []pos
+
+		minD := b.minDist
+		maxD := b.maxDist
+		for attempts := 0; attempts < 4 && len(candidates) == 0; attempts++ {
+			for x := 5; x < w.Width-5; x++ {
+				for y := 5; y < w.Height-5; y++ {
+					if w.OverworldMap[x][y] == TileWater && w.isOceanArea(x, y) {
+						d := math.Hypot(float64(x-spawnTX), float64(y-spawnTY))
+						if d >= minD && d <= maxD {
+							candidates = append(candidates, pos{x, y})
+						}
+					}
+				}
+			}
+			if len(candidates) == 0 {
+				minD = math.Max(5, minD-15)
+				maxD = math.Min(float64(w.Width), maxD+25)
+			}
+		}
+
+		if len(candidates) > 0 {
+			chosen := candidates[r.Intn(len(candidates))]
+			w.OverworldMap[chosen.x][chosen.y] = TileWreckage
+		} else {
+			// Fallback: place in any ocean area
+			w.scatterFeature(r, TileWreckage, 1)
+		}
+	}
 }
 
 // isOceanArea checks if a 5x5 area centered at (tx, ty) consists entirely of TileWater.

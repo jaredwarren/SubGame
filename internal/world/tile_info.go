@@ -163,15 +163,46 @@ func AllTileInfos() map[TileType]*TileTypeInfo {
 	return tileRegistry
 }
 
+// WreckageInfo defines the descriptive presentation metadata for a tiered shipwreck.
+type WreckageInfo struct {
+	Name       string
+	EstDepth   string
+	DivePrompt string
+}
+
+// GetWreckageInfo returns the tier-specific metadata for the given shipIndex (0, 1, or 2).
+func GetWreckageInfo(shipIndex int) WreckageInfo {
+	switch shipIndex {
+	case 1:
+		return WreckageInfo{
+			Name:       "Submersible Transport Wreckage",
+			EstDepth:   "Est. Dive Depth: 60m (Zero Oxygen Below 40m)",
+			DivePrompt: "Press [E] to Salvage Transport Wreck (60m)",
+		}
+	case 2:
+		return WreckageInfo{
+			Name:       "AetherCorp Flagship Wreckage",
+			EstDepth:   "Est. Dive Depth: 100m+ (Deep Vault Sealed)",
+			DivePrompt: "Press [E] to Salvage Flagship Wreck (100m+)",
+		}
+	default:
+		return WreckageInfo{
+			Name:       "Research Tender Wreckage",
+			EstDepth:   "Est. Dive Depth: 30m (Scout Sub Blueprints < 40m)",
+			DivePrompt: "Press [E] to Salvage Research Tender (30m)",
+		}
+	}
+}
+
 // ComputeWreckageShipIndex returns the sorted index of the wreckage at (tx, ty)
-// among all wreckages, ordered by distance from a reference spawn point.
+// among all wreckages, ordered by Euclidean distance from the Lifepod spawn point.
 func (w *World) ComputeWreckageShipIndex(tx, ty int) int {
 	// Find spawn reference tile (Shallow Reef water nearest center)
 	spawnTx, spawnTy := w.FindLifepodSpawn()
 
 	type wreckage struct {
 		wtx, wty int
-		metric   float64
+		dist     float64
 	}
 	var wreckages []wreckage
 	for x := 0; x < w.Width; x++ {
@@ -181,18 +212,18 @@ func (w *World) ComputeWreckageShipIndex(tx, ty int) int {
 				dy := float64(y - spawnTy)
 				dist := math.Hypot(dx, dy)
 				wreckages = append(wreckages, wreckage{
-					wtx:    x,
-					wty:    y,
-					metric: dist + float64(y),
+					wtx:  x,
+					wty:  y,
+					dist: dist,
 				})
 			}
 		}
 	}
 
-	// Sort by metric ascending
+	// Sort by distance ascending
 	for i := 0; i < len(wreckages); i++ {
 		for j := i + 1; j < len(wreckages); j++ {
-			if wreckages[i].metric > wreckages[j].metric {
+			if wreckages[i].dist > wreckages[j].dist {
 				wreckages[i], wreckages[j] = wreckages[j], wreckages[i]
 			}
 		}

@@ -117,6 +117,14 @@ func (a *vehicleRuntimeAdapter) IsCaveSolidAt(tx, ty int) bool {
 	if ty >= len(grid[0]) {
 		return true
 	}
+	for _, n := range a.g.caveState.Nodes {
+		if n.RequiresMech() && n.GetName() == "Reinforced Blast Bulkhead" && n.GetHitsToMine() > 0 {
+			ntx, nty := n.GetTilePos()
+			if ntx == tx && nty == ty {
+				return true
+			}
+		}
+	}
 	return grid[tx][ty]
 }
 

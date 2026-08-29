@@ -108,6 +108,11 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 						if info.DivePrompt != "" {
 							promptText = info.DivePrompt
 						}
+						if tile == world.TileWreckage {
+							shipIdx := o.World.ComputeWreckageShipIndex(pTileX, pTileY)
+							wreck := world.GetWreckageInfo(shipIdx)
+							promptText = wreck.DivePrompt
+						}
 					}
 				}
 			}
@@ -117,10 +122,11 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 				if o.divePromptTimer < 60 {
 					alpha = float32(o.divePromptTimer) / 60.0
 				}
-				promptX := float32(p.CenterX()) - 95
+				promptW := float32(len(promptText)*7 + 20)
+				promptX := float32(p.CenterX()) - promptW/2.0
 				promptY := float32(p.CenterY()) - 40
 				bgAlpha := uint8(180 * alpha)
-				vector.FillRect(screen, promptX, promptY, 190, 25, color.RGBA{0, 0, 0, bgAlpha}, false)
+				vector.FillRect(screen, promptX, promptY, promptW, 25, color.RGBA{0, 0, 0, bgAlpha}, false)
 				ebitenutil.DebugPrintAt(screen, promptText, int(promptX)+10, int(promptY)+4)
 			}
 		}

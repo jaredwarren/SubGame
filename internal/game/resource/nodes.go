@@ -20,6 +20,7 @@ const (
 	NodeScrapMetal
 	NodeElectronicWaste
 	NodeBlueprint
+	NodeReinforcedBulkhead
 )
 
 type NodeTypeInfo struct {
@@ -130,6 +131,37 @@ var nodeRegistry = map[NodeType]*NodeTypeInfo{
 			drawCracks(screen, sx, sy, node.HitsToMine)
 		},
 	},
+	NodeReinforcedBulkhead: {
+		Name:         "Reinforced Blast Bulkhead",
+		MaxStack:     1,
+		RequiresMech: true,
+		BaseItem:     func() item.Item { return &item.ScrapMetal{} },
+		Color:        color.RGBA{220, 180, 40, 255},
+		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
+			vector.FillRect(screen, cx-size/2.0, cy-size/2.0, size, size, color.RGBA{50, 55, 65, 255}, false)
+			vector.StrokeRect(screen, cx-size/2.0, cy-size/2.0, size, size, 1.5, color.RGBA{220, 180, 40, 255}, false)
+		},
+		Draw: func(screen *ebiten.Image, node *ResourceNode, camX, camY float64) {
+			sx, sy := drawNodeBase(screen, node.Tx, node.Ty, camX, camY)
+			cx := sx + float32(TileSize)/2.0
+			cy := sy + float32(TileSize)/2.0
+			sz := float32(TileSize) / 2.0
+
+			// Armored bulkhead panel with hazard stripes
+			panelColor := color.RGBA{45, 50, 60, 255}
+			strokeColor := color.RGBA{220, 180, 40, 255}
+			vector.FillRect(screen, cx-sz, cy-sz, sz*2.0, sz*2.0, panelColor, false)
+			vector.StrokeRect(screen, cx-sz, cy-sz, sz*2.0, sz*2.0, 2.0, strokeColor, false)
+
+			// Diagonal hazard warning stripes
+			vector.StrokeLine(screen, cx-sz+2, cy-sz+10, cx-sz+10, cy-sz+2, 2.0, strokeColor, false)
+			vector.StrokeLine(screen, cx+sz-10, cy+sz-2, cx+sz-2, cy+sz-10, 2.0, strokeColor, false)
+
+			// Central high-tension seal
+			vector.FillCircle(screen, cx, cy, 3.5, strokeColor, false)
+			drawCracks(screen, sx, sy, node.HitsToMine)
+		},
+	},
 }
 
 type ResourceNode struct {
@@ -233,5 +265,13 @@ func NewBlueprintNode(tx, ty int, recipeResultName string) *ResourceNode {
 		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 3},
 		Type:             NodeBlueprint,
 		RecipeResultName: recipeResultName,
+	}
+}
+
+// NewBulkheadNode creates an armored blast bulkhead node requiring a Heavy Mech Drill to destroy.
+func NewBulkheadNode(tx, ty int) *ResourceNode {
+	return &ResourceNode{
+		BaseResourceNode: BaseResourceNode{Tx: tx, Ty: ty, HitsToMine: 6},
+		Type:             NodeReinforcedBulkhead,
 	}
 }

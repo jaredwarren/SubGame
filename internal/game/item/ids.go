@@ -40,6 +40,7 @@ const (
 	IDSkiffKit           ItemID = "skiff_kit"
 	IDScoutSubKit        ItemID = "scout_sub_kit"
 	IDHeavyMechKit       ItemID = "heavy_mech_kit"
+	IDScoutSubDepthMK1   ItemID = "scout_sub_depth_mk1"
 )
 
 // displayNameToID maps historical GetName() / save ItemName / Go type names to stable IDs.
@@ -105,6 +106,8 @@ var displayNameToID = map[string]ItemID{
 	"Skiff Kit":                   IDSkiffKit,
 	"Scout Sub Kit":               IDScoutSubKit,
 	"Heavy Mech Kit":              IDHeavyMechKit,
+	"Scout Sub Depth Module MK1":  IDScoutSubDepthMK1,
+	"ScoutSubDepthMK1":            IDScoutSubDepthMK1,
 }
 
 // ItemIDFromName resolves a display name or historical type name to an ItemID.

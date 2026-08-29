@@ -19,3 +19,6 @@ type PowerCell struct{ BaseItem[PowerCell] }
 type ThermalGenerator struct {
 	VehicleUpgradeNode[ThermalGenerator]
 }
+type ScoutSubDepthMK1 struct {
+	VehicleUpgradeNode[ScoutSubDepthMK1]
+}

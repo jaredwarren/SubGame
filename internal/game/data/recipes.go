@@ -160,6 +160,16 @@ var CraftingRecipes = []Recipe{
 		Unlocked: false,
 	},
 	{
+		NewResult: func() item.Item { return &item.ScoutSubDepthMK1{} },
+		Ingredients: []Ingredient{
+			{NewItem: func() item.Item { return &item.Titanium{} }, Quantity: 5},
+			{NewItem: func() item.Item { return &item.Nickel{} }, Quantity: 3},
+			{NewItem: func() item.Item { return &item.Quartz{} }, Quantity: 2},
+		},
+		Tier:     1,
+		Unlocked: false,
+	},
+	{
 		NewResult: func() item.Item { return &item.EscapeRocket{} },
 		Ingredients: []Ingredient{
 			{NewItem: func() item.Item { return &item.AbyssalOre{} }, Quantity: 10},

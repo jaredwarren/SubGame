@@ -521,7 +521,11 @@ func (c *CaveScene) interactNearest(g CaveContext, p *player.Player, entityRunti
 
 func (c *CaveScene) strikeMineNode(g CaveContext, p *player.Player, i int, node resource.Resource, nx, ny float64) {
 	if node.RequiresMech() {
-		g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120, 1)
+		if node.GetName() == "Reinforced Blast Bulkhead" {
+			g.SetMineWarning("Bulkhead integrity 100%. Heavy Mech Drill required!", 120, 1)
+		} else {
+			g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120, 1)
+		}
 		audio.Get().PlaySFX("sfx/ui_error.wav")
 		return
 	}

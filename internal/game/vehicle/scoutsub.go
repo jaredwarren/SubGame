@@ -64,7 +64,12 @@ func (sub *ScoutSub) GetDimensions() gvec.Vec2     { return sub.Dimensions }
 func (sub *ScoutSub) GetHealth() float64           { return sub.Health }
 func (sub *ScoutSub) GetMaxHealth() float64        { return sub.MaxHealth }
 func (sub *ScoutSub) GetOxygen() float64           { return 100.0 }
-func (sub *ScoutSub) GetDepthLimit() float64       { return ScoutSubArchetype.DepthLimit }
+func (sub *ScoutSub) GetDepthLimit() float64 {
+	if sub.Upgrades != nil && item.HasItem[*item.ScoutSubDepthMK1](sub.Upgrades, 1) {
+		return 120.0
+	}
+	return ScoutSubArchetype.DepthLimit
+}
 func (sub *ScoutSub) GetCargo() *item.Inventory    { return sub.Cargo }
 func (sub *ScoutSub) GetUpgrades() *item.Inventory { return sub.Upgrades }
 func (sub *ScoutSub) GetPerspective() string       { return "cave" }
