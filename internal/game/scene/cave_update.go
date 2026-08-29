@@ -361,6 +361,9 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 			dims := sb.GetDimensions()
 			if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
 				if math.Hypot(px-(pos.X+dims.X/2), py-(pos.Y+dims.Y/2)) <= mineRange {
+					if !p.TrySpendMiningStamina() {
+						break
+					}
 					if bulb, ok := ent.(*entity.ShatterBulb); ok {
 						bulb.Pop(entityRuntime)
 						unlocked := g.GetStoryManager().TriggerEvent("pop", "shatter-bulb")
@@ -385,6 +388,9 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 			if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
 				playerCenter := gvec.Vec2{X: px, Y: py}
 				if creature.CanCatch(playerCenter) {
+					if !p.TrySpendMiningStamina() {
+						break
+					}
 					harvestedItem := creature.GetHarvestedItem()
 					if p.Inventory.AddItem(harvestedItem, 1) {
 						ent.SetActive(false)
@@ -443,6 +449,9 @@ func (c *CaveScene) interactNearest(g CaveContext, p *player.Player, entityRunti
 		}
 	}
 	if bestBulb != nil {
+		if !p.TrySpendMiningStamina() {
+			return
+		}
 		bestBulb.Pop(entityRuntime)
 		unlocked := g.GetStoryManager().TriggerEvent("pop", "shatter-bulb")
 		if unlocked != nil {
@@ -471,6 +480,9 @@ func (c *CaveScene) interactNearest(g CaveContext, p *player.Player, entityRunti
 		}
 	}
 	if bestCatchIdx >= 0 {
+		if !p.TrySpendMiningStamina() {
+			return
+		}
 		ent := c.Entities[bestCatchIdx]
 		creature := ent.(entity.PassiveCreature)
 		harvestedItem := creature.GetHarvestedItem()
@@ -511,6 +523,9 @@ func (c *CaveScene) strikeMineNode(g CaveContext, p *player.Player, i int, node 
 	if node.RequiresMech() {
 		g.SetMineWarning("Requires Heavy Mech Drill Arm to harvest", 120, 1)
 		audio.Get().PlaySFX("sfx/ui_error.wav")
+		return
+	}
+	if !p.TrySpendMiningStamina() {
 		return
 	}
 	node.SetHitsToMine(node.GetHitsToMine() - 1)

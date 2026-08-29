@@ -20,7 +20,6 @@ type mapPOI struct {
 }
 
 const (
-	mapDrawScale = 0.96 // 500→480 px
 	mapPixelSize = 500
 )
 
@@ -32,19 +31,33 @@ func (m *BaseMenuScene) ResetMapCache() {
 	m.mapSeed = 0
 }
 
-func (m *BaseMenuScene) drawMapTab(g MenuContext, screen *ebiten.Image, panelX, panelY float32) {
+func (m *BaseMenuScene) drawMapTab(g MenuContext, screen *ebiten.Image, layout MenuPanelLayout) {
 	w := g.GetWorld()
 	tracker := g.GetExploration()
+	panelX := float32(layout.X)
+	panelY := float32(layout.Y)
 	if w == nil || tracker == nil {
-		ebitenutil.DebugPrintAt(screen, "Charting systems offline.", int(panelX)+40, int(panelY)+120)
+		ebitenutil.DebugPrintAt(screen, "Charting systems offline.", int(panelX+layout.SF(40)), int(panelY+layout.SF(120)))
 		return
 	}
 
 	m.syncMapImage(w, tracker)
 
-	const mapScreen = float32(mapPixelSize) * mapDrawScale // 480
-	mapX := panelX + 20
-	mapY := panelY + 90
+	contentH := float32(layout.contentHeight())
+	legW := layout.SF(250)
+	gap := layout.SF(20)
+	mapScreen := layout.SF(480)
+	if mapScreen > contentH {
+		mapScreen = contentH
+	}
+	maxMapW := float32(layout.W) - layout.SF(40) - gap - legW
+	if mapScreen > maxMapW {
+		mapScreen = maxMapW
+	}
+	mapDrawScale := mapScreen / float32(mapPixelSize)
+
+	mapX := panelX + layout.SF(20)
+	mapY := panelY + layout.SF(90)
 
 	vector.FillRect(screen, mapX-2, mapY-2, mapScreen+4, mapScreen+4, color.RGBA{8, 10, 16, 255}, false)
 	vector.StrokeRect(screen, mapX-2, mapY-2, mapScreen+4, mapScreen+4, 1.0, color.RGBA{68, 88, 120, 255}, false)
@@ -52,18 +65,17 @@ func (m *BaseMenuScene) drawMapTab(g MenuContext, screen *ebiten.Image, panelX, 
 	if m.mapImage != nil {
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterNearest
-		op.GeoM.Scale(mapDrawScale, mapDrawScale)
+		op.GeoM.Scale(float64(mapDrawScale), float64(mapDrawScale))
 		op.GeoM.Translate(float64(mapX), float64(mapY))
 		screen.DrawImage(m.mapImage, op)
 	}
 
-	m.drawMapIcons(g, screen, mapX, mapY, mapDrawScale)
+	m.drawMapIcons(g, screen, mapX, mapY, float64(mapDrawScale))
 
 	// Legend panel
-	legX := panelX + 520
-	legY := panelY + 90
-	legW := float32(250)
-	legH := float32(380)
+	legX := mapX + mapScreen + gap
+	legY := mapY
+	legH := contentH
 	vector.FillRect(screen, legX, legY, legW, legH, color.RGBA{16, 22, 34, 255}, false)
 	vector.StrokeRect(screen, legX, legY, legW, legH, 1.0, color.RGBA{48, 62, 85, 255}, false)
 
@@ -75,7 +87,7 @@ func (m *BaseMenuScene) drawMapTab(g MenuContext, screen *ebiten.Image, panelX, 
 	legendRow := func(label string, drawIcon func(cx, cy float32)) {
 		drawIcon(legX+18, float32(y)+6)
 		drawColoredDebugText(screen, label, int(legX)+36, y, color.RGBA{200, 200, 200, 255})
-		y += 22
+		y += int(layout.S(22))
 	}
 
 	legendRow("You (overworld)", func(cx, cy float32) {
@@ -105,11 +117,11 @@ func (m *BaseMenuScene) drawMapTab(g MenuContext, screen *ebiten.Image, panelX, 
 		drawThermoIcon(screen, cx, cy, color.RGBA{255, 160, 40, 255})
 	})
 
-	y += 10
+	y += int(layout.S(10))
 	drawColoredDebugText(screen, "Nearest wreck always marked.", int(legX)+12, y, color.RGBA{120, 140, 160, 255})
-	y += 16
+	y += int(layout.S(16))
 	drawColoredDebugText(screen, "Dive a ? site to identify it.", int(legX)+12, y, color.RGBA{120, 140, 160, 255})
-	y += 28
+	y += int(layout.S(28))
 	drawColoredDebugText(screen, "Press [M] or [J] to close", int(legX)+12, y, color.RGBA{160, 170, 180, 255})
 }
 

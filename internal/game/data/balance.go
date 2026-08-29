@@ -14,9 +14,10 @@ type PlayerDef struct {
 	MaxStamina       float64
 	MaxEnergy        float64
 	O2DrainRate      float64
-	StaminaDrainRate float64
-	StaminaRegenRate float64
-	DrownDamageRate  float64
+	StaminaDrainRate  float64
+	StaminaRegenRate  float64
+	MiningStaminaCost float64
+	DrownDamageRate   float64
 	InventorySlots   int
 	UpgradeSlots     int
 	HotbarSlots      int
@@ -33,9 +34,10 @@ var PlayerArchetype = &PlayerDef{
 	MaxStamina:       100,
 	MaxEnergy:        100,
 	O2DrainRate:      1.0,
-	StaminaDrainRate: 1.5,
-	StaminaRegenRate: 1.0,
-	DrownDamageRate:  30.0,
+	StaminaDrainRate:  1.5,
+	StaminaRegenRate:  1.0,
+	MiningStaminaCost: 2.0,
+	DrownDamageRate:   30.0,
 	InventorySlots:   24,
 	UpgradeSlots:     4,
 	HotbarSlots:      5,

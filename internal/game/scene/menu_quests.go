@@ -12,7 +12,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/quest"
 )
 
-func (m *BaseMenuScene) updateQuestsTab(g MenuContext, panelX, panelY float64, mx, my int, leftClicked bool) {
+func (m *BaseMenuScene) updateQuestsTab(g MenuContext, layout MenuPanelLayout, mx, my int, leftClicked bool) {
 	qm := g.GetQuestManager()
 	if qm == nil {
 		return
@@ -31,10 +31,10 @@ func (m *BaseMenuScene) updateQuestsTab(g MenuContext, panelX, panelY float64, m
 		return
 	}
 
-	listX := int(panelX) + 30
-	listY := int(panelY) + 95
-	listW := 270
-	listH := 335
+	listX := int(layout.X + layout.S(30))
+	listY := int(layout.Y + layout.S(95))
+	listW := int(layout.S(270))
+	listH := int(layout.S(335))
 
 	if mx >= listX && mx < listX+listW && my >= listY && my < listY+listH {
 		viewportMinY := float64(listY + 5)
@@ -42,51 +42,54 @@ func (m *BaseMenuScene) updateQuestsTab(g MenuContext, panelX, panelY float64, m
 
 		for _, cat := range qm.Categories {
 			// Category header row
-			headerH := 30.0
+			headerH := layout.S(30)
 			if float64(my) >= currentY && float64(my) < currentY+headerH {
 				qm.ToggleCategory(cat.ID)
 				audio.Get().PlaySFX("sfx/ui_hover.wav")
 				return
 			}
-			currentY += headerH + 4.0
+			currentY += headerH + layout.S(4)
 
 			if !cat.Collapsed {
 				for _, q := range cat.Quests {
-					questH := 28.0
+					questH := layout.S(28)
 					if float64(my) >= currentY && float64(my) < currentY+questH {
 						m.SelectedQuestID = q.ID
 						audio.Get().PlaySFX("sfx/ui_hover.wav")
 						return
 					}
-					currentY += questH + 3.0
+					currentY += questH + layout.S(3)
 				}
 			}
-			currentY += 4.0 // Margin between categories
+			currentY += layout.S(4) // Margin between categories
 		}
 	}
 }
 
-func (m *BaseMenuScene) drawQuestsTab(g MenuContext, screen *ebiten.Image, panelX, panelY float32) {
+func (m *BaseMenuScene) drawQuestsTab(g MenuContext, screen *ebiten.Image, layout MenuPanelLayout) {
 	qm := g.GetQuestManager()
 	if qm == nil {
-		ebitenutil.DebugPrintAt(screen, "Quest telemetry systems offline.", int(panelX)+40, int(panelY)+120)
+		ebitenutil.DebugPrintAt(screen, "Quest telemetry systems offline.", int(layout.X+layout.S(40)), int(layout.Y+layout.S(120)))
 		return
 	}
 
+	panelX := float32(layout.X)
+	panelY := float32(layout.Y)
+
 	// Left Panel: Categories and Quest List
-	listX := panelX + 30
-	listY := panelY + 95
-	listW := float32(270)
-	listH := float32(335)
+	listX := panelX + layout.SF(30)
+	listY := panelY + layout.SF(95)
+	listW := layout.SF(270)
+	listH := layout.SF(335)
 	vector.FillRect(screen, listX, listY, listW, listH, color.RGBA{16, 22, 34, 255}, false)
 	vector.StrokeRect(screen, listX, listY, listW, listH, 1.0, color.RGBA{48, 62, 85, 255}, false)
 	ebitenutil.DebugPrintAt(screen, "QUESTS & OBJECTIVES", int(listX)+15, int(listY)-20)
 
 	// Right Panel: Selected Quest Checklist Details
-	rightX := panelX + 315
-	rightY := panelY + 95
-	rightW := float32(455)
-	rightH := float32(335)
+	rightX := panelX + layout.SF(315)
+	rightY := panelY + layout.SF(95)
+	rightW := layout.SF(455)
+	rightH := layout.SF(335)
 	vector.FillRect(screen, rightX, rightY, rightW, rightH, color.RGBA{16, 22, 34, 255}, false)
 	vector.StrokeRect(screen, rightX, rightY, rightW, rightH, 1.0, color.RGBA{48, 62, 85, 255}, false)
 
@@ -116,7 +119,7 @@ func (m *BaseMenuScene) drawQuestsTab(g MenuContext, screen *ebiten.Image, panel
 			if cat.Collapsed {
 				headerText = fmt.Sprintf("[+] %s", cat.Title)
 			}
-			headerH := float32(30)
+			headerH := layout.SF(30)
 
 			// Category Header Box
 			catBg := color.RGBA{26, 36, 54, 255}
@@ -128,11 +131,11 @@ func (m *BaseMenuScene) drawQuestsTab(g MenuContext, screen *ebiten.Image, panel
 			ratioText := fmt.Sprintf("%d/%d", comp, tot)
 			drawColoredDebugText(clippedScreen, ratioText, int(listX+listW)-len(ratioText)*6-18, int(currentY)+8, color.RGBA{140, 190, 220, 255})
 
-			currentY += headerH + 4
+			currentY += headerH + layout.SF(4)
 
 			if !cat.Collapsed {
 				for _, q := range cat.Quests {
-					questH := float32(28)
+					questH := layout.SF(28)
 					qBg := color.RGBA{20, 26, 40, 255}
 					qBorder := color.RGBA{45, 58, 80, 255}
 					qTextColor := color.RGBA{200, 210, 220, 255}
@@ -160,10 +163,10 @@ func (m *BaseMenuScene) drawQuestsTab(g MenuContext, screen *ebiten.Image, panel
 					}
 					drawColoredDebugText(clippedScreen, statusBadge, int(listX+listW)-len(statusBadge)*6-24, int(currentY)+7, badgeColor)
 
-					currentY += questH + 3
+					currentY += questH + layout.SF(3)
 				}
 			}
-			currentY += 4 // Margin between categories
+			currentY += layout.SF(4) // Margin between categories
 		}
 	}
 

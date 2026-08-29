@@ -27,6 +27,7 @@ func (c *CaveScene) draw(g CaveContext, finalScreen *ebiten.Image) {
 
 	if c.scrollActive {
 		c.drawScrollTransition(g)
+		c.applyLighting(g)
 	} else {
 		cam := g.GetCamera()
 		c.drawScene(g, c.offscreen, c.ActiveCave, c.CaveGrid, c.Nodes, c.Entities, g.GetActiveTrenchKey(), cam.Pos.X, cam.Pos.Y, false)

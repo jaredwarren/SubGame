@@ -27,9 +27,10 @@ type Player struct {
 
 	// Customizable Stat Rates (expressed per second)
 	O2DrainRate      float64 // default: 1.0 (O2 units per second)
-	StaminaDrainRate float64 // default: 1.5 (Stamina units per second when sprinting)
-	StaminaRegenRate float64 // default: 1.0 (Stamina units recovered per second)
-	DrownDamageRate  float64 // default: 30.0 (Health units lost per second when drowning)
+	StaminaDrainRate  float64 // default: 1.5 (Stamina units per second when sprinting)
+	StaminaRegenRate  float64 // default: 1.0 (Stamina units recovered per second)
+	MiningStaminaCost float64 // default: 2.0 (Stamina spent per mining tool swing)
+	DrownDamageRate   float64 // default: 30.0 (Health units lost per second when drowning)
 
 	// Inventory
 	Inventory  *item.Inventory
@@ -70,9 +71,10 @@ func NewPlayer(x, y float64) *Player {
 		MaxEnergy:        d.MaxEnergy,
 		CurrentEnergy:    d.MaxEnergy,
 		O2DrainRate:      d.O2DrainRate,
-		StaminaDrainRate: d.StaminaDrainRate,
-		StaminaRegenRate: d.StaminaRegenRate,
-		DrownDamageRate:  d.DrownDamageRate,
+		StaminaDrainRate:  d.StaminaDrainRate,
+		StaminaRegenRate:  d.StaminaRegenRate,
+		MiningStaminaCost: d.MiningStaminaCost,
+		DrownDamageRate:   d.DrownDamageRate,
 		Inventory:        item.NewInventory(d.InventorySlots),
 		Upgrades:         item.NewInventory(d.UpgradeSlots),
 		Hotbar:           item.NewInventory(d.HotbarSlots),
@@ -128,6 +130,18 @@ func (p *Player) UpdateStats(inCave bool, isSprinting bool) {
 			p.CurrentStamina = p.MaxStamina
 		}
 	}
+}
+
+// TrySpendMiningStamina deducts the per-swing mining cost when the player has stamina left.
+func (p *Player) TrySpendMiningStamina() bool {
+	if p.CurrentStamina <= 0 {
+		return false
+	}
+	p.CurrentStamina -= p.MiningStaminaCost
+	if p.CurrentStamina < 0 {
+		p.CurrentStamina = 0
+	}
+	return true
 }
 
 // ClampStats restricts status metrics to their bounds.

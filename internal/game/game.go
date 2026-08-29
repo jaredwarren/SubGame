@@ -297,12 +297,32 @@ func (g *Game) Respawn() {
 		g.player.Inventory.AddItem(&item.Titanium{}, 9)
 	}
 	g.ActiveVehicle = nil
+	g.teleportSkiffsNearLifePod()
 	g.deathReason = ""
 	g.Shake.Duration = 0
 	g.Shake.Intensity = 0
 	g.showInventory = false
 	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
 	g.TransitionTo(g.overworldState)
+}
+
+// teleportSkiffsNearLifePod moves any deployed skiffs to clear water beside the life pod.
+func (g *Game) teleportSkiffsNearLifePod() {
+	if g.baseStation == nil {
+		return
+	}
+	near := gvec.Vec2{
+		X: g.baseStation.Pos.X,
+		Y: g.baseStation.Pos.Y + 64.0,
+	}
+	for _, v := range g.OverworldVehicles {
+		skiff, ok := v.(*vehicle.Skiff)
+		if !ok {
+			continue
+		}
+		skiff.SetPos(g.findNearestClearWaterDeployPos(near, skiff.GetDimensions()))
+		skiff.Vel = gvec.Vec2{}
+	}
 }
 
 // dropLostCargo deposits inventory + hotbar as a surface crate at the death area.

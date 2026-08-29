@@ -11,7 +11,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/base"
-	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
@@ -126,21 +125,19 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 	mx, my := int(cursor.X), int(cursor.Y)
 	leftClicked := inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 
-	const (
-		panelW = 800
-		panelH = 500
-	)
-	panelX := float64(config.ScreenWidth-panelW) / 2.0
-	panelY := float64(config.ScreenHeight-panelH) / 2.0
+	layout := MenuPanelLayoutFor(g.IsMenuOpenedAnywhere())
+	panelX, panelY := layout.X, layout.Y
 
 	if leftClicked {
-		ty := int(panelY) + 40
-		if my >= ty && my < ty+30 {
+		ty := int(panelY + layout.S(40))
+		th := int(layout.S(30))
+		if my >= ty && my < ty+th {
 			if g.IsMenuOpenedAnywhere() {
 				// Detached PDA: Quests | Logs | Map mini-strip
 				for i, tab := range []int{4, 5, 6} {
-					tx := int(panelX) + 30 + i*140
-					if mx >= tx && mx < tx+130 {
+					tx := int(panelX + layout.S(30+float64(i*140)))
+					tw := int(layout.S(130))
+					if mx >= tx && mx < tx+tw {
 						if m.ActiveTab != tab {
 							audio.Get().PlaySFX("sfx/ui_hover.wav")
 						}
@@ -151,8 +148,9 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 				}
 			} else {
 				for i := 0; i < 7; i++ {
-					tx := int(panelX) + 16 + i*110
-					if mx >= tx && mx < tx+104 {
+					tx := int(panelX + layout.S(16+float64(i*110)))
+					tw := int(layout.S(104))
+					if mx >= tx && mx < tx+tw {
 						if i == 2 && !b.HasModule(item.ModuleStorage) {
 							audio.Get().PlaySFX("sfx/ui_error.wav")
 							continue
@@ -337,7 +335,7 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 		}
 
 	case 4:
-		m.updateQuestsTab(g, panelX, panelY, mx, my, leftClicked)
+		m.updateQuestsTab(g, layout, mx, my, leftClicked)
 
 	case 5:
 		unlocked := g.GetStoryManager().GetUnlockedEntries()
@@ -345,7 +343,8 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 			_, wy := inp.Wheel()
 			if wy != 0 {
 				m.ScrollY -= wy * 15
-				maxScroll := float64(len(unlocked)*32 - 300)
+				listContentH := layout.S(335) - 10
+				maxScroll := float64(len(unlocked))*layout.S(32) - listContentH
 				if maxScroll < 0 {
 					maxScroll = 0
 				}
@@ -357,15 +356,15 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 			}
 
 			if leftClicked {
-				listX := int(panelX) + 30
-				listY := int(panelY) + 95
-				listW := 260
-				listH := 335
+				listX := int(panelX + layout.S(30))
+				listY := int(panelY + layout.S(95))
+				listW := int(layout.S(260))
+				listH := int(layout.S(335))
 
 				if mx >= listX && mx < listX+listW && my >= listY && my < listY+listH {
 					viewportMinY := listY + 5
 					clickY := float64(my-viewportMinY) + m.ScrollY
-					clickedIdx := int(clickY) / 32
+					clickedIdx := int(clickY / layout.S(32))
 					if clickedIdx >= 0 && clickedIdx < len(unlocked) {
 						m.SelectedLoreIndex = clickedIdx
 					}
@@ -386,22 +385,21 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 	p := g.GetPlayer()
 	b := g.GetBaseStation()
 
-	const (
-		panelW = 800
-		panelH = 500
-	)
-	panelX := float32(config.ScreenWidth-panelW) / 2.0
-	panelY := float32(config.ScreenHeight-panelH) / 2.0
+	layout := MenuPanelLayoutFor(g.IsMenuOpenedAnywhere())
+	panelX := float32(layout.X)
+	panelY := float32(layout.Y)
+	panelW := float32(layout.W)
+	panelH := float32(layout.H)
 
 	vector.FillRect(screen, panelX, panelY, panelW, panelH, color.RGBA{12, 16, 26, 242}, false)
 	vector.StrokeRect(screen, panelX, panelY, panelW, panelH, 1.5, color.RGBA{68, 88, 120, 255}, false)
 
-	ebitenutil.DebugPrintAt(screen, "BASE ANCHOR TERMINAL - LIFE POD 5", int(panelX)+20, int(panelY)+12)
+	ebitenutil.DebugPrintAt(screen, "BASE ANCHOR TERMINAL - LIFE POD 5", int(panelX+layout.SF(20)), int(panelY+layout.SF(12)))
 	powerText := fmt.Sprintf("BASE POWER: %.0f/%.0f HP (Recharge: solar panels)", b.Power, b.MaxPower)
 	if b.HasModule(item.ModuleSolar) {
 		powerText = fmt.Sprintf("BASE POWER: %.0f/%.0f HP (Recharging: +Solar Active)", b.Power, b.MaxPower)
 	}
-	ebitenutil.DebugPrintAt(screen, powerText, int(panelX)+420, int(panelY)+12)
+	ebitenutil.DebugPrintAt(screen, powerText, int(panelX+layout.SF(420)), int(panelY+layout.SF(12)))
 
 	tabLabels := []string{"1. OVERVIEW", "2. FABRICATOR", "3. VAULT", "4. MEDICAL", "5. QUESTS", "6. LOGS", "7. MAP"}
 	if g.IsMenuOpenedAnywhere() {
@@ -414,22 +412,26 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 			{"★ MAP ★", 6},
 		}
 		for i, dt := range detachedTabs {
-			tx := panelX + 30 + float32(i*140)
-			ty := panelY + 40
+			tx := panelX + layout.SF(30+float32(i*140))
+			ty := panelY + layout.SF(40)
+			tabW := layout.SF(130)
+			tabH := layout.SF(30)
 			tabBg := color.RGBA{18, 24, 38, 255}
 			tabBorder := color.RGBA{45, 58, 78, 255}
 			if m.ActiveTab == dt.tab {
 				tabBg = color.RGBA{32, 45, 68, 255}
 				tabBorder = color.RGBA{95, 125, 165, 255}
 			}
-			vector.FillRect(screen, tx, ty, 130, 30, tabBg, false)
-			vector.StrokeRect(screen, tx, ty, 130, 30, 1.0, tabBorder, false)
+			vector.FillRect(screen, tx, ty, tabW, tabH, tabBg, false)
+			vector.StrokeRect(screen, tx, ty, tabW, tabH, 1.0, tabBorder, false)
 			ebitenutil.DebugPrintAt(screen, dt.label, int(tx)+14, int(ty)+6)
 		}
 	} else {
 		for i := 0; i < 7; i++ {
-			tx := panelX + 16 + float32(i*110)
-			ty := panelY + 40
+			tx := panelX + layout.SF(16+float32(i*110))
+			ty := panelY + layout.SF(40)
+			tabW := layout.SF(104)
+			tabH := layout.SF(30)
 
 			label := tabLabels[i]
 			if i == 2 && !b.HasModule(item.ModuleStorage) {
@@ -443,13 +445,13 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 				tabBorder = color.RGBA{95, 125, 165, 255}
 			}
 
-			vector.FillRect(screen, tx, ty, 104, 30, tabBg, false)
-			vector.StrokeRect(screen, tx, ty, 104, 30, 1.0, tabBorder, false)
+			vector.FillRect(screen, tx, ty, tabW, tabH, tabBg, false)
+			vector.StrokeRect(screen, tx, ty, tabW, tabH, 1.0, tabBorder, false)
 			ebitenutil.DebugPrintAt(screen, label, int(tx)+6, int(ty)+6)
 		}
 	}
 
-	vector.StrokeLine(screen, panelX+20, panelY+75, panelX+panelW-20, panelY+75, 1.0, color.RGBA{68, 88, 120, 255}, false)
+	vector.StrokeLine(screen, panelX+layout.SF(20), panelY+layout.SF(75), panelX+panelW-layout.SF(20), panelY+layout.SF(75), 1.0, color.RGBA{68, 88, 120, 255}, false)
 
 	switch m.ActiveTab {
 	case 0:
@@ -692,23 +694,23 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 		vector.StrokeRect(screen, medX+230, medY+150, 280, 60, 1.0, color.RGBA{70, 100, 140, 255}, false)
 
 	case 4:
-		m.drawQuestsTab(g, screen, panelX, panelY)
+		m.drawQuestsTab(g, screen, layout)
 
 	case 5:
 		// Left Panel: Entry List
-		listX := panelX + 30
-		listY := panelY + 95
-		listW := float32(260)
-		listH := float32(335)
+		listX := panelX + layout.SF(30)
+		listY := panelY + layout.SF(95)
+		listW := layout.SF(260)
+		listH := layout.SF(335)
 		vector.FillRect(screen, listX, listY, listW, listH, color.RGBA{16, 22, 34, 255}, false)
 		vector.StrokeRect(screen, listX, listY, listW, listH, 1.0, color.RGBA{48, 62, 85, 255}, false)
 		ebitenutil.DebugPrintAt(screen, "DECRYPTED LOGS LIST", int(listX)+15, int(listY)-20)
 
 		// Right Panel: Detail View
-		rightX := panelX + 310
-		rightY := panelY + 95
-		rightW := float32(460)
-		rightH := float32(335)
+		rightX := panelX + layout.SF(310)
+		rightY := panelY + layout.SF(95)
+		rightW := layout.SF(460)
+		rightH := layout.SF(335)
 		vector.FillRect(screen, rightX, rightY, rightW, rightH, color.RGBA{16, 22, 34, 255}, false)
 		vector.StrokeRect(screen, rightX, rightY, rightW, rightH, 1.0, color.RGBA{48, 62, 85, 255}, false)
 
@@ -731,7 +733,7 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 			}
 
 			// Render left panel entries
-			rowH := float32(32)
+			rowH := layout.SF(32)
 			viewportMinY := listY + 5
 			viewportH := listH - 10
 
@@ -800,14 +802,14 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 		}
 
 	case 6:
-		m.drawMapTab(g, screen, panelX, panelY)
+		m.drawMapTab(g, screen, layout)
 	}
 
 	closeText := "Press [E] or [O] to Close Terminal Interface"
 	if g.IsMenuOpenedAnywhere() {
 		closeText = "Press [J], [M], [E], or [O] to Close PDA"
 	}
-	ebitenutil.DebugPrintAt(screen, closeText, int(panelX)+240, int(panelY)+panelH-25)
+	ebitenutil.DebugPrintAt(screen, closeText, int(panelX+layout.SF(240)), int(panelY+panelH-layout.SF(25)))
 }
 
 // wrapText splits a single long string of text into multiple lines of maxChars length.
