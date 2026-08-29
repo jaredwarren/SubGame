@@ -222,3 +222,26 @@ func TestBlueprintNodeSpawning(t *testing.T) {
 		t.Errorf("Ship 2 did not spawn Reinforced Blast Bulkhead")
 	}
 }
+
+func TestNodeDropCount(t *testing.T) {
+	// Standard 3-hit node yields 1 resource
+	nodeStandard := NewNode(NodeTitanium, 10, 10)
+	nodeStandard.SetHitsToMine(3)
+	if count := nodeStandard.GetDropCount(); count != 1 {
+		t.Errorf("expected standard node to drop 1, got %d", count)
+	}
+
+	// Deep 5+ hit node yields 2 resources
+	nodeDeep := NewNode(NodeAbyssalOre, 10, 95)
+	nodeDeep.SetHitsToMine(6)
+	if count := nodeDeep.GetDropCount(); count != 2 {
+		t.Errorf("expected deep node (6 hits) to drop 2, got %d", count)
+	}
+
+	// When damaged down to 1 hit remaining, it must still yield 2 resources
+	nodeDeep.SetHitsToMine(1)
+	if count := nodeDeep.GetDropCount(); count != 2 {
+		t.Errorf("expected damaged deep node to still drop 2, got %d", count)
+	}
+}
+

@@ -225,17 +225,26 @@ func (c *ShallowSeabedCave) preRenderTiles() {
 
 		case FloorStyleAbyssalSilt:
 			// Deep abyssal silt & sediment (Abyssal Trench)
-			// 1. Soft horizontal silt drift lines
+			// 1. Fluid volcanic silt drift bands (dark obsidian shadows)
 			numDrifts := rng.Intn(2) + 2
 			for i := 0; i < numDrifts; i++ {
-				dx1 := float32(rng.Intn(config.TileSize-16)) + 4
+				dx1 := float32(rng.Intn(config.TileSize-18)) + 3
 				dy := float32(rng.Intn(config.TileSize-12)) + 6
-				dx2 := dx1 + float32(rng.Float64()*20.0+10.0)
-				vector.StrokeLine(img, dx1, dy, dx2, dy+float32(rng.Float64()*3-1.5), 1.2, darkColor, false)
+				dx2 := dx1 + float32(rng.Float64()*22.0+10.0)
+				vector.StrokeLine(img, dx1, dy, dx2, dy+float32(rng.Float64()*3-1.5), 1.6, darkColor, false)
 			}
 
-			// 2. Fine sediment grains
-			for range 8 {
+			// 2. Bioluminescent sediment ripple veins (glowing cyan energy hairline fractures)
+			if rng.Float64() < 0.75 {
+				vx1 := float32(rng.Intn(config.TileSize-16)) + 4
+				vy := float32(rng.Intn(config.TileSize-14)) + 7
+				vx2 := vx1 + float32(rng.Float64()*18.0+8.0)
+				veinColor := color.RGBA{45, 195, 235, 175}
+				vector.StrokeLine(img, vx1, vy, vx2, vy+float32(rng.Float64()*2-1.0), 0.9, veinColor, false)
+			}
+
+			// 3. Fine volcanic sediment and obsidian granules
+			for range 10 {
 				px := float32(rng.Intn(config.TileSize-4)) + 2
 				py := float32(rng.Intn(config.TileSize-4)) + 2
 				vector.FillRect(img, px, py, 2, 2, darkColor, false)
@@ -243,15 +252,19 @@ func (c *ShallowSeabedCave) preRenderTiles() {
 			for range 6 {
 				px := float32(rng.Intn(config.TileSize-4)) + 2
 				py := float32(rng.Intn(config.TileSize-4)) + 2
-				vector.FillRect(img, px, py, 2, 2, lightColor, false)
+				vector.FillRect(img, px, py, 1.5, 1.5, lightColor, false)
 			}
 
-			// 3. Subtle bioluminescent/crystal mineral fleck
-			if rng.Float64() < 0.6 {
+			// 4. Luminous crystalline mineral flecks with radiant halo
+			numFlecks := rng.Intn(2) + 1
+			for i := 0; i < numFlecks; i++ {
 				cx := float32(rng.Intn(config.TileSize-10)) + 5
 				cy := float32(rng.Intn(config.TileSize-10)) + 5
-				shimmerColor := color.RGBA{95, 180, 245, 200}
-				vector.FillCircle(img, cx, cy, 1.2, shimmerColor, false)
+				haloClr := color.RGBA{40, 160, 240, 110}
+				sparkleClr := color.RGBA{130, 230, 255, 240}
+				vector.FillCircle(img, cx, cy, 2.0, haloClr, false)
+				vector.FillCircle(img, cx, cy, 1.0, sparkleClr, false)
+				vector.FillCircle(img, cx, cy, 0.4, color.White, false)
 			}
 
 		default: // FloorStyleCoralSand (Shallow Reef)
@@ -454,12 +467,21 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 			if isOpenWater {
 				roll := r.Float64()
 				if roll < rules.OpenWaterFishChance {
-					entities = append(entities, entity.NewPassiveFish(
-						float64(tx*config.TileSize)+float64(config.TileSize-20)/2.0,
-						float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
-						r.Float64() < 0.5,
-						r.Float64()*math.Pi*2,
-					))
+					if c.Biome != nil && c.Biome.ID == "abyssal_blue" {
+						entities = append(entities, entity.NewLanternfish(
+							float64(tx*config.TileSize)+float64(config.TileSize-18)/2.0,
+							float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
+							r.Float64() < 0.5,
+							r.Float64()*math.Pi*2,
+						))
+					} else {
+						entities = append(entities, entity.NewPassiveFish(
+							float64(tx*config.TileSize)+float64(config.TileSize-20)/2.0,
+							float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
+							r.Float64() < 0.5,
+							r.Float64()*math.Pi*2,
+						))
+					}
 				} else if roll < rules.OpenWaterFishChance+0.006 {
 					entities = append(entities, entity.NewInkSquid(
 						float64(tx*config.TileSize)+float64(config.TileSize-22)/2.0,
@@ -609,6 +631,9 @@ func (c *ShallowSeabedCave) GetAmbientColor(lightMult float64) [4]float32 {
 	alpha := float32(0.75 - (lightMult-0.2)/0.8*0.60)
 	if c.HasChasm {
 		rgb := c.chasmRim().AmbientRGB
+		if c.chasmRim().Target == CaveOrganicTrench {
+			alpha = max(0.85, alpha)
+		}
 		return [4]float32{rgb[0], rgb[1], rgb[2], alpha}
 	}
 	return [4]float32{0.04, 0.06, 0.12, alpha}

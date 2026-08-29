@@ -79,6 +79,19 @@ func SpawnFauna(id FaunaID, tx, ty int, grid [][]bool, r *rand.Rand) entity.Cave
 			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
 			r.Float64() < 0.5,
 		)
+	case FaunaLanternfish:
+		return entity.NewLanternfish(
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
+			r.Float64() < 0.5,
+			r.Float64()*math.Pi*2,
+		)
+	case FaunaGlowSquid:
+		return entity.NewGlowSquid(
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
+			r.Float64() < 0.5,
+		)
 	default:
 		return nil
 	}

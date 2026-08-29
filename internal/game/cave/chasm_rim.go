@@ -59,6 +59,7 @@ var chasmRimRegistry = map[CaveType]*ChasmRimSpec{
 		Spawns: []ChasmRimSpawn{
 			{Chance: 0.25, SideWall: true, IsFlora: true, Flora: FloraShatterBulb},
 			{Chance: 0.20, Ceiling: true, IsFauna: true, Fauna: FaunaFalseBulbSnare},
+			{Chance: 0.15, SideWall: true, IsFauna: true, Fauna: FaunaLanternfish},
 		},
 	},
 	CaveShockKelp: {

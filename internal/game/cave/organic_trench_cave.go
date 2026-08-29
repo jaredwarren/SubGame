@@ -23,8 +23,15 @@ func (c *OrganicTrenchCave) GetCaveType() CaveType { return CaveOrganicTrench }
 func (c *OrganicTrenchCave) GetGrid() [][]bool     { return c.Grid }
 
 func (c *OrganicTrenchCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64) {
-	// Deep-sea grotto dark background
-	screen.Fill(color.RGBA{10, 8, 16, 255})
+	// Deep-sea grotto dark background: subtle depth darkening from deep indigo at top to dark abyss near bottom
+	depthFrac := 0.0
+	if maxDepth > 0 {
+		depthFrac = min(1.0, max(0.0, camY/maxDepth))
+	}
+	r := uint8(max(3, int(10-7*depthFrac)))
+	g := uint8(max(4, int(12-8*depthFrac)))
+	b := uint8(max(10, int(22-12*depthFrac)))
+	screen.Fill(color.RGBA{r, g, b, 255})
 }
 
 func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
@@ -34,27 +41,30 @@ func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 				sx := float32(tx*config.TileSize - int(camX))
 				sy := float32(ty*config.TileSize - int(camY))
 
-				var rockColor, strokeColor color.RGBA
+				var rockColor, strokeColor, seamColor color.RGBA
 				if ty < 40 {
 					// Biome 1: Mid-Depth (Cyan/Teal) - Luminous Pneumatophore Grotto
 					bandRatio := float64(ty) / 40.0
-					r := uint8(max(8, 22-14*bandRatio))
-					g := uint8(max(24, 64-40*bandRatio))
-					b := uint8(max(32, 78-46*bandRatio))
+					r := uint8(max(10, 20-10*bandRatio))
+					g := uint8(max(26, 52-26*bandRatio))
+					b := uint8(max(38, 70-32*bandRatio))
 					rockColor = color.RGBA{r, g, b, 255}
-					strokeColor = color.RGBA{r + 20, g + 40, b + 48, 255}
+					strokeColor = color.RGBA{r + 20, g + 45, b + 55, 255}
+					seamColor = color.RGBA{60, 210, 235, 220}
 				} else if ty < 80 {
 					// Biome 2: Deep (Dark Grey/Orange) - Silicate Smoker Trenches
 					bandRatio := float64(ty-40) / 40.0
-					r := uint8(max(25, 45-20*bandRatio))
-					g := uint8(max(20, 32-12*bandRatio))
-					b := uint8(max(18, 26-8*bandRatio))
+					r := uint8(max(24, 40-16*bandRatio))
+					g := uint8(max(20, 30-10*bandRatio))
+					b := uint8(max(22, 28-6*bandRatio))
 					rockColor = color.RGBA{r, g, b, 255}
-					strokeColor = color.RGBA{uint8(max(80, 150-70*bandRatio)), 65, 40, 255}
+					strokeColor = color.RGBA{uint8(max(90, 150-60*bandRatio)), 70, 45, 255}
+					seamColor = color.RGBA{235, 125, 55, 220}
 				} else {
-					// Biome 3: Abyssal (Vantablack/White) - Benthic Brine-Falls
-					rockColor = color.RGBA{5, 5, 8, 255}
-					strokeColor = color.RGBA{210, 210, 220, 255}
+					// Biome 3: Abyssal (Midnight Basalt / Electric Azure) - Benthic Brine-Falls
+					rockColor = color.RGBA{16, 18, 32, 255}
+					strokeColor = color.RGBA{38, 85, 150, 255}
+					seamColor = color.RGBA{75, 160, 255, 230}
 				}
 
 				h := hashCoords(tx, ty)
@@ -62,13 +72,52 @@ func (c *OrganicTrenchCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 					blendProb := float64(8-ty) / 9.0 * 0.70
 					if float64(h%100)/100.0 < blendProb {
 						// Abyssal shallow slate rock
-						rockColor = color.RGBA{42, 50, 72, 255}
-						strokeColor = color.RGBA{65, 78, 108, 255}
+						rockColor = color.RGBA{32, 38, 58, 255}
+						strokeColor = color.RGBA{50, 110, 150, 255}
+						seamColor = color.RGBA{65, 180, 225, 220}
 					}
 				}
 
-				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
-				vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
+				// 1. Fill base basalt block
+				tileSize := float32(config.TileSize)
+				vector.FillRect(screen, sx, sy, tileSize, tileSize, rockColor, false)
+
+				// 2. Geological bedding strata
+				strataY := sy + float32((h%10)+3)
+				strataDark := color.RGBA{
+					uint8(max(0, int(rockColor.R)-6)),
+					uint8(max(0, int(rockColor.G)-6)),
+					uint8(max(0, int(rockColor.B)-6)),
+					255,
+				}
+				vector.StrokeLine(screen, sx+2, strataY, sx+tileSize-2, strataY+float32((h>>4)%3-1), 1.0, strataDark, false)
+
+				// 3. Embedded luminous crystalline speck (on ~25% of tiles)
+				if (h % 4) == 0 {
+					fx := sx + float32((h>>8)%10+3)
+					fy := sy + float32((h>>12)%10+3)
+					vector.FillCircle(screen, fx, fy, 1.0, seamColor, false)
+					vector.FillCircle(screen, fx, fy, 0.4, color.White, false)
+				}
+
+				// 4. Outer tile grid stroke
+				vector.StrokeRect(screen, sx, sy, tileSize, tileSize, 0.5, strokeColor, false)
+
+				// 5. Luminous crystalline edge seams on faces exposed to open water
+				gridH := len(c.Grid[0])
+				gridW := len(c.Grid)
+				if ty > 0 && !c.Grid[tx][ty-1] {
+					vector.StrokeLine(screen, sx, sy, sx+tileSize, sy, 1.2, seamColor, false)
+				}
+				if ty < gridH-1 && !c.Grid[tx][ty+1] {
+					vector.StrokeLine(screen, sx, sy+tileSize, sx+tileSize, sy+tileSize, 1.2, seamColor, false)
+				}
+				if tx > 0 && !c.Grid[tx-1][ty] {
+					vector.StrokeLine(screen, sx, sy, sx, sy+tileSize, 1.2, seamColor, false)
+				}
+				if tx < gridW-1 && !c.Grid[tx+1][ty] {
+					vector.StrokeLine(screen, sx+tileSize, sy, sx+tileSize, sy+tileSize, 1.2, seamColor, false)
+				}
 			}
 		}
 	}

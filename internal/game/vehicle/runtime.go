@@ -29,6 +29,7 @@ type DrillableResource interface {
 	SetHitsToMine(hits int)
 	GetColor() color.Color
 	GetRecipeResultName() string
+	GetDropCount() int
 }
 
 // GameCommand is a sealed interface for fire-and-forget mutations vehicles

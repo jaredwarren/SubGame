@@ -92,9 +92,15 @@ func drawMineral(screen *ebiten.Image, tx, ty int, camX, camY float64, hitsToMin
 		perpVec = [2]float32{1, 0}
 	}
 
-	scale := float32(hitsToMine) / 3.0
-	if scale < 0.35 {
-		scale = 0.35
+	scale := float32(1.0)
+	if hitsToMine >= 5 {
+		scale = 1.28
+	} else if hitsToMine == 4 {
+		scale = 1.15
+	} else if hitsToMine == 2 {
+		scale = 0.90
+	} else if hitsToMine <= 1 {
+		scale = 0.80
 	}
 
 	item.DrawMineralShape(screen, cx, cy, dirVec, perpVec, scale, mineralColor, coreColor, mineralName)

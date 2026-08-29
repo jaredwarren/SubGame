@@ -198,9 +198,13 @@ func (m *HeavyMech) tickDrill(runtime Runtime) {
 					runtime.Emit(UnlockRecipeCmd{RecipeResultName: recipeName})
 					runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
 				} else {
-					if m.Cargo.AddItem(m.TargetDrillNode, 1) {
+					dropQty := m.TargetDrillNode.GetDropCount()
+					if dropQty < 1 {
+						dropQty = 1
+					}
+					if m.Cargo.AddItem(m.TargetDrillNode, dropQty) {
 						runtime.Emit(RemoveCaveNodeCmd{TX: targetTx, TY: targetTy})
-						runtime.Emit(AddItemToastCmd{Item: m.TargetDrillNode, Quantity: 1})
+						runtime.Emit(AddItemToastCmd{Item: m.TargetDrillNode, Quantity: dropQty})
 					} else {
 						m.TargetDrillNode.SetHitsToMine(1)
 						runtime.Emit(SetWarningCmd{

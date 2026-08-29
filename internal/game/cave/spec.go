@@ -92,17 +92,25 @@ var caveRegistry = map[CaveType]*CaveSpec{
 		Type:        CaveOrganicTrench,
 		Biome:       AbyssalBlueBiome,
 		Music:       "music/cave_abyssal.mp3",
-		Ambient:     [4]float32{0.01, 0.01, 0.03, 0.97},
+		Ambient:     [4]float32{0.01, 0.015, 0.03, 0.92},
 		CoralBiome:  entity.CoralBiomeTrench,
-		CoralChance: 0.12,
+		CoralChance: 0.22,
 		Banded: []BandedSpawn{
-			{MinTY: 4, MaxTY: 40, Chance: 0.08, HasFlora: true, Flora: FloraShatterBulb, NeedFloor: true},
-			{MinTY: 4, MaxTY: 40, Chance: 0.04, HasFauna: true, Fauna: FaunaFalseBulbSnare, NeedCeiling: true},
-			{MinTY: 40, MaxTY: 80, Chance: 0.05, HasFauna: true, Fauna: FaunaBrimstoneSiphon, NeedWall: true},
+			{MinTY: 4, MaxTY: 40, Chance: 0.10, HasFlora: true, Flora: FloraShatterBulb, NeedFloor: true},
+			{MinTY: 4, MaxTY: 50, Chance: 0.05, HasFauna: true, Fauna: FaunaFalseBulbSnare, NeedCeiling: true},
+			// Lanternfish: decreasing spawn rate with depth (spawn in open water or grotto tunnels)
+			{MinTY: 4, MaxTY: 35, Chance: 0.012, HasFauna: true, Fauna: FaunaLanternfish, MinSpacingPX: 110},
+			{MinTY: 35, MaxTY: 65, Chance: 0.006, HasFauna: true, Fauna: FaunaLanternfish, MinSpacingPX: 160},
+			{MinTY: 65, MaxTY: 85, Chance: 0.002, HasFauna: true, Fauna: FaunaLanternfish, MinSpacingPX: 220},
+			// InkSquid in mid depths (density cut in half with spacing)
+			{MinTY: 20, MaxTY: 65, Chance: 0.012, HasFauna: true, Fauna: FaunaInkSquid, NeedOpen: true, MinSpacingPX: 220},
+			// GlowSquid exclusively at deep abyssal depths
+			{MinTY: 65, MaxTY: 9999, Chance: 0.015, HasFauna: true, Fauna: FaunaGlowSquid, NeedOpen: true, MinSpacingPX: 200},
+			{MinTY: 40, MaxTY: 80, Chance: 0.06, HasFauna: true, Fauna: FaunaBrimstoneSiphon, NeedWall: true},
 			{MinTY: 40, MaxTY: 80, Chance: 0.015, HasFauna: true, Fauna: FaunaThermoclineRammer, NeedOpen: true},
 			{MinTY: 4, MaxTY: 80, Chance: 0.18, HasFlora: true, Flora: FloraShockKelp, NeedFloor: true},
-			{MinTY: 80, MaxTY: 9999, Chance: 0.10, HasFlora: true, Flora: FloraNerveMat, NeedFloor: true},
-			{MinTY: 80, MaxTY: 9999, Chance: 0.012, HasFauna: true, Fauna: FaunaElectroWeaver, NeedOpen: true, MinSpacingPX: 500},
+			{MinTY: 70, MaxTY: 9999, Chance: 0.16, HasFlora: true, Flora: FloraNerveMat, NeedFloor: true},
+			{MinTY: 70, MaxTY: 9999, Chance: 0.020, HasFauna: true, Fauna: FaunaElectroWeaver, NeedOpen: true, MinSpacingPX: 400},
 		},
 	},
 	CaveShockKelp: {
@@ -331,28 +339,59 @@ func applyAnchoredFlora(spawns []AnchoredFloraSpawn, grid [][]bool, r *rand.Rand
 	return entities
 }
 
+func matchesFauna(ent entity.CaveEntity, id FaunaID) bool {
+	switch id {
+	case FaunaLanternfish:
+		_, ok := ent.(*entity.Lanternfish)
+		return ok
+	case FaunaInkSquid:
+		_, ok := ent.(*entity.InkSquid)
+		return ok
+	case FaunaGlowSquid:
+		_, ok := ent.(*entity.GlowSquid)
+		return ok
+	case FaunaElectroWeaver:
+		_, ok := ent.(*entity.ElectroWeaver)
+		return ok
+	case FaunaThermoclineRammer:
+		_, ok := ent.(*entity.ThermoclineRammer)
+		return ok
+	case FaunaBrimstoneSiphon:
+		_, ok := ent.(*entity.BrimstoneSiphon)
+		return ok
+	case FaunaFalseBulbSnare:
+		_, ok := ent.(*entity.FalseBulbSnare)
+		return ok
+	case FaunaSandViper:
+		_, ok := ent.(*entity.SandViper)
+		return ok
+	default:
+		return false
+	}
+}
+
 func applyBandedSpawns(spawns []BandedSpawn, grid [][]bool, r *rand.Rand) []entity.CaveEntity {
 	var entities []entity.CaveEntity
 	gridW := len(grid)
 	gridH := len(grid[0])
-	for tx := 1; tx < gridW-1; tx++ {
-		for ty := 1; ty < gridH-1; ty++ {
-			if grid[tx][ty] {
-				continue
-			}
-			hasWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
-			isOpen := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-			hasCeiling := grid[tx][ty-1]
-			hasFloor := ty < gridH-1 && grid[tx][ty+1]
 
-			for _, sp := range spawns {
-				if ty < sp.MinTY || ty >= sp.MaxTY {
+	for _, sp := range spawns {
+		minTY := max(0, sp.MinTY)
+		maxTY := min(gridH-1, sp.MaxTY)
+		for ty := minTY; ty <= maxTY; ty++ {
+			for tx := 1; tx < gridW-1; tx++ {
+				if grid[tx][ty] {
+					continue
+				}
+				isOpen := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
+				hasCeiling := ty > 0 && grid[tx][ty-1]
+				hasFloor := ty < gridH-1 && grid[tx][ty+1]
+				hasWall := (tx > 0 && grid[tx-1][ty]) || (tx < gridW-1 && grid[tx+1][ty])
+
+				if sp.NeedOpen && !isOpen {
 					continue
 				}
 				if sp.NeedWall && !hasWall {
-					continue
-				}
-				if sp.NeedOpen && !isOpen {
 					continue
 				}
 				if sp.NeedCeiling && !hasCeiling {
@@ -366,9 +405,16 @@ func applyBandedSpawns(spawns []BandedSpawn, grid [][]bool, r *rand.Rand) []enti
 				}
 				if sp.MinSpacingPX > 0 && sp.HasFauna {
 					px := float64(tx * config.TileSize)
+					py := float64(ty * config.TileSize)
+					minDistSq := sp.MinSpacingPX * sp.MinSpacingPX
 					tooClose := false
 					for _, ent := range entities {
-						if math.Abs(ent.GetPos().X-px) < sp.MinSpacingPX {
+						if !matchesFauna(ent, sp.Fauna) {
+							continue
+						}
+						dx := ent.GetPos().X - px
+						dy := ent.GetPos().Y - py
+						if dx*dx+dy*dy < minDistSq {
 							tooClose = true
 							break
 						}

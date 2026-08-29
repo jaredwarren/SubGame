@@ -147,21 +147,21 @@ var (
 		ID:                 "abyssal_blue",
 		Name:               "Abyssal Trench",
 		FloorStyle:         FloorStyleAbyssalSilt,
-		CaveRockColor:      color.RGBA{42, 50, 72, 255}, // Deep abyssal slate
-		CaveSandLightColor: color.RGBA{85, 110, 155, 255},
-		CaveSandDarkColor:  color.RGBA{28, 34, 52, 255},
-		CaveStrokeColor:    color.RGBA{65, 78, 108, 255},
-		CaveAmbientTint:    color.RGBA{15, 20, 60, 255},
+		CaveRockColor:      color.RGBA{22, 28, 48, 255}, // Dark abyssal basalt
+		CaveSandLightColor: color.RGBA{45, 68, 108, 255}, // Midnight sediment
+		CaveSandDarkColor:  color.RGBA{14, 18, 32, 255},  // Deep volcanic silt
+		CaveStrokeColor:    color.RGBA{40, 140, 185, 255}, // Luminous cyan/teal crystalline edge
+		CaveAmbientTint:    color.RGBA{18, 28, 62, 255},  // Rich indigo/cyan ambient
 		Rules:              DefaultSpawnRules,
 		FloraSpawns: []SpawnEntry[FloraID]{
-			{Type: FloraShatterBulb, Weight: 60},
-			{Type: FloraShockKelp, Weight: 30},
-			{Type: FloraCoral, Weight: 10},
+			{Type: FloraShatterBulb, Weight: 45},
+			{Type: FloraShockKelp, Weight: 35},
+			{Type: FloraNerveMat, Weight: 20},
 		},
 		FaunaSpawns: []SpawnEntry[FaunaID]{
-			{Type: FaunaSandViper, Weight: 55},
-			{Type: FaunaPassiveFish, Weight: 30},
-			{Type: FaunaPassiveCrab, Weight: 15},
+			{Type: FaunaLanternfish, Weight: 35},
+			{Type: FaunaInkSquid, Weight: 18},
+			{Type: FaunaFalseBulbSnare, Weight: 20},
 		},
 		MineralSpawns: []SpawnEntry[resource.NodeType]{
 			{Type: resource.NodeNickel, Weight: 35},

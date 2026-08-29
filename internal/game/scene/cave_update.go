@@ -559,10 +559,14 @@ func (c *CaveScene) strikeMineNode(g CaveContext, p *player.Player, i int, node 
 				audio.Get().PlaySFX("sfx/scanner_complete.wav")
 			}
 		} else {
-			p.Inventory.AddItem(node, 1)
+			dropQty := node.GetDropCount()
+			if dropQty < 1 {
+				dropQty = 1
+			}
+			p.Inventory.AddItem(node, dropQty)
 			audio.Get().PlaySFX("sfx/item_pickup.wav")
 			g.NotifyQuestInventoryChanged(node.GetID())
-			g.AddItemToast(node, 1)
+			g.AddItemToast(node, dropQty)
 			unlocked := g.GetStoryManager().TriggerEvent("mine", node.GetName())
 			if unlocked != nil {
 				g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)

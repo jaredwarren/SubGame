@@ -457,7 +457,12 @@ func (c *CaveScene) applyLighting(g CaveContext) {
 	c.Uniforms["LightRadius"] = radius
 	c.Uniforms["ConeHalfAngle"] = angle
 	c.Uniforms["PersonalRadius"] = float32(65.0)
-	c.Uniforms["AmbientColor"] = c.getAmbientColor(g.GetTimeOfDay())
+	ambient := c.getAmbientColor(g.GetTimeOfDay())
+	if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveOrganicTrench {
+		// Deep oceanic darkness (0.91 at top, deepening to 0.96 near the bottom)
+		ambient[3] = float32(0.91 + depthFrac*0.05)
+	}
+	c.Uniforms["AmbientColor"] = ambient
 	c.Uniforms["SonarSource"] = c.sonarSource
 	c.Uniforms["SonarRadius"] = sonarRadius
 	sonarBright := float32(1.0)

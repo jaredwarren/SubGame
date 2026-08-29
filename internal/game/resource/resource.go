@@ -32,6 +32,7 @@ type Resource interface {
 	GetRecipeResultName() string
 	SetAttachDir(dir AttachDirection)
 	GetAttachDir() AttachDirection
+	GetDropCount() int
 	// MapColor is the color used for overview / debug map markers.
 	MapColor() color.RGBA
 }
@@ -40,6 +41,7 @@ type Resource interface {
 type BaseResourceNode struct {
 	Tx, Ty     int // Tile coordinates
 	HitsToMine int
+	MaxHits    int
 	AttachDir  AttachDirection
 }
 
@@ -53,6 +55,16 @@ func (b *BaseResourceNode) GetHitsToMine() int {
 
 func (b *BaseResourceNode) SetHitsToMine(hits int) {
 	b.HitsToMine = hits
+	if hits > b.MaxHits {
+		b.MaxHits = hits
+	}
+}
+
+func (b *BaseResourceNode) GetDropCount() int {
+	if b.MaxHits >= 5 || b.HitsToMine >= 5 {
+		return 2
+	}
+	return 1
 }
 
 func (b *BaseResourceNode) GetRecipeResultName() string {

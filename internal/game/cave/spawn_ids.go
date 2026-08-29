@@ -27,6 +27,8 @@ const (
 	FaunaVoltaicLurker     = entity.FaunaVoltaicLurker
 	FaunaBrimstoneSiphon   = entity.FaunaBrimstoneSiphon
 	FaunaInkSquid          = entity.FaunaInkSquid
+	FaunaLanternfish       = entity.FaunaLanternfish
+	FaunaGlowSquid         = entity.FaunaGlowSquid
 	FaunaCount             = entity.FaunaCount
 )
 
