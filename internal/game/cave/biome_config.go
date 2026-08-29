@@ -18,8 +18,8 @@ type SpawnRules struct {
 // DefaultSpawnRules matches historical shallow seabed spawn densities.
 var DefaultSpawnRules = SpawnRules{
 	ShatterBulbChance:   0.08,
-	OpenWaterFishChance: 0.012,
-	FaunaChance:         0.03,
+	OpenWaterFishChance: 0.015,
+	FaunaChance:         0.035,
 	FloraChance:         0.28,
 	CoralChance:         0.10,
 }
@@ -75,14 +75,15 @@ var (
 			{Type: FloraShockKelp, Weight: 10},
 		},
 		FaunaSpawns: []SpawnEntry[FaunaID]{
-			{Type: FaunaPassiveFish, Weight: 60},
-			{Type: FaunaPassiveCrab, Weight: 30},
+			{Type: FaunaPassiveFish, Weight: 50},
+			{Type: FaunaPassiveCrab, Weight: 25},
+			{Type: FaunaInkSquid, Weight: 18},
 			{Type: FaunaSandViper, Weight: 10},
 		},
 		MineralSpawns: []SpawnEntry[resource.NodeType]{
-			{Type: resource.NodeTitanium, Weight: 50},
-			{Type: resource.NodeCopper, Weight: 40},
-			{Type: resource.NodeQuartz, Weight: 10},
+			{Type: resource.NodeTitanium, Weight: 75},
+			{Type: resource.NodeCopper, Weight: 20},
+			{Type: resource.NodeQuartz, Weight: 5},
 		},
 	}
 
@@ -103,7 +104,8 @@ var (
 		},
 		FaunaSpawns: []SpawnEntry[FaunaID]{
 			{Type: FaunaPassiveFish, Weight: 45},
-			{Type: FaunaPassiveCrab, Weight: 45},
+			{Type: FaunaPassiveCrab, Weight: 30},
+			{Type: FaunaInkSquid, Weight: 18},
 			{Type: FaunaSandViper, Weight: 10},
 		},
 		MineralSpawns: []SpawnEntry[resource.NodeType]{

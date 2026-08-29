@@ -123,3 +123,53 @@ func TestShallowSeabedCaveFloorRendering(t *testing.T) {
 		}
 	}
 }
+
+func TestShallowReefTitaniumSpawns(t *testing.T) {
+	// 1. Verify Titanium has high weight in ShallowReefBiome
+	var titaniumWeight float64
+	for _, m := range ShallowReefBiome.MineralSpawns {
+		if m.Type == resource.NodeTitanium {
+			titaniumWeight = m.Weight
+		}
+	}
+	if titaniumWeight < 70 {
+		t.Fatalf("expected titanium weight in ShallowReefBiome to be >= 70, got %f", titaniumWeight)
+	}
+
+	// 2. Verify at least 1 titanium node is guaranteed in shallow seabed cave across multiple seeds
+	r := rand.New(rand.NewSource(42))
+	for seed := int64(1); seed <= 50; seed++ {
+		grid := GenerateShallowSeabedGrid(r, 5.0, true, true)
+		c := NewShallowSeabedCaveWithBiome(grid, ShallowReefBiome)
+		resources := c.GenerateResources(seed)
+		titaniumCount := 0
+		for _, res := range resources {
+			if rn, ok := res.(*resource.ResourceNode); ok && rn.Type == resource.NodeTitanium {
+				titaniumCount++
+			}
+		}
+		if titaniumCount < 1 {
+			t.Fatalf("expected at least 1 titanium node for seed %d, got %d", seed, titaniumCount)
+		}
+	}
+}
+
+func TestShallowCaveInkSquidSpawns(t *testing.T) {
+	r := rand.New(rand.NewSource(99))
+	for seed := int64(1); seed <= 30; seed++ {
+		grid := GenerateShallowSeabedGrid(r, 5.0, true, true)
+		c := NewShallowSeabedCaveWithBiome(grid, ShallowReefBiome)
+		entities := c.GenerateEntities(seed)
+		squidCount := 0
+		for _, ent := range entities {
+			if _, ok := ent.(*entity.InkSquid); ok {
+				squidCount++
+			}
+		}
+		if squidCount < 1 {
+			t.Fatalf("expected at least 1 ink squid for seed %d, got %d", seed, squidCount)
+		}
+	}
+}
+
+

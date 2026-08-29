@@ -108,7 +108,7 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 				ent.Pos.Y = py + math.Sin(angle)*d.TeleportAwayDist
 				ent.Timer = 0
 			} else {
-				g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage})
+				g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage, Kind: DamageElectric})
 				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: d.WarningDuration, Level: 3})
 				ent.Pos.X = g.PlayerPos().X + float64(rand.Intn(120)-60)
 				ent.Pos.Y = g.PlayerPos().Y + float64(rand.Intn(120)-60)

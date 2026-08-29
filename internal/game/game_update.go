@@ -263,6 +263,12 @@ func (g *Game) advanceTimers() {
 	if g.MineWarning.Timer > 0 {
 		g.MineWarning.Timer--
 	}
+	if g.DamageFlash.Timer > 0 {
+		g.DamageFlash.Timer--
+	}
+	if g.damageFeedbackCooldown > 0 {
+		g.damageFeedbackCooldown--
+	}
 	if g.toasts != nil {
 		g.toasts.Update()
 	}
@@ -857,7 +863,7 @@ func (g *Game) updateActiveVehicle(vrt *vehicleRuntimeAdapter) {
 // exitVehicle ejects the player from the active vehicle, finding a safe position.
 func (g *Game) exitVehicle(vPos, vDims gvec.Vec2) {
 	safeX, safeY := vPos.X, vPos.Y
-	if g.currentState == StateCave {
+	if g.currentState == StateCave && g.caveState != nil {
 		switch {
 		case !g.caveState.IsSolid(g, vPos.X-32, vPos.Y, g.player.Width, g.player.Height):
 			safeX = vPos.X - 32
@@ -865,12 +871,22 @@ func (g *Game) exitVehicle(vPos, vDims gvec.Vec2) {
 			safeX = vPos.X + vDims.X + 12
 		case !g.caveState.IsSolid(g, vPos.X, vPos.Y-32, g.player.Width, g.player.Height):
 			safeY = vPos.Y - 32
+		case !g.caveState.IsSolid(g, vPos.X, vPos.Y+vDims.Y+12, g.player.Width, g.player.Height):
+			safeY = vPos.Y + vDims.Y + 12
 		}
 		g.player.Pos.X = safeX
 		g.player.Pos.Y = safeY
+	} else if g.currentState == StateOverworld && g.overworldState != nil {
+		facing := 0.0
+		if g.ActiveVehicle != nil {
+			facing = g.ActiveVehicle.GetFacing()
+		}
+		safePos := g.overworldState.FindSafeExitPosition(vPos, vDims, facing, g.player.Width, g.player.Height, g.baseStation)
+		g.player.Pos = safePos
 	} else {
 		g.player.Pos.X = vPos.X - 24
 	}
+	g.player.Vel = gvec.Vec2{}
 	g.ActiveVehicle = nil
 	g.justExited = true
 }

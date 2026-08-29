@@ -547,6 +547,36 @@ var SoundCatalog = map[string]PresetGenerator{
 		}.Generate(0.75, seed)
 	},
 
+	"sfx/squid_ink.wav": func(seed int64) *Buffer {
+		layer1 := SoundLayer{
+			Wave1:        WaveSine,
+			Freq1:        160,
+			EndFreq1:     75,
+			Volume1:      0.75,
+			EnableNoise:  true,
+			NoiseType:    WaveNoisePink,
+			NoiseVolume:  0.7,
+			Envelope:     AHDSR{AttackTime: 0.02, DecayTime: 0.35, SustainLvl: 0.0, ReleaseTime: 0.1},
+			EnableFilter: FilterLowPass,
+			FilterCutoff: 900,
+			FilterEndCut: 250,
+			FilterQ:      2.2,
+		}.Generate(0.45, seed)
+
+		layer2 := SoundLayer{
+			EnableNoise:  true,
+			NoiseType:    WaveNoiseBrown,
+			NoiseVolume:  0.6,
+			Envelope:     AHDSR{AttackTime: 0.01, DecayTime: 0.25, SustainLvl: 0.0, ReleaseTime: 0.1},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 500,
+			FilterEndCut: 150,
+			FilterQ:      1.8,
+		}.Generate(0.45, seed)
+
+		return MixBuffers(layer1, layer2)
+	},
+
 	// -----------------------------------------------------------------
 	// 4.3 Vehicles & Machinery SFX
 	// -----------------------------------------------------------------

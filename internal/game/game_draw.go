@@ -44,6 +44,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 		if g.currentState == StateOverworld || g.currentState == StateCave {
 			g.hud.Draw(screen, g)
+			g.drawDamageFlash(screen)
 		}
 	}
 

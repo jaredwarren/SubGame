@@ -47,6 +47,12 @@ type CaveCache struct {
 	caveEntities map[string][]entity.CaveEntity
 }
 
+// DamageFlashState drives the brief screen-edge vignette on hit.
+type DamageFlashState struct {
+	Timer int
+	Kind  entity.DamageKind
+}
+
 // Effects holds transient presentation and alert state.
 type Effects struct {
 	Sonar               *sonar.Sonar
@@ -59,6 +65,8 @@ type Effects struct {
 	o2CritAlertPlayed   bool
 	Particles           []*particle.Particle
 	Shake               ScreenShake
+	DamageFlash         DamageFlashState
+	damageFeedbackCooldown int
 	deathReason         string
 }
 
@@ -93,6 +101,8 @@ func (g *Game) resetEffects() {
 	g.o2CritAlertPlayed = false
 	g.Particles = nil
 	g.Shake = ScreenShake{}
+	g.DamageFlash = DamageFlashState{}
+	g.damageFeedbackCooldown = 0
 	g.deathReason = ""
 }
 

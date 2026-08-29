@@ -49,6 +49,8 @@ type Player struct {
 	IsDamaged       bool
 	DamageAnimTimer int
 	StunTimer       int
+	SlowTimer       int
+	SlowFactor      float64
 	SuperSpeed      bool
 }
 
@@ -88,6 +90,18 @@ func (p *Player) UpdateStats(inCave bool, isSprinting bool) {
 	if p.StunTimer > 0 {
 		p.StunTimer--
 		p.Vel = gvec.Vec2{}
+	}
+
+	if p.SlowTimer > 0 {
+		if !inCave {
+			p.SlowTimer = 0
+			p.SlowFactor = 1.0
+		} else {
+			p.SlowTimer--
+			if p.SlowTimer == 0 {
+				p.SlowFactor = 1.0
+			}
+		}
 	}
 
 	// Oxygen management

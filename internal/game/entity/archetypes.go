@@ -13,7 +13,6 @@ type ShockKelpDef struct {
 	VehicleDamage       float64
 	KnockbackX          float64
 	KnockbackY          float64
-	WarningDuration     int
 }
 
 // ShatterBulbDef holds shared dims and pop effect for ShatterBulb flora.
@@ -32,7 +31,6 @@ var ShockKelpArchetype = &ShockKelpDef{
 	VehicleDamage:       12,
 	KnockbackX:          4.5,
 	KnockbackY:          -2.5,
-	WarningDuration:     90,
 }
 
 var ShatterBulbArchetype = &ShatterBulbDef{

@@ -42,12 +42,22 @@ type Runtime interface {
 // request. They are applied at the end of the tick.
 type GameCommand interface{ gameCommand() }
 
+// DamageKind selects hit presentation (sound, vignette tint, particles).
+type DamageKind int
+
+const (
+	DamageGeneric DamageKind = iota
+	DamageElectric
+)
+
 type DamagePlayerCmd struct {
 	Amount float64
+	Kind   DamageKind
 }
 
 type DamageActiveVehicleCmd struct {
 	Amount float64
+	Kind   DamageKind
 }
 
 type RestoreOxygenCmd struct {
@@ -93,6 +103,15 @@ type DestroyDecoyCmd struct {
 	Pos gvec.Vec2
 }
 
+type SpawnInkCloudCmd struct {
+	Pos gvec.Vec2
+}
+
+type SlowPlayerCmd struct {
+	Duration int
+	Factor   float64
+}
+
 func (DamagePlayerCmd) gameCommand()              {}
 func (DamageActiveVehicleCmd) gameCommand()       {}
 func (RestoreOxygenCmd) gameCommand()             {}
@@ -105,3 +124,5 @@ func (KnockbackActiveVehicleCmd) gameCommand()    {}
 func (StunPlayerCmd) gameCommand()                {}
 func (TriggerShakeCmd) gameCommand()              {}
 func (DestroyDecoyCmd) gameCommand()              {}
+func (SpawnInkCloudCmd) gameCommand()             {}
+func (SlowPlayerCmd) gameCommand()                {}

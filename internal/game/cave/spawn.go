@@ -73,6 +73,12 @@ func SpawnFauna(id FaunaID, tx, ty int, grid [][]bool, r *rand.Rand) entity.Cave
 		)
 		siphon.Timer = r.Intn(def.CycleFrames)
 		return siphon
+	case FaunaInkSquid:
+		return entity.NewInkSquid(
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
+			r.Float64() < 0.5,
+		)
 	default:
 		return nil
 	}
@@ -152,9 +158,13 @@ func SpawnFloraAnchored(id FloraID, tx, ty int, height float64, anchor string, r
 		return entity.NewShockKelp(x, y, height, anchor)
 	case FloraShatterBulb:
 		d := entity.ShatterBulbArchetype.Dims
+		if height <= 0 {
+			height = 42.0 + r.Float64()*12.0
+		}
 		return entity.NewShatterBulb(
 			float64(tx*ts)+float64(ts-int(d.X))/2.0,
-			float64(ty*ts)+float64(ts-int(d.Y))/2.0,
+			float64(ty*ts)+float64(ts)-height,
+			height,
 		)
 	case FloraNerveMat:
 		return &entity.NerveMat{

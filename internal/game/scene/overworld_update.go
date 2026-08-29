@@ -255,5 +255,14 @@ func (o *OverworldScene) CheckCollisions(p *player.Player, baseStation *base.Bas
 		return false
 	}
 
+	// If player is trapped inside solid land, pop them out into nearest water to prevent soft lock
+	if isSolid(p.Pos) {
+		if safePos, ok := o.FindNearestWater(p.Pos, p.Width, p.Height, baseStation); ok {
+			p.Pos = safePos
+			p.Vel = gvec.Vec2{}
+			return
+		}
+	}
+
 	gvec.MoveAxisSeparated(&p.Pos, &p.Vel, dims, isSolid, nil, nil)
 }

@@ -60,3 +60,10 @@ func (e *SonicDecoy) MapColor() color.RGBA { return mapColorEffect }
 
 func (e *DeterrentCloud) DebugName() string    { return "DeterrentCloud" }
 func (e *DeterrentCloud) MapColor() color.RGBA { return mapColorEffect }
+
+func (e *InkSquid) DebugName() string    { return "InkSquid" }
+func (e *InkSquid) MapColor() color.RGBA { return mapColorPassive }
+
+func (e *InkCloud) DebugName() string    { return "InkCloud" }
+func (e *InkCloud) MapColor() color.RGBA { return mapColorEffect }
+

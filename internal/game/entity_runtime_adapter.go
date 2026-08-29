@@ -260,11 +260,13 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 		switch c := cmd.(type) {
 		case entity.DamagePlayerCmd:
 			g.player.CurrentHealth -= c.Amount
+			g.applyDamageFeedback(c.Amount, c.Kind, false)
 		case entity.KnockbackPlayerCmd:
 			g.player.Vel = g.player.Vel.Add(c.Force)
 		case entity.DamageActiveVehicleCmd:
 			if g.ActiveVehicle != nil {
 				g.ActiveVehicle.TakeDamage(c.Amount)
+				g.applyDamageFeedback(c.Amount, c.Kind, true)
 			}
 		case entity.KnockbackActiveVehicleCmd:
 			if g.ActiveVehicle != nil {
@@ -311,6 +313,14 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 					closestDecoy.SetActive(false)
 				}
 			}
+		case entity.SpawnInkCloudCmd:
+			if g.caveState != nil {
+				g.caveState.Entities = append(g.caveState.Entities, entity.NewInkCloud(c.Pos.X, c.Pos.Y))
+				audio.Get().PlaySFX("sfx/squid_ink.wav")
+			}
+		case entity.SlowPlayerCmd:
+			g.player.SlowTimer = max(g.player.SlowTimer, c.Duration)
+			g.player.SlowFactor = c.Factor
 		}
 	}
 	rt.cmds = rt.cmds[:0]

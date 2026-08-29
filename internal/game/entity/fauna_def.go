@@ -14,6 +14,7 @@ const (
 	BehaviorElectroWeaver
 	BehaviorVoltaicLurker
 	BehaviorBrimstoneSiphon
+	BehaviorInkSquid
 )
 
 // FaunaDef holds balance stats for one fauna type. Unused fields are zero for types
@@ -160,6 +161,12 @@ var faunaRegistry = map[FaunaID]*FaunaDef{
 		StunDuration: 90, ShakeDuration: 20, ShakeIntensity: 4,
 		WarningDuration: 90, SwayPhaseSpeed: 0.05,
 	},
+	FaunaInkSquid: {
+		ID: FaunaInkSquid, Behavior: BehaviorInkSquid,
+		Dims: gvec.Vec2{X: 22, Y: 16},
+		PatrolSpeed: 0.6, FleeSpeed: 3.8, FleeFrames: 60,
+		ThreatRange: 70.0, CooldownFrames: 480, SwimPhaseSpeed: 0.04,
+	},
 }
 
 // Legacy per-type aliases — all fauna balance rows are FaunaDef entries.
@@ -172,6 +179,7 @@ type (
 	VoltaicLurkerDef     = FaunaDef
 	PassiveFishDef       = FaunaDef
 	PassiveCrabDef       = FaunaDef
+	InkSquidDef          = FaunaDef
 )
 
 // Legacy archetype pointers alias faunaRegistry rows.
@@ -184,6 +192,7 @@ var (
 	VoltaicLurkerArchetype     = faunaRegistry[FaunaVoltaicLurker]
 	PassiveFishArchetype       = faunaRegistry[FaunaPassiveFish]
 	PassiveCrabArchetype       = faunaRegistry[FaunaPassiveCrab]
+	InkSquidArchetype          = faunaRegistry[FaunaInkSquid]
 )
 
 // FaunaDefFor returns the balance row for id, or nil.

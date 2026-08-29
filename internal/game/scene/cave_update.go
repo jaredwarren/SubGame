@@ -631,6 +631,14 @@ func (c *CaveScene) handlePlayerMovement(g CaveContext, inp InputSource, p *play
 		swimForce *= 0.5
 		maxSpeed *= 0.5
 	}
+	if p.SlowTimer > 0 {
+		factor := p.SlowFactor
+		if factor <= 0 {
+			factor = 0.5
+		}
+		swimForce *= factor
+		maxSpeed *= factor
+	}
 
 	swimming := false
 	if inp.IsKeyPressed(ebiten.KeyW) || inp.IsKeyPressed(ebiten.KeyArrowUp) {

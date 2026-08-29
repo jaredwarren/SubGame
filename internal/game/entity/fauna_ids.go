@@ -12,5 +12,6 @@ const (
 	FaunaElectroWeaver
 	FaunaVoltaicLurker
 	FaunaBrimstoneSiphon
+	FaunaInkSquid
 	FaunaCount
 )

@@ -14,7 +14,7 @@ func TestFaunaDefRegistry(t *testing.T) {
 		if def.ID != id {
 			t.Fatalf("def.ID mismatch: got %d want %d", def.ID, id)
 		}
-		if def.Behavior < BehaviorPassiveFish || def.Behavior > BehaviorBrimstoneSiphon {
+		if def.Behavior < BehaviorPassiveFish || def.Behavior > BehaviorInkSquid {
 			t.Fatalf("invalid BehaviorID %d for fauna %d", def.Behavior, id)
 		}
 	}
@@ -33,6 +33,7 @@ func TestFaunaLegacyArchetypesMatchRegistry(t *testing.T) {
 		{FaunaElectroWeaver, &ElectroWeaverArchetype},
 		{FaunaVoltaicLurker, &VoltaicLurkerArchetype},
 		{FaunaBrimstoneSiphon, &BrimstoneSiphonArchetype},
+		{FaunaInkSquid, &InkSquidArchetype},
 	}
 	for _, tc := range cases {
 		if *tc.arch != FaunaDefFor(tc.id) {

@@ -27,6 +27,7 @@ const (
 	FaunaPassiveFish = cave.FaunaPassiveFish
 	FaunaPassiveCrab = cave.FaunaPassiveCrab
 	FaunaSandViper   = cave.FaunaSandViper
+	FaunaInkSquid    = cave.FaunaInkSquid
 )
 
 var (

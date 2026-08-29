@@ -82,21 +82,11 @@ func (k *ShockKelp) Update(gr Runtime) {
 			forceVec := gvec.Vec2{X: dirX * d.KnockbackX, Y: d.KnockbackY}
 
 			if hasVehicle {
-				gr.Emit(DamageActiveVehicleCmd{Amount: d.VehicleDamage})
+				gr.Emit(DamageActiveVehicleCmd{Amount: d.VehicleDamage, Kind: DamageElectric})
 				gr.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{
-					Message:  "VEHICLE SHOCKED BY PURPLE KELP!",
-					Duration: d.WarningDuration,
-					Level:    2,
-				})
 			} else {
-				gr.Emit(DamagePlayerCmd{Amount: d.PlayerDamage})
+				gr.Emit(DamagePlayerCmd{Amount: d.PlayerDamage, Kind: DamageElectric})
 				gr.Emit(KnockbackPlayerCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{
-					Message:  "SHOCKED BY PURPLE KELP!",
-					Duration: d.WarningDuration,
-					Level:    2,
-				})
 			}
 		}
 	}

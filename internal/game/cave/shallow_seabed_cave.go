@@ -441,21 +441,32 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 				continue
 			}
 
-			hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
-			if hasAdjacentWall && r.Float64() < rules.ShatterBulbChance {
+			hasFloor := ty < gridH-2 && grid[tx][ty+1]
+			if hasFloor && r.Float64() < rules.ShatterBulbChance {
+				height := 42.0 + r.Float64()*16.0
 				entities = append(entities, entity.NewShatterBulb(
 					float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
-					float64(ty*config.TileSize)+float64(config.TileSize-24)/2.0,
+					float64(ty*config.TileSize)+float64(config.TileSize)-height,
+					height,
 				))
 			}
 			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-			if isOpenWater && r.Float64() < rules.OpenWaterFishChance {
-				entities = append(entities, entity.NewPassiveFish(
-					float64(tx*config.TileSize)+float64(config.TileSize-20)/2.0,
-					float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
-					r.Float64() < 0.5,
-					r.Float64()*math.Pi*2,
-				))
+			if isOpenWater {
+				roll := r.Float64()
+				if roll < rules.OpenWaterFishChance {
+					entities = append(entities, entity.NewPassiveFish(
+						float64(tx*config.TileSize)+float64(config.TileSize-20)/2.0,
+						float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
+						r.Float64() < 0.5,
+						r.Float64()*math.Pi*2,
+					))
+				} else if roll < rules.OpenWaterFishChance+0.006 {
+					entities = append(entities, entity.NewInkSquid(
+						float64(tx*config.TileSize)+float64(config.TileSize-22)/2.0,
+						float64(ty*config.TileSize)+float64(config.TileSize-16)/2.0,
+						r.Float64() < 0.5,
+					))
+				}
 			}
 			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < rules.FaunaChance {
 				faunaType := FaunaPassiveFish
@@ -482,6 +493,34 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 		}
 	}
 
+	// Ensure at least 1 InkSquid is present in every shallow seabed cave
+	squidCount := 0
+	for _, ent := range entities {
+		if _, ok := ent.(*entity.InkSquid); ok {
+			squidCount++
+		}
+	}
+	for squidCount < 1 {
+		found := false
+		for attempts := 0; attempts < 100; attempts++ {
+			tx := 2 + r.Intn(gridW-4)
+			ty := 2 + r.Intn(gridH-4)
+			if !grid[tx][ty] && !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1] {
+				entities = append(entities, entity.NewInkSquid(
+					float64(tx*config.TileSize)+float64(config.TileSize-22)/2.0,
+					float64(ty*config.TileSize)+float64(config.TileSize-16)/2.0,
+					r.Float64() < 0.5,
+				))
+				squidCount++
+				found = true
+				break
+			}
+		}
+		if !found {
+			break
+		}
+	}
+
 	// Spawn special flora and entities along chasm rims and winding crevice walls
 	if c.HasChasm && c.ChasmX > 0 {
 		entities = append(entities, spawnChasmRimEntities(c.chasmRim(), grid, c.ChasmX, c.ChasmWidth, r)...)
@@ -491,14 +530,78 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 }
 
 func (c *ShallowSeabedCave) GenerateResources(seed int64) []resource.Resource {
+	var nodes []resource.Resource
 	if c.Biome != nil && len(c.Biome.MineralSpawns) > 0 {
 		spawns := make([]resource.ResourceSpawnEntry, len(c.Biome.MineralSpawns))
 		for i, s := range c.Biome.MineralSpawns {
 			spawns[i] = resource.ResourceSpawnEntry{Type: s.Type, Weight: s.Weight}
 		}
-		return resource.GenerateResourceNodesWithBiome(c.Grid, seed, spawns)
+		nodes = resource.GenerateResourceNodesWithBiome(c.Grid, seed, spawns)
+	} else {
+		nodes = resource.GenerateResourceNodes(c.Grid, seed)
 	}
-	return resource.GenerateResourceNodes(c.Grid, seed)
+
+	// Guarantee at least 1 Titanium node in ShallowReefBiome (and default shallow seabed caves)
+	if c.Biome == nil || c.Biome.ID == "shallow_reef" {
+		hasTitanium := false
+		for _, n := range nodes {
+			if rn, ok := n.(*resource.ResourceNode); ok && rn.Type == resource.NodeTitanium {
+				hasTitanium = true
+				break
+			}
+		}
+
+		if !hasTitanium {
+			if len(nodes) > 0 {
+				if rn, ok := nodes[0].(*resource.ResourceNode); ok {
+					rn.Type = resource.NodeTitanium
+					hasTitanium = true
+				}
+			}
+
+			if !hasTitanium && c.Grid != nil {
+				r := rand.New(rand.NewSource(seed))
+				gridW := len(c.Grid)
+				gridH := len(c.Grid[0])
+				type candidatePos struct {
+					tx, ty int
+					dirs   []resource.AttachDirection
+				}
+				var candidates []candidatePos
+				for tx := 1; tx < gridW-1; tx++ {
+					for ty := 1; ty < gridH-1; ty++ {
+						if !c.Grid[tx][ty] {
+							var dirs []resource.AttachDirection
+							if c.Grid[tx][ty-1] {
+								dirs = append(dirs, resource.AttachTop)
+							}
+							if c.Grid[tx][ty+1] {
+								dirs = append(dirs, resource.AttachBottom)
+							}
+							if c.Grid[tx-1][ty] {
+								dirs = append(dirs, resource.AttachLeft)
+							}
+							if c.Grid[tx+1][ty] {
+								dirs = append(dirs, resource.AttachRight)
+							}
+							if len(dirs) > 0 {
+								candidates = append(candidates, candidatePos{tx, ty, dirs})
+							}
+						}
+					}
+				}
+				if len(candidates) > 0 {
+					pick := candidates[r.Intn(len(candidates))]
+					node := resource.NewNode(resource.NodeTitanium, pick.tx, pick.ty)
+					node.SetAttachDir(pick.dirs[r.Intn(len(pick.dirs))])
+					node.SetHitsToMine(resource.GenConfig.BaseHitsToMine)
+					nodes = append(nodes, node)
+				}
+			}
+		}
+	}
+
+	return nodes
 }
 
 

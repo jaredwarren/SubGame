@@ -91,6 +91,7 @@ func (c *CaveScene) applyPostFX(g CaveContext, finalScreen *ebiten.Image) {
 	}
 
 	if !useEdgeBlur {
+		c.drawInkScreenVignette(g, finalScreen)
 		return
 	}
 
@@ -122,6 +123,91 @@ func (c *CaveScene) applyPostFX(g CaveContext, finalScreen *ebiten.Image) {
 		"Strength":  float32(strength),
 	}
 	finalScreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.EdgeBlurShader, op)
+	c.drawInkScreenVignette(g, finalScreen)
+}
+
+func (c *CaveScene) drawInkScreenVignette(g CaveContext, screen *ebiten.Image) {
+	p := g.GetPlayer()
+	if p == nil || p.SlowTimer <= 0 {
+		return
+	}
+
+	alpha := float64(p.SlowTimer) / 180.0
+	if alpha > 1.0 {
+		alpha = 1.0
+	}
+
+	w := float32(config.ScreenWidth)
+	h := float32(config.ScreenHeight)
+
+	// Soft, layered translucent ink colors with gentle, non-harsh contrast
+	outerHaze := color.RGBA{22, 25, 45, uint8(alpha * 38)}
+	midPlume := color.RGBA{18, 20, 36, uint8(alpha * 65)}
+	innerInk := color.RGBA{14, 15, 28, uint8(alpha * 92)}
+
+	// Helper to draw a feathered, organic soft ink splotch
+	drawInkSpot := func(cx, cy, baseRad float32) {
+		r := baseRad * float32(alpha)
+		if r <= 1.0 {
+			return
+		}
+		// Soft outer gradient fringe
+		vector.FillCircle(screen, cx, cy, r*1.35, outerHaze, false)
+		// Mid translucent ink body
+		vector.FillCircle(screen, cx, cy, r, midPlume, false)
+		// Dense core
+		vector.FillCircle(screen, cx-r*0.1, cy-r*0.1, r*0.65, innerInk, false)
+	}
+
+	// 1. Broad soft corner blooms (significantly enlarged for atmospheric vignette)
+	cornerSize := float32(340.0)
+	drawInkSpot(0, 0, cornerSize)
+	drawInkSpot(w, 0, cornerSize)
+	drawInkSpot(0, h, cornerSize)
+	drawInkSpot(w, h, cornerSize)
+
+	// 2. Large border blooms replacing harsh rectangular strips
+	edgeSpots := []struct {
+		cx, cy float32
+		rad    float32
+	}{
+		// Top border
+		{w * 0.22, -10, 230}, {w * 0.50, -30, 260}, {w * 0.78, -10, 225},
+		// Bottom border
+		{w * 0.25, h + 10, 235}, {w * 0.52, h + 30, 265}, {w * 0.80, h + 10, 230},
+		// Left border
+		{-10, h * 0.35, 220}, {-25, h * 0.65, 230},
+		// Right border
+		{w + 10, h * 0.32, 225}, {w + 25, h * 0.68, 235},
+	}
+	for _, es := range edgeSpots {
+		drawInkSpot(es.cx, es.cy, es.rad)
+	}
+
+	// 3. Large organic ink spots & splatters reaching across the screen
+	screenSpots := []struct {
+		xRatio, yRatio float32
+		rad            float32
+	}{
+		{0.18, 0.24, 155},
+		{0.12, 0.45, 135},
+		{0.28, 0.16, 145},
+		{0.82, 0.22, 160},
+		{0.88, 0.48, 140},
+		{0.72, 0.18, 150},
+		{0.16, 0.76, 165},
+		{0.26, 0.85, 140},
+		{0.84, 0.74, 170},
+		{0.74, 0.84, 145},
+		// Mid-field plumes
+		{0.34, 0.32, 95},
+		{0.66, 0.28, 100},
+		{0.38, 0.70, 98},
+		{0.62, 0.68, 102},
+	}
+	for _, ss := range screenSpots {
+		drawInkSpot(w*ss.xRatio, h*ss.yRatio, ss.rad)
+	}
 }
 
 func (c *CaveScene) drawScrollTransition(g CaveContext) {
@@ -283,8 +369,8 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 		op.GeoM.Translate(float64(pX), float64(pY))
 
 		if p.IsDamaged {
-			if (p.DamageAnimTimer/4)%2 == 0 {
-				op.ColorScale.Scale(2.5, 0.4, 0.4, 1.0)
+			if (p.DamageAnimTimer/5)%2 == 0 {
+				op.ColorScale.Scale(1.25, 0.82, 0.82, 1.0)
 			}
 		}
 

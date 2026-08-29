@@ -96,7 +96,7 @@ var caveRegistry = map[CaveType]*CaveSpec{
 		CoralBiome:  entity.CoralBiomeTrench,
 		CoralChance: 0.12,
 		Banded: []BandedSpawn{
-			{MinTY: 4, MaxTY: 40, Chance: 0.08, HasFlora: true, Flora: FloraShatterBulb, NeedWall: true},
+			{MinTY: 4, MaxTY: 40, Chance: 0.08, HasFlora: true, Flora: FloraShatterBulb, NeedFloor: true},
 			{MinTY: 4, MaxTY: 40, Chance: 0.04, HasFauna: true, Fauna: FaunaFalseBulbSnare, NeedCeiling: true},
 			{MinTY: 40, MaxTY: 80, Chance: 0.05, HasFauna: true, Fauna: FaunaBrimstoneSiphon, NeedWall: true},
 			{MinTY: 40, MaxTY: 80, Chance: 0.015, HasFauna: true, Fauna: FaunaThermoclineRammer, NeedOpen: true},
@@ -144,7 +144,7 @@ var caveRegistry = map[CaveType]*CaveSpec{
 		CoralBiome:  entity.CoralBiomeWreckage,
 		CoralChance: 0.08,
 		Banded: []BandedSpawn{
-			{MinTY: 2, MaxTY: 9999, Chance: 0.05, HasFlora: true, Flora: FloraShatterBulb, NeedWall: true},
+			{MinTY: 2, MaxTY: 9999, Chance: 0.05, HasFlora: true, Flora: FloraShatterBulb, NeedFloor: true},
 		},
 		Counts: []CountSpawn{
 			{Fauna: FaunaElectroWeaver, Min: 1, Max: 2, MinTY: 80, NeedOpen: true, MinTileSpacing: 5},
@@ -192,16 +192,24 @@ func generateBiomeTileEntities(biome *CaveBiomeSpec, grid [][]bool, coralBiome i
 			if grid[tx][ty] {
 				continue
 			}
-			hasAdjacentWall := grid[tx-1][ty] || grid[tx+1][ty] || grid[tx][ty-1] || grid[tx][ty+1]
-			if hasAdjacentWall && r.Float64() < rules.ShatterBulbChance {
-				if ent := SpawnFlora(FloraShatterBulb, tx, ty, 0, r); ent != nil {
+			hasFloor := ty < gridH-2 && grid[tx][ty+1]
+			if hasFloor && r.Float64() < rules.ShatterBulbChance {
+				height := 42.0 + r.Float64()*16.0
+				if ent := SpawnFlora(FloraShatterBulb, tx, ty, height, r); ent != nil {
 					entities = append(entities, ent)
 				}
 			}
 			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-			if isOpenWater && r.Float64() < rules.OpenWaterFishChance {
-				if ent := SpawnFauna(FaunaPassiveFish, tx, ty, grid, r); ent != nil {
-					entities = append(entities, ent)
+			if isOpenWater {
+				roll := r.Float64()
+				if roll < rules.OpenWaterFishChance {
+					if ent := SpawnFauna(FaunaPassiveFish, tx, ty, grid, r); ent != nil {
+						entities = append(entities, ent)
+					}
+				} else if roll < rules.OpenWaterFishChance+0.006 {
+					if ent := SpawnFauna(FaunaInkSquid, tx, ty, grid, r); ent != nil {
+						entities = append(entities, ent)
+					}
 				}
 			}
 			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < rules.FaunaChance {
@@ -226,6 +234,44 @@ func generateBiomeTileEntities(biome *CaveBiomeSpec, grid [][]bool, coralBiome i
 			entities = MaybeSpawnCoral(entities, grid, tx, ty, rules.CoralChance, coralBiome, entity.CoralVariantCount(coralBiome), r)
 		}
 	}
+
+	// For biomes featuring Ink Squid, ensure at least 1 InkSquid spawns in the cave
+	hasSquidInBiome := false
+	if biome != nil {
+		for _, s := range biome.FaunaSpawns {
+			if s.Type == FaunaInkSquid {
+				hasSquidInBiome = true
+				break
+			}
+		}
+	}
+	if hasSquidInBiome {
+		squidCount := 0
+		for _, ent := range entities {
+			if _, ok := ent.(*entity.InkSquid); ok {
+				squidCount++
+			}
+		}
+		for squidCount < 1 {
+			found := false
+			for attempts := 0; attempts < 100; attempts++ {
+				tx := 2 + r.Intn(gridW-4)
+				ty := 2 + r.Intn(gridH-4)
+				if !grid[tx][ty] && !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1] {
+					if ent := SpawnFauna(FaunaInkSquid, tx, ty, grid, r); ent != nil {
+						entities = append(entities, ent)
+						squidCount++
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				break
+			}
+		}
+	}
+
 	return entities
 }
 

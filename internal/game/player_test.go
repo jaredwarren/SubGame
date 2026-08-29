@@ -168,6 +168,36 @@ func TestPlayer_UpdateStats(t *testing.T) {
 	}
 }
 
+func TestPlayer_SlowTimerUpdateStats(t *testing.T) {
+	p := player.NewPlayer(0, 0)
+	p.SlowTimer = 180
+	p.SlowFactor = 0.5
+
+	// While in cave, each tick decrements SlowTimer
+	p.UpdateStats(true, false)
+	if p.SlowTimer != 179 {
+		t.Fatalf("expected SlowTimer 179, got %d", p.SlowTimer)
+	}
+
+	// Ticking to 0 restores SlowFactor to 1.0
+	p.SlowTimer = 1
+	p.UpdateStats(true, false)
+	if p.SlowTimer != 0 {
+		t.Fatalf("expected SlowTimer 0, got %d", p.SlowTimer)
+	}
+	if p.SlowFactor != 1.0 {
+		t.Fatalf("expected SlowFactor 1.0, got %f", p.SlowFactor)
+	}
+
+	// Surfacing immediately washes off ink
+	p.SlowTimer = 150
+	p.SlowFactor = 0.5
+	p.UpdateStats(false, false)
+	if p.SlowTimer != 0 || p.SlowFactor != 1.0 {
+		t.Fatalf("expected surfacing to reset SlowTimer and SlowFactor, got %d, %f", p.SlowTimer, p.SlowFactor)
+	}
+}
+
 func TestPlayer_Movement(t *testing.T) {
 	g := NewGame()
 	g.TransitionTo(g.overworldState)
@@ -198,7 +228,7 @@ func TestPlayer_Movement(t *testing.T) {
 
 func TestVehicle_EntryExit(t *testing.T) {
 	g := NewGame()
-	skiff := vehicle.NewSkiff(100, 100)
+	skiff := vehicle.NewSkiff(g.player.Pos.X, g.player.Pos.Y)
 	g.ActiveVehicle = skiff
 	g.OverworldVehicles = []vehicle.Vehicle{skiff}
 	g.TransitionTo(g.overworldState)
@@ -219,10 +249,12 @@ func TestVehicle_EntryExit(t *testing.T) {
 		t.Errorf("expected ActiveVehicle to be nil after exit, got %+v", g.ActiveVehicle)
 	}
 
-	// Verify player position was offset on exit (in overworld: vPos.X - 24)
-	expectedX := skiff.GetPos().X - 24
-	if g.player.Pos.X != expectedX {
-		t.Errorf("expected player Pos.X to be %f, got %f", expectedX, g.player.Pos.X)
+	distToVehicle := g.player.Pos.Distance(skiff.GetPos())
+	if distToVehicle > 60.0 {
+		t.Errorf("expected player to be placed near vehicle on exit, got dist %f", distToVehicle)
+	}
+	if g.overworldState.IsSolid(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height) {
+		t.Errorf("expected player exit position to be non-solid water")
 	}
 
 	// Now let's try to enter the skiff again.
