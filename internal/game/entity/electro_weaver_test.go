@@ -127,3 +127,44 @@ func TestElectroWeaver_PhysicalLunge_MissWall(t *testing.T) {
 		t.Errorf("Expected weaver to transition to WeaverStateCooldown after wall collision, got %v", weaver.State)
 	}
 }
+
+func TestElectroWeaver_AudioTelegraphAndStrikeSFX(t *testing.T) {
+	weaver := NewElectroWeaver(100, 100)
+	d := ElectroWeaverArchetype
+
+	// 1. Telegraph crackle window (e.g. at StrikeTimerFrames - 120)
+	weaver.Timer = d.StrikeTimerFrames - 121 // 1 frame before telegraph interval
+	mr := &mockRuntime{
+		playerPos:    gvec.Vec2{X: 250, Y: 100},
+		flashlightOn: true,
+		isShockKelp:  true,
+		solid:        false,
+	}
+
+	weaver.Update(mr)
+
+	foundChargeSFX := false
+	for _, cmd := range mr.commands {
+		if sfx, ok := cmd.(PlaySFXCmd); ok && sfx.Path == "sfx/weaver_charge.wav" {
+			foundChargeSFX = true
+		}
+	}
+	if !foundChargeSFX {
+		t.Errorf("Expected PlaySFXCmd for weaver_charge.wav during telegraph window, got commands: %v", mr.commands)
+	}
+
+	// 2. Strike initiation SFX (at StrikeTimerFrames)
+	weaver.Timer = d.StrikeTimerFrames - 1
+	mr.commands = nil
+	weaver.Update(mr)
+
+	foundShockSFX := false
+	for _, cmd := range mr.commands {
+		if sfx, ok := cmd.(PlaySFXCmd); ok && sfx.Path == "sfx/weaver_shock.wav" {
+			foundShockSFX = true
+		}
+	}
+	if !foundShockSFX {
+		t.Errorf("Expected PlaySFXCmd for weaver_shock.wav on lunge initiation, got commands: %v", mr.commands)
+	}
+}

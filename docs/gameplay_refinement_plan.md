@@ -19,11 +19,11 @@ These are already in the codebase but dormant. Finishing them adds content for n
 
 | Item | Current state | Plan |
 |---|---|---|
-| **Scanner upgrade** | Equippable, no effect | Make it the exploration keystone: scanning fauna/flora/geology unlocks lore entries and reveals resource nodes through walls in a short radius. See §6. |
+| **Scanner upgrade** | Equippable item stub, no scanning effect | Make it the exploration keystone: scanning fauna/flora/geology unlocks lore entries and reveals resource nodes through walls in a short radius. See §6. |
 | **Player Energy stat** | Initialized, never drained | Either delete it or repurpose it as the power pool for handheld tools (scanner pulses, flashlight, future tools). Recommend repurposing — it gives food/power cells a second use. |
-| **Thermo Caves** | Fully implemented, never placed | Scatter 3–4 Thermo Cave entrances near Thermal Barrens biome / thermal vents. Instant new destination type with existing Rammer + Siphon spawns. |
-| **Unused lore triggers** (`scan`, `depth`, `salvage`) | Defined, unfired | Wire them up: `scan` → Scanner, `depth` → first time crossing depth bands, `salvage` → wreckage loot. |
-| **Save/load** | Serialize exists for lore only | Ship a basic save (player, inventory, world seed, unlocks, lore). Replayability and session length both depend on this — **highest priority item in the whole plan.** |
+| **Thermo Caves** | Placed on map in Thermal Barrens with full transitions | Scatter 3–4 Thermo Cave entrances near Thermal Barrens biome / thermal vents. Instant new destination type with existing Rammer + Siphon spawns. |
+| **Unused lore triggers** (`scan`, `depth`, `salvage`) | Defined in schema, currently unfired | Wire them up: `scan` → Scanner, `depth` → first time crossing depth bands, `salvage` → wreckage loot. |
+| **Save/load** | Implemented (3 slots, file & localStorage, migration) | Ship a basic save (player, inventory, world seed, unlocks, lore). Replayability and session length both depend on this — **highest priority item in the whole plan.** |
 
 ---
 
@@ -340,11 +340,11 @@ Checks against this curve:
 ## 9. Prioritized Roadmap
 
 **Phase 1 — Foundation (do first)**
-1. Save/load system
-2. Death → cargo beacon (kill the inventory wipe)
-3. Finish Scanner + wire lore triggers
-4. Place Thermo Caves on the map
-5. Hit invulnerability frames + ElectroWeaver telegraph
+1. [x] **Save/load system** — **Complete** (Multi-slot persistence, player stats, inventory/upgrades, vehicles, base, exploration fog-of-war, story, lost cargo, quests).
+2. [x] **Death → cargo beacon (kill the inventory wipe)** — **Complete** (`LostCargoBeacon` spawned at death site/dive entrance, upgrades preserved, saved across sessions, auto/hotbar recovery).
+3. [ ] **Finish Scanner + wire lore triggers** — **Incomplete** (Scanner is currently a placeholder item without scanning pulse/energy mechanics; `scan`, `depth`, and `salvage` lore triggers are not yet wired).
+4. [x] **Place Thermo Caves on the map** — **Complete** (`TileThermoCave` generated in Thermal Barrens with custom map icons, dive prompts, and transition to `CaveThermo`).
+5. [x] **Hit invulnerability frames + ElectroWeaver telegraph** — **Complete** (~1.0s / 60-frame post-hit invulnerability frames with visual damage flicker, multi-hazard stacking protection, ElectroWeaver audio crackle telegraph & strike shock SFX, spark scaling, and flashlight flicker).
 
 
 ---

@@ -166,6 +166,9 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 
 				mult := float32(GetOverworldLightMultiplier(g.GetTimeOfDay()))
 				op.ColorScale.Scale(mult, mult, mult, 1.0)
+				if p.IsDamaged && (p.DamageAnimTimer/4)%2 == 0 {
+					op.ColorScale.Scale(1.35, 0.70, 0.70, 0.75)
+				}
 
 				screen.DrawImage(activeFrame, op)
 			}

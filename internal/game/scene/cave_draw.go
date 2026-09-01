@@ -370,8 +370,8 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 		op.GeoM.Translate(float64(pX), float64(pY))
 
 		if p.IsDamaged {
-			if (p.DamageAnimTimer/5)%2 == 0 {
-				op.ColorScale.Scale(1.25, 0.82, 0.82, 1.0)
+			if (p.DamageAnimTimer/4)%2 == 0 {
+				op.ColorScale.Scale(1.35, 0.70, 0.70, 0.75)
 			}
 		}
 

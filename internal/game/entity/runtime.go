@@ -112,6 +112,11 @@ type SlowPlayerCmd struct {
 	Factor   float64
 }
 
+type PlaySFXCmd struct {
+	Path   string
+	Volume float64
+}
+
 func (DamagePlayerCmd) gameCommand()              {}
 func (DamageActiveVehicleCmd) gameCommand()       {}
 func (RestoreOxygenCmd) gameCommand()             {}
@@ -126,3 +131,4 @@ func (TriggerShakeCmd) gameCommand()              {}
 func (DestroyDecoyCmd) gameCommand()              {}
 func (SpawnInkCloudCmd) gameCommand()             {}
 func (SlowPlayerCmd) gameCommand()                {}
+func (PlaySFXCmd) gameCommand()                   {}

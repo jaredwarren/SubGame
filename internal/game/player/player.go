@@ -6,6 +6,9 @@ import (
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
+// InvulnerabilityFrames defines the default duration of hit invulnerability frames (~1.0s at 60 FPS).
+const InvulnerabilityFrames = 60
+
 // Player represents the player character, including their physics and stats.
 type Player struct {
 	// Physics
@@ -43,16 +46,17 @@ type Player struct {
 	Buoyancy float64
 
 	// Animations
-	AnimTick        int
-	IsMining        bool
-	MiningAnimTimer int
-	LastHealth      float64
-	IsDamaged       bool
-	DamageAnimTimer int
-	StunTimer       int
-	SlowTimer       int
-	SlowFactor      float64
-	SuperSpeed      bool
+	AnimTick          int
+	IsMining          bool
+	MiningAnimTimer   int
+	LastHealth        float64
+	IsDamaged         bool
+	DamageAnimTimer   int
+	InvulnerableTimer int
+	StunTimer         int
+	SlowTimer         int
+	SlowFactor        float64
+	SuperSpeed        bool
 }
 
 // NewPlayer initializes a player with default stats and empty inventory.
@@ -225,6 +229,11 @@ func (p *Player) RecalculateUpgrades() {
 func (p *Player) UpdateAnimation() {
 	p.AnimTick++
 
+	// Handle invulnerability timer
+	if p.InvulnerableTimer > 0 {
+		p.InvulnerableTimer--
+	}
+
 	// Handle mining timer
 	if p.IsMining {
 		p.MiningAnimTimer--
@@ -233,10 +242,10 @@ func (p *Player) UpdateAnimation() {
 		}
 	}
 
-	// Handle damage detection (health drops)
-	if p.CurrentHealth < p.LastHealth {
+	// Handle passive damage detection (e.g. drowning or direct health drop)
+	if p.CurrentHealth < p.LastHealth && p.DamageAnimTimer <= 0 {
 		p.IsDamaged = true
-		p.DamageAnimTimer = 20 // ~0.3 seconds at 60 FPS
+		p.DamageAnimTimer = 20 // ~0.3 seconds at 60 FPS for continuous/passive damage
 	}
 	p.LastHealth = p.CurrentHealth
 
@@ -247,6 +256,24 @@ func (p *Player) UpdateAnimation() {
 			p.IsDamaged = false
 		}
 	}
+}
+
+// TakeDamage applies combat or hazard damage to the player if not currently invulnerable.
+// It activates brief invulnerability frames (~1.0s) to prevent instakills from overlapping hazards.
+// Returns true if damage was applied, false if the attack was blocked by invulnerability or amount was non-positive.
+func (p *Player) TakeDamage(amount float64) bool {
+	if p.InvulnerableTimer > 0 || amount <= 0 {
+		return false
+	}
+	p.CurrentHealth -= amount
+	if p.CurrentHealth < 0 {
+		p.CurrentHealth = 0
+	}
+	p.InvulnerableTimer = InvulnerabilityFrames
+	p.IsDamaged = true
+	p.DamageAnimTimer = InvulnerabilityFrames
+	p.LastHealth = p.CurrentHealth
+	return true
 }
 
 // GetActiveItem returns the item equipped in the active hotbar slot, or nil.

@@ -1293,3 +1293,95 @@ func TestPlayer_CollectOxygenBubble(t *testing.T) {
 	}
 }
 
+func TestPlayer_InvulnerabilityFrames_BlocksConsecutiveDamage(t *testing.T) {
+	p := player.NewPlayer(0, 0)
+	p.MaxHealth = 100.0
+	p.CurrentHealth = 100.0
+
+	// First hit applies damage
+	if !p.TakeDamage(25.0) {
+		t.Fatal("expected first TakeDamage call to succeed")
+	}
+	if p.CurrentHealth != 75.0 {
+		t.Fatalf("expected health 75.0, got %f", p.CurrentHealth)
+	}
+	if p.InvulnerableTimer != player.InvulnerabilityFrames {
+		t.Fatalf("expected InvulnerableTimer %d, got %d", player.InvulnerabilityFrames, p.InvulnerableTimer)
+	}
+	if !p.IsDamaged {
+		t.Fatal("expected IsDamaged to be true")
+	}
+
+	// Immediate second hit within i-frames must be blocked
+	if p.TakeDamage(25.0) {
+		t.Fatal("expected second TakeDamage call during i-frames to be ignored")
+	}
+	if p.CurrentHealth != 75.0 {
+		t.Fatalf("expected health to remain 75.0, got %f", p.CurrentHealth)
+	}
+
+	// Advance 59 frames (still invulnerable)
+	for i := 0; i < player.InvulnerabilityFrames-1; i++ {
+		p.UpdateAnimation()
+	}
+	if p.InvulnerableTimer != 1 {
+		t.Fatalf("expected InvulnerableTimer 1, got %d", p.InvulnerableTimer)
+	}
+	if p.TakeDamage(25.0) {
+		t.Fatal("expected TakeDamage at frame 59 to still be blocked")
+	}
+
+	// Advance last frame (i-frames expire)
+	p.UpdateAnimation()
+	if p.InvulnerableTimer != 0 {
+		t.Fatalf("expected InvulnerableTimer 0, got %d", p.InvulnerableTimer)
+	}
+
+	// Third hit after i-frame expiry must succeed
+	if !p.TakeDamage(25.0) {
+		t.Fatal("expected TakeDamage after i-frames expire to succeed")
+	}
+	if p.CurrentHealth != 50.0 {
+		t.Fatalf("expected health 50.0, got %f", p.CurrentHealth)
+	}
+}
+
+func TestPlayer_DrowningBypassesInvulnerability(t *testing.T) {
+	p := player.NewPlayer(0, 0)
+	p.MaxHealth = 100.0
+	p.CurrentHealth = 100.0
+	p.CurrentOxygen = 0.0 // out of air in cave
+
+	// Give active i-frames from combat
+	p.InvulnerableTimer = 60
+	p.IsDamaged = true
+	p.DamageAnimTimer = 60
+
+	// Update in cave (drowning)
+	p.UpdateStats(true, false)
+
+	// Drowning damage must still apply
+	if p.CurrentHealth >= 100.0 {
+		t.Fatalf("expected drowning damage to apply despite combat i-frames, got %f", p.CurrentHealth)
+	}
+}
+
+func TestDrainEntityCommands_InvulnerabilityProtectsAgainstMultiHazardStacking(t *testing.T) {
+	g := NewGame()
+	g.player.MaxHealth = 100.0
+	g.player.CurrentHealth = 100.0
+
+	ert := g.NewEntityRuntime()
+	// Two overlapping hazards emit damage in the same frame
+	ert.Emit(entity.DamagePlayerCmd{Amount: 30.0, Kind: entity.DamageElectric})
+	ert.Emit(entity.DamagePlayerCmd{Amount: 30.0, Kind: entity.DamageGeneric})
+
+	g.drainEntityCommands(ert.(*entityRuntimeAdapter))
+
+	// Only first hazard should hit; second is blocked by i-frames
+	if g.player.CurrentHealth != 70.0 {
+		t.Fatalf("expected health 70.0 from i-frame protection, got %f", g.player.CurrentHealth)
+	}
+}
+
+

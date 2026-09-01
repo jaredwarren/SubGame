@@ -248,6 +248,15 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 
 		ent.Facing = math.Atan2(targetY-ey, targetX-ex)
 
+		// Audio crackle telegraph: 1-2 seconds (60-120 frames) before strike
+		telegraphWindow := d.StrikeTimerFrames - 120
+		if telegraphWindow < 60 {
+			telegraphWindow = 60
+		}
+		if ent.Timer >= telegraphWindow && (ent.Timer-telegraphWindow)%60 == 0 {
+			g.Emit(PlaySFXCmd{Path: "sfx/weaver_charge.wav", Volume: 0.6})
+		}
+
 		// 100% Charge Reached -> Execute High-Speed Lunge Strike
 		if ent.Timer >= d.StrikeTimerFrames {
 			ent.State = WeaverStateLunge
@@ -261,6 +270,7 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 			ent.Facing = math.Atan2(ent.LungeDir.Y, ent.LungeDir.X)
 			ent.Timer = 0
 			g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
+			g.Emit(PlaySFXCmd{Path: "sfx/weaver_shock.wav", Volume: 0.8})
 
 			// If already right on top of target, resolve collision immediately
 			if isDecoy && dist < 36.0 {

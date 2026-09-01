@@ -220,7 +220,7 @@ func (vc ventContext) DamageTarget(damage float64) {
 		v.TakeDamage(damage)
 	} else {
 		p := vc.g.GetPlayer()
-		p.CurrentHealth -= damage
+		p.TakeDamage(damage)
 	}
 }
 

@@ -259,8 +259,9 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 	for _, cmd := range rt.cmds {
 		switch c := cmd.(type) {
 		case entity.DamagePlayerCmd:
-			g.player.CurrentHealth -= c.Amount
-			g.applyDamageFeedback(c.Amount, c.Kind, false)
+			if g.player.TakeDamage(c.Amount) {
+				g.applyDamageFeedback(c.Amount, c.Kind, false)
+			}
 		case entity.KnockbackPlayerCmd:
 			g.player.Vel = g.player.Vel.Add(c.Force)
 		case entity.DamageActiveVehicleCmd:
@@ -321,6 +322,12 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 		case entity.SlowPlayerCmd:
 			g.player.SlowTimer = max(g.player.SlowTimer, c.Duration)
 			g.player.SlowFactor = c.Factor
+		case entity.PlaySFXCmd:
+			if c.Volume > 0 {
+				audio.Get().PlaySFXVaried(c.Path, c.Volume, 0.04)
+			} else {
+				audio.Get().PlaySFX(c.Path)
+			}
 		}
 	}
 	rt.cmds = rt.cmds[:0]
