@@ -84,6 +84,12 @@ type CaveStateAccess interface {
 	GetAllCaveVehicles() map[string][]vehicle.Vehicle
 	GetActiveTrenchKey() string
 	GetActiveTrenchCoords() (x, y int)
+	GetSkiff() *vehicle.Skiff
+	DeploySkiffAtBase() *vehicle.Skiff
+	DeploySubFromSkiff(bayIdx int)
+	DeploySubInCave(bayIdx int)
+	WinchRecallSub(bayIdx int)
+	HasVehicleInWorldOrDock(id vehicle.VehicleID) bool
 }
 
 type EffectsEmitter interface {

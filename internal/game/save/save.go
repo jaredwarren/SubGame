@@ -66,21 +66,34 @@ type SavedBaseStation struct {
 	Upgrades item.SavedInventory `json:"upgrades"`
 }
 
-// SavedVehicle holds serialized state for a single vehicle.
-type SavedVehicle struct {
-	ID         string              `json:"id,omitempty"`   // stable VehicleID (v2+)
-	Type       string              `json:"type,omitempty"` // legacy display name (v1)
-	PosX       float64             `json:"posX"`
-	PosY       float64             `json:"posY"`
-	Facing     float64             `json:"facing"`
+// SavedDockedVehicle holds serialized state for a submersible docked in the Skiff.
+type SavedDockedVehicle struct {
+	BayIdx     int                 `json:"bayIdx"`
+	ID         string              `json:"id"`
 	Health     float64             `json:"health"`
 	MaxHealth  float64             `json:"maxHealth"`
 	Battery    float64             `json:"battery"`
 	MaxBattery float64             `json:"maxBattery"`
 	Cargo      item.SavedInventory `json:"cargo"`
 	Upgrades   item.SavedInventory `json:"upgrades"`
-	IsActive   bool                `json:"isActive"`
-	Location   string              `json:"location"` // "overworld" or trenchKey
+}
+
+// SavedVehicle holds serialized state for a single vehicle.
+type SavedVehicle struct {
+	ID         string               `json:"id,omitempty"`   // stable VehicleID (v2+)
+	Type       string               `json:"type,omitempty"` // legacy display name (v1)
+	PosX       float64              `json:"posX"`
+	PosY       float64              `json:"posY"`
+	Facing     float64              `json:"facing"`
+	Health     float64              `json:"health"`
+	MaxHealth  float64              `json:"maxHealth"`
+	Battery    float64              `json:"battery"`
+	MaxBattery float64              `json:"maxBattery"`
+	Cargo      item.SavedInventory  `json:"cargo"`
+	Upgrades   item.SavedInventory  `json:"upgrades"`
+	Docked     []SavedDockedVehicle `json:"docked,omitempty"`
+	IsActive   bool                 `json:"isActive"`
+	Location   string               `json:"location"` // "overworld" or trenchKey
 }
 
 // SaveData is the root object serialized to JSON for game saves.

@@ -17,6 +17,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/quest"
 	"github.com/jaredwarren/SubGame/internal/game/story"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -45,6 +46,9 @@ type MenuContext interface {
 	SetMineWarning(msg string, duration, level int)
 	AddItemToast(it item.Item, qty int)
 	SaveGame() error
+	GetSkiff() *vehicle.Skiff
+	DeploySkiffAtBase() *vehicle.Skiff
+	HasVehicleInWorldOrDock(id vehicle.VehicleID) bool
 }
 
 // BaseMenuScene manages tab selections and base management interactions.
@@ -262,6 +266,75 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 									g.TransitionToGameWon()
 									return nil
 								}
+
+								// Handle Vehicle Special Crafting
+								switch newItm.(type) {
+								case *vehicle.SkiffKit:
+									if g.HasVehicleInWorldOrDock(vehicle.VehicleSkiff) {
+										g.SetMineWarning("Skiff already constructed!", 120, 2)
+										audio.Get().PlaySFX("sfx/ui_error.wav")
+										return nil
+									}
+									for _, ing := range rcp.Ingredients {
+										p.Inventory.Remove(ing.NewItem(), ing.Quantity)
+									}
+									b.Power -= 10.0
+									p.RecalculateUpgrades()
+									g.DeploySkiffAtBase()
+									audio.Get().PlaySFX("sfx/fabricator_success.wav")
+									g.NotifyQuestCrafted(newItm.GetID())
+									g.SetMineWarning("Skiff constructed! Deployed to water beside Life Pod.", 180, 1)
+									return nil
+
+								case *vehicle.ScoutSubKit:
+									if !g.HasVehicleInWorldOrDock(vehicle.VehicleSkiff) {
+										g.SetMineWarning("Requires Skiff to store and deploy Scout Sub!", 150, 2)
+										audio.Get().PlaySFX("sfx/ui_error.wav")
+										return nil
+									}
+									if g.HasVehicleInWorldOrDock(vehicle.VehicleScoutSub) {
+										g.SetMineWarning("Scout Sub already constructed!", 120, 2)
+										audio.Get().PlaySFX("sfx/ui_error.wav")
+										return nil
+									}
+									for _, ing := range rcp.Ingredients {
+										p.Inventory.Remove(ing.NewItem(), ing.Quantity)
+									}
+									b.Power -= 10.0
+									p.RecalculateUpgrades()
+									if skiff := g.GetSkiff(); skiff != nil {
+										skiff.SetDocked(0, vehicle.NewDefaultDockedVehicle(vehicle.VehicleScoutSub))
+									}
+									audio.Get().PlaySFX("sfx/fabricator_success.wav")
+									g.NotifyQuestCrafted(newItm.GetID())
+									g.SetMineWarning("Scout Sub constructed! Stored in Skiff Docking Bay 1.", 180, 1)
+									return nil
+
+								case *vehicle.HeavyMechKit:
+									if !g.HasVehicleInWorldOrDock(vehicle.VehicleSkiff) {
+										g.SetMineWarning("Requires Skiff to store and deploy Heavy Mech!", 150, 2)
+										audio.Get().PlaySFX("sfx/ui_error.wav")
+										return nil
+									}
+									if g.HasVehicleInWorldOrDock(vehicle.VehicleHeavyMech) {
+										g.SetMineWarning("Heavy Mech already constructed!", 120, 2)
+										audio.Get().PlaySFX("sfx/ui_error.wav")
+										return nil
+									}
+									for _, ing := range rcp.Ingredients {
+										p.Inventory.Remove(ing.NewItem(), ing.Quantity)
+									}
+									b.Power -= 10.0
+									p.RecalculateUpgrades()
+									if skiff := g.GetSkiff(); skiff != nil {
+										skiff.SetDocked(1, vehicle.NewDefaultDockedVehicle(vehicle.VehicleHeavyMech))
+									}
+									audio.Get().PlaySFX("sfx/fabricator_success.wav")
+									g.NotifyQuestCrafted(newItm.GetID())
+									g.SetMineWarning("Heavy Mech constructed! Stored in Skiff Docking Bay 2.", 180, 1)
+									return nil
+								}
+
 								resQty := rcp.ResultQuantity
 								if resQty <= 0 {
 									resQty = 1
@@ -611,12 +684,44 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 
 				btnBg := color.RGBA{50, 70, 100, 255}
 				btnLabel := "CRAFT ITEM"
-				if !hasAll {
-					btnBg = color.RGBA{38, 42, 50, 255}
-					btnLabel = "NO MATERIALS"
-				} else if b.Power < 10.0 {
-					btnBg = color.RGBA{50, 20, 20, 255}
-					btnLabel = "NO POWER"
+				canCraftSpecial := true
+				switch result.(type) {
+				case *vehicle.SkiffKit:
+					if g.HasVehicleInWorldOrDock(vehicle.VehicleSkiff) {
+						btnBg = color.RGBA{38, 42, 50, 255}
+						btnLabel = "ALREADY BUILT"
+						canCraftSpecial = false
+					}
+				case *vehicle.ScoutSubKit:
+					if !g.HasVehicleInWorldOrDock(vehicle.VehicleSkiff) {
+						btnBg = color.RGBA{50, 30, 20, 255}
+						btnLabel = "REQUIRES SKIFF"
+						canCraftSpecial = false
+					} else if g.HasVehicleInWorldOrDock(vehicle.VehicleScoutSub) {
+						btnBg = color.RGBA{38, 42, 50, 255}
+						btnLabel = "ALREADY BUILT"
+						canCraftSpecial = false
+					}
+				case *vehicle.HeavyMechKit:
+					if !g.HasVehicleInWorldOrDock(vehicle.VehicleSkiff) {
+						btnBg = color.RGBA{50, 30, 20, 255}
+						btnLabel = "REQUIRES SKIFF"
+						canCraftSpecial = false
+					} else if g.HasVehicleInWorldOrDock(vehicle.VehicleHeavyMech) {
+						btnBg = color.RGBA{38, 42, 50, 255}
+						btnLabel = "ALREADY BUILT"
+						canCraftSpecial = false
+					}
+				}
+
+				if canCraftSpecial {
+					if !hasAll {
+						btnBg = color.RGBA{38, 42, 50, 255}
+						btnLabel = "NO MATERIALS"
+					} else if b.Power < 10.0 {
+						btnBg = color.RGBA{50, 20, 20, 255}
+						btnLabel = "NO POWER"
+					}
 				}
 
 				vector.FillRect(clippedScreen, float32(startX)+560, ry+8, 160, 35, btnBg, false)

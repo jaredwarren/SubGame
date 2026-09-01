@@ -49,6 +49,7 @@ type Skiff struct {
 	MaxBattery    float64
 	Cargo         *item.Inventory
 	Upgrades      *item.Inventory
+	DockedBays    [2]*DockedVehicle // Bay 0 = Scout Sub, Bay 1 = Heavy Mech
 	wake          []skiffWakePoint
 	spawnTimer    int
 	lightMult     float64
@@ -99,6 +100,85 @@ func (s *Skiff) GetKit() item.Item {
 		Health:   s.Health,
 		Battery:  s.Battery,
 		HasState: true,
+	}
+}
+
+// Dock places a vehicle into its dedicated docking bay on the Skiff.
+func (s *Skiff) Dock(v Vehicle) (int, bool) {
+	if v == nil {
+		return -1, false
+	}
+	bayIdx := s.FindBayForID(v.GetID())
+	if bayIdx < 0 || bayIdx >= len(s.DockedBays) {
+		// Fallback: search for first empty bay
+		for i := 0; i < len(s.DockedBays); i++ {
+			if s.DockedBays[i] == nil {
+				bayIdx = i
+				break
+			}
+		}
+	}
+	if bayIdx < 0 || bayIdx >= len(s.DockedBays) {
+		return -1, false
+	}
+	s.DockedBays[bayIdx] = NewDockedVehicleFromVehicle(v)
+	return bayIdx, true
+}
+
+// Undock removes a vehicle from the given docking bay and spawns it as an active Vehicle.
+func (s *Skiff) Undock(bayIdx int, x, y float64) (Vehicle, bool) {
+	if bayIdx < 0 || bayIdx >= len(s.DockedBays) || s.DockedBays[bayIdx] == nil {
+		return nil, false
+	}
+	v := s.DockedBays[bayIdx].ToVehicle(x, y)
+	s.DockedBays[bayIdx] = nil
+	return v, true
+}
+
+// GetDocked returns the docked vehicle at the given bay index.
+func (s *Skiff) GetDocked(bayIdx int) *DockedVehicle {
+	if bayIdx < 0 || bayIdx >= len(s.DockedBays) {
+		return nil
+	}
+	return s.DockedBays[bayIdx]
+}
+
+// SetDocked directly sets the docked vehicle at the given bay index.
+func (s *Skiff) SetDocked(bayIdx int, dv *DockedVehicle) {
+	if bayIdx >= 0 && bayIdx < len(s.DockedBays) {
+		s.DockedBays[bayIdx] = dv
+	}
+}
+
+// HasDocked reports whether the Skiff currently holds the specified vehicle ID.
+func (s *Skiff) HasDocked(id VehicleID) bool {
+	for _, bay := range s.DockedBays {
+		if bay != nil && bay.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// GetDockedByID returns the docked vehicle record and bay index for a vehicle ID.
+func (s *Skiff) GetDockedByID(id VehicleID) (*DockedVehicle, int) {
+	for i, bay := range s.DockedBays {
+		if bay != nil && bay.ID == id {
+			return bay, i
+		}
+	}
+	return nil, -1
+}
+
+// FindBayForID maps a known VehicleID to its dedicated bay index (0 for Scout Sub, 1 for Heavy Mech).
+func (s *Skiff) FindBayForID(id VehicleID) int {
+	switch id {
+	case VehicleScoutSub:
+		return 0
+	case VehicleHeavyMech:
+		return 1
+	default:
+		return -1
 	}
 }
 

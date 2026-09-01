@@ -8,6 +8,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
@@ -95,8 +96,45 @@ func (g *Game) EnterCave(tx, ty int) {
 	g.autosave()
 }
 
+// EnterCaveWithVehicle handles transitioning from Overworld to Cave while piloting a deployed sub.
+func (g *Game) EnterCaveWithVehicle(tx, ty int, v vehicle.Vehicle) {
+	if v == nil {
+		g.EnterCave(tx, ty)
+		return
+	}
+	g.lastOverworldX = g.player.Pos.X
+	g.lastOverworldY = g.player.Pos.Y
+
+	g.hydrateCave(tx, ty)
+
+	outOfBounds := g.world == nil || tx < 0 || ty < 0 ||
+		tx >= g.world.Width || ty >= g.world.Height
+	var spawnX float64
+	if outOfBounds {
+		spawnX = float64(30 * config.TileSize)
+	} else {
+		spawnX = float64(len(g.caveState.CaveGrid)/2*config.TileSize) + (config.TileSize-v.GetDimensions().X)/2
+	}
+	spawnY := float64(config.TileSize * 2)
+
+	v.SetPos(gvec.Vec2{X: spawnX, Y: spawnY})
+	vDims := v.GetDimensions()
+	g.player.Pos.X = spawnX + (vDims.X-g.player.Width)/2.0
+	g.player.Pos.Y = spawnY + (vDims.Y-g.player.Height)/2.0
+	g.player.Vel = gvec.Vec2{}
+
+	g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], v)
+	g.ActiveVehicle = v
+
+	g.camera.CenterOn(g.player.Pos.X, g.player.Pos.Y, g.player.Width, g.player.Height)
+	audio.Get().PlaySFX("sfx/splash.wav")
+	g.TransitionTo(g.caveState)
+	g.autosave()
+}
+
 // ExitCave handles the transition from Cave to Overworld.
 func (g *Game) ExitCave() {
+	surfacingSub := g.ActiveVehicle
 	g.ActiveVehicle = nil // Ensure player is on foot when returning to overworld
 	targetX := g.lastOverworldX
 	targetY := g.lastOverworldY - config.TileSize*0.6
@@ -114,6 +152,18 @@ func (g *Game) ExitCave() {
 
 	g.caveNodes[g.activeTrenchKey] = g.caveState.Nodes
 	g.caveEntities[g.activeTrenchKey] = g.caveState.Entities
+
+	if surfacingSub != nil && surfacingSub.GetPerspective() == "cave" {
+		list := g.CaveVehicles[g.activeTrenchKey]
+		removeVehicleFromList(&list, surfacingSub)
+		g.CaveVehicles[g.activeTrenchKey] = list
+
+		if skiff := g.GetSkiff(); skiff != nil {
+			if _, ok := skiff.Dock(surfacingSub); ok {
+				g.SetMineWarning("Surfaced! "+surfacingSub.GetName()+" docked to Skiff.", 150, 1)
+			}
+		}
+	}
 
 	vehicles := g.CaveVehicles[g.activeTrenchKey]
 	if len(vehicles) > 0 {

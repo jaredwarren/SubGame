@@ -469,6 +469,31 @@ func serializeVehicle(v vehicle.Vehicle, location string, active bool) save.Save
 	if v.GetUpgrades() != nil {
 		upg = v.GetUpgrades().SerializeState()
 	}
+	var docked []save.SavedDockedVehicle
+	if skiff, ok := v.(*vehicle.Skiff); ok {
+		for bayIdx, dv := range skiff.DockedBays {
+			if dv == nil {
+				continue
+			}
+			var dCargo, dUpg item.SavedInventory
+			if dv.Cargo != nil {
+				dCargo = dv.Cargo.SerializeState()
+			}
+			if dv.Upgrades != nil {
+				dUpg = dv.Upgrades.SerializeState()
+			}
+			docked = append(docked, save.SavedDockedVehicle{
+				BayIdx:     bayIdx,
+				ID:         string(dv.ID),
+				Health:     dv.Health,
+				MaxHealth:  dv.MaxHealth,
+				Battery:    dv.Battery,
+				MaxBattery: dv.MaxBattery,
+				Cargo:      dCargo,
+				Upgrades:   dUpg,
+			})
+		}
+	}
 	return save.SavedVehicle{
 		ID:         string(v.GetID()),
 		Type:       v.GetName(),
@@ -481,6 +506,7 @@ func serializeVehicle(v vehicle.Vehicle, location string, active bool) save.Save
 		MaxBattery: v.GetMaxBattery(),
 		Cargo:      cargo,
 		Upgrades:   upg,
+		Docked:     docked,
 		IsActive:   active,
 		Location:   location,
 	}
@@ -522,15 +548,7 @@ func (g *Game) SpawnDebris(x, y float64, clr color.RGBA) {
 }
 
 func (g *Game) hasSkiffInWorld() bool {
-	if _, ok := g.ActiveVehicle.(*vehicle.Skiff); ok {
-		return true
-	}
-	for _, v := range g.OverworldVehicles {
-		if _, ok := v.(*vehicle.Skiff); ok {
-			return true
-		}
-	}
-	return false
+	return g.HasSkiff()
 }
 
 // HasSaveFile returns true if any save slot exists on disk.
@@ -758,6 +776,20 @@ func (g *Game) loadSaveFromPath(path string) error {
 			}
 			if v.GetUpgrades() != nil && (vData.Upgrades.Size > 0 || len(vData.Upgrades.Slots) > 0) {
 				*v.GetUpgrades() = *item.DeserializeInventory(vData.Upgrades)
+			}
+			if skiff, ok := v.(*vehicle.Skiff); ok && len(vData.Docked) > 0 {
+				for _, dData := range vData.Docked {
+					dv := &vehicle.DockedVehicle{
+						ID:         vehicle.VehicleID(dData.ID),
+						Health:     dData.Health,
+						MaxHealth:  dData.MaxHealth,
+						Battery:    dData.Battery,
+						MaxBattery: dData.MaxBattery,
+						Cargo:      item.DeserializeInventory(dData.Cargo),
+						Upgrades:   item.DeserializeInventory(dData.Upgrades),
+					}
+					skiff.SetDocked(dData.BayIdx, dv)
+				}
 			}
 
 			if vData.Location == "overworld" || vData.Location == "" {

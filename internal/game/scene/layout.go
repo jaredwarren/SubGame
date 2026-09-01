@@ -43,10 +43,10 @@ func (d LayoutDescriptor) HoveredSlot(panelX, panelY float64, numSlots int, mx, 
 
 // Precalculated Layout Configurations
 
-// SoloInventoryGridDescriptor defines the layout for the player's primary grid inventory panel (600x470).
+// SoloInventoryGridDescriptor defines the layout for the player's primary grid inventory panel (600x490).
 var SoloInventoryGridDescriptor = LayoutDescriptor{
 	PanelW:  600,
-	PanelH:  470,
+	PanelH:  490,
 	Cols:    8,
 	Rows:    3,
 	SlotSz:  56,
@@ -58,7 +58,7 @@ var SoloInventoryGridDescriptor = LayoutDescriptor{
 // SoloGearGridDescriptor defines the layout for the player's equipped gear inventory panel.
 var SoloGearGridDescriptor = LayoutDescriptor{
 	PanelW:  600,
-	PanelH:  470,
+	PanelH:  490,
 	Cols:    4,
 	Rows:    1,
 	SlotSz:  56,
@@ -70,7 +70,7 @@ var SoloGearGridDescriptor = LayoutDescriptor{
 // VehiclePlayerInvLayout defines the layout for the player's inventory list in the split vehicle view.
 var VehiclePlayerInvLayout = LayoutDescriptor{
 	PanelW:  960,
-	PanelH:  410,
+	PanelH:  430,
 	Cols:    8,
 	Rows:    3,
 	SlotSz:  48,
@@ -90,7 +90,7 @@ func GetVehicleCargoLayout(numSlots int) LayoutDescriptor {
 	}
 	return LayoutDescriptor{
 		PanelW:  960,
-		PanelH:  410,
+		PanelH:  430,
 		Cols:    cols,
 		Rows:    rows,
 		SlotSz:  48,
@@ -104,13 +104,13 @@ func GetVehicleCargoLayout(numSlots int) LayoutDescriptor {
 func GetVehicleUpgradeLayout(numSlots int) LayoutDescriptor {
 	return LayoutDescriptor{
 		PanelW:  960,
-		PanelH:  410,
+		PanelH:  430,
 		Cols:    numSlots,
 		Rows:    1,
 		SlotSz:  48,
 		Gap:     8,
 		StartX:  510,
-		StartY:  244,
+		StartY:  220,
 	}
 }
 
@@ -169,7 +169,7 @@ func GetBaseVaultStorageLayout(numSlots int) LayoutDescriptor {
 // SoloHotbarGridDescriptor defines the layout for the player's quick-select hotbar in the inventory panel.
 var SoloHotbarGridDescriptor = LayoutDescriptor{
 	PanelW:  600,
-	PanelH:  420,
+	PanelH:  490,
 	Cols:    5,
 	Rows:    1,
 	SlotSz:  56,
