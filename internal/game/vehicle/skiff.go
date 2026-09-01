@@ -260,6 +260,66 @@ func (s *Skiff) RechargeBattery(amount float64) {
 	SyncRecharge(&s.Battery, &s.MaxBattery, amount)
 }
 
+const (
+	// SkiffDockedChargeRatePerSecond is the maximum total battery (in units) transferred per second.
+	SkiffDockedChargeRatePerSecond = 1.0
+	// SkiffMinSafetyBatteryReserve is the minimum battery level the Skiff must retain (will not drain below this).
+	SkiffMinSafetyBatteryReserve = 20.0
+)
+
+// UpdateDockedCharging transfers battery from the Skiff to docked submersibles.
+func (s *Skiff) UpdateDockedCharging(dt float64) {
+	if s.Battery <= SkiffMinSafetyBatteryReserve {
+		return
+	}
+
+	var needingCharge []*DockedVehicle
+	for _, dv := range s.DockedBays {
+		if dv != nil && dv.MaxBattery > 0 && dv.Battery < dv.MaxBattery {
+			needingCharge = append(needingCharge, dv)
+		}
+	}
+
+	if len(needingCharge) == 0 {
+		return
+	}
+
+	// Maximum battery that can be drained from the Skiff this step
+	maxDrain := SkiffDockedChargeRatePerSecond * dt
+	availablePower := s.Battery - SkiffMinSafetyBatteryReserve
+	if maxDrain > availablePower {
+		maxDrain = availablePower
+	}
+	if maxDrain <= 0 {
+		return
+	}
+
+	// Distribute power equally across needing vehicles
+	slicePerVehicle := maxDrain / float64(len(needingCharge))
+	totalTransferred := 0.0
+
+	for _, dv := range needingCharge {
+		needed := dv.MaxBattery - dv.Battery
+		transfer := min(slicePerVehicle, needed)
+		dv.Battery += transfer
+		totalTransferred += transfer
+	}
+
+	s.Battery -= totalTransferred
+	if s.Battery < SkiffMinSafetyBatteryReserve {
+		s.Battery = SkiffMinSafetyBatteryReserve
+	}
+}
+
+// IsBayCharging reports whether the vehicle in the given docking bay is actively receiving charge from the Skiff.
+func (s *Skiff) IsBayCharging(bayIdx int) bool {
+	if bayIdx < 0 || bayIdx >= len(s.DockedBays) {
+		return false
+	}
+	dv := s.DockedBays[bayIdx]
+	return dv != nil && s.Battery > SkiffMinSafetyBatteryReserve && dv.MaxBattery > 0 && dv.Battery < dv.MaxBattery
+}
+
 func (s *Skiff) Update(runtime Runtime) {
 	s.tickWake()
 	s.lightMult = s.getLightMultiplier(runtime.TimeOfDay())
@@ -268,6 +328,8 @@ func (s *Skiff) Update(runtime Runtime) {
 		s.Battery += 0.05
 		ClampBattery(&s.Battery, &s.MaxBattery)
 	}
+
+	s.UpdateDockedCharging(1.0 / 60.0)
 
 	if skip, _ := ShouldSkipPilotControl(runtime, s); skip {
 		s.Vel = gvec.Vec2{}

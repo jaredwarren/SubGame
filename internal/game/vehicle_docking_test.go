@@ -355,3 +355,104 @@ func TestSave_V2ToV3Migration_LegacyKits(t *testing.T) {
 		t.Errorf("mech health/battery = %.1f/%.1f, want 180.0/95.0", mechDocked.Health, mechDocked.Battery)
 	}
 }
+
+func TestSkiff_DockedVehicleCharging_SingleSub(t *testing.T) {
+	skiff := vehicle.NewSkiff(100, 100)
+	skiff.Battery = 100.0
+
+	dv := vehicle.NewDefaultDockedVehicle(vehicle.VehicleScoutSub)
+	dv.Battery = 50.0
+	skiff.SetDocked(0, dv)
+
+	if !skiff.IsBayCharging(0) {
+		t.Error("expected IsBayCharging(0) to be true")
+	}
+
+	// 10 seconds of charging at 1.0/sec
+	skiff.UpdateDockedCharging(10.0)
+
+	if dv.Battery != 60.0 {
+		t.Errorf("docked sub battery = %.1f, want 60.0", dv.Battery)
+	}
+	if skiff.Battery != 90.0 {
+		t.Errorf("skiff battery = %.1f, want 90.0", skiff.Battery)
+	}
+}
+
+func TestSkiff_DockedVehicleCharging_SafetyReserve(t *testing.T) {
+	skiff := vehicle.NewSkiff(100, 100)
+	skiff.Battery = 25.0 // 5.0 units above 20.0 safety threshold
+
+	dv := vehicle.NewDefaultDockedVehicle(vehicle.VehicleScoutSub)
+	dv.Battery = 10.0
+	skiff.SetDocked(0, dv)
+
+	// Attempt 10 seconds of charging (wants 10 units, but only 5 available before safety limit)
+	skiff.UpdateDockedCharging(10.0)
+
+	if skiff.Battery != 20.0 {
+		t.Errorf("skiff battery = %.1f, want safety reserve 20.0", skiff.Battery)
+	}
+	if dv.Battery != 15.0 {
+		t.Errorf("docked sub battery = %.1f, want 15.0", dv.Battery)
+	}
+	if skiff.IsBayCharging(0) {
+		t.Error("expected IsBayCharging to be false once safety reserve is reached")
+	}
+}
+
+func TestSkiff_DockedVehicleCharging_DualSubSplit(t *testing.T) {
+	skiff := vehicle.NewSkiff(100, 100)
+	skiff.Battery = 100.0
+
+	sub0 := vehicle.NewDefaultDockedVehicle(vehicle.VehicleScoutSub)
+	sub0.Battery = 50.0
+	skiff.SetDocked(0, sub0)
+
+	sub1 := vehicle.NewDefaultDockedVehicle(vehicle.VehicleHeavyMech)
+	sub1.Battery = 50.0
+	skiff.SetDocked(1, sub1)
+
+	// 10 seconds of charging (10.0 total power transferred, 5.0 to each sub)
+	skiff.UpdateDockedCharging(10.0)
+
+	if sub0.Battery != 55.0 {
+		t.Errorf("sub0 battery = %.1f, want 55.0", sub0.Battery)
+	}
+	if sub1.Battery != 55.0 {
+		t.Errorf("sub1 battery = %.1f, want 55.0", sub1.Battery)
+	}
+	if skiff.Battery != 90.0 {
+		t.Errorf("skiff battery = %.1f, want 90.0", skiff.Battery)
+	}
+}
+
+func TestSkiff_DockedVehicleCharging_DuringCaveDive(t *testing.T) {
+	g := NewGame()
+	g.currentState = StateOverworld
+	g.OverworldVehicles = nil
+
+	skiff := g.DeploySkiffAtBase()
+	skiff.Battery = 90.0
+
+	// Dock a scout sub with 40% battery
+	sub := vehicle.NewDefaultDockedVehicle(vehicle.VehicleScoutSub)
+	sub.Battery = 40.0
+	skiff.SetDocked(0, sub)
+
+	// Enter cave on foot
+	g.EnterCave(50, 50)
+	if g.currentState != StateCave {
+		t.Fatalf("expected StateCave, got %v", g.currentState)
+	}
+
+	// Tick game loop for 120 frames (2 seconds)
+	for i := 0; i < 120; i++ {
+		g.updateIdleVehicles(g.vehicleRT)
+	}
+
+	// Sub should have recharged in background while player was in cave
+	if sub.Battery <= 40.0 {
+		t.Errorf("expected sub battery to increase during cave dive, got %.1f", sub.Battery)
+	}
+}

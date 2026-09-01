@@ -167,7 +167,11 @@ func (h *HUD) DrawInventory(screen *ebiten.Image, g GameContext, inv *item.Inven
 					bgClr = color.RGBA{30, 85, 125, 255}
 					borderClr = color.RGBA{60, 210, 255, 255}
 				}
-				label = fmt.Sprintf("▶ DEPLOY %s TO CAVE", b.name)
+				chargeTag := ""
+				if skiff.IsBayCharging(b.bayIdx) {
+					chargeTag = " [⚡]"
+				}
+				label = fmt.Sprintf("▶ DEPLOY %s%s", b.name, chargeTag)
 			} else if g.HasVehicleInWorldOrDock(b.id) {
 				bgClr = color.RGBA{32, 28, 48, 255}
 				borderClr = color.RGBA{110, 80, 160, 255}
@@ -380,7 +384,12 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 			vector.StrokeRect(screen, bx, by, bw, bh, 1.0, borderClr, false)
 
 			if docked != nil {
-				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d] %s [DOCKED]", bayInfo.bayIdx+1, bayInfo.name), int(bx)+8, int(by)+6)
+				isCharging := skiff.IsBayCharging(bayInfo.bayIdx)
+				statusTag := "[DOCKED]"
+				if isCharging {
+					statusTag = "[CHARGING ⚡]"
+				}
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d] %s %s", bayInfo.bayIdx+1, bayInfo.name, statusTag), int(bx)+8, int(by)+6)
 
 				hpPct := 1.0
 				if docked.MaxHealth > 0 {
@@ -393,8 +402,12 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 				if docked.MaxBattery > 0 {
 					batPct = max(0.0, min(1.0, docked.Battery/docked.MaxBattery))
 				}
+				batClr := color.RGBA{0, 220, 255, 255}
+				if isCharging {
+					batClr = color.RGBA{50, 255, 120, 255}
+				}
 				vector.FillRect(screen, bx+8, by+27, 179, 5, color.RGBA{40, 50, 65, 255}, false)
-				vector.FillRect(screen, bx+8, by+27, float32(179*batPct), 5, color.RGBA{0, 220, 255, 255}, false)
+				vector.FillRect(screen, bx+8, by+27, float32(179*batPct), 5, batClr, false)
 
 				btnActionBg := color.RGBA{18, 55, 80, 255}
 				if isHovered {

@@ -1036,6 +1036,13 @@ func (g *Game) updateIdleVehicles(vrt *vehicleRuntimeAdapter) {
 			v.Update(vrt)
 		}
 	}
+	// In cave state, the surface Skiff is not in the cave scene list, but continues
+	// solar charging and charging its docked vehicles in the background.
+	if g.currentState == StateCave {
+		if skiff := g.GetSkiff(); skiff != nil && skiff != g.ActiveVehicle {
+			skiff.Update(vrt)
+		}
+	}
 }
 
 // drainVehicleCommands applies all fire-and-forget mutations queued by vehicles this tick.
