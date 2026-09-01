@@ -135,3 +135,13 @@ func (s *ShatterBulb) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDa
 	// Crisp bubble outline
 	vector.StrokeCircle(screen, bulbX, bulbY, 7.5, 0.8, color.RGBA{255, 255, 255, 210}, false)
 }
+
+// PointLight returns the dynamic cyan point light emitted by the oxygen bubble bulb.
+func (s *ShatterBulb) PointLight() (pos gvec.Vec2, radius float64, r, g, b float32, intensity float64) {
+	if !s.Active {
+		return gvec.Vec2{}, 0, 0, 0, 0, 0
+	}
+	cx := s.Pos.X + s.Dimensions.X/2.0
+	cy := s.Pos.Y + 4.0
+	return gvec.Vec2{X: cx, Y: cy}, 38.0, 0.0, 0.90, 0.96, 0.55
+}

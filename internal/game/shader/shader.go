@@ -23,6 +23,9 @@ var EntranceLight vec2
 var EntranceActive float
 var LavaPositions [8]vec2
 var LavaCount float
+var BiolumPositions [16]vec4
+var BiolumColors [16]vec4
+var BiolumCount float
 
 func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 	pixelPos := position.xy - imageDstOrigin()
@@ -100,9 +103,11 @@ func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 				angularFade := (dotVal - minDot) / (1.0 - minDot)
 				angularFade = clamp(angularFade * 4.0, 0.0, 1.0)
 
+				entranceIntensity = radialFade * angularFade
 			}
 		}
 	}
+
 	// Lava lights
 	lavaIntensity := 0.0
 	lCount := int(LavaCount)
@@ -120,12 +125,42 @@ func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 		}
 	}
 
+	// Bioluminescent creature point lights
+	biolumIntensity := 0.0
+	biolumTint := vec3(0.0)
+	bCount := int(BiolumCount)
+	for i := 0; i < 16; i++ {
+		if i >= bCount {
+			break
+		}
+		toBiolum := pixelPos - BiolumPositions[i].xy
+		distBiolum := length(toBiolum)
+		radBiolum := BiolumPositions[i].z
+		if distBiolum < radBiolum && radBiolum > 0.0 {
+			fade := 1.0 - (distBiolum / radBiolum)
+			fade = fade * fade * (3.0 - 2.0*fade)
+			intensity := fade * BiolumPositions[i].w
+			if intensity > biolumIntensity {
+				biolumIntensity = intensity
+			}
+			biolumTint += BiolumColors[i].rgb * intensity
+		}
+	}
+
 	// Blend illumination channels
-	totalLight := max(personalIntensity, max(coneIntensity, max(sonarIntensity, max(entranceIntensity, lavaIntensity))))
+	totalLight := max(personalIntensity, max(coneIntensity, max(sonarIntensity, max(entranceIntensity, max(lavaIntensity, biolumIntensity)))))
 	totalLight = clamp(totalLight, 0.0, 1.0)
 
+	// Colored atmospheric tint on the fringes of bioluminescent point lights
+	maskColor := AmbientColor.rgb
+	if biolumIntensity > 0.001 {
+		normTint := biolumTint / max(biolumIntensity, 0.001)
+		tintFactor := clamp(biolumIntensity * 0.35, 0.0, 0.50)
+		maskColor = mix(maskColor, normTint, tintFactor)
+	}
+
 	// Dark overlay mask: fully lit areas remain transparent, dark areas become ambient color
-	return AmbientColor * (1.0 - totalLight)
+	return vec4(maskColor, AmbientColor.a * (1.0 - totalLight))
 }
 `
 

@@ -249,3 +249,19 @@ func (s *GlowSquid) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay 
 	siphonY := cy + mantleRadiusY*0.75
 	vector.FillCircle(screen, siphonX, siphonY, 2.0, s.TentacleColor, false)
 }
+
+// PointLight returns the dynamic point light emitted by the glow squid for the cave lighting shader.
+func (s *GlowSquid) PointLight() (pos gvec.Vec2, radius float64, r, g, b float32, intensity float64) {
+	if !s.Active {
+		return gvec.Vec2{}, 0, 0, 0, 0, 0
+	}
+	cx := s.Pos.X + s.Dimensions.X/2.0
+	cy := s.Pos.Y + s.Dimensions.Y/2.0
+	pulse := math.Sin(s.SwimPhase*2.0)*0.5 + 0.5
+	radius = 48.0 + 10.0*pulse
+	r = float32(s.GlowColor.R) / 255.0
+	g = float32(s.GlowColor.G) / 255.0
+	b = float32(s.GlowColor.B) / 255.0
+	intensity = 0.60
+	return gvec.Vec2{X: cx, Y: cy}, radius, r, g, b, intensity
+}

@@ -492,6 +492,34 @@ func (c *CaveScene) applyLighting(g CaveContext) {
 	c.Uniforms["LavaPositions"] = lavaPositions
 	c.Uniforms["LavaCount"] = lavaCount
 
+	var biolumPositions [64]float32
+	var biolumColors [64]float32
+	var biolumCount float32 = 0
+	for _, ent := range c.Entities {
+		if !ent.IsActive() || biolumCount >= 16 {
+			continue
+		}
+		if emitter, ok := ent.(entity.PointLightEmitter); ok {
+			pos, rad, r, g, b, intensity := emitter.PointLight()
+			if rad > 0 && intensity > 0 {
+				idx4 := int(biolumCount) * 4
+				biolumPositions[idx4] = float32(pos.X - cam.Pos.X)
+				biolumPositions[idx4+1] = float32(pos.Y - cam.Pos.Y)
+				biolumPositions[idx4+2] = float32(rad)
+				biolumPositions[idx4+3] = float32(intensity)
+
+				biolumColors[idx4] = r
+				biolumColors[idx4+1] = g
+				biolumColors[idx4+2] = b
+				biolumColors[idx4+3] = 1.0
+				biolumCount++
+			}
+		}
+	}
+	c.Uniforms["BiolumPositions"] = biolumPositions
+	c.Uniforms["BiolumColors"] = biolumColors
+	c.Uniforms["BiolumCount"] = biolumCount
+
 	c.offscreen.DrawRectShader(config.ScreenWidth, config.ScreenHeight, shader.LightShader, &c.shaderOpts)
 }
 
