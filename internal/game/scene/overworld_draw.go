@@ -78,8 +78,12 @@ func (o *OverworldScene) draw(g OverworldContext, screen *ebiten.Image) {
 
 	if !isPiloting {
 		isNearLifepod := g.GetBaseStation() != nil && g.GetBaseStation().DistanceToPlayer(p) < 100.0
+		var isTouch bool
+		if tc, ok := g.GetInput().(interface{ TouchActive() bool }); ok {
+			isTouch = tc.TouchActive()
+		}
 
-		if !isNearLifepod && !o.hasShownDivePrompt && o.divePromptTimer > 0 {
+		if !isTouch && !isNearLifepod && !o.hasShownDivePrompt && o.divePromptTimer > 0 {
 			var promptText string
 
 			// Check dormant thermal vents proximity for custom diving prompt

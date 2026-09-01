@@ -75,7 +75,7 @@ func (g *Game) drawOverworldLayer(screen *ebiten.Image) {
 
 	lightMult := GetOverworldLightMultiplier(g.TimeOfDay)
 	g.baseStation.Draw(screen, g.camera, lightMult)
-	if g.baseStation.DistanceToPlayer(g.player) < 100.0 {
+	if !g.isTouchActive() && g.baseStation.DistanceToPlayer(g.player) < 100.0 {
 		sx := float32(g.baseStation.Pos.X-camX) + float32(g.baseStation.Size.X)/2.0 - 90
 		sy := float32(g.baseStation.Pos.Y-camY) - 30
 		vector.FillRect(screen, sx, sy, 180, 24, color.RGBA{0, 0, 0, 180}, false)
@@ -120,6 +120,9 @@ func (g *Game) drawCaveLayer(screen *ebiten.Image) {
 
 // drawVehicleEntryPrompts shows "Press [F] to Pilot" above any vehicle within boarding range.
 func (g *Game) drawVehicleEntryPrompts(screen *ebiten.Image, vehicles []vehicle.Vehicle, camX, camY float64) {
+	if g.isTouchActive() {
+		return
+	}
 	for _, v := range vehicles {
 		vPos := v.GetPos()
 		vDims := v.GetDimensions()

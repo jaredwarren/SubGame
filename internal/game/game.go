@@ -924,3 +924,12 @@ func deserializeLostCargo(saved []save.SavedLostCargo) []*entity.LostCargoBeacon
 	}
 	return out
 }
+
+// IsTouchActive reports whether touch controls are enabled and actively engaged.
+func (g *Game) IsTouchActive() bool {
+	return g.touch != nil && g.touch.Active()
+}
+
+func (g *Game) isTouchActive() bool {
+	return g.IsTouchActive()
+}

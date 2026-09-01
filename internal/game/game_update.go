@@ -193,7 +193,11 @@ func (g *Game) applyQuestNotifications(notifs []quest.ProgressNotification) {
 		if n.Completed {
 			audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
 			if g.MineWarning.Timer <= 0 || g.MineWarning.Level <= 1 {
-				g.SetMineWarning(n.Message+" (Press [J] for PDA)", 200, 1)
+				msg := n.Message
+				if !g.isTouchActive() {
+					msg += " (Press [J] for PDA)"
+				}
+				g.SetMineWarning(msg, 200, 1)
 			}
 		} else {
 			audio.Get().PlaySFX("sfx/ui_hover.wav")

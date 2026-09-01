@@ -557,6 +557,22 @@ func TestHUDVehicleLightButtonHit(t *testing.T) {
 	}
 }
 
+func TestTouchControls_TouchActiveState(t *testing.T) {
+	touch := NewTouchControls()
+	if touch.Active() {
+		t.Fatal("expected touch to start inactive")
+	}
+	touch.active = true
+	if !touch.Active() {
+		t.Fatal("expected touch to report active when active flag is set")
+	}
+
+	ci := NewCombinedInput(NewEbitenInput(), touch)
+	if !ci.TouchActive() {
+		t.Fatal("expected CombinedInput.TouchActive() to report true when touch is active")
+	}
+}
+
 
 
 

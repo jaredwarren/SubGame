@@ -120,9 +120,13 @@ func (m *BaseMenuScene) drawMapTab(g MenuContext, screen *ebiten.Image, layout M
 	y += int(layout.S(10))
 	drawColoredDebugText(screen, "Nearest wreck always marked.", int(legX)+12, y, color.RGBA{120, 140, 160, 255})
 	y += int(layout.S(16))
-	drawColoredDebugText(screen, "Dive a ? site to identify it.", int(legX)+12, y, color.RGBA{120, 140, 160, 255})
-	y += int(layout.S(28))
-	drawColoredDebugText(screen, "Press [M] or [J] to close", int(legX)+12, y, color.RGBA{160, 170, 180, 255})
+	var isTouch bool
+	if tc, ok := g.GetInput().(interface{ TouchActive() bool }); ok {
+		isTouch = tc.TouchActive()
+	}
+	if !isTouch {
+		drawColoredDebugText(screen, "Press [M] or [J] to close", int(legX)+12, y, color.RGBA{160, 170, 180, 255})
+	}
 }
 
 func (m *BaseMenuScene) syncMapImage(w *world.World, tracker *exploration.Tracker) {

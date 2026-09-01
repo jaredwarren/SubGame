@@ -910,11 +910,17 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 		m.drawMapTab(g, screen, layout)
 	}
 
-	closeText := "Press [E] or [O] to Close Terminal Interface"
-	if g.IsMenuOpenedAnywhere() {
-		closeText = "Press [J], [M], [E], or [O] to Close PDA"
+	var isTouch bool
+	if tc, ok := g.GetInput().(interface{ TouchActive() bool }); ok {
+		isTouch = tc.TouchActive()
 	}
-	ebitenutil.DebugPrintAt(screen, closeText, int(panelX+layout.SF(240)), int(panelY+panelH-layout.SF(25)))
+	if !isTouch {
+		closeText := "Press [E] or [O] to Close Terminal Interface"
+		if g.IsMenuOpenedAnywhere() {
+			closeText = "Press [J], [M], [E], or [O] to Close PDA"
+		}
+		ebitenutil.DebugPrintAt(screen, closeText, int(panelX+layout.SF(240)), int(panelY+panelH-layout.SF(25)))
+	}
 }
 
 // wrapText splits a single long string of text into multiple lines of maxChars length.
