@@ -670,12 +670,6 @@ func TestFalseBulbSnare_VehicleCollision(t *testing.T) {
 	if g.player.CurrentHealth != initialPlayerHp {
 		t.Errorf("expected player to take zero damage, went from %f to %f", initialPlayerHp, g.player.CurrentHealth)
 	}
-	// 4. Correct warning message was displayed
-	msg, _ := g.GetMineWarning()
-	expectedMsg := "VEHICLE ATTACKED BY FALSE-BULB SNARE!"
-	if msg != expectedMsg {
-		t.Errorf("expected warning %q, got %q", expectedMsg, msg)
-	}
 }
 
 func TestInventory_AddItemBlueprintNode(t *testing.T) {

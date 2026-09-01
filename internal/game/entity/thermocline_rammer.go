@@ -204,11 +204,9 @@ func (ent *ThermoclineRammer) update(g RammerContext) {
 				if g.HasActiveVehicle() {
 					g.Emit(DamageActiveVehicleCmd{Amount: d.VehicleDamage})
 					g.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
-					g.Emit(SetMineWarningCmd{Message: "VEHICLE RAMMED BY THERMOCLINE RAMMER!", Duration: d.WarningDuration, Level: 2})
 				} else {
 					g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage})
 					g.Emit(KnockbackPlayerCmd{Force: forceVec})
-					g.Emit(SetMineWarningCmd{Message: "RAMMED BY THERMOCLINE RAMMER!", Duration: d.WarningDuration, Level: 2})
 				}
 
 				// Push rammer back in opposite direction to prevent continuous overlap

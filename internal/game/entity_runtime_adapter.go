@@ -328,6 +328,8 @@ func (g *Game) drainEntityCommands(rt *entityRuntimeAdapter) {
 			} else {
 				audio.Get().PlaySFX(c.Path)
 			}
+		case entity.SpawnDebrisCmd:
+			g.SpawnDebris(c.Pos.X, c.Pos.Y, c.Color)
 		}
 	}
 	rt.cmds = rt.cmds[:0]

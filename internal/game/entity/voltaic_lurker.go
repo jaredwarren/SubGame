@@ -149,18 +149,8 @@ func (v *VoltaicLurker) Update(gr Runtime) {
 		if ok && rectsOverlap(hx, hy, hSize, hSize, tPos.X, tPos.Y, tDims.X, tDims.Y) {
 			if gr.HasActiveVehicle() {
 				gr.Emit(DamageActiveVehicleCmd{Amount: d.Damage, Kind: DamageElectric})
-				gr.Emit(SetMineWarningCmd{
-					Message:  "VEHICLE GRABBED AND SHOCKED!",
-					Duration: d.WarningDuration,
-					Level:    2,
-				})
 			} else {
 				gr.Emit(DamagePlayerCmd{Amount: d.Damage, Kind: DamageElectric})
-				gr.Emit(SetMineWarningCmd{
-					Message:  "GRABBED AND SHOCKED BY VOLTAIC LURKER!",
-					Duration: d.WarningDuration,
-					Level:    2,
-				})
 			}
 			gr.Emit(StunPlayerCmd{Duration: d.StunDuration})
 			gr.Emit(TriggerShakeCmd{Duration: d.ShakeDuration, Intensity: d.ShakeIntensity})

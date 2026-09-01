@@ -142,7 +142,6 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 		if isDecoy {
 			if math.Hypot(targetX-(nextPos.X+ent.Dimensions.X/2), targetY-(nextPos.Y+ent.Dimensions.Y/2)) < 36.0 {
 				g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
-				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKES DECOY!", Duration: d.DecoyWarningDuration, Level: 1})
 				collided = true
 			}
 		} else {
@@ -154,7 +153,6 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 				nextCY >= pPos.Y-16 && nextCY <= pPos.Y+pDims.Y+16) ||
 				math.Hypot(px-nextCX, py-nextCY) < 32.0 {
 				g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage, Kind: DamageElectric})
-				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: d.WarningDuration, Level: 3})
 				collided = true
 			}
 		}
@@ -184,7 +182,6 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 			ent.Timer = 0
 			ent.LungeTimer = 0
 			ent.Vel = ent.LungeDir.Scale(-d.IdleSpeed)
-			g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER MISSED!", Duration: 90, Level: 1})
 			g.Emit(UpdateWeaverTrackingTimerCmd{Value: 0})
 			return
 		}
@@ -275,12 +272,10 @@ func (ent *ElectroWeaver) update(g WeaverContext) {
 			// If already right on top of target, resolve collision immediately
 			if isDecoy && dist < 36.0 {
 				g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
-				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKES DECOY!", Duration: d.DecoyWarningDuration, Level: 1})
 				ent.State = WeaverStateCooldown
 				ent.CooldownTimer = 180
 			} else if !isDecoy && dist < 32.0 {
 				g.Emit(DamagePlayerCmd{Amount: d.PlayerDamage, Kind: DamageElectric})
-				g.Emit(SetMineWarningCmd{Message: "ELECTRO-WEAVER STRIKE! SEVERE DAMAGE!", Duration: d.WarningDuration, Level: 3})
 				ent.State = WeaverStateCooldown
 				ent.CooldownTimer = 180
 			}

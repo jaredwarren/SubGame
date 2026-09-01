@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"image/color"
+
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
@@ -117,6 +119,11 @@ type PlaySFXCmd struct {
 	Volume float64
 }
 
+type SpawnDebrisCmd struct {
+	Pos   gvec.Vec2
+	Color color.RGBA
+}
+
 func (DamagePlayerCmd) gameCommand()              {}
 func (DamageActiveVehicleCmd) gameCommand()       {}
 func (RestoreOxygenCmd) gameCommand()             {}
@@ -132,3 +139,4 @@ func (DestroyDecoyCmd) gameCommand()              {}
 func (SpawnInkCloudCmd) gameCommand()             {}
 func (SlowPlayerCmd) gameCommand()                {}
 func (PlaySFXCmd) gameCommand()                   {}
+func (SpawnDebrisCmd) gameCommand()               {}

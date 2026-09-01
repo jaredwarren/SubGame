@@ -109,16 +109,16 @@ func (ent *FalseBulbSnare) update(g SnareContext) {
 	}
 
 	if rectsOverlap(ent.Pos.X, ent.Pos.Y, ent.Dimensions.X, ent.Dimensions.Y, tgt.TopLeftX, tgt.TopLeftY, targetW, targetH) {
+		g.Emit(PlaySFXCmd{Path: "sfx/snare_snap.wav", Volume: 0.75})
+		g.Emit(SpawnDebrisCmd{Pos: gvec.Vec2{X: ex, Y: ey}, Color: color.RGBA{45, 95, 75, 200}})
 		if isDecoy {
 			g.Emit(DestroyDecoyCmd{Pos: gvec.Vec2{X: targetX, Y: targetY}})
 			ent.Active = false
 		} else {
 			if g.HasActiveVehicle() {
 				g.Emit(DamageActiveVehicleCmd{Amount: d.Damage})
-				g.Emit(SetMineWarningCmd{Message: "VEHICLE ATTACKED BY FALSE-BULB SNARE!", Duration: d.WarningDuration, Level: 2})
 			} else {
 				g.Emit(DamagePlayerCmd{Amount: d.Damage})
-				g.Emit(SetMineWarningCmd{Message: "ATTACKED BY FALSE-BULB SNARE!", Duration: d.WarningDuration, Level: 2})
 			}
 			ent.Active = false
 		}

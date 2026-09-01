@@ -155,11 +155,9 @@ func (sv *SandViper) Update(gr Runtime) {
 			if gr.HasActiveVehicle() {
 				gr.Emit(DamageActiveVehicleCmd{Amount: d.Damage})
 				gr.Emit(KnockbackActiveVehicleCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{Message: "VEHICLE NIPPED BY SAND-VIPER!", Duration: d.WarningDuration, Level: 1})
 			} else {
 				gr.Emit(DamagePlayerCmd{Amount: d.Damage})
 				gr.Emit(KnockbackPlayerCmd{Force: forceVec})
-				gr.Emit(SetMineWarningCmd{Message: "NIPPED BY SAND-VIPER!", Duration: d.WarningDuration, Level: 1})
 			}
 
 			// Push back slightly to avoid double hits

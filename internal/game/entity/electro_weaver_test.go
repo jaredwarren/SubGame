@@ -112,15 +112,15 @@ func TestElectroWeaver_PhysicalLunge_MissWall(t *testing.T) {
 
 	weaver.Update(mr)
 
-	// Should have registered a miss and transitioned to cooldown
-	foundMiss := false
+	// Should have reset tracking timer and transitioned to cooldown
+	foundTrackingReset := false
 	for _, cmd := range mr.commands {
-		if warn, ok := cmd.(SetMineWarningCmd); ok && warn.Message == "ELECTRO-WEAVER MISSED!" {
-			foundMiss = true
+		if track, ok := cmd.(UpdateWeaverTrackingTimerCmd); ok && track.Value == 0 {
+			foundTrackingReset = true
 		}
 	}
-	if !foundMiss {
-		t.Errorf("Expected ELECTRO-WEAVER MISSED warning, got: %v", mr.commands)
+	if !foundTrackingReset {
+		t.Errorf("Expected UpdateWeaverTrackingTimerCmd with Value 0, got: %v", mr.commands)
 	}
 
 	if weaver.State != WeaverStateCooldown {
