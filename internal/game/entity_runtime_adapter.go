@@ -27,6 +27,9 @@ func (a *playerAdapter) PlayerVel() gvec.Vec2 {
 }
 
 func (a *playerAdapter) PlayerFacing() float64 {
+	if a.g.player != nil && a.g.FlashlightOn {
+		return a.g.player.FlashlightAngle
+	}
 	return a.g.player.Facing
 }
 

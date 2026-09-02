@@ -10,3 +10,10 @@ const (
 	// Debugging settings
 	LightCaveForDebug = false // Set to true to reveal the caves for debugging; false for darkness
 )
+
+var (
+	// FlashlightFollowsMouse controls the cave flashlight aiming mode on desktop:
+	// true  -> Flashlight follows the mouse cursor.
+	// false -> Flashlight only follows player movement direction / key inputs.
+	FlashlightFollowsMouse = false
+)

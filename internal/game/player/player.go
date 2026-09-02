@@ -12,11 +12,12 @@ const InvulnerabilityFrames = 60
 // Player represents the player character, including their physics and stats.
 type Player struct {
 	// Physics
-	Pos    gvec.Vec2
-	Vel    gvec.Vec2
-	Width  float64
-	Height float64
-	Facing float64 // Angle in radians (for flashlight/boat direction)
+	Pos             gvec.Vec2
+	Vel             gvec.Vec2
+	Width           float64
+	Height          float64
+	Facing          float64 // Angle in radians (for boat/body facing direction)
+	FlashlightAngle float64 // Angle in radians for flashlight beam direction
 
 	// Stats
 	MaxHealth      float64
@@ -29,7 +30,7 @@ type Player struct {
 	CurrentEnergy  float64
 
 	// Customizable Stat Rates (expressed per second)
-	O2DrainRate      float64 // default: 1.0 (O2 units per second)
+	O2DrainRate       float64 // default: 1.0 (O2 units per second)
 	StaminaDrainRate  float64 // default: 1.5 (Stamina units per second when sprinting)
 	StaminaRegenRate  float64 // default: 1.0 (Stamina units recovered per second)
 	MiningStaminaCost float64 // default: 2.0 (Stamina spent per mining tool swing)
@@ -63,29 +64,29 @@ type Player struct {
 func NewPlayer(x, y float64) *Player {
 	d := PlayerArchetype
 	p := &Player{
-		Pos:              gvec.Vec2{X: x, Y: y},
-		Width:            d.Width,
-		Height:           d.Height,
-		MaxHealth:        d.MaxHealth,
-		CurrentHealth:    d.MaxHealth,
-		MaxOxygen:        d.MaxOxygen,
-		CurrentOxygen:    d.MaxOxygen,
-		MaxStamina:       d.MaxStamina,
-		CurrentStamina:   d.MaxStamina,
-		MaxEnergy:        d.MaxEnergy,
-		CurrentEnergy:    d.MaxEnergy,
-		O2DrainRate:      d.O2DrainRate,
+		Pos:               gvec.Vec2{X: x, Y: y},
+		Width:             d.Width,
+		Height:            d.Height,
+		MaxHealth:         d.MaxHealth,
+		CurrentHealth:     d.MaxHealth,
+		MaxOxygen:         d.MaxOxygen,
+		CurrentOxygen:     d.MaxOxygen,
+		MaxStamina:        d.MaxStamina,
+		CurrentStamina:    d.MaxStamina,
+		MaxEnergy:         d.MaxEnergy,
+		CurrentEnergy:     d.MaxEnergy,
+		O2DrainRate:       d.O2DrainRate,
 		StaminaDrainRate:  d.StaminaDrainRate,
 		StaminaRegenRate:  d.StaminaRegenRate,
 		MiningStaminaCost: d.MiningStaminaCost,
 		DrownDamageRate:   d.DrownDamageRate,
-		Inventory:        item.NewInventory(d.InventorySlots),
-		Upgrades:         item.NewInventory(d.UpgradeSlots),
-		Hotbar:           item.NewInventory(d.HotbarSlots),
-		ActiveSlot:       0,
-		LastHealth:       d.MaxHealth,
-		Speed:            d.Speed,
-		Buoyancy:         d.Buoyancy,
+		Inventory:         item.NewInventory(d.InventorySlots),
+		Upgrades:          item.NewInventory(d.UpgradeSlots),
+		Hotbar:            item.NewInventory(d.HotbarSlots),
+		ActiveSlot:        0,
+		LastHealth:        d.MaxHealth,
+		Speed:             d.Speed,
+		Buoyancy:          d.Buoyancy,
 	}
 	p.RecalculateUpgrades()
 	return p

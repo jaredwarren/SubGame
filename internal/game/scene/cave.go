@@ -5,6 +5,7 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/assets"
@@ -102,22 +103,23 @@ type CaveScene struct {
 	Entities   []entity.CaveEntity
 	IsShallow  bool
 
-	shaderOpts    ebiten.DrawRectShaderOptions
-	Uniforms      map[string]any
-	lightSource   []float32
-	flashlightDir []float32
-	sonarSource   []float32
-	entranceLight []float32
+	shaderOpts      ebiten.DrawRectShaderOptions
+	Uniforms        map[string]any
+	lightSource     []float32
+	flashlightDir   []float32
+	sonarSource     []float32
+	entranceLight   []float32
+	flashlightAngle float64
 
 	offscreen *ebiten.Image
 	// Intermediate buffer for chaining water displace → edge blur.
 	postFX *ebiten.Image
 
-	diverSheet       *ebiten.Image
-	diverIdleFrames  []*ebiten.Image
-	diverSwimFrames  []*ebiten.Image
-	diverMineFrames  []*ebiten.Image
-	diverDamageFrame *ebiten.Image
+	diverSheet         *ebiten.Image
+	diverIdleFrames    []*ebiten.Image
+	diverSwimFrames    []*ebiten.Image
+	diverMineFrames    []*ebiten.Image
+	diverDamageFrame   *ebiten.Image
 	skiffSurfaceSprite *ebiten.Image
 
 	// Scroll transition fields
@@ -259,6 +261,14 @@ func (c *CaveScene) OnEnter(g GameContext) {
 }
 
 func (c *CaveScene) onEnter(g CaveContext) {
+	p := g.GetPlayer()
+	if p != nil {
+		if math.Abs(math.Cos(p.Facing)) < 0.2 {
+			p.Facing = 0.0
+		}
+		c.flashlightAngle = p.Facing
+		p.FlashlightAngle = p.Facing
+	}
 }
 
 func (c *CaveScene) OnExit(g GameContext) {

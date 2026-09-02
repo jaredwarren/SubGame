@@ -365,6 +365,12 @@ func (c *CaveScene) drawPlayer(screen *ebiten.Image, p *player.Player, pX, pY fl
 			} else {
 				op.GeoM.Rotate(math.Pi / 2.0)
 			}
+		} else if p.Vel.Y < -0.2 && -p.Vel.Y > math.Abs(p.Vel.X)*0.8 {
+			if facingLeft {
+				op.GeoM.Rotate(math.Pi / 2.0)
+			} else {
+				op.GeoM.Rotate(-math.Pi / 2.0)
+			}
 		}
 		scale := DiverDrawWidth / baseFrameW
 		op.GeoM.Scale(scale, scale)
@@ -398,7 +404,7 @@ func (c *CaveScene) applyLighting(g CaveContext) {
 	sonar := g.GetSonar()
 	p := g.GetPlayer()
 	isPiloting := g.GetActiveVehicle() != nil
-	facingAngle := p.Facing
+	facingAngle := c.flashlightAngle
 	if isPiloting {
 		facingAngle = g.GetActiveVehicle().GetFacing()
 	}
@@ -742,4 +748,3 @@ func (c *CaveScene) drawSurfaceSkiff(g CaveContext, screen *ebiten.Image, caveGr
 
 	screen.DrawImage(c.skiffSurfaceSprite, op)
 }
-

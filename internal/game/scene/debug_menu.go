@@ -87,9 +87,9 @@ type DebugContext interface {
 
 // DebugMenuScene manages the debug testing interface overlay.
 type DebugMenuScene struct {
-	ActiveTab      int // 0: Items, 1: Cheats, 2: Vehicles, 3: World, 4: Quests
-	ItemCategory   int // 0: Minerals, 1: Tools, 2: Upgrades, 3: Vehicles, 4: Food, 5: Base Modules
-	SpawnQuantity  int // 1, 5, or -1 (max stack)
+	ActiveTab     int // 0: Items, 1: Cheats, 2: Vehicles, 3: World, 4: Quests
+	ItemCategory  int // 0: Minerals, 1: Tools, 2: Upgrades, 3: Vehicles, 4: Food, 5: Base Modules
+	SpawnQuantity int // 1, 5, or -1 (max stack)
 }
 
 // NewDebugMenuScene creates an instance of the debug menu.
@@ -325,6 +325,7 @@ func (d *DebugMenuScene) updateCheatsTab(g DebugContext, cx, cy float64, mx, my 
 		{"Infinite Stamina (No Fatigue)", g.IsInfiniteStamina(), g.ToggleInfiniteStamina},
 		{"Super Speed (2.5x Velocity)", g.IsSuperSpeed(), g.ToggleSuperSpeed},
 		{"Freeze Time of Day", g.IsTimeFrozen(), g.ToggleFreezeTime},
+		{"Flashlight: Follow Mouse", config.FlashlightFollowsMouse, func() { config.FlashlightFollowsMouse = !config.FlashlightFollowsMouse }},
 	}
 
 	for i, t := range toggles {
@@ -702,6 +703,7 @@ func (d *DebugMenuScene) drawCheatsTab(screen *ebiten.Image, g DebugContext, cx,
 		{"Infinite Stamina (No Fatigue)", g.IsInfiniteStamina()},
 		{"Super Speed (2.5x Velocity)", g.IsSuperSpeed()},
 		{"Freeze Time of Day", g.IsTimeFrozen()},
+		{"Flashlight: Follow Mouse", config.FlashlightFollowsMouse},
 	}
 
 	for i, t := range toggles {

@@ -600,44 +600,87 @@ func (c *CaveScene) handlePlayerMovement(g CaveContext, inp InputSource, p *play
 		TapCursor() (gvec.Vec2, bool)
 	}
 
-	if at, ok := inp.(aimToucher); ok {
-		if pos, aiming := at.AimTouch(); aiming {
-			p.Facing = math.Atan2(pos.Y-pScreenY, pos.X-pScreenX)
-		} else if sf, ok := inp.(stickFacer); ok {
+	isTouch := false
+	if tc, ok := inp.(touchChecker); ok && tc.TouchActive() {
+		isTouch = true
+	}
+
+	var dx, dy float64
+	if inp.IsKeyPressed(ebiten.KeyW) || inp.IsKeyPressed(ebiten.KeyArrowUp) {
+		dy -= 1.0
+	}
+	if inp.IsKeyPressed(ebiten.KeyS) || inp.IsKeyPressed(ebiten.KeyArrowDown) {
+		dy += 1.0
+	}
+	if inp.IsKeyPressed(ebiten.KeyA) || inp.IsKeyPressed(ebiten.KeyArrowLeft) {
+		dx -= 1.0
+	}
+	if inp.IsKeyPressed(ebiten.KeyD) || inp.IsKeyPressed(ebiten.KeyArrowRight) {
+		dx += 1.0
+	}
+
+	// 1. Update diver body facing (p.Facing)
+	if isTouch {
+		if sf, ok := inp.(stickFacer); ok {
 			if dir, active := sf.StickFacing(); active {
 				p.Facing = math.Atan2(dir.Y, dir.X)
-			} else if tc, ok := inp.(touchChecker); ok && tc.TouchActive() {
-				if tap, ok := inp.(tapChecker); ok {
-					if pos, tapped := tap.TapCursor(); tapped {
-						p.Facing = math.Atan2(pos.Y-pScreenY, pos.X-pScreenX)
-					}
-				}
-				// When touch is active and stick is idle with no tap, retain p.Facing.
-			} else {
-				cursor := inp.Cursor()
-				p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
 			}
-		} else {
-			cursor := inp.Cursor()
-			p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
-		}
-	} else if sf, ok := inp.(stickFacer); ok {
-		if dir, active := sf.StickFacing(); active {
-			p.Facing = math.Atan2(dir.Y, dir.X)
-		} else if tc, ok := inp.(touchChecker); ok && tc.TouchActive() {
-			if tap, ok := inp.(tapChecker); ok {
-				if pos, tapped := tap.TapCursor(); tapped {
-					p.Facing = math.Atan2(pos.Y-pScreenY, pos.X-pScreenX)
-				}
-			}
-		} else {
-			cursor := inp.Cursor()
-			p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+			// When stick is idle on mobile, retain p.Facing.
 		}
 	} else {
-		cursor := inp.Cursor()
-		p.Facing = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+		if dx != 0 || dy != 0 {
+			p.Facing = math.Atan2(dy, dx)
+		}
+		// If no keys pressed, retain previous p.Facing.
 	}
+
+	// 2. Determine target flashlight angle
+	cursor := inp.Cursor()
+	var targetAngle float64
+	if isTouch {
+		targetAngle = p.Facing
+		if at, ok := inp.(aimToucher); ok {
+			if pos, aiming := at.AimTouch(); aiming {
+				targetAngle = math.Atan2(pos.Y-pScreenY, pos.X-pScreenX)
+			}
+		} else if tap, ok := inp.(tapChecker); ok {
+			if pos, tapped := tap.TapCursor(); tapped {
+				targetAngle = math.Atan2(pos.Y-pScreenY, pos.X-pScreenX)
+			}
+		}
+	} else {
+		if config.FlashlightFollowsMouse {
+			targetAngle = math.Atan2(cursor.Y-pScreenY, cursor.X-pScreenX)
+		} else {
+			targetAngle = p.Facing
+		}
+	}
+
+	// 3. Update flashlight angle toward targetAngle.
+	if !isTouch && config.FlashlightFollowsMouse {
+		c.flashlightAngle = targetAngle
+	} else {
+		diff := targetAngle - c.flashlightAngle
+		for diff > math.Pi {
+			diff -= 2 * math.Pi
+		}
+		for diff < -math.Pi {
+			diff += 2 * math.Pi
+		}
+		if math.Abs(diff) < 0.02 {
+			c.flashlightAngle = targetAngle
+		} else {
+			const smoothRate = 0.35
+			c.flashlightAngle += diff * smoothRate
+			for c.flashlightAngle > math.Pi {
+				c.flashlightAngle -= 2 * math.Pi
+			}
+			for c.flashlightAngle < -math.Pi {
+				c.flashlightAngle += 2 * math.Pi
+			}
+		}
+	}
+	p.FlashlightAngle = c.flashlightAngle
 
 	speedProps := p.Speed["cave"]
 	swimForce := speedProps.Acceleration
@@ -740,15 +783,15 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 					}
 					seed := int64(tx*97 + ty*41 + 5555)
 					c.beginCaveTransition(g, tx, ty, caveTransitionDest{
-						dir:      2, // ScrollDown
-						newTX:    tx,
-						newTY:    ty,
-						newKey:   fmt.Sprintf("%d_%d%s", tx, ty, info.Subterranean.DeepKeySuffix),
-						grid:     grid,
-						cave:     deep,
-						seed:     seed,
-						newCamX:  float64(len(grid)/2*config.TileSize - config.ScreenWidth/2),
-						newCamY:  0,
+						dir:     2, // ScrollDown
+						newTX:   tx,
+						newTY:   ty,
+						newKey:  fmt.Sprintf("%d_%d%s", tx, ty, info.Subterranean.DeepKeySuffix),
+						grid:    grid,
+						cave:    deep,
+						seed:    seed,
+						newCamX: float64(len(grid)/2*config.TileSize - config.ScreenWidth/2),
+						newCamY: 0,
 					})
 					return
 				}
@@ -839,13 +882,13 @@ func (c *CaveScene) updateBoundaryTransitions(g CaveContext) {
 
 // caveTransitionDest holds the destination side of a trench scroll transition.
 type caveTransitionDest struct {
-	dir                int
-	newTX, newTY       int
-	newKey             string
-	grid               [][]bool
-	cave               cave.Cave
-	seed               int64
-	newCamX, newCamY   float64
+	dir              int
+	newTX, newTY     int
+	newKey           string
+	grid             [][]bool
+	cave             cave.Cave
+	seed             int64
+	newCamX, newCamY float64
 }
 
 // beginCaveTransition stashes the current cave as the scroll "old" side and

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/camera"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
@@ -302,10 +303,12 @@ func TestCombinedInput_AimOriginAndStickFacing(t *testing.T) {
 type stubCaveContext struct {
 	CaveContext
 	cam camera.Camera
+	p   *player.Player
 }
 
 func (s *stubCaveContext) GetCamera() *camera.Camera { return &s.cam }
-func (s *stubCaveContext) IsPlayerSlowed() bool       { return false }
+func (s *stubCaveContext) GetPlayer() *player.Player { return s.p }
+func (s *stubCaveContext) IsPlayerSlowed() bool      { return false }
 func (s *stubCaveContext) SpawnBubble(x, y float64)  {}
 
 func TestCavePlayerMovement_FacingNearEdges(t *testing.T) {
@@ -429,19 +432,198 @@ func TestCavePlayerMovement_AimTouchOverridesStick(t *testing.T) {
 	ctx := &stubCaveContext{cam: camera.Camera{Pos: gvec.Vec2{X: 0, Y: 0}}}
 	cave.handlePlayerMovement(ctx, ci, p)
 
-	// Player should aim at the aim touch point (to the RIGHT, cos > 0), even while swimming left!
-	if math.Cos(p.Facing) <= 0 {
-		t.Fatalf("expected player to aim toward aim touch (to the right, cos > 0), got facing angle %v (cos = %v)",
+	// Player body should face LEFT with the movement stick (cos < 0).
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected player body to face stick direction (left, cos < 0), got facing angle %v (cos = %v)",
 			p.Facing, math.Cos(p.Facing))
 	}
 
-	// Release aim touch: should fall back to stick facing (LEFT, cos < 0).
+	// Flashlight should aim toward aim touch point (to the RIGHT, cos > 0).
+	if math.Cos(p.FlashlightAngle) <= 0 {
+		t.Fatalf("expected flashlight to aim toward aim touch (to the right, cos > 0), got flashlight angle %v (cos = %v)",
+			p.FlashlightAngle, math.Cos(p.FlashlightAngle))
+	}
+
+	// Release aim touch: flashlight should fall back to stick facing (LEFT, cos < 0) over frames.
 	touch.aimActive = false
+	for i := 0; i < 25; i++ {
+		cave.handlePlayerMovement(ctx, ci, p)
+	}
+
+	if math.Cos(p.FlashlightAngle) >= 0 {
+		t.Fatalf("expected flashlight to return to stick direction (left, cos < 0) once aim touch is released, got angle %v (cos = %v)",
+			p.FlashlightAngle, math.Cos(p.FlashlightAngle))
+	}
+}
+
+type stubInput struct {
+	keysPressed map[ebiten.Key]bool
+	cursor      gvec.Vec2
+}
+
+func (s *stubInput) Update()                                            {}
+func (s *stubInput) IsKeyPressed(k ebiten.Key) bool                     { return s.keysPressed[k] }
+func (s *stubInput) IsKeyJustPressed(k ebiten.Key) bool                 { return false }
+func (s *stubInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool { return false }
+func (s *stubInput) Cursor() gvec.Vec2                                  { return s.cursor }
+func (s *stubInput) Wheel() (float64, float64)                          { return 0, 0 }
+func (s *stubInput) AppendInputChars(runes []rune) []rune               { return runes }
+
+func TestCavePlayerMovement_KeyboardFacingAndMouseFlashlight(t *testing.T) {
+	cave := NewCaveScene()
+	p := player.NewPlayer(200, 200)
+	ctx := &stubCaveContext{cam: camera.Camera{Pos: gvec.Vec2{X: 0, Y: 0}}, p: p}
+
+	inp := &stubInput{
+		keysPressed: make(map[ebiten.Key]bool),
+		cursor:      gvec.Vec2{X: 200, Y: 200},
+	}
+
+	// 1. In FlashlightFollowsMouse = true mode:
+	config.FlashlightFollowsMouse = true
+
+	// Move Left with A: Body faces LEFT.
+	inp.keysPressed[ebiten.KeyA] = true
+	cave.handlePlayerMovement(ctx, inp, p)
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected player body to face LEFT (cos < 0) on KeyA, got %v (cos = %v)", p.Facing, math.Cos(p.Facing))
+	}
+
+	// Release A (idle): Body retains LEFT facing.
+	inp.keysPressed[ebiten.KeyA] = false
+	cave.handlePlayerMovement(ctx, inp, p)
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected player body to RETAIN LEFT facing when idle, got %v (cos = %v)", p.Facing, math.Cos(p.Facing))
+	}
+
+	// Move Right with D: Body faces RIGHT.
+	inp.keysPressed[ebiten.KeyD] = true
+	cave.handlePlayerMovement(ctx, inp, p)
+	if math.Cos(p.Facing) <= 0 {
+		t.Fatalf("expected player body to face RIGHT (cos > 0) on KeyD, got %v (cos = %v)", p.Facing, math.Cos(p.Facing))
+	}
+	inp.keysPressed[ebiten.KeyD] = false
+
+	// Position mouse to the LEFT while player body faces RIGHT.
+	// Flashlight should point toward mouse (LEFT, cos < 0), while body stays facing RIGHT (cos > 0).
+	inp.cursor = gvec.Vec2{X: 50, Y: 200}
+	cave.handlePlayerMovement(ctx, inp, p)
+
+	if math.Cos(p.Facing) <= 0 {
+		t.Fatalf("expected player body to stay facing RIGHT while aiming mouse left, got %v", p.Facing)
+	}
+	if math.Cos(p.FlashlightAngle) >= 0 {
+		t.Fatalf("expected flashlight to aim towards mouse (LEFT, cos < 0), got %v (cos = %v)", p.FlashlightAngle, math.Cos(p.FlashlightAngle))
+	}
+
+	// 2. In FlashlightFollowsMouse = false mode (Keyboard-only mode):
+	config.FlashlightFollowsMouse = false
+
+	// When moving Left (KeyA), flashlight aligns with body facing LEFT
+	inp.keysPressed = make(map[ebiten.Key]bool)
+	inp.keysPressed[ebiten.KeyA] = true
+	for i := 0; i < 20; i++ {
+		cave.handlePlayerMovement(ctx, inp, p)
+	}
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected body to face LEFT on KeyA in keyboard mode, got %v", p.Facing)
+	}
+	if math.Cos(p.FlashlightAngle) >= 0 {
+		t.Fatalf("expected flashlight to face LEFT with body in keyboard mode, got %v", p.FlashlightAngle)
+	}
+
+	// When moving UP (KeyW), flashlight points UP (sin < 0)
+	inp.keysPressed = make(map[ebiten.Key]bool)
+	inp.keysPressed[ebiten.KeyW] = true
+	for i := 0; i < 20; i++ {
+		cave.handlePlayerMovement(ctx, inp, p)
+	}
+	if math.Sin(p.Facing) >= -0.8 {
+		t.Fatalf("expected body to face UP on KeyW, got %v (sin = %v)", p.Facing, math.Sin(p.Facing))
+	}
+	if math.Sin(p.FlashlightAngle) >= -0.8 {
+		t.Fatalf("expected flashlight to point UP on KeyW in keyboard mode, got %v (sin = %v)", p.FlashlightAngle, math.Sin(p.FlashlightAngle))
+	}
+
+	// When moving DOWN (KeyS), flashlight points DOWN (sin > 0)
+	inp.keysPressed = make(map[ebiten.Key]bool)
+	inp.keysPressed[ebiten.KeyS] = true
+	for i := 0; i < 20; i++ {
+		cave.handlePlayerMovement(ctx, inp, p)
+	}
+	if math.Sin(p.Facing) <= 0.8 {
+		t.Fatalf("expected body to face DOWN on KeyS, got %v (sin = %v)", p.Facing, math.Sin(p.Facing))
+	}
+	if math.Sin(p.FlashlightAngle) <= 0.8 {
+		t.Fatalf("expected flashlight to point DOWN on KeyS in keyboard mode, got %v (sin = %v)", p.FlashlightAngle, math.Sin(p.FlashlightAngle))
+	}
+
+	// When moving UP-LEFT (KeyW + KeyA), flashlight points UP-LEFT (sin < 0 && cos < 0)
+	inp.keysPressed = make(map[ebiten.Key]bool)
+	inp.keysPressed[ebiten.KeyW] = true
+	inp.keysPressed[ebiten.KeyA] = true
+	for i := 0; i < 20; i++ {
+		cave.handlePlayerMovement(ctx, inp, p)
+	}
+	if math.Sin(p.Facing) >= 0 || math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected body to face UP-LEFT on KeyW+KeyA, got %v", p.Facing)
+	}
+	if math.Sin(p.FlashlightAngle) >= 0 || math.Cos(p.FlashlightAngle) >= 0 {
+		t.Fatalf("expected flashlight to point UP-LEFT on KeyW+KeyA in keyboard mode, got %v", p.FlashlightAngle)
+	}
+
+	// In keyboard mode, moving the mouse to the right does NOT move the flashlight
+	inp.cursor = gvec.Vec2{X: 500, Y: 200}
+	cave.handlePlayerMovement(ctx, inp, p)
+	if math.Cos(p.FlashlightAngle) >= 0 {
+		t.Fatalf("expected flashlight to remain facing UP-LEFT despite mouse pointing right in keyboard mode, got %v", p.FlashlightAngle)
+	}
+
+	// Restore default
+	config.FlashlightFollowsMouse = false
+}
+
+func TestCavePlayerMovement_DesktopCombinedInput(t *testing.T) {
+	cave := NewCaveScene()
+	p := player.NewPlayer(200, 200)
+	p.Facing = math.Pi / 2.0 // simulate entering cave with vertical overworld transition angle
+	ctx := &stubCaveContext{cam: camera.Camera{Pos: gvec.Vec2{X: 0, Y: 0}}, p: p}
+
+	base := NewEbitenInput()
+	base.cursor = gvec.Vec2{X: 200, Y: 200}
+	touch := NewTouchControls() // touch.active is false by default (desktop)
+	ci := NewCombinedInput(base, touch)
+
+	// Entering cave initializes / normalizes vertical facing
+	cave.onEnter(ctx)
+	if math.Abs(math.Cos(p.Facing)) < 0.2 {
+		t.Fatalf("expected vertical facing to normalize, got %v", p.Facing)
+	}
+
+	// 1. Press KeyA (swimming left) on Desktop CombinedInput
+	base.pressedKeys[ebiten.KeyA] = true
+	cave.handlePlayerMovement(ctx, ci, p)
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected desktop player to face LEFT (cos < 0) on KeyA with CombinedInput, got %v", p.Facing)
+	}
+
+	// 2. Release KeyA (idle): retains LEFT facing
+	base.pressedKeys[ebiten.KeyA] = false
+	cave.handlePlayerMovement(ctx, ci, p)
+	if math.Cos(p.Facing) >= 0 {
+		t.Fatalf("expected desktop player to RETAIN left facing with CombinedInput, got %v", p.Facing)
+	}
+
+	// 3. Move mouse to right (x=400, y=200): In mouse mode, flashlight aims RIGHT, player body stays facing LEFT
+	config.FlashlightFollowsMouse = true
+	base.cursor = gvec.Vec2{X: 400, Y: 200}
 	cave.handlePlayerMovement(ctx, ci, p)
 
 	if math.Cos(p.Facing) >= 0 {
-		t.Fatalf("expected player to face stick direction (left, cos < 0) once aim touch is released, got facing angle %v (cos = %v)",
-			p.Facing, math.Cos(p.Facing))
+		t.Fatalf("expected player body to stay facing LEFT, got %v", p.Facing)
+	}
+	if math.Cos(p.FlashlightAngle) <= 0 {
+		t.Fatalf("expected flashlight to aim RIGHT toward mouse on desktop with CombinedInput, got %v", p.FlashlightAngle)
 	}
 }
 
@@ -572,10 +754,3 @@ func TestTouchControls_TouchActiveState(t *testing.T) {
 		t.Fatal("expected CombinedInput.TouchActive() to report true when touch is active")
 	}
 }
-
-
-
-
-
-
-
