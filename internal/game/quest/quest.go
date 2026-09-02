@@ -114,27 +114,27 @@ func defaultQuestCategories() []*QuestCategory {
 					Tasks: []*Task{
 						{
 							ID:            string(TaskTrainDive),
-							Description:   "Dive into an ocean trench (Press [E] on a trench tile)",
+							Description:   "Dive into an ocean trench [E]",
 							RequiredCount: 1,
 						},
 						{
 							ID:            string(TaskTrainTitanium),
-							Description:   "Harvest Titanium from subterranean cave walls",
+							Description:   "Harvest Titanium from cave walls",
 							RequiredCount: 10,
 						},
 						{
 							ID:            string(TaskTrainReturn),
-							Description:   "Return to Life Pod 5 (Follow HUD Waypoint marker)",
+							Description:   "Return to Life Pod 5 (Follow Waypoint)",
 							RequiredCount: 1,
 						},
 						{
 							ID:            string(TaskTrainSkiffCraft),
-							Description:   "Fabricate Skiff Kit at the Life Pod Terminal",
+							Description:   "Fabricate Skiff Kit at Terminal",
 							RequiredCount: 1,
 						},
 						{
 							ID:            string(TaskTrainSkiffDeploy),
-							Description:   "Deploy Skiff on ocean surface (From Inventory [Tab])",
+							Description:   "Deploy Skiff on ocean surface [Tab]",
 							RequiredCount: 1,
 						},
 					},
@@ -154,17 +154,17 @@ func defaultQuestCategories() []*QuestCategory {
 					Tasks: []*Task{
 						{
 							ID:            string(TaskGearO2HC),
-							Description:   "Craft High Capacity O2 Tank (+60s capacity)",
+							Description:   "Craft High Capacity O2 Tank (+60s)",
 							RequiredCount: 1,
 						},
 						{
 							ID:            string(TaskGearFins),
-							Description:   "Craft Propulsion Fins (Boost cave swim speed)",
+							Description:   "Craft Propulsion Fins (Swim boost)",
 							RequiredCount: 1,
 						},
 						{
 							ID:            string(TaskGearScanner),
-							Description:   "Craft Scanner Tool (Bio-scan wildlife & geology)",
+							Description:   "Craft Scanner Tool (Bio-scanner)",
 							RequiredCount: 1,
 						},
 					},
@@ -177,12 +177,12 @@ func defaultQuestCategories() []*QuestCategory {
 					Tasks: []*Task{
 						{
 							ID:            string(TaskVehScoutSub),
-							Description:   "Construct and pilot the Scout Sub (Equipped with Sonar Ping [Q])",
+							Description:   "Craft & pilot Scout Sub (Sonar [Q])",
 							RequiredCount: 1,
 						},
 						{
 							ID:            string(TaskVehHeavyMech),
-							Description:   "Construct and pilot the Heavy Mech (Equipped with Drill Arm & Thrusters)",
+							Description:   "Craft & pilot Heavy Mech (Drill & Jets)",
 							RequiredCount: 1,
 						},
 					},
@@ -202,17 +202,17 @@ func defaultQuestCategories() []*QuestCategory {
 					Tasks: []*Task{
 						{
 							ID:            string(TaskEscReachDepth),
-							Description:   "Descend past depth 100 into the Abyssal Void",
+							Description:   "Descend past depth 100m into Void",
 							RequiredCount: 1,
 						},
 						{
 							ID:            string(TaskEscAbyssalOre),
-							Description:   "Harvest Abyssal Ore using the Heavy Mech Drill",
+							Description:   "Harvest Abyssal Ore with Mech Drill",
 							RequiredCount: 10,
 						},
 						{
 							ID:            string(TaskEscCraftRocket),
-							Description:   "Fabricate and launch the Escape Rocket at Life Pod 5",
+							Description:   "Fabricate & launch Escape Rocket",
 							RequiredCount: 1,
 						},
 					},

@@ -150,8 +150,8 @@ func (m *BaseMenuScene) drawQuestsTab(g MenuContext, screen *ebiten.Image, layou
 					vector.StrokeRect(clippedScreen, listX+12, currentY, listW-24, questH, 0.8, qBorder, false)
 
 					titleLabel := q.Title
-					if len(titleLabel) > 22 {
-						titleLabel = titleLabel[:20] + "..."
+					if len(titleLabel) > 28 {
+						titleLabel = titleLabel[:26] + "..."
 					}
 					drawColoredDebugText(clippedScreen, "• "+titleLabel, int(listX)+18, int(currentY)+7, qTextColor)
 
@@ -221,9 +221,18 @@ func (m *BaseMenuScene) drawQuestsTab(g MenuContext, screen *ebiten.Image, layou
 			textColor = color.RGBA{180, 240, 190, 255}
 		}
 
-		boxH := float32(36)
+		descLines := wrapText(t.Description, 54)
+		if len(descLines) == 0 {
+			descLines = []string{t.Description}
+		}
+
+		textH := float32(len(descLines) * 16)
+		boxH := textH + 18
 		if t.RequiredCount > 1 {
-			boxH = float32(46)
+			boxH += 18
+		}
+		if boxH < 34 {
+			boxH = 34
 		}
 
 		vector.FillRect(screen, rightX+15, taskStartY, rightW-30, boxH, boxBg, false)
@@ -231,13 +240,15 @@ func (m *BaseMenuScene) drawQuestsTab(g MenuContext, screen *ebiten.Image, layou
 
 		// Checkbox indicator
 		drawColoredDebugText(screen, checkMark, int(rightX)+25, int(taskStartY)+8, checkColor)
-		// Task description
-		drawColoredDebugText(screen, t.Description, int(rightX)+54, int(taskStartY)+8, textColor)
+		// Task description lines
+		for li, line := range descLines {
+			drawColoredDebugText(screen, line, int(rightX)+54, int(taskStartY)+8+li*16, textColor)
+		}
 
 		// Progress meter if multi-count
 		if t.RequiredCount > 1 {
 			meterX := rightX + 54
-			meterY := taskStartY + 26
+			meterY := taskStartY + 8 + textH + 2
 			meterW := float32(180)
 			meterH := float32(10)
 

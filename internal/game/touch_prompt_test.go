@@ -52,3 +52,41 @@ func TestGame_DrawVehicleEntryPromptsWithTouch(t *testing.T) {
 	g.drawVehicleEntryPrompts(screen, g.OverworldVehicles, 0, 0)
 	g.drawOverworldLayer(screen)
 }
+
+func TestGame_DrawWarningBanner(t *testing.T) {
+	g := NewGame()
+	screen := ebiten.NewImage(1280, 720)
+
+	// Inactive timer -> nothing drawn
+	g.MineWarning.Timer = 0
+	g.drawWarningBanner(screen)
+
+	// Short message
+	g.SetMineWarning("Short warning", 100, 1)
+	g.drawWarningBanner(screen)
+
+	// Long quest message
+	g.SetMineWarning("✓ Objective Complete: Construct and pilot the Heavy Mech (Equipped with Drill Arm & Thrusters) (Press [J] for PDA)", 100, 1)
+	g.drawWarningBanner(screen)
+
+	// Level 2 warn
+	g.SetMineWarning("Cannot deploy Scout Sub in overworld! Deploy inside a cave trench.", 100, 2)
+	g.drawWarningBanner(screen)
+
+	// Level 3 alert
+	g.SetMineWarning("VEHICLE CRUSHED BY DEEP-SEA PRESSURE!", 100, 3)
+	g.drawWarningBanner(screen)
+}
+
+func TestGame_WrapBannerText(t *testing.T) {
+	msg := "This is a very long message that definitely exceeds the character limit and needs wrapping."
+	lines := wrapBannerText(msg, 30)
+	if len(lines) < 2 {
+		t.Fatalf("expected multiple lines for long message, got %d lines: %v", len(lines), lines)
+	}
+	for _, l := range lines {
+		if len(l) > 35 { // with word boundaries
+			t.Errorf("line exceeded expected length: %q (%d)", l, len(l))
+		}
+	}
+}

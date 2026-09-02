@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -147,31 +148,93 @@ func (g *Game) drawWarningBanner(screen *ebiten.Image) {
 	}
 
 	borderColor := color.RGBA{R: 0, G: 191, B: 255, A: 255}
-	bgColor := color.RGBA{R: 0, G: 16, B: 32, A: 220}
+	bgColor := color.RGBA{R: 0, G: 16, B: 32, A: 230}
 	glowColor := color.RGBA{R: 0, G: 191, B: 255, A: 60}
 
 	switch g.MineWarning.Level {
 	case 2: // warn/yellow
 		borderColor = color.RGBA{R: 255, G: 215, B: 0, A: 255}
-		bgColor = color.RGBA{R: 32, G: 24, B: 0, A: 220}
+		bgColor = color.RGBA{R: 32, G: 24, B: 0, A: 230}
 		glowColor = color.RGBA{R: 255, G: 215, B: 0, A: 60}
 	case 3: // alert/red
 		borderColor = color.RGBA{R: 235, G: 45, B: 45, A: 255}
-		bgColor = color.RGBA{R: 24, G: 6, B: 8, A: 220}
+		bgColor = color.RGBA{R: 24, G: 6, B: 8, A: 230}
 		glowColor = color.RGBA{R: 235, G: 45, B: 45, A: 60}
 	}
 
-	wx := float32(config.ScreenWidth)/2.0 - 160
-	wy := float32(config.ScreenHeight) / 4.0
+	msg := g.MineWarning.Message
+	var lines []string
+	rawLines := strings.Split(msg, "\n")
+	for _, rl := range rawLines {
+		if len(rl) > 60 {
+			lines = append(lines, wrapBannerText(rl, 60)...)
+		} else {
+			lines = append(lines, rl)
+		}
+	}
+	if len(lines) == 0 {
+		lines = []string{msg}
+	}
+
+	maxLineLen := 0
+	for _, l := range lines {
+		if len(l) > maxLineLen {
+			maxLineLen = len(l)
+		}
+	}
+
+	boxW := float32(maxLineLen*6 + 48)
+	if boxW < 360 {
+		boxW = 360
+	}
+	if boxW > float32(config.ScreenWidth)-60 {
+		boxW = float32(config.ScreenWidth) - 60
+	}
+
+	lineH := 16
+	boxH := float32(len(lines)*lineH + 16)
+	if boxH < 34 {
+		boxH = 34
+	}
+
+	wx := (float32(config.ScreenWidth) - boxW) / 2.0
+	wy := float32(config.ScreenHeight)/4.0 - (boxH-30)/2.0
 
 	// Draw dark background
-	vector.FillRect(screen, wx, wy, 320, 30, bgColor, false)
+	vector.FillRect(screen, wx, wy, boxW, boxH, bgColor, false)
 	// Draw glowing outer border
-	vector.StrokeRect(screen, wx-1.5, wy-1.5, 323, 33, 2.5, glowColor, false)
+	vector.StrokeRect(screen, wx-1.5, wy-1.5, boxW+3, boxH+3, 2.5, glowColor, false)
 	// Draw sharp inner border
-	vector.StrokeRect(screen, wx, wy, 320, 30, 1.2, borderColor, false)
-	// Print text
-	ebitenutil.DebugPrintAt(screen, g.MineWarning.Message, int(wx)+12, int(wy)+7)
+	vector.StrokeRect(screen, wx, wy, boxW, boxH, 1.2, borderColor, false)
+
+	// Print lines centered inside the box
+	for i, line := range lines {
+		textW := len(line) * 6
+		textX := int(wx) + int(boxW-float32(textW))/2
+		textY := int(wy) + 8 + i*lineH
+		ebitenutil.DebugPrintAt(screen, line, textX, textY)
+	}
+}
+
+func wrapBannerText(text string, maxChars int) []string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return nil
+	}
+
+	var lines []string
+	currentLine := words[0]
+
+	for _, word := range words[1:] {
+		if len(currentLine)+1+len(word) <= maxChars {
+			currentLine += " " + word
+		} else {
+			lines = append(lines, currentLine)
+			currentLine = word
+		}
+	}
+	lines = append(lines, currentLine)
+	return lines
 }
 
 // drawWaypointMarker draws a wayfinding HUD element that always points back to the base station/lifepod.
