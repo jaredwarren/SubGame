@@ -15,6 +15,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 	"github.com/jaredwarren/SubGame/internal/game/shader"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/gvec"
 )
 
@@ -473,9 +474,9 @@ func (c *CaveScene) applyLighting(g CaveContext) {
 	c.Uniforms["SonarBright"] = sonarBright
 	c.Uniforms["SonarFadeLimit"] = sonarFadeLimit
 	c.Uniforms["EntranceLight"] = c.entranceLight
-	entranceActive := float32(1.0)
-	if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveVoid {
-		entranceActive = 0.0
+	entranceActive := float32(0.0)
+	if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveWreckage {
+		entranceActive = 1.0
 	}
 	c.Uniforms["EntranceActive"] = entranceActive
 
@@ -576,6 +577,8 @@ func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave ca
 	}
 
 	if isSurfaceCave {
+		c.drawSurfaceSkiff(g, screen, caveGrid, trenchKey, camX, camY)
+
 		surfaceY := float32(-camY)
 		if surfaceY >= 0 && surfaceY < float32(config.ScreenHeight) {
 			lineColor := color.RGBA{220, 240, 255, 255}
@@ -674,3 +677,69 @@ func (c *CaveScene) drawBioluminescence(g CaveContext, screen *ebiten.Image, cam
 		}
 	}
 }
+
+func (c *CaveScene) drawSurfaceSkiff(g CaveContext, screen *ebiten.Image, caveGrid [][]bool, trenchKey string, camX, camY float64) {
+	if c.skiffSurfaceSprite == nil {
+		return
+	}
+
+	tx, ty := g.GetActiveTrenchCoords()
+	var skiffFound bool
+	for _, v := range g.GetOverworldVehicles() {
+		if s, ok := v.(*vehicle.Skiff); ok {
+			sPos := s.GetPos()
+			sDims := s.GetDimensions()
+			sCenterX := sPos.X + sDims.X/2.0
+			sCenterY := sPos.Y + sDims.Y/2.0
+			stx := int(math.Floor(sCenterX / float64(config.TileSize)))
+			sty := int(math.Floor(sCenterY / float64(config.TileSize)))
+			if stx == tx && sty == ty {
+				skiffFound = true
+				break
+			}
+		}
+	}
+
+	if !skiffFound {
+		return
+	}
+
+	caveGridW := 60
+	if caveGrid != nil && len(caveGrid) > 0 {
+		caveGridW = len(caveGrid)
+	}
+	caveCenterX := float64(caveGridW/2*config.TileSize) + float64(config.TileSize)/2.0
+
+	// Subtle vertical water bobbing
+	bobY := math.Sin(g.GetTicks()*0.05) * 2.0
+
+	wImg := float64(c.skiffSurfaceSprite.Bounds().Dx())
+	hImg := float64(c.skiffSurfaceSprite.Bounds().Dy())
+	if wImg <= 0 || hImg <= 0 {
+		return
+	}
+
+	const targetW = 168.0
+	scale := targetW / wImg
+	drawW := targetW
+	drawH := hImg * scale
+
+	// Waterline is positioned on the hull ~68% down from the top of the sprite
+	waterlineInSprite := drawH * 0.68
+
+	worldX := caveCenterX - drawW/2.0
+	worldY := 0.0 - waterlineInSprite + bobY
+
+	screenX := float32(worldX - camX)
+	screenY := float32(worldY - camY)
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(screenX), float64(screenY))
+
+	lightMult := float32(GetOverworldLightMultiplier(g.GetTimeOfDay()))
+	op.ColorScale.Scale(lightMult, lightMult, lightMult, 1.0)
+
+	screen.DrawImage(c.skiffSurfaceSprite, op)
+}
+

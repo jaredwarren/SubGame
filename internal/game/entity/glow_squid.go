@@ -178,17 +178,12 @@ func (s *GlowSquid) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay 
 		dir = -1.0
 	}
 
-	// 1. Radiant Atmospheric Bioluminescent Halo (transparent soft radial falloff)
-	baseR, baseG, baseB := s.GlowColor.R, s.GlowColor.G, s.GlowColor.B
-	maxRadius := float32(24.0 + 6.0*pulseNorm)
-	// Outer faint haze (soft perimeter)
-	vector.FillCircle(screen, cx, cy, maxRadius, color.RGBA{baseR, baseG, baseB, uint8(12 + 8*pulseNorm)}, false)
-	// Mid ambient radiance
-	vector.FillCircle(screen, cx, cy, maxRadius*0.62, color.RGBA{baseR, baseG, baseB, uint8(22 + 12*pulseNorm)}, false)
-	// Inner body bloom
-	vector.FillCircle(screen, cx, cy, maxRadius*0.35, color.RGBA{baseR, baseG, baseB, uint8(36 + 18*pulseNorm)}, false)
+	// 1. Radiant Atmospheric Bioluminescent Halo (smooth procedural radial light, no flat rings)
+	haloRadius := float32(28.0 + 6.0*pulseNorm)
+	drawLanternRadialGlow(screen, cx, cy, haloRadius, s.GlowColor, 0.30+0.12*pulseNorm)
+	drawLanternRadialGlow(screen, cx+dir*2.0, cy, haloRadius*0.55, s.GlowColor, 0.48+0.16*pulseNorm)
 
-	// 2. Undulating Bioluminescent Tentacles
+	// 2. Undulating Bioluminescent Tentacles with luminous suction pads
 	tentacleBaseX := cx - dir*8.0
 	numTentacles := 5
 
@@ -206,10 +201,12 @@ func (s *GlowSquid) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay 
 		tentacleTipX := tentacleBaseX - dir*(13.0+float32(math.Sin(tPhase))*2.5)
 		tentacleTipY := cy + tOffset + float32(math.Sin(tPhase*float64(waveFreq)))*waveAmp
 
-		vector.StrokeLine(screen, tentacleBaseX, cy+tOffset*0.5, tentacleTipX, tentacleTipY, 1.6, s.TentacleColor, false)
-		// Glowing luminous suction pad
-		vector.FillCircle(screen, tentacleTipX, tentacleTipY, 1.4, s.FinColor, false)
-		vector.FillCircle(screen, tentacleTipX, tentacleTipY, 0.6, color.White, false)
+		vector.StrokeLine(screen, tentacleBaseX, cy+tOffset*0.5, tentacleTipX, tentacleTipY, 1.6, s.TentacleColor, true)
+
+		// Glowing luminous suction pad with soft bloom
+		drawLanternRadialGlow(screen, tentacleTipX, tentacleTipY, 5.0+1.0*pulseNorm, s.FinColor, 0.40+0.20*pulseNorm)
+		vector.FillCircle(screen, tentacleTipX, tentacleTipY, 1.4, s.FinColor, true)
+		vector.FillCircle(screen, tentacleTipX, tentacleTipY, 0.6, color.White, true)
 	}
 
 	// 3. Glowing Cephalopod Mantle Body
@@ -220,34 +217,41 @@ func (s *GlowSquid) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDay 
 		mantleRadiusY -= 1.0
 	}
 
-	vector.FillCircle(screen, cx+dir*1.0, cy, mantleRadiusY, s.MantleColor, false)
-	vector.FillCircle(screen, cx+dir*6.0, cy, mantleRadiusY*0.85, s.MantleColor, false)
-	vector.FillCircle(screen, cx-dir*3.0, cy, mantleRadiusY*0.9, s.MantleColor, false)
+	vector.FillCircle(screen, cx+dir*1.0, cy, mantleRadiusY, s.MantleColor, true)
+	vector.FillCircle(screen, cx+dir*6.0, cy, mantleRadiusY*0.85, s.MantleColor, true)
+	vector.FillCircle(screen, cx-dir*3.0, cy, mantleRadiusY*0.9, s.MantleColor, true)
 
-	// Bioluminescent photophore spots along mantle
-	spotClr := color.RGBA{255, 255, 255, uint8(180 + 75*pulseNorm)}
+	// Bioluminescent photophore spots along mantle with soft glow
+	spotClr := color.RGBA{255, 255, 255, uint8(190 + 65*pulseNorm)}
 	for ox := float32(-2); ox <= 4; ox += 3 {
-		vector.FillCircle(screen, cx+dir*ox, cy-mantleRadiusY*0.4, 0.9, spotClr, false)
-		vector.FillCircle(screen, cx+dir*ox, cy+mantleRadiusY*0.4, 0.9, spotClr, false)
+		px := cx + dir*ox
+		py1 := cy - mantleRadiusY*0.4
+		py2 := cy + mantleRadiusY*0.4
+		drawLanternRadialGlow(screen, px, py1, 3.5, s.FinColor, 0.35+0.15*pulseNorm)
+		drawLanternRadialGlow(screen, px, py2, 3.5, s.FinColor, 0.35+0.15*pulseNorm)
+		vector.FillCircle(screen, px, py1, 0.9, spotClr, true)
+		vector.FillCircle(screen, px, py2, 0.9, spotClr, true)
 	}
 
 	// 4. Lateral Fluttering Mantle Fins
 	finWave := float32(math.Cos(s.SwimPhase*3.2)) * 2.2
 	finX := cx + dir*7.0
-	vector.FillCircle(screen, finX, cy-mantleRadiusY+finWave, 3.6, s.FinColor, false)
-	vector.FillCircle(screen, finX, cy+mantleRadiusY-finWave, 3.6, s.FinColor, false)
+	drawLanternRadialGlow(screen, finX, cy-mantleRadiusY+finWave, 7.0, s.FinColor, 0.25+0.10*pulseNorm)
+	drawLanternRadialGlow(screen, finX, cy+mantleRadiusY-finWave, 7.0, s.FinColor, 0.25+0.10*pulseNorm)
+	vector.FillCircle(screen, finX, cy-mantleRadiusY+finWave, 3.6, s.FinColor, true)
+	vector.FillCircle(screen, finX, cy+mantleRadiusY-finWave, 3.6, s.FinColor, true)
 
 	// 5. Large Luminous Golden/Azure Cephalopod Eye
 	eyeX := cx + dir*4.0
 	eyeY := cy - 1.6
-	vector.FillCircle(screen, eyeX, eyeY, 3.4, s.EyeColor, false)
-	vector.FillCircle(screen, eyeX+dir*0.5, eyeY, 1.5, color.RGBA{10, 10, 24, 255}, false)
-	vector.FillCircle(screen, eyeX-dir*0.5, eyeY-0.8, 0.9, color.White, false)
+	vector.FillCircle(screen, eyeX, eyeY, 3.4, s.EyeColor, true)
+	vector.FillCircle(screen, eyeX+dir*0.5, eyeY, 1.5, color.RGBA{10, 10, 24, 255}, true)
+	vector.FillCircle(screen, eyeX-dir*0.5, eyeY-0.8, 0.9, color.White, true)
 
 	// 6. Siphon nozzle
 	siphonX := cx - dir*1.0
 	siphonY := cy + mantleRadiusY*0.75
-	vector.FillCircle(screen, siphonX, siphonY, 2.0, s.TentacleColor, false)
+	vector.FillCircle(screen, siphonX, siphonY, 2.0, s.TentacleColor, true)
 }
 
 // PointLight returns the dynamic point light emitted by the glow squid for the cave lighting shader.

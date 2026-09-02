@@ -103,6 +103,12 @@ Place sprites in `assets/textures/` loaded as `ebiten.Image` spritesheets or ind
     > `16-bit retro pixel art 2D top-down game sprite. Small motorized ocean exploration skiff boat, sharp bow, solar panel on flat deck, industrial white hull with safety orange trim. Centered on solid green background #00FF00.`
   - **Render Logic**: [skiff.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/vehicle/skiff.go)
 
+- [x] **The Skiff Surface Boat - Side View** (`assets/textures/skiff_surface.png`)
+  - **Details**: 16-bit retro pixel art 2D side-view game sprite of the skiff boat floating at the surface waterline inside shallow caves.
+  - **RetroDiffusion Prompt**:
+    > `16-bit retro pixel art 2D side-view game sprite of the small electric ocean exploration skiff boat shown in the top-down reference image (Image 1), rendered in full side profile facing left in the exact pixel art style and color palette of the reference images. Industrial off-white hull with a sharp angled bow, prominent vibrant safety orange stripe along the gunwale, low-profile cockpit console with dark cyan tinted glass windshield, flat rear deck structure mounting a blue solar panel array, and an electric outboard motor with propeller at the stern. Clean crisp pixel art line art and shading, isolated on a solid bright chroma key green background #00FF00.`
+  - **Render Logic**: [cave_draw.go](file:///Users/jaredwarren/src/github.com/jaredwarren/SubGame/internal/game/scene/cave_draw.go)
+
 - [x] **Base Life Pod** (`assets/textures/lifepod_surface.png`)
   - **Details**: 128x128px floating capsule base with solar array mounted on top.
   - **RetroDiffusion Prompt**:

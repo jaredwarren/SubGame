@@ -17,6 +17,9 @@ var ScoutSubPNG []byte
 //go:embed textures/skiff.png
 var SkiffPNG []byte
 
+//go:embed textures/skiff_surface.png
+var SkiffSurfacePNG []byte
+
 //go:embed textures/diver_sheet.png
 var DiverSheetPNG []byte
 

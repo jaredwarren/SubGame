@@ -621,6 +621,9 @@ func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
 	if !item.HasItem[*item.Fins](p.Upgrades, 1) {
 		t.Error("expected Fins to be equipped after equipping")
 	}
+	if p.Speed["cave"].TopSpeed != 4.3 {
+		t.Errorf("expected cave top speed to be 4.3 with fins, got %f", p.Speed["cave"].TopSpeed)
+	}
 
 	// Equip O2 Tank
 	if !p.EquipUpgrade(tank) {
@@ -651,6 +654,9 @@ func TestPlayer_EquipUnequipUpgrades(t *testing.T) {
 	}
 	if !item.HasItem[*item.Fins](p.Inventory, 1) {
 		t.Error("expected Fins to be back in main inventory")
+	}
+	if p.Speed["cave"].TopSpeed != 3.5 {
+		t.Errorf("expected cave top speed to return to default 3.5, got %f", p.Speed["cave"].TopSpeed)
 	}
 }
 

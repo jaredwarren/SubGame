@@ -418,7 +418,7 @@ var itemRegistry = map[reflect.Type]*ItemMetadata{
 		Color:    color.RGBA{98, 198, 148, 255},
 		SpeedUpgrade: map[string]Speed{
 			"overworld": {Drag: 0.92, Acceleration: 0.12, TopSpeed: 2.6},
-			"cave":      {Drag: 0.96, Acceleration: 0.30, TopSpeed: 6.5},
+			"cave":      {Drag: 0.93, Acceleration: 0.20, TopSpeed: 4.3},
 		},
 		DrawIcon: func(screen *ebiten.Image, cx, cy, size float32) {
 			name := "Propulsion Fins"

@@ -257,7 +257,7 @@ These hotkeys can be used during testing to accelerate state verification:
   - [ ] Key recipes verified:
     - [ ] High Capacity O2 Tank (+60s capacity)
     - [ ] Ultra High Capacity O2 Tank (+140s capacity)
-    - [ ] Propulsion Fins (Increases cave swim speed from 3.5 to 6.5)
+    - [ ] Propulsion Fins (Increases cave swim speed from 3.5 to 4.3)
     - [ ] Scanner Tool, Flashlight, Repair Tool
     - [ ] Sonic Decoy, Chemical Deterrent
     - [ ] Power Cell, Thermal Generator

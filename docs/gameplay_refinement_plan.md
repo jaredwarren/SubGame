@@ -53,7 +53,7 @@ Full inventory wipe on death punishes the exact behavior you want to encourage (
 - Reduce Fabricator crafting cost for food (10 power to cook a fish is steep relative to Solar's 0.08/tick) — or make cooking free at a small **Galley** module.
 
 ### 3.5 Movement & stamina
-- Cave top speed 3.5 → 6.5 with Fins is a great power spike; keep.
+- Cave top speed 3.5 → 4.3 with Fins gives a responsive speed boost without overshooting cave corridors.
 - Sprint stamina (1.5/s drain, 1.0/s regen) barely matters. Either make sprint meaningfully faster in caves (escape tool vs. predators) or fold stamina into the Energy rework.
 
 ---

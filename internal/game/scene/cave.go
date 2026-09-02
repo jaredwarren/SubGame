@@ -67,6 +67,7 @@ type CaveContext interface {
 	IsPlayerSlowed() bool
 	GetParticles() []*particle.Particle
 	GetCaveVehicles(key string) []vehicle.Vehicle
+	GetOverworldVehicles() []vehicle.Vehicle
 	GetActiveTrenchKey() string
 	ActivatePlayerItem(it item.Item)
 	UseRepairTool()
@@ -117,6 +118,7 @@ type CaveScene struct {
 	diverSwimFrames  []*ebiten.Image
 	diverMineFrames  []*ebiten.Image
 	diverDamageFrame *ebiten.Image
+	skiffSurfaceSprite *ebiten.Image
 
 	// Scroll transition fields
 	scrollActive bool
@@ -157,7 +159,17 @@ func NewCaveScene() *CaveScene {
 	}
 	cs.shaderOpts.Uniforms = cs.Uniforms
 	cs.loadDiverSheet()
+	cs.loadSkiffSurface()
 	return cs
+}
+
+func (c *CaveScene) loadSkiffSurface() {
+	sprite, err := assets.LoadChromaKeyedImage("skiff_surface", assets.WithTrim())
+	if err != nil {
+		log.Printf("Warning: Failed to load skiff surface sprite: %v", err)
+		return
+	}
+	c.skiffSurfaceSprite = sprite
 }
 
 func (c *CaveScene) loadDiverSheet() {

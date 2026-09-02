@@ -75,11 +75,23 @@ func (g *Game) Update() error {
 		return nil
 	}
 
+	if g.currentState == StatePause {
+		if !g.transitionedThisFrame {
+			if err := g.currentScene.Update(g); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	g.advanceTimers()
 	g.updateEffects()
 	g.updateQuests()
 	g.handleWorldTaps()
 	g.handleInput()
+	if g.currentState == StatePause {
+		return nil
+	}
 	g.baseStation.UpdatePower(g.TimeOfDay)
 
 	// Apply cheat overrides during active gameplay
@@ -107,24 +119,17 @@ func (g *Game) Update() error {
 		}
 	}
 
-	g.updateIdleVehicles(vrt)
-	g.drainVehicleCommands(vrt)
-	g.updateCamera()
+	if g.currentState == StateOverworld || g.currentState == StateCave {
+		g.updateIdleVehicles(vrt)
+		g.drainVehicleCommands(vrt)
+		g.updateCamera()
+		g.player.UpdateAnimation()
 
-	if g.ActiveVehicle == nil {
-		g.player.UpdateStats(g.currentState == StateCave, g.Input.IsKeyPressed(ebiten.KeyShift))
-	} else {
-		// Regenerate stamina and update player stats while resting/piloting a vehicle
-		g.player.UpdateStats(g.currentState == StateCave, false)
-	}
-	g.player.UpdateAnimation()
+		g.updateLostCargo()
+		g.updateAudioAlerts()
 
-	g.updateLostCargo()
-	g.updateAudioAlerts()
-
-	if g.player.CurrentHealth <= 0 && !g.GodMode {
-		// Drop cargo once at the moment of death; stay on GameOver without re-dropping.
-		if g.currentState == StateOverworld || g.currentState == StateCave {
+		if g.player.CurrentHealth <= 0 && !g.GodMode {
+			// Drop cargo once at the moment of death; stay on GameOver without re-dropping.
 			audio.Get().PlaySFX("sfx/player_drown.wav")
 			g.dropLostCargo()
 			g.TransitionTo(g.gameOverState)
@@ -858,6 +863,8 @@ func (g *Game) updateActiveVehicle(vrt *vehicleRuntimeAdapter) {
 	if g.ActiveVehicle.GetOxygen() > 0 {
 		g.player.CurrentOxygen = g.player.MaxOxygen
 	}
+	// Regenerate stamina and update player stats while resting/piloting a vehicle
+	g.player.UpdateStats(g.currentState == StateCave && g.ActiveVehicle.GetOxygen() <= 0, false)
 
 	if g.Input.IsKeyJustPressed(ebiten.KeyF) {
 		g.exitVehicle(vPos, vDims)

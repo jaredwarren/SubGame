@@ -34,6 +34,8 @@ func LoadChromaKeyedImage(name string, opts ...Option) (*ebiten.Image, error) {
 		data = rawassets.ScoutSubPNG
 	case "skiff":
 		data = rawassets.SkiffPNG
+	case "skiff_surface":
+		data = rawassets.SkiffSurfacePNG
 	case "diver_sheet":
 		data = rawassets.DiverSheetPNG
 	case "diver_swim_sheet":
