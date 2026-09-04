@@ -45,7 +45,23 @@ func (sm *StoryManager) TriggerEvent(triggerType, target string) *LoreEntry {
 		entryType := strings.ToLower(strings.TrimSpace(entry.TriggerType))
 		entryTarget := strings.ToLower(strings.TrimSpace(entry.TriggerTarget))
 
-		if entryType == triggerType && entryTarget == target {
+		typeMatches := false
+		for _, t := range strings.Split(entryType, ",") {
+			if strings.TrimSpace(t) == triggerType {
+				typeMatches = true
+				break
+			}
+		}
+
+		targetMatches := false
+		for _, tg := range strings.Split(entryTarget, ",") {
+			if strings.TrimSpace(tg) == target {
+				targetMatches = true
+				break
+			}
+		}
+
+		if typeMatches && targetMatches {
 			entry.Unlocked = true
 			return entry
 		}

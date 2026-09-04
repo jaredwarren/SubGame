@@ -146,6 +146,8 @@ type CaveScene struct {
 	newCamY      float64
 	offscreenOld *ebiten.Image
 	offscreenNew *ebiten.Image
+
+	Scanner *ScannerState
 }
 
 // NewCaveScene creates a new CaveScene instance.
@@ -158,6 +160,7 @@ func NewCaveScene() *CaveScene {
 		flashlightDir: make([]float32, 2),
 		sonarSource:   make([]float32, 2),
 		entranceLight: make([]float32, 2),
+		Scanner:       NewScannerState(),
 	}
 	cs.shaderOpts.Uniforms = cs.Uniforms
 	cs.loadDiverSheet()

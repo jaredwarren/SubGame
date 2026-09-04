@@ -261,6 +261,7 @@ func (c *CaveScene) updateVehicle(g CaveContext, inp InputSource, activeVehicle 
 
 func (c *CaveScene) updatePlayer(g CaveContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
 	c.handleTerminalInteraction(g, inp, p)
+	c.handleScanner(g, inp, p)
 	c.handlePlayerMining(g, inp, p, entityRuntime)
 	c.handlePlayerMovement(g, inp, p)
 }
@@ -285,6 +286,149 @@ func (c *CaveScene) handleTerminalInteraction(g CaveContext, inp InputSource, p 
 				return
 			}
 		}
+	}
+}
+
+func (c *CaveScene) handleScanner(g CaveContext, inp InputSource, p *player.Player) {
+	if c.Scanner == nil {
+		c.Scanner = NewScannerState()
+	}
+
+	// Tick cooldowns
+	if c.Scanner.PulseCooldown > 0 {
+		c.Scanner.PulseCooldown--
+	}
+	if c.Scanner.PulseTimer > 0 {
+		c.Scanner.PulseTimer--
+	}
+
+	activeItem := p.GetActiveItem()
+	_, isScanner := activeItem.(*item.Scanner)
+	if !isScanner {
+		if c.Scanner.Progress > 0 || c.Scanner.ActiveTarget != nil {
+			c.Scanner.Progress = 0
+			c.Scanner.ActiveTarget = nil
+		}
+		return
+	}
+
+	px := p.Pos.X + p.Width/2.0
+	py := p.Pos.Y + p.Height/2.0
+
+	// Check if player is holding the scan button or clicking
+	isHeld := inp.IsMouseButtonPressed(ebiten.MouseButtonLeft) || inp.IsMouseButtonPressed(ebiten.MouseButtonRight)
+	isJustPressed := inp.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || inp.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
+
+	// Determine target coordinates or nearest target
+	var target *ScannableTarget
+	cam := g.GetCamera()
+	cursor := inp.Cursor()
+	worldCursorX := cam.Pos.X + cursor.X
+	worldCursorY := cam.Pos.Y + cursor.Y
+
+	if preferNearestUse(inp) {
+		target = FindNearestScannable(c.Nodes, c.Entities, px, py, ScanMaxRange)
+	} else {
+		target = FindScannableAt(c.Nodes, c.Entities, px, py, worldCursorX, worldCursorY, ScanMaxRange)
+		if target == nil && isHeld {
+			nearest := FindNearestScannable(c.Nodes, c.Entities, px, py, ScanMaxRange)
+			if nearest != nil && math.Hypot(px-nearest.Pos.X, py-nearest.Pos.Y) <= 80.0 {
+				target = nearest
+			}
+		}
+	}
+
+	// 1. If scan input is held and target found
+	if isHeld && target != nil {
+		if c.Scanner.ActiveTarget == nil || c.Scanner.ActiveTarget.Key != target.Key {
+			c.Scanner.ActiveTarget = target
+			c.Scanner.Progress = 0.0
+			c.Scanner.AudioTimer = 0
+		}
+
+		// Advance progress
+		c.Scanner.Progress += 1.0 / ScanDurationFrames
+
+		// Play scanner loop audio periodically (~every 30 frames)
+		if c.Scanner.AudioTimer <= 0 {
+			audio.Get().PlaySFX("sfx/scanner_loop.wav")
+			c.Scanner.AudioTimer = 30
+		} else {
+			c.Scanner.AudioTimer--
+		}
+
+		// Check completion
+		if c.Scanner.Progress >= 1.0 {
+			c.Scanner.Progress = 1.0
+			c.completeScan(g, target)
+			c.Scanner.ActiveTarget = nil
+			c.Scanner.Progress = 0.0
+		}
+		return
+	}
+
+	// 2. If not held on target, reset scanning progress
+	if c.Scanner.Progress > 0 || c.Scanner.ActiveTarget != nil {
+		c.Scanner.Progress = 0.0
+		c.Scanner.ActiveTarget = nil
+	}
+
+	// 3. Exploration pulse: triggered on click/tap in open water (when not locked on a target)
+	if isJustPressed && target == nil {
+		if c.Scanner.PulseCooldown <= 0 {
+			c.Scanner.PulseCooldown = ScannerPulseCooldownMax
+			c.Scanner.PulseTimer = ScannerPulseDurationMax
+			c.Scanner.PulseOrigin = gvec.Vec2{X: px, Y: py}
+			audio.Get().PlaySFX("sfx/sub_sonar_ping.wav")
+			g.SetMineWarning("Bio-Sonar Pulse Emitted", 90, 0)
+		} else {
+			remainingSec := float64(c.Scanner.PulseCooldown) / 60.0
+			g.SetMineWarning(fmt.Sprintf("Pulse recharging... (%.1fs)", remainingSec), 60, 1)
+			audio.Get().PlaySFX("sfx/ui_error.wav")
+		}
+	}
+}
+
+func (c *CaveScene) completeScan(g CaveContext, target *ScannableTarget) {
+	audio.Get().PlaySFX("sfx/scanner_complete.wav")
+
+	// Trigger story lore unlock
+	unlockedLore := g.GetStoryManager().TriggerEvent("scan", target.Key)
+	if unlockedLore == nil {
+		unlockedLore = g.GetStoryManager().TriggerEvent("scan", target.DisplayName)
+	}
+
+	// Check blueprint unlock
+	bpResultName := GetBlueprintForTarget(target.Key)
+	bpUnlocked := false
+	if bpResultName != "" {
+		recipes := g.GetCraftingRecipes()
+		for idx := range recipes {
+			if recipes[idx].NewResult().GetName() == bpResultName {
+				if !recipes[idx].Unlocked {
+					recipes[idx].Unlocked = true
+					bpUnlocked = true
+				}
+				break
+			}
+		}
+	}
+
+	// Mark as scanned
+	c.Scanner.ScannedKeys[target.Key] = true
+
+	// Notification feedback
+	if bpUnlocked {
+		audio.Get().PlaySFX("sfx/pda_unlock_fanfare.wav")
+		if unlockedLore != nil {
+			g.SetMineWarning("Decrypted: "+unlockedLore.Title+" | Blueprint: "+bpResultName, 180, 1)
+		} else {
+			g.SetMineWarning("Unlocked Blueprint: "+bpResultName+"!", 160, 1)
+		}
+	} else if unlockedLore != nil {
+		g.SetMineWarning("Decrypted PDA Log: "+unlockedLore.Title, 150, 1)
+	} else {
+		g.SetMineWarning("Scan Complete: "+target.DisplayName+" Telemetry Saved", 120, 1)
 	}
 }
 
@@ -322,6 +466,9 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 
 	activeItem := p.GetActiveItem()
 	if activeItem != nil {
+		if _, ok := activeItem.(*item.Scanner); ok {
+			return
+		}
 		if _, isDeployable := activeItem.(vehicle.Deployable); isDeployable {
 			g.ActivatePlayerItem(activeItem)
 			return

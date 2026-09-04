@@ -39,6 +39,12 @@ func (c *CaveScene) draw(g CaveContext, finalScreen *ebiten.Image) {
 	}
 
 	c.applyPostFX(g, finalScreen)
+
+	if c.Scanner != nil {
+		cam := g.GetCamera()
+		c.Scanner.DrawExplorationPulse(finalScreen, cam, c.Nodes, c.Entities)
+		c.Scanner.DrawScanningHUD(finalScreen, cam)
+	}
 }
 
 // Edge-blur strength vs depth (0 = surface, 1 = cave floor).

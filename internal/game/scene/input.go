@@ -13,6 +13,7 @@ type InputSource interface {
 	IsKeyJustPressed(k ebiten.Key) bool
 	IsKeyPressed(k ebiten.Key) bool
 	IsMouseButtonJustPressed(b ebiten.MouseButton) bool
+	IsMouseButtonPressed(b ebiten.MouseButton) bool
 	Wheel() (float64, float64)
 	AppendInputChars(runes []rune) []rune
 }
@@ -93,6 +94,7 @@ func (e *EbitenInput) Cursor() gvec.Vec2                                  { retu
 func (e *EbitenInput) IsKeyJustPressed(k ebiten.Key) bool                 { return e.justPressedKeys[k] }
 func (e *EbitenInput) IsKeyPressed(k ebiten.Key) bool                     { return e.pressedKeys[k] }
 func (e *EbitenInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool { return e.justPressedMouse[b] }
+func (e *EbitenInput) IsMouseButtonPressed(b ebiten.MouseButton) bool     { return ebiten.IsMouseButtonPressed(b) }
 func (e *EbitenInput) Wheel() (float64, float64)                          { return e.wheelX, e.wheelY }
 func (e *EbitenInput) AppendInputChars(runes []rune) []rune               { return ebiten.AppendInputChars(runes) }
 
@@ -102,6 +104,7 @@ type MockInput struct {
 	JustPressedKeys  map[ebiten.Key]bool
 	PressedKeys      map[ebiten.Key]bool
 	JustPressedMouse map[ebiten.MouseButton]bool
+	PressedMouse     map[ebiten.MouseButton]bool
 	WheelX, WheelY   float64
 	InputChars       []rune
 }
@@ -112,6 +115,7 @@ func NewMockInput() *MockInput {
 		JustPressedKeys:  make(map[ebiten.Key]bool),
 		PressedKeys:      make(map[ebiten.Key]bool),
 		JustPressedMouse: make(map[ebiten.MouseButton]bool),
+		PressedMouse:     make(map[ebiten.MouseButton]bool),
 	}
 }
 
@@ -120,5 +124,11 @@ func (m *MockInput) Cursor() gvec.Vec2                                  { return
 func (m *MockInput) IsKeyJustPressed(k ebiten.Key) bool                 { return m.JustPressedKeys[k] }
 func (m *MockInput) IsKeyPressed(k ebiten.Key) bool                     { return m.PressedKeys[k] }
 func (m *MockInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool { return m.JustPressedMouse[b] }
-func (m *MockInput) Wheel() (float64, float64)                          { return m.WheelX, m.WheelY }
-func (m *MockInput) AppendInputChars(runes []rune) []rune               { return append(runes, m.InputChars...) }
+func (m *MockInput) IsMouseButtonPressed(b ebiten.MouseButton) bool {
+	if m.PressedMouse == nil {
+		return false
+	}
+	return m.PressedMouse[b]
+}
+func (m *MockInput) Wheel() (float64, float64)            { return m.WheelX, m.WheelY }
+func (m *MockInput) AppendInputChars(runes []rune) []rune { return append(runes, m.InputChars...) }

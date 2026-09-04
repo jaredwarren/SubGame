@@ -465,6 +465,7 @@ func (s *stubInput) Update()                                            {}
 func (s *stubInput) IsKeyPressed(k ebiten.Key) bool                     { return s.keysPressed[k] }
 func (s *stubInput) IsKeyJustPressed(k ebiten.Key) bool                 { return false }
 func (s *stubInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool { return false }
+func (s *stubInput) IsMouseButtonPressed(b ebiten.MouseButton) bool     { return false }
 func (s *stubInput) Cursor() gvec.Vec2                                  { return s.cursor }
 func (s *stubInput) Wheel() (float64, float64)                          { return 0, 0 }
 func (s *stubInput) AppendInputChars(runes []rune) []rune               { return runes }

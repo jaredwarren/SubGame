@@ -28,6 +28,7 @@ func (g *Game) Update() error {
 		g.touch.SetVehicleCapabilities(g.activeVehicleHasSonar(), g.activeVehicleHasSpecial())
 		g.touch.SetHasFlashlightAvailable(g.hasFlashlightAvailable())
 		g.touch.SetFlashlightState(g.IsFlashlightOn())
+		g.touch.SetScannerActive(g.isScannerActive())
 	}
 	if ci, ok := g.Input.(*CombinedInput); ok {
 		if g.player != nil && g.camera != nil {
@@ -1068,6 +1069,15 @@ func (g *Game) hasFlashlightAvailable() bool {
 		return false
 	}
 	_, ok := g.player.GetActiveItem().(*item.Flashlight)
+	return ok
+}
+
+// isScannerActive reports whether the player is on foot actively holding a Scanner tool.
+func (g *Game) isScannerActive() bool {
+	if g.player == nil {
+		return false
+	}
+	_, ok := g.player.GetActiveItem().(*item.Scanner)
 	return ok
 }
 

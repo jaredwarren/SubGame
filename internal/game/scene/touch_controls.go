@@ -94,6 +94,8 @@ type TouchControls struct {
 	hasVehicleSpecial      bool
 	hasFlashlightAvailable bool
 	flashlightOn           bool
+	hasScannerActive       bool
+	scannerIcon            *ebiten.Image
 
 	// Thumbstick state. The stick anchors where the touch begins inside the
 	// bottom-left zone and follows that touch until release.
@@ -158,6 +160,7 @@ func NewTouchControls() *TouchControls {
 		hotbarPending: -1,
 		virtualHeld:   make(map[ebiten.Key]bool),
 		virtualJust:   make(map[ebiten.Key]bool),
+		scannerIcon:   makeTouchIcon(drawIconScanner),
 	}
 
 	tc.buttons = []*touchButton{
@@ -211,6 +214,11 @@ func (t *TouchControls) SetFlashlightState(on bool) {
 	t.flashlightOn = on
 }
 
+// SetScannerActive updates whether the player is holding a Scanner in their active hotbar slot.
+func (t *TouchControls) SetScannerActive(active bool) {
+	t.hasScannerActive = active
+}
+
 // Active reports whether touch mode is engaged (controls visible, synthetic cursor in use).
 func (t *TouchControls) Active() bool { return t.active }
 
@@ -228,6 +236,16 @@ func (t *TouchControls) InjectJustPressed(k ebiten.Key) {
 
 // VirtualLeftClickJustPressed reports a Use-button press that should act as left-click.
 func (t *TouchControls) VirtualLeftClickJustPressed() bool { return t.virtualLeftClick }
+
+// VirtualLeftClickHeld reports whether the Use-button is currently held down.
+func (t *TouchControls) VirtualLeftClickHeld() bool {
+	for _, b := range t.buttons {
+		if b.held && b.mouseLeft && b.visibleIn(t.context) {
+			return true
+		}
+	}
+	return false
+}
 
 // PreferNearestUse reports that this frame's Use press should target the nearest
 // interactable (ore, bulb, catchable) instead of the cursor tile.
@@ -532,14 +550,18 @@ func (t *TouchControls) Draw(screen *ebiten.Image) {
 		}
 		vector.FillCircle(screen, float32(b.cx), float32(b.cy), float32(b.r), fill, true)
 		vector.StrokeCircle(screen, float32(b.cx), float32(b.cy), float32(b.r), 2, stroke, true)
-		if b.icon != nil {
+		btnIcon := b.icon
+		if b.mouseLeft && t.hasScannerActive && t.context == TouchContextCave && t.scannerIcon != nil {
+			btnIcon = t.scannerIcon
+		}
+		if btnIcon != nil {
 			op := &ebiten.DrawImageOptions{}
-			w, h := b.icon.Bounds().Dx(), b.icon.Bounds().Dy()
+			w, h := btnIcon.Bounds().Dx(), btnIcon.Bounds().Dy()
 			op.GeoM.Translate(b.cx-float64(w)/2.0, b.cy-float64(h)/2.0)
 			if b.key == ebiten.KeyT && t.flashlightOn {
 				op.ColorScale.Scale(1.2, 1.1, 0.6, 1.0)
 			}
-			screen.DrawImage(b.icon, op)
+			screen.DrawImage(btnIcon, op)
 		}
 	}
 }
@@ -736,6 +758,21 @@ func drawIconAction(dst *ebiten.Image) {
 	vector.StrokeLine(dst, 26, 26, 19, 41, 3, c, true)
 }
 
+// drawIconScanner draws a holographic scanner reticle with crosshairs.
+func drawIconScanner(dst *ebiten.Image) {
+	const (
+		cx = float32(touchIconSize / 2.0)
+		cy = float32(touchIconSize / 2.0)
+		r  = 14.0
+	)
+	vector.StrokeCircle(dst, cx, cy, r, 2.0, touchIconColor, false)
+	vector.FillCircle(dst, cx, cy, 3.0, touchIconColor, true)
+	vector.StrokeLine(dst, cx-r-5, cy, cx-r+4, cy, 2.0, touchIconColor, false)
+	vector.StrokeLine(dst, cx+r-4, cy, cx+r+5, cy, 2.0, touchIconColor, false)
+	vector.StrokeLine(dst, cx, cy-r-5, cx, cy-r+4, 2.0, touchIconColor, false)
+	vector.StrokeLine(dst, cx, cy+r-4, cx, cy+r+5, 2.0, touchIconColor, false)
+}
+
 // --- combined input ----------------------------------------------------------
 
 // CombinedInput implements InputSource by merging physical keyboard/mouse input
@@ -824,6 +861,21 @@ func (c *CombinedInput) IsMouseButtonJustPressed(b ebiten.MouseButton) bool {
 		}
 		_, ok := c.touch.TapCursor()
 		return ok
+	}
+	return false
+}
+
+func (c *CombinedInput) IsMouseButtonPressed(b ebiten.MouseButton) bool {
+	if c.base.IsMouseButtonPressed(b) {
+		return true
+	}
+	if b == ebiten.MouseButtonLeft && c.touch != nil && c.touch.Active() {
+		if c.touch.VirtualLeftClickHeld() {
+			return true
+		}
+		if _, ok := c.touch.AimTouch(); ok {
+			return true
+		}
 	}
 	return false
 }
