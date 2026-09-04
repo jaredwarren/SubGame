@@ -64,6 +64,43 @@ func TestSpawnFloraAllIDs(t *testing.T) {
 	}
 }
 
+func TestSpawnFloraAnchored_ShatterBulb(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	leftEnt := SpawnFloraAnchored(FloraShatterBulb, 4, 5, 44, "left", r)
+	leftBulb, ok := leftEnt.(*entity.ShatterBulb)
+	if !ok {
+		t.Fatalf("expected *entity.ShatterBulb, got %T", leftEnt)
+	}
+	if leftBulb.AnchorSide != "left" {
+		t.Fatalf("expected left anchor, got %s", leftBulb.AnchorSide)
+	}
+	if leftBulb.Pos.X != 4*64 {
+		t.Fatalf("expected left bulb Pos.X to be %d, got %f", 4*64, leftBulb.Pos.X)
+	}
+
+	rightEnt := SpawnFloraAnchored(FloraShatterBulb, 4, 5, 44, "right", r)
+	rightBulb, ok := rightEnt.(*entity.ShatterBulb)
+	if !ok {
+		t.Fatalf("expected *entity.ShatterBulb, got %T", rightEnt)
+	}
+	if rightBulb.AnchorSide != "right" {
+		t.Fatalf("expected right anchor, got %s", rightBulb.AnchorSide)
+	}
+	expectedRightX := float64(4*64 + 64) - entity.ShatterBulbArchetype.WallWidth
+	if rightBulb.Pos.X != expectedRightX {
+		t.Fatalf("expected right bulb Pos.X to be %f, got %f", expectedRightX, rightBulb.Pos.X)
+	}
+
+	floorEnt := SpawnFloraAnchored(FloraShatterBulb, 4, 5, 44, "floor", r)
+	floorBulb, ok := floorEnt.(*entity.ShatterBulb)
+	if !ok {
+		t.Fatalf("expected *entity.ShatterBulb, got %T", floorEnt)
+	}
+	if floorBulb.AnchorSide != "floor" {
+		t.Fatalf("expected floor anchor, got %s", floorBulb.AnchorSide)
+	}
+}
+
 func TestDefaultBiomeMineralTypes(t *testing.T) {
 	for _, s := range DefaultShallowReefBiome.MineralSpawns {
 		switch s.Type {

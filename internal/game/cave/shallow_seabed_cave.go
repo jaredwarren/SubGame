@@ -462,6 +462,19 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 					float64(ty*config.TileSize)+float64(config.TileSize)-height,
 					height,
 				))
+			} else if !hasFloor && ty > 1 && ty < gridH-2 && !grid[tx][ty-1] && (grid[tx-1][ty] || grid[tx+1][ty]) && r.Float64() < rules.ShatterBulbChance*0.6 {
+				height := 42.0 + r.Float64()*16.0
+				anchor := "left"
+				if grid[tx-1][ty] && grid[tx+1][ty] {
+					if r.Float64() < 0.5 {
+						anchor = "right"
+					}
+				} else if grid[tx+1][ty] {
+					anchor = "right"
+				}
+				if ent := SpawnFloraAnchored(FloraShatterBulb, tx, ty, height, anchor, r); ent != nil {
+					entities = append(entities, ent)
+				}
 			}
 			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
 			if isOpenWater {
@@ -507,6 +520,24 @@ func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
 				}
 				if ent := SpawnFlora(floraType, tx, ty, height, r); ent != nil {
 					entities = append(entities, ent)
+				}
+			} else if ty > 1 && ty < gridH-2 && !grid[tx][ty+1] && !grid[tx][ty-1] && (grid[tx-1][ty] || grid[tx+1][ty]) && r.Float64() < rules.FloraChance {
+				if c.Biome != nil && len(c.Biome.FloraSpawns) > 0 {
+					floraType := SelectWeightedEntry(c.Biome.FloraSpawns, r.Float64())
+					if floraType == FloraShatterBulb || floraType == FloraShockKelp {
+						height := 32.0 + r.Float64()*48.0
+						anchor := "left"
+						if grid[tx-1][ty] && grid[tx+1][ty] {
+							if r.Float64() < 0.5 {
+								anchor = "right"
+							}
+						} else if grid[tx+1][ty] {
+							anchor = "right"
+						}
+						if ent := SpawnFloraAnchored(floraType, tx, ty, height, anchor, r); ent != nil {
+							entities = append(entities, ent)
+						}
+					}
 				}
 			}
 

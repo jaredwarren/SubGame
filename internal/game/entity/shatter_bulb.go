@@ -13,8 +13,9 @@ import (
 // ShatterBulb is a static oxygen plant that pops when touched, restoring O2.
 type ShatterBulb struct {
 	BaseEntity
-	def       *ShatterBulbDef
-	SwayPhase float64
+	def        *ShatterBulbDef
+	SwayPhase  float64
+	AnchorSide string // "floor", "left", "right"
 }
 
 func (s *ShatterBulb) stats() *ShatterBulbDef {
@@ -24,21 +25,43 @@ func (s *ShatterBulb) stats() *ShatterBulbDef {
 	return ShatterBulbArchetype
 }
 
-// NewShatterBulb creates a ShatterBulb at the given position.
+// NewShatterBulb creates a ShatterBulb at the given position with floor anchor.
 func NewShatterBulb(x, y float64, height ...float64) *ShatterBulb {
-	d := ShatterBulbArchetype
 	h := float64(44.0)
 	if len(height) > 0 && height[0] > 0 {
 		h = height[0]
 	}
+	return NewShatterBulbAnchored(x, y, h, "floor")
+}
+
+// NewShatterBulbAnchored creates a ShatterBulb with an explicit anchor ("floor", "left", "right").
+func NewShatterBulbAnchored(x, y, height float64, anchor string) *ShatterBulb {
+	d := ShatterBulbArchetype
+	w := d.FloorWidth
+	if w <= 0 {
+		w = d.Dims.X
+	}
+	if anchor == "left" || anchor == "right" {
+		if d.WallWidth > 0 {
+			w = d.WallWidth
+		} else {
+			w = 28.0
+		}
+	} else {
+		anchor = "floor"
+	}
+	if height <= 0 {
+		height = 44.0
+	}
 	return &ShatterBulb{
 		BaseEntity: BaseEntity{
 			Pos:        gvec.Vec2{X: x, Y: y},
-			Dimensions: gvec.Vec2{X: d.Dims.X, Y: h},
+			Dimensions: gvec.Vec2{X: w, Y: height},
 			Active:     true,
 		},
-		def:       d,
-		SwayPhase: (x*0.07 + y*0.13),
+		def:        d,
+		SwayPhase:  (x*0.07 + y*0.13),
+		AnchorSide: anchor,
 	}
 }
 
@@ -74,8 +97,19 @@ func (s *ShatterBulb) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDa
 	sy := float32(s.Pos.Y - camera.Pos.Y)
 	sw := float32(s.Dimensions.X)
 	sh := float32(s.Dimensions.Y)
-	cx := sx + sw/2.0
-	bottomY := sy + sh + 1.0
+
+	// Determine anchor point
+	var baseX, baseY float32
+	if s.AnchorSide == "left" {
+		baseX = sx
+		baseY = sy + sh
+	} else if s.AnchorSide == "right" {
+		baseX = sx + sw
+		baseY = sy + sh
+	} else { // "floor" or empty fallback
+		baseX = sx + sw/2.0
+		baseY = sy + sh + 1.0
+	}
 
 	// Dynamic swaying phase matching normal kelp
 	swayPhase := s.SwayPhase
@@ -89,25 +123,40 @@ func (s *ShatterBulb) Draw(screen *ebiten.Image, camera *camera.Camera, timeOfDa
 	}
 	segmentHeight := sh / float32(numSegments)
 
-	lastX := cx
-	lastY := bottomY
+	lastX := baseX
+	lastY := baseY
 
 	for i := 0; i < numSegments; i++ {
-		factor := float64(i+1) / float64(numSegments)
-		swayOffset := float32(math.Sin(swayPhase+float64(i)*0.4)) * 8.0 * float32(factor)
-		nextX := cx + swayOffset
-		nextY := bottomY - float32(i+1)*segmentHeight
+		factor := float32(i+1) / float32(numSegments)
+		swayOffset := float32(math.Sin(swayPhase+float64(i)*0.4)) * 8.0 * factor
+		nextY := baseY - float32(i+1)*segmentHeight
 
-		// Normal kelp stalk stroke
-		vector.StrokeLine(screen, lastX, lastY, nextX, nextY, 2.5-float32(factor)*1.0, color.RGBA{34, 139, 34, 255}, false)
-
-		// Normal kelp leaf fronds on left and right
-		leafSize := 5.0 - float32(factor)*2.0
-		if leafSize < 2.0 {
-			leafSize = 2.0
+		var nextX float32
+		if s.AnchorSide == "left" {
+			// Curves to the right (away from left wall), then goes straight up
+			curveOffset := sw * float32(math.Sin(float64(factor)*math.Pi/2.0))
+			nextX = baseX + curveOffset + swayOffset
+		} else if s.AnchorSide == "right" {
+			// Curves to the left (away from right wall), then goes straight up
+			curveOffset := sw * float32(math.Sin(float64(factor)*math.Pi/2.0))
+			nextX = baseX - curveOffset + swayOffset
+		} else {
+			// Floor anchor (grows straight up)
+			nextX = baseX + swayOffset
 		}
-		vector.FillCircle(screen, nextX-4.0, nextY, leafSize, color.RGBA{46, 150, 60, 220}, false)
-		vector.FillCircle(screen, nextX+4.0, nextY, leafSize, color.RGBA{46, 150, 60, 220}, false)
+
+		// Kelp stalk stroke
+		vector.StrokeLine(screen, lastX, lastY, nextX, nextY, 2.5-factor*1.0, color.RGBA{34, 139, 34, 255}, false)
+
+		// Kelp leaf fronds: Clean holdfast skips the anchor segment against the wall
+		if s.AnchorSide == "floor" || i > 0 {
+			leafSize := 5.0 - factor*2.0
+			if leafSize < 2.0 {
+				leafSize = 2.0
+			}
+			vector.FillCircle(screen, nextX-4.0, nextY, leafSize, color.RGBA{46, 150, 60, 220}, false)
+			vector.FillCircle(screen, nextX+4.0, nextY, leafSize, color.RGBA{46, 150, 60, 220}, false)
+		}
 
 		lastX = nextX
 		lastY = nextY
@@ -141,7 +190,15 @@ func (s *ShatterBulb) PointLight() (pos gvec.Vec2, radius float64, r, g, b float
 	if !s.Active {
 		return gvec.Vec2{}, 0, 0, 0, 0, 0
 	}
-	cx := s.Pos.X + s.Dimensions.X/2.0
+	var cx float64
+	switch s.AnchorSide {
+	case "left":
+		cx = s.Pos.X + s.Dimensions.X
+	case "right":
+		cx = s.Pos.X
+	default:
+		cx = s.Pos.X + s.Dimensions.X/2.0
+	}
 	cy := s.Pos.Y + 4.0
 	return gvec.Vec2{X: cx, Y: cy}, 38.0, 0.0, 0.90, 0.96, 0.55
 }

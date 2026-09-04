@@ -238,6 +238,24 @@ func generateBiomeTileEntities(biome *CaveBiomeSpec, grid [][]bool, coralBiome i
 				if ent := SpawnFlora(floraType, tx, ty, height, r); ent != nil {
 					entities = append(entities, ent)
 				}
+			} else if ty > 1 && ty < gridH-2 && !grid[tx][ty+1] && !grid[tx][ty-1] && (grid[tx-1][ty] || grid[tx+1][ty]) && r.Float64() < rules.FloraChance {
+				if len(biome.FloraSpawns) > 0 {
+					floraType := SelectWeightedEntry(biome.FloraSpawns, r.Float64())
+					if floraType == FloraShatterBulb || floraType == FloraShockKelp {
+						height := 32.0 + r.Float64()*48.0
+						anchor := "left"
+						if grid[tx-1][ty] && grid[tx+1][ty] {
+							if r.Float64() < 0.5 {
+								anchor = "right"
+							}
+						} else if grid[tx+1][ty] {
+							anchor = "right"
+						}
+						if ent := SpawnFloraAnchored(floraType, tx, ty, height, anchor, r); ent != nil {
+							entities = append(entities, ent)
+						}
+					}
+				}
 			}
 			entities = MaybeSpawnCoral(entities, grid, tx, ty, rules.CoralChance, coralBiome, entity.CoralVariantCount(coralBiome), r)
 		}

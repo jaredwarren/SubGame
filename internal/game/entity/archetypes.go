@@ -17,8 +17,10 @@ type ShockKelpDef struct {
 
 // ShatterBulbDef holds shared dims and pop effect for ShatterBulb flora.
 type ShatterBulbDef struct {
-	Dims           gvec.Vec2
-	RestoreOxygen  float64
+	Dims          gvec.Vec2
+	FloorWidth    float64
+	WallWidth     float64
+	RestoreOxygen float64
 }
 
 var ShockKelpArchetype = &ShockKelpDef{
@@ -35,5 +37,7 @@ var ShockKelpArchetype = &ShockKelpDef{
 
 var ShatterBulbArchetype = &ShatterBulbDef{
 	Dims:          gvec.Vec2{X: 24, Y: 24},
+	FloorWidth:    24,
+	WallWidth:     28,
 	RestoreOxygen: 20,
 }

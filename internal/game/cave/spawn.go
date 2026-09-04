@@ -170,15 +170,31 @@ func SpawnFloraAnchored(id FloraID, tx, ty int, height float64, anchor string, r
 		}
 		return entity.NewShockKelp(x, y, height, anchor)
 	case FloraShatterBulb:
-		d := entity.ShatterBulbArchetype.Dims
 		if height <= 0 {
 			height = 42.0 + r.Float64()*12.0
 		}
-		return entity.NewShatterBulb(
-			float64(tx*ts)+float64(ts-int(d.X))/2.0,
-			float64(ty*ts)+float64(ts)-height,
-			height,
-		)
+		var x, y float64
+		wallW := entity.ShatterBulbArchetype.WallWidth
+		if wallW <= 0 {
+			wallW = 28.0
+		}
+		floorW := entity.ShatterBulbArchetype.FloorWidth
+		if floorW <= 0 {
+			floorW = 24.0
+		}
+		switch anchor {
+		case "left":
+			x = float64(tx * ts)
+			y = float64(ty*ts) + float64(ts)/2.0 - height
+		case "right":
+			x = float64(tx*ts) + float64(ts) - wallW
+			y = float64(ty*ts) + float64(ts)/2.0 - height
+		default: // floor
+			x = float64(tx*ts) + float64(ts-int(floorW))/2.0
+			y = float64(ty*ts) + float64(ts) - height
+			anchor = "floor"
+		}
+		return entity.NewShatterBulbAnchored(x, y, height, anchor)
 	case FloraNerveMat:
 		return &entity.NerveMat{
 			BaseEntity: entity.BaseEntity{

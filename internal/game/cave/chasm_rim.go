@@ -160,7 +160,27 @@ func spawnChasmRimEntities(spec *ChasmRimSpec, grid [][]bool, chasmX, chasmWidth
 					}
 					anchor := sp.Anchor
 					if anchor == "" {
-						anchor = "floor"
+						if sp.SideWall {
+							if grid[x-1][y] && !grid[x+1][y] {
+								anchor = "left"
+							} else if grid[x+1][y] && !grid[x-1][y] {
+								anchor = "right"
+							} else if grid[x-1][y] && grid[x+1][y] {
+								if r.Float64() < 0.5 {
+									anchor = "left"
+								} else {
+									anchor = "right"
+								}
+							} else {
+								anchor = "floor"
+							}
+						} else if sp.LeftWall {
+							anchor = "left"
+						} else if sp.RightWall {
+							anchor = "right"
+						} else {
+							anchor = "floor"
+						}
 					}
 					if ent := SpawnFloraAnchored(sp.Flora, spawnTX, spawnTY, height, anchor, r); ent != nil {
 						entities = append(entities, ent)

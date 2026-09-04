@@ -60,17 +60,24 @@ func TestSpawnChasmRimEntities_Trench(t *testing.T) {
 	entities := spawnChasmRimEntities(spec, grid, cave.ChasmX, cave.ChasmWidth, rand.New(rand.NewSource(77)))
 
 	hasBulb := false
+	hasWallBulb := false
 	hasSnare := false
 	for _, ent := range entities {
-		switch ent.(type) {
+		switch b := ent.(type) {
 		case *entity.ShatterBulb:
 			hasBulb = true
+			if b.AnchorSide == "left" || b.AnchorSide == "right" {
+				hasWallBulb = true
+			}
 		case *entity.FalseBulbSnare:
 			hasSnare = true
 		}
 	}
 	if !hasBulb {
 		t.Error("expected shatter bulb rim spawns for trench chasm")
+	}
+	if !hasWallBulb {
+		t.Error("expected wall-anchored shatter bulb rim spawns for trench chasm")
 	}
 	if !hasSnare {
 		t.Error("expected false bulb snare rim spawns for trench chasm")
