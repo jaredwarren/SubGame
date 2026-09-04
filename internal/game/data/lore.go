@@ -88,4 +88,72 @@ var DefaultLoreEntries = []*LoreEntry{
 			},
 		},
 	},
+	{
+		ID:            "wreck_research_log",
+		Category:      "Wreckage",
+		Title:         "Triton-01 Science Telemetry",
+		TriggerType:   "read",
+		TriggerTarget: "wreck_research_log",
+		Paragraphs: []Paragraph{
+			{
+				Header: "RESEARCH TENDER SURVEY LOG",
+				Text:   "Preliminary bathymetric surveys indicate abnormal geothermal venting and bioluminescent mega-flora. Scout submersible schematics verified for shallow exploration. Automated life-support remains nominal above 40 meters.",
+			},
+			{
+				Header: "CHIEF SURVEYOR CHEN",
+				Text:   "The seabed here is alive. Small crustacean specimens have already begun tearing into our discarded conduit covers, using alloy scraps as makeshift carapaces. Fascinating adaptability.",
+			},
+		},
+	},
+	{
+		ID:            "wreck_transport_manifest",
+		Category:      "Wreckage",
+		Title:         "Cargo Hauler Heavy Manifest",
+		TriggerType:   "read",
+		TriggerTarget: "wreck_transport_manifest",
+		Paragraphs: []Paragraph{
+			{
+				Header: "SUBMERSIBLE TRANSPORT LOGISTICS",
+				Text:   "Manifest: Heavy Mech Kit assembly, high-output depth module prototypes, and auxiliary reinforced plating. Vessel encountered severe magnetic shear near the mid-trench boundary.",
+			},
+			{
+				Header: "DAMAGE ASSESSMENT",
+				Text:   "Multiple bulkheads ruptured on impact. Lower deck floor grating collapsed, creating hazardous vertical drops into flooded machinery bays. Electrical conduits arcing intermittently across engineering corridors.",
+			},
+		},
+	},
+	{
+		ID:            "wreck_flagship_blackbox",
+		Category:      "Wreckage",
+		Title:         "AetherCorp Flagship Black Box",
+		TriggerType:   "read",
+		TriggerTarget: "wreck_flagship_blackbox",
+		Paragraphs: []Paragraph{
+			{
+				Header: "AETHERCORP COMMAND TELEMETRY",
+				Text:   "CRITICAL LOCKDOWN: Catastrophic hull failure at abyssal depths. Deep Vault sealed behind Reinforced Blast Bulkheads. Automated defense systems engaged. Escape Rocket staging schematics preserved within secure vault.",
+			},
+			{
+				Header: "FINAL TRANSMISSION - ADMIRAL VANCE",
+				Text:   "The pressure is crushing the outer armor like tin foil. Deep-sea organic tendrils are breaching through the cracks in the blast shields. To whoever penetrates this bulkhead: the escape rocket is your only way off this planet. Drill through.",
+			},
+		},
+	},
+	{
+		ID:            "scrap_crab_bio",
+		Category:      "Fauna",
+		Title:         "Scrap Hermit Crab Bio-Scan",
+		TriggerType:   "catch",
+		TriggerTarget: "ScrapHermitCrab",
+		Paragraphs: []Paragraph{
+			{
+				Header: "AETHERCORP BIOMETRIC ANALYSIS",
+				Text:   "Specimen: Paguroidea Derelictus (Scrap Hermit Crab). Opportunistic scavengers that utilize artificial industrial debris—such as discarded rations tins, pipe joints, and gears—as protective shells. Highly resilient to physical impact when withdrawn.",
+			},
+			{
+				Header: "SALVAGE PROTOCOL",
+				Text:   "Harvesters may recover both edible protein and salvageable structural alloys or electronic components from collected specimens.",
+			},
+		},
+	},
 }

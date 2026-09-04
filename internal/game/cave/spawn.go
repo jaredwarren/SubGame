@@ -35,6 +35,13 @@ func SpawnFauna(id FaunaID, tx, ty int, grid [][]bool, r *rand.Rand) entity.Cave
 			float64(tx*ts)+float64(ts-int(d.X))/2.0,
 			float64(ty*ts)+float64(ts-int(d.Y)),
 		)
+	case FaunaScrapHermitCrab:
+		shell := entity.ShellVariant(r.Intn(3))
+		return entity.NewScrapHermitCrabWithShell(
+			float64(tx*ts)+float64(ts-int(d.X))/2.0,
+			float64(ty*ts)+float64(ts-int(d.Y)),
+			shell,
+		)
 	case FaunaSandViper:
 		return entity.NewSandViper(
 			float64(tx*ts)+float64(ts-int(d.X))/2.0,

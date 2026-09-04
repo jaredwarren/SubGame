@@ -398,6 +398,8 @@ func (w *World) GetCave(tx, ty int) [][]bool {
 		hasLeftWater := tx-1 >= 0 && (w.OverworldMap[tx-1][ty] == TileWater || w.IsShallowTile(tx-1, ty))
 		hasRightWater := tx+1 < w.Width && (w.OverworldMap[tx+1][ty] == TileWater || w.IsShallowTile(tx+1, ty))
 		caveGrid = info.Subterranean.GenerateShallowGrid(r, dist, hasLeftWater, hasRightWater)
+	} else if info != nil && info.GenerateGridContext != nil {
+		caveGrid = info.GenerateGridContext(r, w, tx, ty)
 	} else if info != nil && info.GenerateGrid != nil {
 		caveGrid = info.GenerateGrid(r)
 	} else {

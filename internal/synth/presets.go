@@ -1815,6 +1815,90 @@ var SoundCatalog = map[string]PresetGenerator{
 	"music/game_over_theme.mp3": func(seed int64) *Buffer {
 		return generateGameOverTheme(seed)
 	},
+
+	// -----------------------------------------------------------------
+	// 4.8 Derelict Shipwreck SFX
+	// -----------------------------------------------------------------
+	"sfx/crab_metal_clink.wav": func(seed int64) *Buffer {
+		// Sharp metallic ping of scrap shell tucking in
+		metal := SoundLayer{
+			Wave1:        WaveTriangle,
+			Freq1:        1760.0, // A6
+			EndFreq1:     1200.0,
+			FreqCurve1:   CurveExponential,
+			Volume1:      0.85,
+			EnableOsc2:   true,
+			Wave2:        WaveSine,
+			Freq2:        2640.0, // E7 overtone
+			Volume2:      0.45,
+			Envelope:     AHDSR{AttackTime: 0.001, DecayTime: 0.09, SustainLvl: 0.0, ReleaseTime: 0.04, Curve: CurveExponential},
+			EnableFilter: FilterHighPass,
+			FilterCutoff: 900,
+			FilterQ:      3.5,
+			ReverbRoom:   0.35,
+			ReverbMix:    0.25,
+		}.Generate(0.18, seed)
+
+		thud := SoundLayer{
+			Wave1:      WaveSine,
+			Freq1:      320.0,
+			EndFreq1:   80.0,
+			FreqCurve1: CurveExponential,
+			Volume1:    0.7,
+			Envelope:   AHDSR{AttackTime: 0.001, DecayTime: 0.05, SustainLvl: 0.0, ReleaseTime: 0.02},
+		}.Generate(0.1, seed+1)
+
+		return MixBuffers(metal, thud)
+	},
+
+	"sfx/conduit_spark.wav": func(seed int64) *Buffer {
+		// High-voltage electric arc crackle and pop
+		pop := SoundLayer{
+			Wave1:        WaveSawtooth,
+			Freq1:        650.0,
+			EndFreq1:     120.0,
+			FreqCurve1:   CurveExponential,
+			Volume1:      0.75,
+			EnableNoise:  true,
+			NoiseType:    WaveNoiseWhite,
+			NoiseVolume:  0.8,
+			Envelope:     AHDSR{AttackTime: 0.002, DecayTime: 0.12, SustainLvl: 0.0, ReleaseTime: 0.04, Curve: CurveExponential},
+			EnableFilter: FilterBandPass,
+			FilterCutoff: 3200,
+			FilterEndCut: 1200,
+			FilterQ:      4.0,
+			Overdrive:    0.5,
+		}.Generate(0.18, seed)
+
+		return pop
+	},
+
+	"sfx/terminal_read.wav": func(seed int64) *Buffer {
+		// Retro terminal chime: dual rising digital tones
+		t1 := SoundLayer{
+			Wave1:      WaveSine,
+			Freq1:      587.33, // D5
+			Volume1:    0.7,
+			Envelope:   AHDSR{AttackTime: 0.004, DecayTime: 0.08, SustainLvl: 0.0, ReleaseTime: 0.03},
+			ReverbRoom: 0.4,
+			ReverbMix:  0.2,
+		}.Generate(0.12, seed)
+
+		t2 := SoundLayer{
+			Wave1:      WaveTriangle,
+			Freq1:      880.0, // A5
+			Volume1:    0.8,
+			Envelope:   AHDSR{AttackTime: 0.004, DecayTime: 0.18, SustainLvl: 0.0, ReleaseTime: 0.06},
+			ReverbRoom: 0.45,
+			ReverbMix:  0.25,
+		}.Generate(0.22, seed+1)
+
+		buf := NewMonoBuffer(0.28)
+		copy(buf.SamplesLeft[0:], t1.SamplesLeft)
+		copy(buf.SamplesLeft[int(0.06*float64(SampleRate)):], t2.SamplesLeft)
+		buf.Normalize(0.9)
+		return buf
+	},
 }
 
 // -----------------------------------------------------------------

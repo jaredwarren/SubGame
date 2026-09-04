@@ -50,6 +50,11 @@ type PassiveCreature interface {
 	CanCatch(playerPos gvec.Vec2) bool
 }
 
+// BonusHarvestProvider is an optional interface for creatures that yield an extra material when caught.
+type BonusHarvestProvider interface {
+	GetBonusHarvestItem() item.Item
+}
+
 // PointLightEmitter defines the interface for cave entities that emit dynamic bioluminescent light into the cave lighting shader.
 type PointLightEmitter interface {
 	PointLight() (pos gvec.Vec2, radius float64, r, g, b float32, intensity float64)

@@ -260,8 +260,32 @@ func (c *CaveScene) updateVehicle(g CaveContext, inp InputSource, activeVehicle 
 }
 
 func (c *CaveScene) updatePlayer(g CaveContext, inp InputSource, p *player.Player, entityRuntime entity.Runtime) {
+	c.handleTerminalInteraction(g, inp, p)
 	c.handlePlayerMining(g, inp, p, entityRuntime)
 	c.handlePlayerMovement(g, inp, p)
+}
+
+func (c *CaveScene) handleTerminalInteraction(g CaveContext, inp InputSource, p *player.Player) {
+	if !inp.IsKeyJustPressed(ebiten.KeyE) {
+		return
+	}
+	px := p.Pos.X + p.Width/2
+	py := p.Pos.Y + p.Height/2
+	for _, ent := range c.Entities {
+		if term, ok := ent.(*entity.WreckTerminal); ok && term.IsActive() {
+			if term.CanInteract(gvec.Vec2{X: px, Y: py}) {
+				loreID, title := term.Interact()
+				unlocked := g.GetStoryManager().TriggerEvent("read", loreID)
+				if unlocked != nil {
+					g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 160, 1)
+					audio.Get().PlaySFX("sfx/scanner_complete.wav")
+				} else {
+					g.SetMineWarning("Terminal Data: "+title+" (Logged to PDA)", 140, 1)
+				}
+				return
+			}
+		}
+	}
 }
 
 func preferNearestUse(inp InputSource) bool {
@@ -355,6 +379,26 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 	mty := int(worldY) / config.TileSize
 
 	for _, ent := range c.Entities {
+		if term, ok := ent.(*entity.WreckTerminal); ok && term.IsActive() {
+			pos := term.GetPos()
+			dims := term.GetDimensions()
+			if worldX >= pos.X && worldX < pos.X+dims.X && worldY >= pos.Y && worldY < pos.Y+dims.Y {
+				if term.CanInteract(gvec.Vec2{X: px, Y: py}) {
+					loreID, title := term.Interact()
+					unlocked := g.GetStoryManager().TriggerEvent("read", loreID)
+					if unlocked != nil {
+						g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 160, 1)
+						audio.Get().PlaySFX("sfx/scanner_complete.wav")
+					} else {
+						g.SetMineWarning("Terminal Data: "+title+" (Logged to PDA)", 140, 1)
+					}
+					return
+				}
+			}
+		}
+	}
+
+	for _, ent := range c.Entities {
 		sb, ok := ent.(*entity.ShatterBulb)
 		if ok && sb.IsActive() {
 			pos := sb.GetPos()
@@ -398,7 +442,21 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 						g.AddItemToast(harvestedItem, 1)
 						audio.Get().PlaySFX("sfx/item_pickup.wav")
 						g.NotifyQuestInventoryChanged(harvestedItem.GetID())
+
+						// Bonus scrap/material from shells or natural deposits
+						if bonusProvider, ok := creature.(entity.BonusHarvestProvider); ok {
+							if bonusItem := bonusProvider.GetBonusHarvestItem(); bonusItem != nil {
+								if p.Inventory.AddItem(bonusItem, 1) {
+									g.AddItemToast(bonusItem, 1)
+									g.NotifyQuestInventoryChanged(bonusItem.GetID())
+								}
+							}
+						}
+
 						unlocked := g.GetStoryManager().TriggerEvent("catch", harvestedItem.GetName())
+						if unlocked == nil {
+							unlocked = g.GetStoryManager().TriggerEvent("catch", ent.DebugName())
+						}
 						if unlocked != nil {
 							g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
 							audio.Get().PlaySFX("sfx/scanner_complete.wav")
@@ -432,6 +490,22 @@ func (c *CaveScene) handlePlayerMining(g CaveContext, inp InputSource, p *player
 // bulb, catchable creature, or ore node (priority: bulb → creature → ore).
 func (c *CaveScene) interactNearest(g CaveContext, p *player.Player, entityRuntime entity.Runtime, px, py, maxDist float64) {
 	playerCenter := gvec.Vec2{X: px, Y: py}
+
+	for _, ent := range c.Entities {
+		if term, ok := ent.(*entity.WreckTerminal); ok && term.IsActive() {
+			if term.CanInteract(playerCenter) {
+				loreID, title := term.Interact()
+				unlocked := g.GetStoryManager().TriggerEvent("read", loreID)
+				if unlocked != nil {
+					g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 160, 1)
+					audio.Get().PlaySFX("sfx/scanner_complete.wav")
+				} else {
+					g.SetMineWarning("Terminal Data: "+title+" (Logged to PDA)", 140, 1)
+				}
+				return
+			}
+		}
+	}
 
 	bestBulbDist := maxDist
 	var bestBulb *entity.ShatterBulb
@@ -492,7 +566,21 @@ func (c *CaveScene) interactNearest(g CaveContext, p *player.Player, entityRunti
 			g.AddItemToast(harvestedItem, 1)
 			audio.Get().PlaySFX("sfx/item_pickup.wav")
 			g.NotifyQuestInventoryChanged(harvestedItem.GetID())
+
+			// Bonus scrap/material from shells or natural deposits
+			if bonusProvider, ok := creature.(entity.BonusHarvestProvider); ok {
+				if bonusItem := bonusProvider.GetBonusHarvestItem(); bonusItem != nil {
+					if p.Inventory.AddItem(bonusItem, 1) {
+						g.AddItemToast(bonusItem, 1)
+						g.NotifyQuestInventoryChanged(bonusItem.GetID())
+					}
+				}
+			}
+
 			unlocked := g.GetStoryManager().TriggerEvent("catch", harvestedItem.GetName())
+			if unlocked == nil {
+				unlocked = g.GetStoryManager().TriggerEvent("catch", ent.DebugName())
+			}
 			if unlocked != nil {
 				g.SetMineWarning("Decrypted PDA Log: "+unlocked.Title, 120, 1)
 				audio.Get().PlaySFX("sfx/scanner_complete.wav")

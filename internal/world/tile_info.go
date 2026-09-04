@@ -31,6 +31,9 @@ type TileTypeInfo struct {
 	// If nil, the default shallow seabed grid generator is used.
 	GenerateGrid func(r *rand.Rand) [][]bool
 
+	// GenerateGridContext optionally returns a cave grid with world context (e.g. shipIndex).
+	GenerateGridContext func(r *rand.Rand, w *World, tx, ty int) [][]bool
+
 	// CaveFactory creates a cave.Cave from a grid and world context.
 	// If nil, defaults to NewShallowSeabedCave.
 	CaveFactory func(grid [][]bool, w *World, tx, ty int) cave.Cave
@@ -108,6 +111,10 @@ var tileRegistry = map[TileType]*TileTypeInfo{
 		DivePrompt:   "Press [E] to Salvage Wreckage",
 		ScatterCount: 3,
 		GenerateGrid: cave.GenerateWreckageGrid,
+		GenerateGridContext: func(r *rand.Rand, w *World, tx, ty int) [][]bool {
+			shipIndex := w.ComputeWreckageShipIndex(tx, ty)
+			return cave.GenerateWreckageGridWithShip(r, shipIndex)
+		},
 		CaveFactory: func(grid [][]bool, w *World, tx, ty int) cave.Cave {
 			shipIndex := w.ComputeWreckageShipIndex(tx, ty)
 			return cave.NewWreckageCorridorCave(grid, shipIndex)

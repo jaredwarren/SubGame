@@ -19,6 +19,7 @@ func TestCaveEntityMapMeta(t *testing.T) {
 		{NewPassiveFish(0, 0, true, 0), "PassiveFish", mapColorPassive, false},
 		{NewInkSquid(0, 0, true), "InkSquid", mapColorPassive, false},
 		{NewInkCloud(0, 0), "InkCloud", mapColorEffect, false},
+		{NewScrapHermitCrab(0, 0), "ScrapHermitCrab", mapColorPassive, false},
 		{&Kelp{}, "Kelp", mapColorFlora, false},
 		{NewSonicDecoy(0, 0, gvec.Vec2{}), "SonicDecoy", mapColorEffect, false},
 	}

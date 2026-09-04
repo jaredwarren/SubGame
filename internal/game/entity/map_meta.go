@@ -46,6 +46,9 @@ func (e *Lanternfish) MapColor() color.RGBA { return mapColorPassive }
 func (e *PassiveCrab) DebugName() string    { return "PassiveCrab" }
 func (e *PassiveCrab) MapColor() color.RGBA { return mapColorPassive }
 
+func (e *ScrapHermitCrab) DebugName() string    { return "ScrapHermitCrab" }
+func (e *ScrapHermitCrab) MapColor() color.RGBA { return mapColorPassive }
+
 func (e *Kelp) DebugName() string    { return "Kelp" }
 func (e *Kelp) MapColor() color.RGBA { return mapColorFlora }
 
@@ -72,4 +75,10 @@ func (e *GlowSquid) MapColor() color.RGBA { return mapColorPassive }
 
 func (e *InkCloud) DebugName() string    { return "InkCloud" }
 func (e *InkCloud) MapColor() color.RGBA { return mapColorEffect }
+
+func (e *WreckTerminal) DebugName() string    { return "WreckTerminal" }
+func (e *WreckTerminal) MapColor() color.RGBA { return mapColorPassive }
+
+func (e *SparkingConduit) DebugName() string    { return "SparkingConduit" }
+func (e *SparkingConduit) MapColor() color.RGBA { return mapColorPredator }
 

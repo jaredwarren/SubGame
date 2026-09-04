@@ -136,51 +136,53 @@ func TestTieredWreckageProgression(t *testing.T) {
 }
 
 func TestWreckageCaveReachability(t *testing.T) {
-	for seed := int64(1); seed <= 100; seed++ {
-		r := rand.New(rand.NewSource(seed))
-		grid := GenerateWreckageGrid(r)
-		w := len(grid)
-		h := len(grid[0])
+	for seed := int64(1); seed <= 40; seed++ {
+		for shipIdx := 0; shipIdx < 3; shipIdx++ {
+			r := rand.New(rand.NewSource(seed))
+			grid := GenerateWreckageGridWithShip(r, shipIdx)
+			w := len(grid)
+			h := len(grid[0])
 
-		visited := make([][]bool, w)
-		for x := range w {
-			visited[x] = make([]bool, h)
-		}
-
-		// BFS from entrance (30, 2)
-		type pt struct{ x, y int }
-		queue := []pt{{30, 2}}
-		visited[30][2] = true
-
-		for len(queue) > 0 {
-			curr := queue[0]
-			queue = queue[1:]
-
-			dirs := [][2]int{{0, 1}, {0, -1}, {1, 0}, {-1, 0}}
-			for _, d := range dirs {
-				nx, ny := curr.x+d[0], curr.y+d[1]
-				if nx >= 0 && nx < w && ny >= 0 && ny < h && !grid[nx][ny] && !visited[nx][ny] {
-					visited[nx][ny] = true
-					queue = append(queue, pt{nx, ny})
-				}
+			visited := make([][]bool, w)
+			for x := range w {
+				visited[x] = make([]bool, h)
 			}
-		}
 
-		// Count unreachable open tiles
-		unreachableCount := 0
-		var sampleUnreachable pt
-		for x := 0; x < w; x++ {
-			for y := 0; y < h; y++ {
-				if !grid[x][y] && !visited[x][y] {
-					if unreachableCount == 0 {
-						sampleUnreachable = pt{x, y}
+			// BFS from entrance (30, 2)
+			type pt struct{ x, y int }
+			queue := []pt{{30, 2}}
+			visited[30][2] = true
+
+			for len(queue) > 0 {
+				curr := queue[0]
+				queue = queue[1:]
+
+				dirs := [][2]int{{0, 1}, {0, -1}, {1, 0}, {-1, 0}}
+				for _, d := range dirs {
+					nx, ny := curr.x + d[0], curr.y + d[1]
+					if nx >= 0 && nx < w && ny >= 0 && ny < h && !grid[nx][ny] && !visited[nx][ny] {
+						visited[nx][ny] = true
+						queue = append(queue, pt{nx, ny})
 					}
-					unreachableCount++
 				}
 			}
-		}
-		if unreachableCount > 0 {
-			t.Errorf("seed %d: found %d unreachable open tiles! Sample at (%d, %d)", seed, unreachableCount, sampleUnreachable.x, sampleUnreachable.y)
+
+			// Count unreachable open tiles
+			unreachableCount := 0
+			var sampleUnreachable pt
+			for x := 0; x < w; x++ {
+				for y := 0; y < h; y++ {
+					if !grid[x][y] && !visited[x][y] {
+						if unreachableCount == 0 {
+							sampleUnreachable = pt{x, y}
+						}
+						unreachableCount++
+					}
+				}
+			}
+			if unreachableCount > 0 {
+				t.Errorf("seed %d shipIdx %d: found %d unreachable open tiles! Sample at (%d, %d)", seed, shipIdx, unreachableCount, sampleUnreachable.x, sampleUnreachable.y)
+			}
 		}
 	}
 }
@@ -294,6 +296,60 @@ func TestShip2EscapeRocketBlockedByBulkhead(t *testing.T) {
 		if !visited[rocketPos[0]][rocketPos[1]] {
 			t.Fatalf("seed %d: Escape Rocket at (%d, %d) is UNREACHABLE even after breaking bulkheads!",
 				seed, rocketPos[0], rocketPos[1])
+		}
+	}
+}
+
+func TestWreckageTieredFeatures(t *testing.T) {
+	seed := int64(12345)
+	r := rand.New(rand.NewSource(seed))
+
+	for shipIdx := 0; shipIdx < 3; shipIdx++ {
+		grid := GenerateWreckageGridWithShip(r, shipIdx)
+		cave := NewWreckageCorridorCave(grid, shipIdx)
+		ents := cave.GenerateEntities(seed)
+
+		crabCount := 0
+		termCount := 0
+		conduitCount := 0
+		var foundTerm *entity.WreckTerminal
+
+		for _, e := range ents {
+			if _, ok := e.(*entity.ScrapHermitCrab); ok {
+				crabCount++
+			}
+			if term, ok := e.(*entity.WreckTerminal); ok {
+				termCount++
+				foundTerm = term
+			}
+			if _, ok := e.(*entity.SparkingConduit); ok {
+				conduitCount++
+			}
+		}
+
+		if crabCount < 2 {
+			t.Errorf("Ship %d: expected at least 2 ScrapHermitCrabs, got %d", shipIdx, crabCount)
+		}
+		if termCount != 1 {
+			t.Errorf("Ship %d: expected exactly 1 WreckTerminal, got %d", shipIdx, termCount)
+		}
+		if foundTerm != nil && foundTerm.ShipIndex != shipIdx {
+			t.Errorf("Ship %d: WreckTerminal has wrong ShipIndex %d", shipIdx, foundTerm.ShipIndex)
+		}
+
+		// Verify conduit scaling
+		if shipIdx == 0 && conduitCount != 1 {
+			t.Errorf("Ship 0: expected 1 conduit, got %d", conduitCount)
+		} else if shipIdx == 1 && conduitCount < 3 {
+			t.Errorf("Ship 1: expected at least 3 conduits, got %d", conduitCount)
+		} else if shipIdx == 2 && conduitCount < 5 {
+			t.Errorf("Ship 2: expected at least 5 conduits, got %d", conduitCount)
+		}
+
+		// Ambient color palette check
+		amb := cave.GetAmbientColor(1.0)
+		if amb[3] <= 0 {
+			t.Errorf("Ship %d: invalid ambient alpha %f", shipIdx, amb[3])
 		}
 	}
 }

@@ -29,6 +29,7 @@ const (
 	FaunaInkSquid          = entity.FaunaInkSquid
 	FaunaLanternfish       = entity.FaunaLanternfish
 	FaunaGlowSquid         = entity.FaunaGlowSquid
+	FaunaScrapHermitCrab   = entity.FaunaScrapHermitCrab
 	FaunaCount             = entity.FaunaCount
 )
 

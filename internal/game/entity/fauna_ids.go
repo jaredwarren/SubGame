@@ -15,5 +15,6 @@ const (
 	FaunaInkSquid
 	FaunaLanternfish
 	FaunaGlowSquid
+	FaunaScrapHermitCrab
 	FaunaCount
 )
