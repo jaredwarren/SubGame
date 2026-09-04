@@ -216,8 +216,12 @@ func (g *Game) SpawnVehicle(name string) {
 		}
 		g.CaveVehicles[g.activeTrenchKey] = append(g.CaveVehicles[g.activeTrenchKey], v)
 	}
-	g.ActiveVehicle = v
-	g.SetMineWarning("Spawned and boarded "+v.GetName(), 120, 1)
+	if _, isPod := v.(*vehicle.MiniLifepod); isPod {
+		g.SetMineWarning("Spawned field outpost "+v.GetName(), 120, 1)
+	} else {
+		g.ActiveVehicle = v
+		g.SetMineWarning("Spawned and boarded "+v.GetName(), 120, 1)
+	}
 }
 
 func (g *Game) RepairActiveVehicle() {

@@ -344,26 +344,29 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 		}
 	}
 
-	// Skiff Docking Bays (Bay 1: Scout Sub, Bay 2: Heavy Mech)
+	// Skiff Docking Bays (Bay 1: Scout Sub, Bay 2: Heavy Mech, Bay 3: Mini-Lifepod)
 	if skiff, ok := activeVehicle.(*vehicle.Skiff); ok {
 		baysY := float32(panelY + 278)
 		vector.FillRect(screen, float32(panelX+510), baysY, 410, 18, color.RGBA{22, 32, 50, 255}, false)
 		ebitenutil.DebugPrintAt(screen, " SKIFF DOCKING BAYS (CLICK TO LAUNCH OR RECALL)", int(panelX+510), int(baysY)+2)
 
 		bays := []struct {
-			bayIdx  int
-			id      vehicle.VehicleID
-			name    string
-			xOffset float64
+			bayIdx    int
+			id        vehicle.VehicleID
+			name      string
+			shortName string
+			xOffset   float64
+			isSurface bool
 		}{
-			{0, vehicle.VehicleScoutSub, "Scout Sub", 510},
-			{1, vehicle.VehicleHeavyMech, "Heavy Mech", 725},
+			{0, vehicle.VehicleScoutSub, "Scout Sub", "Scout Sub", 510, false},
+			{1, vehicle.VehicleHeavyMech, "Heavy Mech", "Heavy Mech", 648, false},
+			{2, vehicle.VehicleMiniLifepod, "Mini-Lifepod", "Mini-Pod", 786, true},
 		}
 
 		for _, bayInfo := range bays {
 			bx := float32(panelX + bayInfo.xOffset)
 			by := baysY + 22
-			bw := float32(195)
+			bw := float32(134)
 			bh := float32(64)
 
 			docked := skiff.GetDocked(bayInfo.bayIdx)
@@ -383,20 +386,21 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 			vector.FillRect(screen, bx, by, bw, bh, bgClr, false)
 			vector.StrokeRect(screen, bx, by, bw, bh, 1.0, borderClr, false)
 
+			const barW = float32(118)
 			if docked != nil {
 				isCharging := skiff.IsBayCharging(bayInfo.bayIdx)
-				statusTag := "[DOCKED]"
+				statusTag := "[DOCK]"
 				if isCharging {
-					statusTag = "[CHARGING ⚡]"
+					statusTag = "[⚡]"
 				}
-				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d] %s %s", bayInfo.bayIdx+1, bayInfo.name, statusTag), int(bx)+8, int(by)+6)
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d] %s %s", bayInfo.bayIdx+1, bayInfo.shortName, statusTag), int(bx)+6, int(by)+6)
 
 				hpPct := 1.0
 				if docked.MaxHealth > 0 {
 					hpPct = max(0.0, min(1.0, docked.Health/docked.MaxHealth))
 				}
-				vector.FillRect(screen, bx+8, by+20, 179, 5, color.RGBA{40, 50, 65, 255}, false)
-				vector.FillRect(screen, bx+8, by+20, float32(179*hpPct), 5, color.RGBA{60, 210, 110, 255}, false)
+				vector.FillRect(screen, bx+8, by+20, barW, 5, color.RGBA{40, 50, 65, 255}, false)
+				vector.FillRect(screen, bx+8, by+20, barW*float32(hpPct), 5, color.RGBA{60, 210, 110, 255}, false)
 
 				batPct := 1.0
 				if docked.MaxBattery > 0 {
@@ -406,32 +410,47 @@ func (h *HUD) DrawVehicleInventory(screen *ebiten.Image, g GameContext, pInv *it
 				if isCharging {
 					batClr = color.RGBA{50, 255, 120, 255}
 				}
-				vector.FillRect(screen, bx+8, by+27, 179, 5, color.RGBA{40, 50, 65, 255}, false)
-				vector.FillRect(screen, bx+8, by+27, float32(179*batPct), 5, batClr, false)
+				vector.FillRect(screen, bx+8, by+27, barW, 5, color.RGBA{40, 50, 65, 255}, false)
+				vector.FillRect(screen, bx+8, by+27, barW*float32(batPct), 5, batClr, false)
 
 				btnActionBg := color.RGBA{18, 55, 80, 255}
 				if isHovered {
 					btnActionBg = color.RGBA{25, 85, 125, 255}
 				}
-				vector.FillRect(screen, bx+8, by+36, 179, 22, btnActionBg, false)
-				vector.StrokeRect(screen, bx+8, by+36, 179, 22, 0.8, color.RGBA{45, 175, 215, 255}, false)
-				ebitenutil.DebugPrintAt(screen, "▶ LAUNCH / DIVE INTO CAVE", int(bx)+10, int(by)+40)
+				vector.FillRect(screen, bx+8, by+36, barW, 22, btnActionBg, false)
+				vector.StrokeRect(screen, bx+8, by+36, barW, 22, 0.8, color.RGBA{45, 175, 215, 255}, false)
+
+				actionLabel := "▶ DIVE CAVE"
+				if bayInfo.isSurface {
+					actionLabel = "▶ DEPLOY"
+				}
+				ebitenutil.DebugPrintAt(screen, actionLabel, int(bx)+10, int(by)+40)
 
 			} else if inWorld {
-				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d] %s [IN CAVE]", bayInfo.bayIdx+1, bayInfo.name), int(bx)+8, int(by)+6)
-				ebitenutil.DebugPrintAt(screen, "Deployed in trench", int(bx)+8, int(by)+20)
+				locTag := "[IN CAVE]"
+				if bayInfo.isSurface {
+					locTag = "[SURFACE]"
+				}
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d] %s %s", bayInfo.bayIdx+1, bayInfo.shortName, locTag), int(bx)+6, int(by)+6)
+				subText := "Deployed"
+				if bayInfo.isSurface {
+					subText = "In ocean"
+				} else {
+					subText = "In trench"
+				}
+				ebitenutil.DebugPrintAt(screen, subText, int(bx)+8, int(by)+20)
 
 				btnActionBg := color.RGBA{70, 45, 15, 255}
 				if isHovered {
 					btnActionBg = color.RGBA{110, 70, 25, 255}
 				}
-				vector.FillRect(screen, bx+8, by+36, 179, 22, btnActionBg, false)
-				vector.StrokeRect(screen, bx+8, by+36, 179, 22, 0.8, color.RGBA{235, 160, 45, 255}, false)
-				ebitenutil.DebugPrintAt(screen, "⚡ WINCH RECALL TO DOCK", int(bx)+12, int(by)+40)
+				vector.FillRect(screen, bx+8, by+36, barW, 22, btnActionBg, false)
+				vector.StrokeRect(screen, bx+8, by+36, barW, 22, 0.8, color.RGBA{235, 160, 45, 255}, false)
+				ebitenutil.DebugPrintAt(screen, "⚡ WINCH", int(bx)+12, int(by)+40)
 
 			} else {
-				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d] %s [EMPTY]", bayInfo.bayIdx+1, bayInfo.name), int(bx)+8, int(by)+14)
-				ebitenutil.DebugPrintAt(screen, "Build at Life Pod base", int(bx)+8, int(by)+34)
+				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("[%d] %s [EMPTY]", bayInfo.bayIdx+1, bayInfo.shortName), int(bx)+6, int(by)+14)
+				ebitenutil.DebugPrintAt(screen, "Fabricate kit", int(bx)+8, int(by)+34)
 			}
 		}
 	}
@@ -576,7 +595,7 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 	// Skiff Docking Bays Click Handling
 	if skiff, ok := v.(*vehicle.Skiff); ok {
 		baysY := panelY + 278 + 22
-		const bw, bh = 195.0, 64.0
+		const bw, bh = 134.0, 64.0
 
 		// Bay 0 (Scout Sub)
 		bx0 := panelX + 510
@@ -592,7 +611,7 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 		}
 
 		// Bay 1 (Heavy Mech)
-		bx1 := panelX + 725
+		bx1 := panelX + 648
 		if float64(mx) >= bx1 && float64(mx) < bx1+bw && float64(my) >= baysY && float64(my) < baysY+bh {
 			if skiff.GetDocked(1) != nil {
 				audio.Get().PlaySFX("sfx/vehicle_enter.wav")
@@ -600,6 +619,19 @@ func (h *HUD) HandleVehicleInventoryClicks(g GameContext) {
 				return
 			} else if g.HasVehicleInWorldOrDock(vehicle.VehicleHeavyMech) {
 				g.WinchRecallSub(1)
+				return
+			}
+		}
+
+		// Bay 2 (Mini-Lifepod)
+		bx2 := panelX + 786
+		if float64(mx) >= bx2 && float64(mx) < bx2+bw && float64(my) >= baysY && float64(my) < baysY+bh {
+			if skiff.GetDocked(2) != nil {
+				audio.Get().PlaySFX("sfx/vehicle_enter.wav")
+				g.DeploySubFromSkiff(2)
+				return
+			} else if g.HasVehicleInWorldOrDock(vehicle.VehicleMiniLifepod) {
+				g.WinchRecallSub(2)
 				return
 			}
 		}

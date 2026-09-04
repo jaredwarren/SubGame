@@ -141,6 +141,7 @@ var debugItemList = []debugItemEntry{
 	{Name: "Skiff Kit", Category: 3},
 	{Name: "Scout Sub Kit", Category: 3},
 	{Name: "Heavy Mech Kit", Category: 3},
+	{Name: "Mini-Lifepod Kit", Category: 3},
 
 	// 4: Food & Consumables
 	{Name: "Cooked Fish", Category: 4},
@@ -369,6 +370,7 @@ func (d *DebugMenuScene) updateVehiclesTab(g DebugContext, cx, cy float64, mx, m
 		{"Spawn Surface Skiff", "The Skiff"},
 		{"Spawn Scout Submarine", "Scout Sub"},
 		{"Spawn Heavy Mech Walker", "Heavy Mech"},
+		{"Spawn Mini-Lifepod", "Mini-Lifepod"},
 	}
 
 	for i, sp := range spawns {
@@ -766,6 +768,7 @@ func (d *DebugMenuScene) drawVehiclesTab(screen *ebiten.Image, g DebugContext, c
 		"Spawn Surface Skiff",
 		"Spawn Scout Submarine",
 		"Spawn Heavy Mech Walker",
+		"Spawn Mini-Lifepod",
 	}
 	for i, sp := range spawns {
 		bx := cx + 20

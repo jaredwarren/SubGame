@@ -165,3 +165,30 @@ var HeavyMechArchetype = &HeavyMechDef{
 	Waterline:        -12.0,
 	SurfaceBuoyancy:  0.20,
 }
+
+// MiniLifepodDef holds balance and functional feature flags for the portable Mini-Lifepod outpost.
+type MiniLifepodDef struct {
+	Dims              gvec.Vec2
+	MaxHealth         float64
+	MaxBattery        float64
+	CargoSlots        int     // 0 by default; easily changed to grant internal storage
+	UpgradeSlots      int     // 2 module slots (solar, storage, etc.)
+	SolarRechargeRate float64 // baseline trickle recharge
+	HasFabricator     bool    // full crafting access
+	HasMedicalBay     bool    // field healing
+	HasStorage        bool    // whether vault tab/storage is active
+}
+
+// MiniLifepodArchetype is the shared balance and config table for MiniLifepod instances.
+var MiniLifepodArchetype = &MiniLifepodDef{
+	Dims:              gvec.Vec2{X: 40, Y: 40},
+	MaxHealth:         150.0,
+	MaxBattery:        75.0,
+	CargoSlots:        0,
+	UpgradeSlots:      2,
+	SolarRechargeRate: 0.01,
+	HasFabricator:     true,
+	HasMedicalBay:     true,
+	HasStorage:        false,
+}
+

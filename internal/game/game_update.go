@@ -8,6 +8,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/audio"
+	"github.com/jaredwarren/SubGame/internal/game/base"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/item"
@@ -430,11 +431,22 @@ func (g *Game) handleInput() {
 			audio.Get().PlaySFX("sfx/inventory_close.wav")
 		}
 	}
-	if g.currentState == StateOverworld && g.baseStation.DistanceToPlayer(g.player) < 100.0 && g.Input.IsKeyJustPressed(ebiten.KeyE) {
-		audio.Get().PlaySFX("sfx/airlock_cycle.wav")
-		g.menuOpenedAnywhere = false
-		g.baseMenu.ActiveTab = 1
-		g.TransitionTo(g.baseMenu)
+	if g.currentState == StateOverworld && g.Input.IsKeyJustPressed(ebiten.KeyE) {
+		if g.baseStation != nil && g.baseStation.DistanceToPlayer(g.player) < 100.0 {
+			g.activeMiniLifepod = nil
+			g.miniLifepodStation = nil
+			audio.Get().PlaySFX("sfx/airlock_cycle.wav")
+			g.menuOpenedAnywhere = false
+			g.baseMenu.ActiveTab = 1
+			g.TransitionTo(g.baseMenu)
+		} else if pod := g.getNearbyMiniLifepod(); pod != nil {
+			g.activeMiniLifepod = pod
+			g.syncMiniLifepodBaseStation(pod)
+			audio.Get().PlaySFX("sfx/airlock_cycle.wav")
+			g.menuOpenedAnywhere = false
+			g.baseMenu.ActiveTab = 1
+			g.TransitionTo(g.baseMenu)
+		}
 	}
 	if g.Input.IsKeyJustPressed(ebiten.KeyJ) {
 		switch g.currentState {
@@ -955,12 +967,52 @@ func (g *Game) canEnterVehicleNearby() bool {
 }
 
 // canEnterLifePodNearby reports whether the player is on foot in the overworld and
-// within interaction distance (< 100 units) of the Life Pod.
+// within interaction distance of the Life Pod or a deployed Mini-Lifepod.
 func (g *Game) canEnterLifePodNearby() bool {
-	if g.currentState != StateOverworld || g.ActiveVehicle != nil || g.player == nil || g.baseStation == nil {
+	if g.currentState != StateOverworld || g.ActiveVehicle != nil || g.player == nil {
 		return false
 	}
-	return g.baseStation.DistanceToPlayer(g.player) < 100.0
+	if g.baseStation != nil && g.baseStation.DistanceToPlayer(g.player) < 100.0 {
+		return true
+	}
+	return g.getNearbyMiniLifepod() != nil
+}
+
+func (g *Game) getNearbyMiniLifepod() *vehicle.MiniLifepod {
+	if g.currentState != StateOverworld || g.player == nil {
+		return nil
+	}
+	px := g.player.Pos.X + g.player.Width/2.0
+	py := g.player.Pos.Y + g.player.Height/2.0
+	for _, v := range g.OverworldVehicles {
+		if pod, ok := v.(*vehicle.MiniLifepod); ok && pod != nil {
+			vx := pod.Pos.X + pod.Dimensions.X/2.0
+			vy := pod.Pos.Y + pod.Dimensions.Y/2.0
+			if math.Hypot(px-vx, py-vy) < 80.0 {
+				return pod
+			}
+		}
+	}
+	return nil
+}
+
+func (g *Game) syncMiniLifepodBaseStation(pod *vehicle.MiniLifepod) {
+	if pod == nil {
+		g.miniLifepodStation = nil
+		return
+	}
+	pod.RecalculateProperties()
+	st := &base.BaseStation{
+		Pos:               pod.Pos,
+		Size:              pod.Dimensions,
+		Power:             pod.Battery,
+		MaxPower:          pod.MaxBattery,
+		Storage:           pod.Cargo,
+		Upgrades:          pod.Upgrades,
+		SolarRechargeRate: pod.SolarRechargeRate,
+		ActiveModules:     pod.ActiveModules,
+	}
+	g.miniLifepodStation = st
 }
 
 // activeVehicleHasSonar reports whether the vehicle currently being piloted has a

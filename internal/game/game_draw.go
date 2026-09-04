@@ -119,7 +119,7 @@ func (g *Game) drawCaveLayer(screen *ebiten.Image) {
 	}
 }
 
-// drawVehicleEntryPrompts shows "Press [F] to Pilot" above any vehicle within boarding range.
+// drawVehicleEntryPrompts shows interaction prompt above any vehicle within range.
 func (g *Game) drawVehicleEntryPrompts(screen *ebiten.Image, vehicles []vehicle.Vehicle, camX, camY float64) {
 	if g.isTouchActive() {
 		return
@@ -137,7 +137,11 @@ func (g *Game) drawVehicleEntryPrompts(screen *ebiten.Image, vehicles []vehicle.
 		sx := float32(vPos.X-camX) + float32(vDims.X)/2.0 - 75
 		sy := float32(vPos.Y-camY) - 25
 		vector.FillRect(screen, sx, sy, 150, 20, color.RGBA{0, 0, 0, 180}, false)
-		ebitenutil.DebugPrintAt(screen, "Press [F] to Pilot", int(sx)+22, int(sy)+2)
+		if _, isPod := v.(*vehicle.MiniLifepod); isPod {
+			ebitenutil.DebugPrintAt(screen, "Press [E] Open Outpost", int(sx)+10, int(sy)+2)
+		} else {
+			ebitenutil.DebugPrintAt(screen, "Press [F] to Pilot", int(sx)+22, int(sy)+2)
+		}
 	}
 }
 
@@ -237,75 +241,83 @@ func wrapBannerText(text string, maxChars int) []string {
 	return lines
 }
 
-// drawWaypointMarker draws a wayfinding HUD element that always points back to the base station/lifepod.
+// drawWaypointMarker draws wayfinding HUD elements for the main base station and any deployed Mini-Lifepods.
 func (g *Game) drawWaypointMarker(screen *ebiten.Image) {
 	if g.currentState != StateOverworld {
 		return
 	}
 
-	// 1. Calculate base center in world space
-	baseCenter := gvec.Vec2{
-		X: g.baseStation.Pos.X + g.baseStation.Size.X/2.0,
-		Y: g.baseStation.Pos.Y + g.baseStation.Size.Y/2.0,
+	// 1. Main Life Pod
+	if g.baseStation != nil {
+		baseCenter := gvec.Vec2{
+			X: g.baseStation.Pos.X + g.baseStation.Size.X/2.0,
+			Y: g.baseStation.Pos.Y + g.baseStation.Size.Y/2.0,
+		}
+		g.drawWaypointPin(screen, baseCenter, "LIFEPOD",
+			color.RGBA{R: 0, G: 200, B: 255, A: 255},
+			color.RGBA{R: 0, G: 200, B: 255, A: 120},
+			color.RGBA{R: 0, G: 200, B: 255, A: 100},
+		)
 	}
 
+	// 2. Deployed Mini-Lifepod outposts
+	for _, v := range g.OverworldVehicles {
+		if pod, ok := v.(*vehicle.MiniLifepod); ok && pod != nil {
+			podCenter := gvec.Vec2{
+				X: pod.Pos.X + pod.Dimensions.X/2.0,
+				Y: pod.Pos.Y + pod.Dimensions.Y/2.0,
+			}
+			g.drawWaypointPin(screen, podCenter, "OUTPOST",
+				color.RGBA{R: 245, G: 135, B: 45, A: 255},
+				color.RGBA{R: 245, G: 135, B: 45, A: 120},
+				color.RGBA{R: 245, G: 135, B: 45, A: 100},
+			)
+		}
+	}
+}
+
+func (g *Game) drawWaypointPin(screen *ebiten.Image, targetCenter gvec.Vec2, label string, pinColor, dimColor, borderOutlineColor color.RGBA) {
 	camX, camY := g.camera.Pos.X, g.camera.Pos.Y
+	screenX := targetCenter.X - camX
+	screenY := targetCenter.Y - camY
 
-	// 2. Base center in screen space
-	screenX := baseCenter.X - camX
-	screenY := baseCenter.Y - camY
-
-	// 3. Define layout margins and limits
 	margin := 40.0
 	screenWidth := float64(config.ScreenWidth)
 	screenHeight := float64(config.ScreenHeight)
 
-	// 4. Calculate distance from player center to base center
 	playerCenter := gvec.Vec2{
 		X: g.player.Pos.X + g.player.Width/2.0,
 		Y: g.player.Pos.Y + g.player.Height/2.0,
 	}
-	dist := math.Hypot(baseCenter.X-playerCenter.X, baseCenter.Y-playerCenter.Y)
+	dist := math.Hypot(targetCenter.X-playerCenter.X, targetCenter.Y-playerCenter.Y)
 	distMeters := int(dist / 16.0)
+	textStr := fmt.Sprintf("%s (%dm)", label, distMeters)
 
-	// Format text string
-	textStr := fmt.Sprintf("LIFEPOD (%dm)", distMeters)
-
-	// 5. Check if lifepod is on screen
 	isOnScreen := screenX >= margin && screenX <= screenWidth-margin &&
 		screenY >= margin && screenY <= screenHeight-margin
 
-	var markerX, markerY float64
-	cyanColor := color.RGBA{R: 0, G: 200, B: 255, A: 255}
-	cyanDimColor := color.RGBA{R: 0, G: 200, B: 255, A: 120}
 	darkBgColor := color.RGBA{R: 0, G: 4, B: 12, A: 200}
-	borderOutlineColor := color.RGBA{R: 0, G: 200, B: 255, A: 100}
+	var markerX, markerY float64
 
 	if isOnScreen {
 		markerX = screenX
-		markerY = screenY - 50.0 // Hover above the lifepod
+		markerY = screenY - 50.0 // Hover above target
 
-		// Draw hovering waypoint pin (diamond + pointing stem)
-		// Draw a small diamond
-		vector.StrokeLine(screen, float32(markerX), float32(markerY-8), float32(markerX+6), float32(markerY), 1.2, cyanColor, false)
-		vector.StrokeLine(screen, float32(markerX+6), float32(markerY), float32(markerX), float32(markerY+8), 1.2, cyanColor, false)
-		vector.StrokeLine(screen, float32(markerX), float32(markerY+8), float32(markerX-6), float32(markerY), 1.2, cyanColor, false)
-		vector.StrokeLine(screen, float32(markerX-6), float32(markerY), float32(markerX), float32(markerY-8), 1.2, cyanColor, false)
+		// Draw hovering waypoint pin (diamond)
+		vector.StrokeLine(screen, float32(markerX), float32(markerY-8), float32(markerX+6), float32(markerY), 1.2, pinColor, false)
+		vector.StrokeLine(screen, float32(markerX+6), float32(markerY), float32(markerX), float32(markerY+8), 1.2, pinColor, false)
+		vector.StrokeLine(screen, float32(markerX), float32(markerY+8), float32(markerX-6), float32(markerY), 1.2, pinColor, false)
+		vector.StrokeLine(screen, float32(markerX-6), float32(markerY), float32(markerX), float32(markerY-8), 1.2, pinColor, false)
+		vector.FillCircle(screen, float32(markerX), float32(markerY), 2.5, pinColor, false)
 
-		// Fill a tiny center dot
-		vector.FillCircle(screen, float32(markerX), float32(markerY), 2.5, cyanColor, false)
-
-		// Draw text above the hovering pin
 		textWidth := len(textStr) * 6
 		textX := int(markerX) - textWidth/2
 		textY := int(markerY) - 24
 
-		// Draw text box background and border
 		vector.FillRect(screen, float32(textX-4), float32(textY-2), float32(textWidth+8), 16, darkBgColor, false)
 		vector.StrokeRect(screen, float32(textX-4), float32(textY-2), float32(textWidth+8), 16, 1.0, borderOutlineColor, false)
 		ebitenutil.DebugPrintAt(screen, textStr, textX, textY)
 	} else {
-		// Pinned to edge. Calculate intersection with boundary box.
 		center := gvec.Vec2{X: screenWidth / 2.0, Y: screenHeight / 2.0}
 		dir := gvec.Vec2{X: screenX - center.X, Y: screenY - center.Y}
 
@@ -340,11 +352,9 @@ func (g *Game) drawWaypointMarker(screen *ebiten.Image) {
 		markerX = center.X + dir.X*t
 		markerY = center.Y + dir.Y*t
 
-		// Draw a circular HUD badge
 		vector.FillCircle(screen, float32(markerX), float32(markerY), 15, darkBgColor, false)
-		vector.StrokeCircle(screen, float32(markerX), float32(markerY), 15, 1.2, cyanDimColor, false)
+		vector.StrokeCircle(screen, float32(markerX), float32(markerY), 15, 1.2, dimColor, false)
 
-		// Draw pointing arrow inside the badge
 		angle := math.Atan2(dir.Y, dir.X)
 		tipX := markerX + math.Cos(angle)*8
 		tipY := markerY + math.Sin(angle)*8
@@ -353,35 +363,28 @@ func (g *Game) drawWaypointMarker(screen *ebiten.Image) {
 		rightX := markerX + math.Cos(angle-2.3)*6
 		rightY := markerY + math.Sin(angle-2.3)*6
 
-		vector.StrokeLine(screen, float32(tipX), float32(tipY), float32(leftX), float32(leftY), 1.5, cyanColor, false)
-		vector.StrokeLine(screen, float32(tipX), float32(tipY), float32(rightX), float32(rightY), 1.5, cyanColor, false)
-		vector.StrokeLine(screen, float32(leftX), float32(leftY), float32(rightX), float32(rightY), 1.5, cyanColor, false)
+		vector.StrokeLine(screen, float32(tipX), float32(tipY), float32(leftX), float32(leftY), 1.5, pinColor, false)
+		vector.StrokeLine(screen, float32(tipX), float32(tipY), float32(rightX), float32(rightY), 1.5, pinColor, false)
+		vector.StrokeLine(screen, float32(leftX), float32(leftY), float32(rightX), float32(rightY), 1.5, pinColor, false)
 
-		// Dynamic text placement to prevent clipping
 		textWidth := len(textStr) * 6
 		var textX, textY int
 		if markerX < center.X-150 {
-			// Pinned left edge, draw text to the right
 			textX = int(markerX) + 20
 			textY = int(markerY) - 7
 		} else if markerX > center.X+150 {
-			// Pinned right edge, draw text to the left
 			textX = int(markerX) - 20 - textWidth
 			textY = int(markerY) - 7
 		} else {
-			// Pinned top/bottom edge
 			if markerY < center.Y {
-				// Top edge, draw text below
 				textX = int(markerX) - textWidth/2
 				textY = int(markerY) + 20
 			} else {
-				// Bottom edge, draw text above
 				textX = int(markerX) - textWidth/2
 				textY = int(markerY) - 30
 			}
 		}
 
-		// Draw text box background and border
 		vector.FillRect(screen, float32(textX-4), float32(textY-2), float32(textWidth+8), 16, darkBgColor, false)
 		vector.StrokeRect(screen, float32(textX-4), float32(textY-2), float32(textWidth+8), 16, 1.0, borderOutlineColor, false)
 		ebitenutil.DebugPrintAt(screen, textStr, textX, textY)

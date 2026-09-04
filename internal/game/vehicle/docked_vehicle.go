@@ -84,6 +84,20 @@ func (d *DockedVehicle) ToVehicle(x, y float64) Vehicle {
 		if d.Upgrades != nil {
 			sub.Upgrades = CloneInventory(d.Upgrades)
 		}
+	case *MiniLifepod:
+		if d.Health > 0 {
+			sub.Health = d.Health
+		}
+		if d.Battery >= 0 {
+			sub.Battery = d.Battery
+		}
+		if d.Cargo != nil {
+			sub.Cargo = CloneInventory(d.Cargo)
+		}
+		if d.Upgrades != nil {
+			sub.Upgrades = CloneInventory(d.Upgrades)
+		}
+		sub.RecalculateProperties()
 	default:
 		if d.Cargo != nil && v.GetCargo() != nil {
 			*v.GetCargo() = *CloneInventory(d.Cargo)
@@ -105,6 +119,8 @@ func (d *DockedVehicle) GetName() string {
 		return "Scout Sub"
 	case VehicleHeavyMech:
 		return "Heavy Mech"
+	case VehicleMiniLifepod:
+		return "Mini-Lifepod"
 	default:
 		return string(d.ID)
 	}

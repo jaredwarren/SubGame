@@ -11,6 +11,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -272,6 +273,18 @@ func (m *BaseMenuScene) drawMapIcons(g MenuContext, screen *ebiten.Image, mapX, 
 		px, py := toScreen(tx, ty)
 		vector.FillCircle(screen, px, py, 4, color.RGBA{80, 220, 120, 255}, false)
 		vector.StrokeCircle(screen, px, py, 6, 1.2, color.RGBA{40, 160, 80, 255}, false)
+	}
+
+	// Deployed Mini-Lifepods / Outposts — visible on map with distinct beacon
+	for _, v := range g.GetOverworldVehicles() {
+		if pod, ok := v.(*vehicle.MiniLifepod); ok && pod != nil {
+			tx := tileAt(pod.Pos.X+pod.Dimensions.X/2.0, config.TileSize)
+			ty := tileAt(pod.Pos.Y+pod.Dimensions.Y/2.0, config.TileSize)
+			px, py := toScreen(tx, ty)
+			pulse := float32(math.Sin(g.GetTicks()*0.15) * 1.5)
+			vector.FillCircle(screen, px, py, 3.5, color.RGBA{240, 130, 40, 255}, false)
+			vector.StrokeCircle(screen, px, py, 5.5+pulse, 1.2, color.RGBA{255, 170, 70, 220}, false)
+		}
 	}
 
 	// Lost cargo crates — always visible through fog (recovery expedition breadcrumb).

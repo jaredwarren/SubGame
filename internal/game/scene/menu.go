@@ -47,8 +47,12 @@ type MenuContext interface {
 	AddItemToast(it item.Item, qty int)
 	SaveGame() error
 	GetSkiff() *vehicle.Skiff
+	GetOverworldVehicles() []vehicle.Vehicle
 	DeploySkiffAtBase() *vehicle.Skiff
 	HasVehicleInWorldOrDock(id vehicle.VehicleID) bool
+	CanPackUpActiveBase() bool
+	PackUpActiveBase()
+	GetActiveBaseStationName() string
 }
 
 // BaseMenuScene manages tab selections and base management interactions.
@@ -201,6 +205,18 @@ func (m *BaseMenuScene) update(g MenuContext) error {
 							p.RecalculateUpgrades()
 						}
 					}
+				}
+			}
+
+			if g.CanPackUpActiveBase() {
+				upgradeX := panelX + 430
+				upgradeY := panelY + 95
+				packBtnX := upgradeX + 15
+				packBtnY := upgradeY + 285
+				const packBtnW, packBtnH = 310.0, 28.0
+				if float64(mx) >= packBtnX && float64(mx) < packBtnX+packBtnW && float64(my) >= packBtnY && float64(my) < packBtnY+packBtnH {
+					g.PackUpActiveBase()
+					return nil
 				}
 			}
 		}
@@ -467,7 +483,11 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 	vector.FillRect(screen, panelX, panelY, panelW, panelH, color.RGBA{12, 16, 26, 242}, false)
 	vector.StrokeRect(screen, panelX, panelY, panelW, panelH, 1.5, color.RGBA{68, 88, 120, 255}, false)
 
-	ebitenutil.DebugPrintAt(screen, "BASE ANCHOR TERMINAL - LIFE POD 5", int(panelX+layout.SF(20)), int(panelY+layout.SF(12)))
+	terminalTitle := g.GetActiveBaseStationName()
+	if terminalTitle == "" {
+		terminalTitle = "BASE ANCHOR TERMINAL - LIFE POD 5"
+	}
+	ebitenutil.DebugPrintAt(screen, terminalTitle, int(panelX+layout.SF(20)), int(panelY+layout.SF(12)))
 	powerText := fmt.Sprintf("BASE POWER: %.0f/%.0f HP (Recharge: solar panels)", b.Power, b.MaxPower)
 	if b.HasModule(item.ModuleSolar) {
 		powerText = fmt.Sprintf("BASE POWER: %.0f/%.0f HP (Recharging: +Solar Active)", b.Power, b.MaxPower)
@@ -544,7 +564,12 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 		cursor := g.GetInput().Cursor()
 		mx, my := int(cursor.X), int(cursor.Y)
 
-		for c := 0; c < 4; c++ {
+		numSlots := 4
+		if b.Upgrades != nil {
+			numSlots = len(b.Upgrades.Slots)
+		}
+
+		for c := 0; c < numSlots; c++ {
 			rect := BaseMenuInstalledModulesLayout.SlotRect(float64(panelX), float64(panelY), c)
 			sx := float32(rect.Min.X)
 			sy := float32(rect.Min.Y)
@@ -571,7 +596,7 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 			}
 		}
 
-		statusStartY := upgradeY + 110
+		statusStartY := upgradeY + 105
 		ebitenutil.DebugPrintAt(screen, "BASE SCHEMATIC SYSTEMS STATUS", int(upgradeX)+15, int(statusStartY))
 
 		modulesList := []struct {
@@ -582,6 +607,11 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 			{item.ModuleMedical, "Medical Bay"},
 			{item.ModuleSolar, "Solar Array"},
 			{item.ModuleStorage, "Storage Vault"},
+		}
+
+		rowHeight := float32(42)
+		if g.CanPackUpActiveBase() {
+			rowHeight = 36
 		}
 
 		for idx, modInfo := range modulesList {
@@ -599,12 +629,32 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 				}
 			}
 
-			sy := statusStartY + 25 + float32(idx*50)
-			vector.FillRect(screen, upgradeX+15, sy, 310, 42, color.RGBA{24, 32, 48, 255}, false)
-			vector.StrokeRect(screen, upgradeX+15, sy, 310, 42, 0.8, color.RGBA{58, 75, 100, 255}, false)
-			ebitenutil.DebugPrintAt(screen, displayName, int(upgradeX)+25, int(sy)+6)
-			vector.FillRect(screen, upgradeX+25, sy+22, 95, 14, statusColor, false)
-			ebitenutil.DebugPrintAt(screen, status, int(upgradeX)+28, int(sy)+23)
+			sy := statusStartY + 20 + float32(idx)*rowHeight
+			vector.FillRect(screen, upgradeX+15, sy, 310, rowHeight-6, color.RGBA{24, 32, 48, 255}, false)
+			vector.StrokeRect(screen, upgradeX+15, sy, 310, rowHeight-6, 0.8, color.RGBA{58, 75, 100, 255}, false)
+			ebitenutil.DebugPrintAt(screen, displayName, int(upgradeX)+25, int(sy)+4)
+			vector.FillRect(screen, upgradeX+25, sy+18, 95, 12, statusColor, false)
+			ebitenutil.DebugPrintAt(screen, status, int(upgradeX)+28, int(sy)+18)
+		}
+
+		if g.CanPackUpActiveBase() {
+			packBtnX := float32(upgradeX + 15)
+			packBtnY := float32(upgradeY + 295)
+			packBtnW := float32(310)
+			packBtnH := float32(28)
+
+			isHovered := float64(mx) >= float64(packBtnX) && float64(mx) < float64(packBtnX+packBtnW) &&
+				float64(my) >= float64(packBtnY) && float64(my) < float64(packBtnY+packBtnH)
+
+			btnBg := color.RGBA{65, 35, 20, 255}
+			btnBorder := color.RGBA{220, 110, 40, 255}
+			if isHovered {
+				btnBg = color.RGBA{100, 50, 25, 255}
+				btnBorder = color.RGBA{255, 140, 60, 255}
+			}
+			vector.FillRect(screen, packBtnX, packBtnY, packBtnW, packBtnH, btnBg, false)
+			vector.StrokeRect(screen, packBtnX, packBtnY, packBtnW, packBtnH, 1.0, btnBorder, false)
+			ebitenutil.DebugPrintAt(screen, "📦 PACK UP MINI-LIFEPOD INTO INVENTORY", int(packBtnX)+20, int(packBtnY)+7)
 		}
 
 	case 1:

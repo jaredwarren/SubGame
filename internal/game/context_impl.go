@@ -103,7 +103,54 @@ func (g *Game) SetCurrentState(_ scene.State) {}
 func (g *Game) GetPlayer() *player.Player         { return g.player }
 func (g *Game) GetCamera() *camera.Camera         { return g.camera }
 func (g *Game) GetWorld() *world.World            { return g.world }
-func (g *Game) GetBaseStation() *base.BaseStation { return g.baseStation }
+func (g *Game) GetBaseStation() *base.BaseStation {
+	if g.activeMiniLifepod != nil && g.miniLifepodStation != nil {
+		return g.miniLifepodStation
+	}
+	return g.baseStation
+}
+
+func (g *Game) CanPackUpActiveBase() bool {
+	return g.activeMiniLifepod != nil
+}
+
+func (g *Game) GetActiveBaseStationName() string {
+	if g.activeMiniLifepod != nil {
+		return "FIELD OUTPOST - MINI-LIFEPOD"
+	}
+	return "BASE ANCHOR TERMINAL - LIFE POD 5"
+}
+
+func (g *Game) PackUpActiveBase() {
+	if g.activeMiniLifepod == nil {
+		return
+	}
+	pod := g.activeMiniLifepod
+	if g.miniLifepodStation != nil {
+		pod.Upgrades = g.miniLifepodStation.Upgrades
+		pod.Battery = g.miniLifepodStation.Power
+		pod.Cargo = g.miniLifepodStation.Storage
+		pod.RecalculateProperties()
+	}
+
+	kit := pod.GetKit()
+	if !g.player.Inventory.AddItem(kit, 1) {
+		if !g.player.Hotbar.AddItem(kit, 1) {
+			g.SetMineWarning("Inventory full! Cannot pack up Mini-Lifepod.", 120, 2)
+			audio.Get().PlaySFX("sfx/ui_error.wav")
+			return
+		}
+	}
+
+	removeVehicleFromList(&g.OverworldVehicles, pod)
+	g.activeMiniLifepod = nil
+	g.miniLifepodStation = nil
+	g.player.RecalculateUpgrades()
+	audio.Get().PlaySFX("sfx/base_deconstruct.wav")
+	g.AddItemToast(kit, 1)
+	g.SetMineWarning("Packed up Mini-Lifepod into inventory!", 150, 1)
+	g.TransitionToOverworld()
+}
 
 // --- Vehicle state ---
 

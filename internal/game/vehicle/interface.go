@@ -75,6 +75,8 @@ func NewVehicleByID(id VehicleID, x, y float64) (Vehicle, bool) {
 		return NewScoutSub(x, y), true
 	case VehicleHeavyMech:
 		return NewHeavyMech(x, y), true
+	case VehicleMiniLifepod:
+		return NewMiniLifepod(x, y), true
 	default:
 		return nil, false
 	}
@@ -96,4 +98,6 @@ func init() {
 	item.RegisterItemByName("Skiff Kit", func() item.Item { return &SkiffKit{} })
 	item.RegisterItemByName("Scout Sub Kit", func() item.Item { return &ScoutSubKit{} })
 	item.RegisterItemByName("Heavy Mech Kit", func() item.Item { return &HeavyMechKit{} })
+	item.RegisterItemByName("Mini-Lifepod Kit", func() item.Item { return &MiniLifepodKit{} })
+	item.RegisterItemByName("Mini Lifepod Kit", func() item.Item { return &MiniLifepodKit{} })
 }

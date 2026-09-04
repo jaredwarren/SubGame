@@ -71,7 +71,8 @@ func (g *Game) HasVehicleInWorldOrDock(id vehicle.VehicleID) bool {
 	return false
 }
 
-// DeploySubFromSkiff launches a docked sub from the Skiff directly into the cave trench below.
+// DeploySubFromSkiff launches a docked sub from the Skiff directly into the cave trench below,
+// or deploys a surface craft (such as the Mini-Lifepod) onto clear surface water.
 func (g *Game) DeploySubFromSkiff(bayIdx int) {
 	skiff := g.GetSkiff()
 	if skiff == nil {
@@ -81,6 +82,22 @@ func (g *Game) DeploySubFromSkiff(bayIdx int) {
 	dv := skiff.GetDocked(bayIdx)
 	if dv == nil {
 		g.SetMineWarning("Docking bay is empty!", 120, 2)
+		return
+	}
+
+	// Surface vehicles (Mini-Lifepod) deploy directly to adjacent water in the overworld
+	if dv.ID == vehicle.VehicleMiniLifepod || bayIdx == 2 {
+		dims := vehicle.MiniLifepodArchetype.Dims
+		deployPos := g.findNearestClearWaterDeployPos(skiff.Pos, dims)
+		v, ok := skiff.Undock(bayIdx, deployPos.X, deployPos.Y)
+		if !ok || v == nil {
+			return
+		}
+		g.OverworldVehicles = append(g.OverworldVehicles, v)
+		g.showInventory = false
+		g.NotifyQuestVehicleDeployed(v.GetID())
+		audio.Get().PlaySFX("sfx/vehicle_enter.wav")
+		g.SetMineWarning(fmt.Sprintf("Deployed %s to ocean surface!", v.GetName()), 150, 1)
 		return
 	}
 
@@ -112,6 +129,12 @@ func (g *Game) DeploySubInCave(bayIdx int) {
 		return
 	}
 
+	if dv.ID == vehicle.VehicleMiniLifepod || bayIdx == 2 {
+		g.SetMineWarning("Cannot deploy Mini-Lifepod in caves! Deploy on the ocean surface.", 150, 2)
+		audio.Get().PlaySFX("sfx/ui_error.wav")
+		return
+	}
+
 	spawnX := g.player.Pos.X
 	spawnY := g.player.Pos.Y
 
@@ -127,7 +150,7 @@ func (g *Game) DeploySubInCave(bayIdx int) {
 	g.showInventory = false
 }
 
-// WinchRecallSub retrieves a deployed sub from any cave trench back into its Skiff docking bay.
+// WinchRecallSub retrieves a deployed vehicle from the world back into its Skiff docking bay.
 func (g *Game) WinchRecallSub(bayIdx int) {
 	skiff := g.GetSkiff()
 	if skiff == nil {
@@ -141,6 +164,8 @@ func (g *Game) WinchRecallSub(bayIdx int) {
 		targetID = vehicle.VehicleScoutSub
 	case 1:
 		targetID = vehicle.VehicleHeavyMech
+	case 2:
+		targetID = vehicle.VehicleMiniLifepod
 	default:
 		return
 	}
@@ -153,10 +178,22 @@ func (g *Game) WinchRecallSub(bayIdx int) {
 			removeVehicleFromList(&list, v)
 			g.CaveVehicles[key] = list
 		}
+		removeVehicleFromList(&g.OverworldVehicles, v)
 		skiff.Dock(v)
 		audio.Get().PlaySFX("sfx/airlock_cycle.wav")
 		g.SetMineWarning(fmt.Sprintf("Winched %s back to Skiff dock!", v.GetName()), 150, 1)
 		return
+	}
+
+	// Search overworld vehicles (e.g. Mini-Lifepod)
+	for i, v := range g.OverworldVehicles {
+		if v != nil && v.GetID() == targetID {
+			g.OverworldVehicles = append(g.OverworldVehicles[:i], g.OverworldVehicles[i+1:]...)
+			skiff.Dock(v)
+			audio.Get().PlaySFX("sfx/airlock_cycle.wav")
+			g.SetMineWarning(fmt.Sprintf("Winched %s back to Skiff dock!", v.GetName()), 150, 1)
+			return
+		}
 	}
 
 	// Search cave vehicles

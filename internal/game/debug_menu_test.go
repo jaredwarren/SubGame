@@ -5,6 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jaredwarren/SubGame/internal/game/item"
+	"github.com/jaredwarren/SubGame/internal/game/vehicle"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -73,6 +74,12 @@ func TestDebugMenu_GiveItemsAndPresets(t *testing.T) {
 	g.GiveItem("Copper", 10)
 	if g.player.Inventory.Count(&item.Copper{}) != 10 {
 		t.Errorf("expected 10 copper, got %d", g.player.Inventory.Count(&item.Copper{}))
+	}
+
+	// Give Mini-Lifepod Kit
+	g.GiveItem("Mini-Lifepod Kit", 1)
+	if !item.HasItem[*vehicle.MiniLifepodKit](g.player.Inventory, 1) {
+		t.Error("expected Mini-Lifepod Kit in player inventory from GiveItem")
 	}
 
 	// Clear inventory
@@ -195,6 +202,17 @@ func TestDebugMenu_Vehicles(t *testing.T) {
 	g.DespawnActiveVehicle()
 	if g.ActiveVehicle != nil {
 		t.Fatal("expected active vehicle to be nil after despawn")
+	}
+
+	// Spawn Mini-Lifepod on surface
+	g.currentState = StateOverworld
+	g.OverworldVehicles = nil
+	g.SpawnVehicle("Mini-Lifepod")
+	if len(g.OverworldVehicles) != 1 {
+		t.Fatalf("expected 1 overworld vehicle, got %d", len(g.OverworldVehicles))
+	}
+	if _, ok := g.OverworldVehicles[0].(*vehicle.MiniLifepod); !ok {
+		t.Fatalf("expected spawned vehicle to be *vehicle.MiniLifepod, got %T", g.OverworldVehicles[0])
 	}
 }
 

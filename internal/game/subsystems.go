@@ -31,7 +31,9 @@ type Session struct {
 	activeTrenchKey string
 	justExited      bool
 
-	baseStation *base.BaseStation
+	baseStation        *base.BaseStation
+	activeMiniLifepod  *vehicle.MiniLifepod
+	miniLifepodStation *base.BaseStation
 
 	ActiveVehicle     vehicle.Vehicle
 	OverworldVehicles []vehicle.Vehicle

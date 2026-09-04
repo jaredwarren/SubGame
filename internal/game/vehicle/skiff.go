@@ -49,7 +49,7 @@ type Skiff struct {
 	MaxBattery    float64
 	Cargo         *item.Inventory
 	Upgrades      *item.Inventory
-	DockedBays    [2]*DockedVehicle // Bay 0 = Scout Sub, Bay 1 = Heavy Mech
+	DockedBays    [3]*DockedVehicle // Bay 0 = Scout Sub, Bay 1 = Heavy Mech, Bay 2 = Mini-Lifepod
 	wake          []skiffWakePoint
 	spawnTimer    int
 	lightMult     float64
@@ -170,13 +170,15 @@ func (s *Skiff) GetDockedByID(id VehicleID) (*DockedVehicle, int) {
 	return nil, -1
 }
 
-// FindBayForID maps a known VehicleID to its dedicated bay index (0 for Scout Sub, 1 for Heavy Mech).
+// FindBayForID maps a known VehicleID to its dedicated bay index (0 for Scout Sub, 1 for Heavy Mech, 2 for Mini-Lifepod).
 func (s *Skiff) FindBayForID(id VehicleID) int {
 	switch id {
 	case VehicleScoutSub:
 		return 0
 	case VehicleHeavyMech:
 		return 1
+	case VehicleMiniLifepod:
+		return 2
 	default:
 		return -1
 	}

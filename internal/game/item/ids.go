@@ -40,6 +40,7 @@ const (
 	IDSkiffKit           ItemID = "skiff_kit"
 	IDScoutSubKit        ItemID = "scout_sub_kit"
 	IDHeavyMechKit       ItemID = "heavy_mech_kit"
+	IDMiniLifepodKit     ItemID = "mini_lifepod_kit"
 	IDScoutSubDepthMK1   ItemID = "scout_sub_depth_mk1"
 )
 
@@ -106,6 +107,9 @@ var displayNameToID = map[string]ItemID{
 	"Skiff Kit":                   IDSkiffKit,
 	"Scout Sub Kit":               IDScoutSubKit,
 	"Heavy Mech Kit":              IDHeavyMechKit,
+	"Mini-Lifepod Kit":            IDMiniLifepodKit,
+	"MiniLifepodKit":              IDMiniLifepodKit,
+	"Mini Lifepod Kit":            IDMiniLifepodKit,
 	"Scout Sub Depth Module MK1":  IDScoutSubDepthMK1,
 	"ScoutSubDepthMK1":            IDScoutSubDepthMK1,
 }

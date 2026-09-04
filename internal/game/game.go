@@ -233,6 +233,15 @@ func (g *Game) TransitionTo(next Scene) {
 	g.transitionedThisFrame = true
 	g.updateSceneAudio(next)
 
+	if prevState == StateBaseMenu && g.activeMiniLifepod != nil && g.miniLifepodStation != nil {
+		g.activeMiniLifepod.Upgrades = g.miniLifepodStation.Upgrades
+		g.activeMiniLifepod.Battery = g.miniLifepodStation.Power
+		g.activeMiniLifepod.Cargo = g.miniLifepodStation.Storage
+		g.activeMiniLifepod.RecalculateProperties()
+		g.activeMiniLifepod = nil
+		g.miniLifepodStation = nil
+	}
+
 	// Quest hooks for scene changes that bypass EnterCave/ExitCave (tests, PDA returns).
 	switch g.currentState {
 	case StateCave:

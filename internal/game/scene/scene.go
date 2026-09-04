@@ -70,6 +70,9 @@ type WorldAccess interface {
 	GetCamera() *camera.Camera
 	GetExploration() *exploration.Tracker
 	GetLostCargo() []*entity.LostCargoBeacon
+	CanPackUpActiveBase() bool
+	PackUpActiveBase()
+	GetActiveBaseStationName() string
 }
 
 type CaveStateAccess interface {

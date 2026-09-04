@@ -7,6 +7,7 @@ const (
 	VehicleSkiff     VehicleID = "skiff"
 	VehicleScoutSub  VehicleID = "scout_sub"
 	VehicleHeavyMech VehicleID = "heavy_mech"
+	VehicleMiniLifepod VehicleID = "mini_lifepod"
 )
 
 // nameToVehicleID maps historical GetName() / save Type strings to VehicleID.
@@ -24,6 +25,11 @@ var nameToVehicleID = map[string]VehicleID{
 	"HeavyMech":          VehicleHeavyMech,
 	"Heavy Mech":         VehicleHeavyMech,
 	"Heavy Mech Walker":  VehicleHeavyMech,
+	"mini_lifepod":       VehicleMiniLifepod,
+	"MiniLifepod":        VehicleMiniLifepod,
+	"Mini-Lifepod":       VehicleMiniLifepod,
+	"Mini Lifepod":       VehicleMiniLifepod,
+	"Outpost Pod":        VehicleMiniLifepod,
 }
 
 // VehicleIDFromName resolves a display/alias name to a VehicleID.
