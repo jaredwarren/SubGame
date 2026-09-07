@@ -494,143 +494,17 @@ func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 }
 
 func (c *ShallowSeabedCave) GenerateEntities(seed int64) []entity.CaveEntity {
-	grid := c.Grid
 	r := rand.New(rand.NewSource(seed))
-	var entities []entity.CaveEntity
-	rules := c.Biome.SpawnRulesOrDefault()
-
-	gridW := len(grid)
-	gridH := len(grid[0])
-
-	for tx := 1; tx < gridW-1; tx++ {
-		for ty := 2; ty < gridH-2; ty++ {
-			if grid[tx][ty] {
-				continue
-			}
-
-			hasFloor := ty < gridH-2 && grid[tx][ty+1]
-			if hasFloor && r.Float64() < rules.ShatterBulbChance {
-				height := 42.0 + r.Float64()*16.0
-				entities = append(entities, entity.NewShatterBulb(
-					float64(tx*config.TileSize)+float64(config.TileSize-24)/2.0,
-					float64(ty*config.TileSize)+float64(config.TileSize)-height,
-					height,
-				))
-			} else if !hasFloor && ty > 1 && ty < gridH-2 && !grid[tx][ty-1] && (grid[tx-1][ty] || grid[tx+1][ty]) && r.Float64() < rules.ShatterBulbChance*0.6 {
-				height := 42.0 + r.Float64()*16.0
-				anchor := "left"
-				if grid[tx-1][ty] && grid[tx+1][ty] {
-					if r.Float64() < 0.5 {
-						anchor = "right"
-					}
-				} else if grid[tx+1][ty] {
-					anchor = "right"
-				}
-				if ent := SpawnFloraAnchored(FloraShatterBulb, tx, ty, height, anchor, r); ent != nil {
-					entities = append(entities, ent)
-				}
-			}
-			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-			if isOpenWater {
-				roll := r.Float64()
-				if roll < rules.OpenWaterFishChance {
-					if c.Biome != nil && c.Biome.ID == "abyssal_blue" {
-						entities = append(entities, entity.NewLanternfish(
-							float64(tx*config.TileSize)+float64(config.TileSize-18)/2.0,
-							float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
-							r.Float64() < 0.5,
-							r.Float64()*math.Pi*2,
-						))
-					} else {
-						entities = append(entities, entity.NewPassiveFish(
-							float64(tx*config.TileSize)+float64(config.TileSize-20)/2.0,
-							float64(ty*config.TileSize)+float64(config.TileSize-12)/2.0,
-							r.Float64() < 0.5,
-							r.Float64()*math.Pi*2,
-						))
-					}
-				} else if roll < rules.OpenWaterFishChance+0.006 {
-					entities = append(entities, entity.NewInkSquid(
-						float64(tx*config.TileSize)+float64(config.TileSize-22)/2.0,
-						float64(ty*config.TileSize)+float64(config.TileSize-16)/2.0,
-						r.Float64() < 0.5,
-					))
-				}
-			}
-			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < rules.FaunaChance {
-				faunaType := FaunaPassiveFish
-				if c.Biome != nil && len(c.Biome.FaunaSpawns) > 0 {
-					faunaType = SelectWeightedEntry(c.Biome.FaunaSpawns, r.Float64())
-				}
-				if ent := SpawnFauna(faunaType, tx, ty, grid, r); ent != nil {
-					entities = append(entities, ent)
-				}
-			}
-			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < rules.FloraChance {
-				height := 32.0 + r.Float64()*48.0
-				floraType := FloraKelp
-				if c.Biome != nil && len(c.Biome.FloraSpawns) > 0 {
-					floraType = SelectWeightedEntry(c.Biome.FloraSpawns, r.Float64())
-				}
-				if ent := SpawnFlora(floraType, tx, ty, height, r); ent != nil {
-					entities = append(entities, ent)
-				}
-			} else if ty > 1 && ty < gridH-2 && !grid[tx][ty+1] && !grid[tx][ty-1] && (grid[tx-1][ty] || grid[tx+1][ty]) && r.Float64() < rules.FloraChance {
-				if c.Biome != nil && len(c.Biome.FloraSpawns) > 0 {
-					floraType := SelectWeightedEntry(c.Biome.FloraSpawns, r.Float64())
-					if floraType == FloraShatterBulb || floraType == FloraShockKelp {
-						height := 32.0 + r.Float64()*48.0
-						anchor := "left"
-						if grid[tx-1][ty] && grid[tx+1][ty] {
-							if r.Float64() < 0.5 {
-								anchor = "right"
-							}
-						} else if grid[tx+1][ty] {
-							anchor = "right"
-						}
-						if ent := SpawnFloraAnchored(floraType, tx, ty, height, anchor, r); ent != nil {
-							entities = append(entities, ent)
-						}
-					}
-				}
-			}
-
-			// Spawn decorative corals near any solid face
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, rules.CoralChance, entity.CoralBiomeShallow, entity.CoralShallowVariantCount, r)
-		}
+	coralBiome := entity.CoralBiomeShallow
+	if c.Biome != nil && c.Biome.ID == "abyssal_blue" {
+		coralBiome = entity.CoralBiomeTrench
 	}
 
-	// Ensure at least 1 InkSquid is present in every shallow seabed cave
-	squidCount := 0
-	for _, ent := range entities {
-		if _, ok := ent.(*entity.InkSquid); ok {
-			squidCount++
-		}
-	}
-	for squidCount < 1 {
-		found := false
-		for attempts := 0; attempts < 100; attempts++ {
-			tx := 2 + r.Intn(gridW-4)
-			ty := 2 + r.Intn(gridH-4)
-			if !grid[tx][ty] && !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1] {
-				entities = append(entities, entity.NewInkSquid(
-					float64(tx*config.TileSize)+float64(config.TileSize-22)/2.0,
-					float64(ty*config.TileSize)+float64(config.TileSize-16)/2.0,
-					r.Float64() < 0.5,
-				))
-				squidCount++
-				found = true
-				break
-			}
-		}
-		if !found {
-			break
-		}
-	}
+	entities := GenerateClusteredBiomeEntities(c.Biome, c.Grid, coralBiome, r)
 
 	// Spawn special flora and entities along chasm rims and winding crevice walls
 	if c.HasChasm && c.ChasmX > 0 {
-		entities = append(entities, spawnChasmRimEntities(c.chasmRim(), grid, c.ChasmX, c.ChasmWidth, r)...)
+		entities = append(entities, spawnChasmRimEntities(c.chasmRim(), c.Grid, c.ChasmX, c.ChasmWidth, r)...)
 	}
 
 	return entities

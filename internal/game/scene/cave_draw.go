@@ -623,8 +623,20 @@ func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave ca
 		activeCave.DrawTiles(screen, camX, camY, startTileX, startTileY, endTileX, endTileY)
 	}
 
+	margin := 64.0
+	viewLeft := camX - margin
+	viewRight := camX + float64(config.ScreenWidth) + margin
+	viewTop := camY - margin
+	viewBottom := camY + float64(config.ScreenHeight) + margin
+	tsFloat := float64(config.TileSize)
+
 	for _, node := range nodes {
-		node.Draw(screen, camX, camY)
+		ntx, nty := node.GetTilePos()
+		nx := float64(ntx) * tsFloat
+		ny := float64(nty) * tsFloat
+		if nx+tsFloat >= viewLeft && nx <= viewRight && ny+tsFloat >= viewTop && ny <= viewBottom {
+			node.Draw(screen, camX, camY)
+		}
 	}
 
 	for _, v := range g.GetCaveVehicles(trenchKey) {
@@ -647,7 +659,11 @@ func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave ca
 	mockCam.Pos.X = camX
 	mockCam.Pos.Y = camY
 	for _, ent := range entities {
-		ent.Draw(screen, mockCam, g.GetTimeOfDay())
+		pos := ent.GetPos()
+		dims := ent.GetDimensions()
+		if pos.X+dims.X >= viewLeft && pos.X <= viewRight && pos.Y+dims.Y >= viewTop && pos.Y <= viewBottom {
+			ent.Draw(screen, mockCam, g.GetTimeOfDay())
+		}
 	}
 }
 

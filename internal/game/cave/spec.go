@@ -191,132 +191,21 @@ func GenerateShallowBiomeEntities(biome *CaveBiomeSpec, grid [][]bool, coralBiom
 }
 
 func generateBiomeTileEntities(biome *CaveBiomeSpec, grid [][]bool, coralBiome int, r *rand.Rand) []entity.CaveEntity {
-	rules := biome.SpawnRulesOrDefault()
-	var entities []entity.CaveEntity
-	gridW := len(grid)
-	gridH := len(grid[0])
-	for tx := 1; tx < gridW-1; tx++ {
-		for ty := 2; ty < gridH-2; ty++ {
-			if grid[tx][ty] {
-				continue
-			}
-			hasFloor := ty < gridH-2 && grid[tx][ty+1]
-			if hasFloor && r.Float64() < rules.ShatterBulbChance {
-				height := 42.0 + r.Float64()*16.0
-				if ent := SpawnFlora(FloraShatterBulb, tx, ty, height, r); ent != nil {
-					entities = append(entities, ent)
-				}
-			}
-			isOpenWater := !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1]
-			if isOpenWater {
-				roll := r.Float64()
-				if roll < rules.OpenWaterFishChance {
-					if ent := SpawnFauna(FaunaPassiveFish, tx, ty, grid, r); ent != nil {
-						entities = append(entities, ent)
-					}
-				} else if roll < rules.OpenWaterFishChance+0.006 {
-					if ent := SpawnFauna(FaunaInkSquid, tx, ty, grid, r); ent != nil {
-						entities = append(entities, ent)
-					}
-				}
-			}
-			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < rules.FaunaChance {
-				faunaType := FaunaPassiveFish
-				if len(biome.FaunaSpawns) > 0 {
-					faunaType = SelectWeightedEntry(biome.FaunaSpawns, r.Float64())
-				}
-				if ent := SpawnFauna(faunaType, tx, ty, grid, r); ent != nil {
-					entities = append(entities, ent)
-				}
-			}
-			if ty < gridH-2 && grid[tx][ty+1] && r.Float64() < rules.FloraChance {
-				height := 32.0 + r.Float64()*48.0
-				floraType := FloraKelp
-				if len(biome.FloraSpawns) > 0 {
-					floraType = SelectWeightedEntry(biome.FloraSpawns, r.Float64())
-				}
-				if ent := SpawnFlora(floraType, tx, ty, height, r); ent != nil {
-					entities = append(entities, ent)
-				}
-			} else if ty > 1 && ty < gridH-2 && !grid[tx][ty+1] && !grid[tx][ty-1] && (grid[tx-1][ty] || grid[tx+1][ty]) && r.Float64() < rules.FloraChance {
-				if len(biome.FloraSpawns) > 0 {
-					floraType := SelectWeightedEntry(biome.FloraSpawns, r.Float64())
-					if floraType == FloraShatterBulb || floraType == FloraShockKelp {
-						height := 32.0 + r.Float64()*48.0
-						anchor := "left"
-						if grid[tx-1][ty] && grid[tx+1][ty] {
-							if r.Float64() < 0.5 {
-								anchor = "right"
-							}
-						} else if grid[tx+1][ty] {
-							anchor = "right"
-						}
-						if ent := SpawnFloraAnchored(floraType, tx, ty, height, anchor, r); ent != nil {
-							entities = append(entities, ent)
-						}
-					}
-				}
-			}
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, rules.CoralChance, coralBiome, entity.CoralVariantCount(coralBiome), r)
-		}
-	}
-
-	// For biomes featuring Ink Squid, ensure at least 1 InkSquid spawns in the cave
-	hasSquidInBiome := false
-	if biome != nil {
-		for _, s := range biome.FaunaSpawns {
-			if s.Type == FaunaInkSquid {
-				hasSquidInBiome = true
-				break
-			}
-		}
-	}
-	if hasSquidInBiome {
-		squidCount := 0
-		for _, ent := range entities {
-			if _, ok := ent.(*entity.InkSquid); ok {
-				squidCount++
-			}
-		}
-		for squidCount < 1 {
-			found := false
-			for attempts := 0; attempts < 100; attempts++ {
-				tx := 2 + r.Intn(gridW-4)
-				ty := 2 + r.Intn(gridH-4)
-				if !grid[tx][ty] && !grid[tx-1][ty] && !grid[tx+1][ty] && !grid[tx][ty-1] && !grid[tx][ty+1] {
-					if ent := SpawnFauna(FaunaInkSquid, tx, ty, grid, r); ent != nil {
-						entities = append(entities, ent)
-						squidCount++
-						found = true
-						break
-					}
-				}
-			}
-			if !found {
-				break
-			}
-		}
-	}
-
-	return entities
+	return GenerateClusteredBiomeEntities(biome, grid, coralBiome, r)
 }
 
 func applyCoralOnly(grid [][]bool, chance float64, coralBiome int, r *rand.Rand) []entity.CaveEntity {
-	var entities []entity.CaveEntity
 	if chance <= 0 {
-		return entities
+		return nil
 	}
-	gridW := len(grid)
-	gridH := len(grid[0])
-	for tx := 1; tx < gridW-1; tx++ {
-		for ty := 1; ty < gridH-2; ty++ {
-			if grid[tx][ty] {
-				continue
-			}
-			entities = MaybeSpawnCoral(entities, grid, tx, ty, chance, coralBiome, entity.CoralBiomeVariantCount, r)
-		}
+	cfg := CoralColonyConfig{
+		NumColonies:  6 + r.Intn(4),
+		MinPerColony: 2,
+		MaxPerColony: 5,
+		MinSpacing:   5.0,
+		VarySize:     true,
 	}
-	return entities
+	return SpawnCoralColonies(grid, cfg, coralBiome, entity.CoralBiomeVariantCount, r)
 }
 
 func applyAnchoredFlora(spawns []AnchoredFloraSpawn, grid [][]bool, r *rand.Rand) []entity.CaveEntity {

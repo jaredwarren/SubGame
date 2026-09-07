@@ -52,25 +52,39 @@ func (o *OverworldScene) InitializeExtras(g OverworldContext) {
 				}
 
 			case world.TileWater:
-				// If this tile is close to land, spawn a school of fish
+				// If this tile is close to land, spawn a school of fish using Snail Swarm spacing
 				dist := o.World.LandDist[tx][ty]
 				if dist >= 1 && dist <= 3 {
-					// Sparse shoreline schools — denser spawn tanks the overworld Update loop.
-					if r.Float64() < 0.012 {
-						schoolSize := r.Intn(3) + 3
+					// Snail Swarm clustering: spawn discrete pods with negative space
+					if r.Float64() < 0.015 {
 						schoolBaseX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
 						schoolBaseY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
 
-						for i := 0; i < schoolSize; i++ {
-							fx := schoolBaseX + (r.Float64()-0.5)*32.0
-							fy := schoolBaseY + (r.Float64()-0.5)*32.0
+						// Ensure minimum distance from existing fish schools
+						tooClose := false
+						minDist := 12.0 * float64(config.TileSize)
+						for _, f := range o.fish {
+							dx := f.BasePos.X - schoolBaseX
+							dy := f.BasePos.Y - schoolBaseY
+							if dx*dx+dy*dy < minDist*minDist {
+								tooClose = true
+								break
+							}
+						}
 
-							o.fish = append(o.fish, &oe.CosmeticFish{
-								Pos:       gvec.Vec2{X: fx, Y: fy},
-								BasePos:   gvec.Vec2{X: schoolBaseX, Y: schoolBaseY},
-								WobbleVal: r.Float64() * 100.0,
-								WobbleSpd: r.Float64()*0.05 + 0.02,
-							})
+						if !tooClose {
+							schoolSize := r.Intn(3) + 3
+							for i := 0; i < schoolSize; i++ {
+								fx := schoolBaseX + (r.Float64()-0.5)*32.0
+								fy := schoolBaseY + (r.Float64()-0.5)*32.0
+
+								o.fish = append(o.fish, &oe.CosmeticFish{
+									Pos:       gvec.Vec2{X: fx, Y: fy},
+									BasePos:   gvec.Vec2{X: schoolBaseX, Y: schoolBaseY},
+									WobbleVal: r.Float64() * 100.0,
+									WobbleSpd: r.Float64()*0.05 + 0.02,
+								})
+							}
 						}
 					}
 				}

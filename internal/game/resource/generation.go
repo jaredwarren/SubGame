@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"math"
 	"math/rand"
 
 	"github.com/jaredwarren/SubGame/internal/sliceutil"
@@ -489,22 +490,32 @@ func GenerateResourceNodes(grid [][]bool, seed int64) []Resource {
 	return GenerateResourceNodesWithBiome(grid, seed, nil)
 }
 
-// GenerateResourceNodesWithBiome scans the cave tile grid and generates mineral nodes using optional biome spawn weights.
+// GenerateResourceNodesWithBiome scans the cave tile grid and generates mineral nodes in clustered veins
+// using Snail Swarm theory (organic mineral clusters with negative space between veins).
 func GenerateResourceNodesWithBiome(grid [][]bool, seed int64, mineralSpawns []ResourceSpawnEntry) []Resource {
 	nodes := []Resource{}
 	if grid == nil {
 		return nodes
 	}
 	gridW := len(grid)
+	if gridW == 0 {
+		return nodes
+	}
 	gridH := len(grid[0])
 
 	r := rand.New(rand.NewSource(seed))
 
+	type wallCandidate struct {
+		tx, ty int
+		dirs   []AttachDirection
+	}
+
+	var candidates []wallCandidate
+	candidateMap := make(map[[2]int][]AttachDirection)
+
 	for tx := 1; tx < gridW-1; tx++ {
 		for ty := 1; ty < gridH-1; ty++ {
-			// Place nodes in open (water) tiles that are adjacent to solid walls
 			if !grid[tx][ty] {
-				// Check which cardinal neighbors are solid blocks
 				var possibleDirs []AttachDirection
 				if grid[tx][ty-1] {
 					possibleDirs = append(possibleDirs, AttachTop)
@@ -518,40 +529,163 @@ func GenerateResourceNodesWithBiome(grid [][]bool, seed int64, mineralSpawns []R
 				if grid[tx+1][ty] {
 					possibleDirs = append(possibleDirs, AttachRight)
 				}
-
 				if len(possibleDirs) > 0 {
-					spawnRoll := r.Float64()
-					kind := NodeTitanium
-					var spawnChance = GenConfig.FallbackSpawnChance
+					cand := wallCandidate{tx: tx, ty: ty, dirs: possibleDirs}
+					candidates = append(candidates, cand)
+					candidateMap[[2]int{tx, ty}] = possibleDirs
+				}
+			}
+		}
+	}
 
-					// Find the matching tier based on depth ty
-					var activeTier *ResourceTier
-					for i := range GenConfig.Tiers {
-						if ty < GenConfig.Tiers[i].MaxDepth {
-							activeTier = &GenConfig.Tiers[i]
-							break
+	if len(candidates) == 0 {
+		return nodes
+	}
+
+	// 100% density fallback for tests or extreme debug configs
+	if GenConfig.FallbackSpawnChance >= 1.0 {
+		for _, c := range candidates {
+			kind := NodeTitanium
+			if len(mineralSpawns) > 0 {
+				kind = selectWeightedResource(mineralSpawns, r.Float64())
+			}
+			attachDir := c.dirs[r.Intn(len(c.dirs))]
+			node := NewNode(kind, c.tx, c.ty)
+			node.SetAttachDir(attachDir)
+			node.SetHitsToMine(GenConfig.BaseHitsToMine + (c.ty / GenConfig.HitsDepthScale))
+			nodes = append(nodes, node)
+		}
+		return nodes
+	}
+
+	// Snail Swarm Vein Clustering
+	// Group wall candidates by depth tier
+	occupied := make(map[[2]int]bool)
+
+	// Determine active tiers
+	tiers := GenConfig.Tiers
+	if len(tiers) == 0 {
+		tiers = []ResourceTier{
+			{MaxDepth: gridH, SpawnChance: GenConfig.FallbackSpawnChance, Entries: mineralSpawns},
+		}
+	}
+
+	prevMaxDepth := 0
+	for _, tier := range tiers {
+		tierMax := tier.MaxDepth
+		if tierMax > gridH {
+			tierMax = gridH
+		}
+
+		// Filter candidates in this depth band [prevMaxDepth, tierMax)
+		var bandCandidates []wallCandidate
+		for _, c := range candidates {
+			if c.ty >= prevMaxDepth && c.ty < tierMax {
+				bandCandidates = append(bandCandidates, c)
+			}
+		}
+		prevMaxDepth = tierMax
+
+		if len(bandCandidates) == 0 {
+			continue
+		}
+
+		// Rebalanced Snail Swarm: fewer total veins, 1–2 nodes per cluster (rare pocket finds)
+		expectedNodes := float64(len(bandCandidates)) * tier.SpawnChance * 0.55
+		numVeins := int(math.Round(expectedNodes / 1.5))
+		if numVeins < 1 && expectedNodes > 0.25 {
+			numVeins = 1
+		}
+		if numVeins == 0 {
+			continue
+		}
+
+		r.Shuffle(len(bandCandidates), func(i, j int) {
+			bandCandidates[i], bandCandidates[j] = bandCandidates[j], bandCandidates[i]
+		})
+
+		// Pick vein seeds separated by at least 10 tiles (ample negative space between deposits)
+		var veinSeeds []wallCandidate
+		for _, bc := range bandCandidates {
+			if len(veinSeeds) >= numVeins {
+				break
+			}
+			tooClose := false
+			for _, s := range veinSeeds {
+				dx := float64(bc.tx - s.tx)
+				dy := float64(bc.ty - s.ty)
+				if math.Hypot(dx, dy) < 10.0 {
+					tooClose = true
+					break
+				}
+			}
+			if !tooClose {
+				veinSeeds = append(veinSeeds, bc)
+			}
+		}
+
+		for _, seed := range veinSeeds {
+			// Pick vein ore type
+			kind := NodeTitanium
+			if len(mineralSpawns) > 0 {
+				kind = selectWeightedResource(mineralSpawns, r.Float64())
+			} else if len(tier.Entries) > 0 {
+				kind = selectWeightedResource(tier.Entries, r.Float64())
+			}
+
+			// Smaller vein size: 1 to 2 nodes per cluster
+			veinLen := 1 + r.Intn(2)
+
+			// Grow vein along adjacent exposed wall tiles (crawl along rock face)
+			veinTiles := [][2]int{{seed.tx, seed.ty}}
+			frontier := [][2]int{{seed.tx, seed.ty}}
+
+			for len(frontier) > 0 && len(veinTiles) < veinLen {
+				curr := frontier[0]
+				frontier = frontier[1:]
+
+				// Check 4-way neighbors
+				dirs := [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+				r.Shuffle(len(dirs), func(i, j int) {
+					dirs[i], dirs[j] = dirs[j], dirs[i]
+				})
+
+				for _, d := range dirs {
+					nx, ny := curr[0]+d[0], curr[1]+d[1]
+					pt := [2]int{nx, ny}
+					if _, isCand := candidateMap[pt]; isCand && !occupied[pt] {
+						alreadyInVein := false
+						for _, vt := range veinTiles {
+							if vt == pt {
+								alreadyInVein = true
+								break
+							}
+						}
+						if !alreadyInVein {
+							veinTiles = append(veinTiles, pt)
+							frontier = append(frontier, pt)
+							if len(veinTiles) >= veinLen {
+								break
+							}
 						}
 					}
-					if activeTier != nil {
-						spawnChance = activeTier.SpawnChance
-					}
-
-					if len(mineralSpawns) > 0 {
-						kind = selectWeightedResource(mineralSpawns, r.Float64())
-					} else if activeTier != nil && len(activeTier.Entries) > 0 {
-						kind = selectWeightedResource(activeTier.Entries, r.Float64())
-					}
-
-					if spawnRoll < spawnChance {
-						// Pick one of the adjacent solid wall directions to attach to
-						attachDir := possibleDirs[r.Intn(len(possibleDirs))]
-						node := NewNode(kind, tx, ty)
-						node.SetAttachDir(attachDir)
-						// Scale node hits (health) with depth: base + depth / scale
-						node.SetHitsToMine(GenConfig.BaseHitsToMine + (ty / GenConfig.HitsDepthScale))
-						nodes = append(nodes, node)
-					}
 				}
+			}
+
+			for _, pt := range veinTiles {
+				if occupied[pt] {
+					continue
+				}
+				dirs := candidateMap[pt]
+				if len(dirs) == 0 {
+					continue
+				}
+				attachDir := dirs[r.Intn(len(dirs))]
+				node := NewNode(kind, pt[0], pt[1])
+				node.SetAttachDir(attachDir)
+				node.SetHitsToMine(GenConfig.BaseHitsToMine + (pt[1] / GenConfig.HitsDepthScale))
+				nodes = append(nodes, node)
+				occupied[pt] = true
 			}
 		}
 	}
