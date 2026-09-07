@@ -210,9 +210,9 @@ func mapTileRGB(w *world.World, tx, ty int) (r, g, b uint8) {
 		return clr.R, clr.G, clr.B
 	}
 	if tt == world.TileLand {
-		// Chart sand tone (plan: #C9B27C), shaded by inland distance.
+		// Charted nautical rock hazard / crags tone.
 		if waterDist <= 1 {
-			return 0xC9, 0xB2, 0x7C
+			return 0x5A, 0x64, 0x70 // coastal rock shelf
 		}
 		return uint8(float64(clr.R)), uint8(float64(clr.G)), uint8(float64(clr.B))
 	}

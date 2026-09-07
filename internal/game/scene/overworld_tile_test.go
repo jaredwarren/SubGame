@@ -7,31 +7,31 @@ import (
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
-func TestComputeTileColors_Sand(t *testing.T) {
-	// For a land tile adjacent to water (waterDist == 1), it must return beach sand colors.
+func TestComputeTileColors_CoastalRock(t *testing.T) {
+	// For a land tile adjacent to water (waterDist == 1), it must return coastal rock shelf colors.
 	// Since we are within bounds (0, 0) of a 100x100 world, the distance from border is negative,
-	// so the void fade factor t is 0. With light multiplier = 1.0, we expect exact sand colors.
+	// so the void fade factor t is 0. With light multiplier = 1.0, we expect exact coastal rock colors.
 	fill, stroke := ComputeTileColors(10, 10, world.TileLand, 0, 1, 100, 100, 1.0)
 
-	expectedFill := color.RGBA{232, 212, 165, 255}
-	expectedStroke := color.RGBA{215, 195, 145, 255}
+	expectedFill := color.RGBA{92, 101, 112, 255}
+	expectedStroke := color.RGBA{80, 88, 98, 255}
 
 	if fill != expectedFill {
-		t.Errorf("expected sand fill color %+v, got %+v", expectedFill, fill)
+		t.Errorf("expected coastal rock fill color %+v, got %+v", expectedFill, fill)
 	}
 	if stroke != expectedStroke {
-		t.Errorf("expected sand stroke color %+v, got %+v", expectedStroke, stroke)
+		t.Errorf("expected coastal rock stroke color %+v, got %+v", expectedStroke, stroke)
 	}
 }
 
-func TestComputeTileColors_GrassGradient(t *testing.T) {
-	// For a land tile inland (waterDist > 1), it must use the grass gradient.
-	// We verify that different water distances result in different grass colors.
+func TestComputeTileColors_RockGradient(t *testing.T) {
+	// For a land tile inland (waterDist > 1), it must use the basalt rock elevation gradient.
+	// We verify that different water distances result in different rock colors.
 	fill2, _ := ComputeTileColors(10, 10, world.TileLand, 0, 2, 100, 100, 1.0)
 	fill4, _ := ComputeTileColors(10, 10, world.TileLand, 0, 4, 100, 100, 1.0)
 
 	if fill2 == fill4 {
-		t.Errorf("expected different grass colors for waterDist 2 and 4, but got same color %+v", fill2)
+		t.Errorf("expected different rock colors for waterDist 2 and 4, but got same color %+v", fill2)
 	}
 }
 

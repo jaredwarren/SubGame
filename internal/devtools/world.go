@@ -200,7 +200,7 @@ func renderWorldPNG(w *world.World, lx, ly int) []byte {
 func worldTileColor(w *world.World, x, y int) color.RGBA {
 	switch w.OverworldMap[x][y] {
 	case world.TileLand:
-		return color.RGBA{72, 110, 58, 255}
+		return color.RGBA{65, 72, 80, 255}
 	case world.TileTrench:
 		return color.RGBA{255, 80, 220, 255}
 	case world.TileShockKelpCave:

@@ -375,7 +375,7 @@ func (o *OverworldScene) drawLandDecoration(target *ebiten.Image, startTileX, en
 				clampedTy = o.World.Height - 1
 			}
 
-			// Draw procedurally generated trees, plants, and grass texture for land tiles
+			// Draw procedurally generated oceanic crags, wave breakers, and basalt strata for land tiles
 			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height && o.World.OverworldMap[tx][ty] == world.TileLand {
 				// Seed generator deterministically based on tile coords
 				rngVal := hashCoords(clampedTx, clampedTy)
@@ -384,103 +384,102 @@ func (o *OverworldScene) drawLandDecoration(target *ebiten.Image, startTileX, en
 				}
 				rng := statelessRNG(rngVal)
 				dist := o.World.WaterDist[clampedTx][clampedTy]
-				isSand := dist == 1
+				isCoast := dist <= 1
 
-				if isSand {
-					// 1. Draw sand ripples (subtle darker lines)
-					numRipples := rng.intn(2) + 1
-					rippleClr := applyLight(color.RGBA{220, 200, 150, 255}, mult)
-					for i := 0; i < numRipples; i++ {
-						rx := float32(rng.float64()*40.0) + 12.0
-						ry := float32(rng.float64()*40.0) + 12.0
-						vector.StrokeLine(target, sx+rx, sy+ry, sx+rx+8, sy+ry+2, 1.0, rippleClr, false)
+				if isCoast {
+					// 1. Crashing wave foam / breaker froth along coastal stone
+					numFoam := rng.intn(2) + 2
+					foamClr := applyLight(color.RGBA{230, 242, 252, 220}, mult)
+					for i := 0; i < numFoam; i++ {
+						fx := float32(rng.float64()*42.0) + 10.0
+						fy := float32(rng.float64()*42.0) + 10.0
+						wLen := float32(rng.float64()*8.0 + 5.0)
+						vector.StrokeLine(target, sx+fx, sy+fy, sx+fx+wLen, sy+fy+1.2, 1.4, foamClr, false)
 					}
 
-					// 2. Draw occasional pebble or starfish (40% chance)
-					if rng.float64() < 0.40 {
-						px := float32(rng.float64()*44.0) + 10.0
-						py := float32(rng.float64()*44.0) + 10.0
-
-						if rng.float64() < 0.15 {
-							// Rare starfish! (Orange cross/star)
-							starClr := applyLight(color.RGBA{235, 110, 50, 255}, mult)
-							vector.StrokeLine(target, sx+px-3, sy+py, sx+px+3, sy+py, 1.2, starClr, false)
-							vector.StrokeLine(target, sx+px, sy+py-3, sx+px, sy+py+3, 1.2, starClr, false)
+					// 2. Wet stone fissures and tide pools (45% chance)
+					if rng.float64() < 0.45 {
+						cx := float32(rng.float64()*40.0) + 12.0
+						cy := float32(rng.float64()*40.0) + 12.0
+						if rng.float64() < 0.30 {
+							// Small tide pool puddle
+							poolClr := applyLight(color.RGBA{70, 110, 140, 200}, mult)
+							vector.FillCircle(target, sx+cx, sy+cy, 2.5, poolClr, false)
 						} else {
-							// Grey/white seashell/pebble
-							pebbleClr := applyLight(color.RGBA{235, 230, 220, 255}, mult)
-							vector.FillCircle(target, sx+px, sy+py, 2.0, pebbleClr, false)
-							vector.StrokeCircle(target, sx+px, sy+py, 2.0, 0.8, applyLight(color.RGBA{180, 175, 165, 255}, mult), false)
+							// Dark jagged rock fracture
+							fissureClr := applyLight(color.RGBA{45, 52, 60, 255}, mult)
+							vector.StrokeLine(target, sx+cx-4, sy+cy-2, sx+cx+4, sy+cy+2, 1.2, fissureClr, false)
+							vector.StrokeLine(target, sx+cx, sy+cy, sx+cx+3, sy+cy-3, 1.0, fissureClr, false)
 						}
 					}
 				} else {
-					// 1. Grass tufts/blades for texture
-					numGrass := rng.intn(3) + 2
-					grassClr := applyLight(color.RGBA{60, 195, 120, 255}, mult)
-					for i := 0; i < numGrass; i++ {
-						gx := float32(rng.float64()*50.0) + 7.0
-						gy := float32(rng.float64()*50.0) + 7.0
-						lenG := float32(rng.float64()*4.0 + 3.0)
-						angleG := (rng.float64() - 0.5) * 0.4 // slight tilt
-
-						// Draw two blades per tuft
-						gx2 := gx + lenG*float32(math.Sin(float64(angleG)))
-						gy2 := gy - lenG*float32(math.Cos(float64(angleG)))
-						vector.StrokeLine(target, sx+gx, sy+gy, sx+gx2, sy+gy2, 1.0, grassClr, false)
-
-						gx3 := gx + lenG*0.7*float32(math.Sin(float64(angleG+0.3)))
-						gy3 := gy - lenG*0.7*float32(math.Cos(float64(angleG+0.3)))
-						vector.StrokeLine(target, sx+gx, sy+gy, sx+gx3, sy+gy3, 1.0, grassClr, false)
+					// 1. Basalt rock strata / fracture ridges
+					numFractures := rng.intn(3) + 2
+					fractureClr := applyLight(color.RGBA{26, 30, 36, 255}, mult)
+					highlightClr := applyLight(color.RGBA{78, 88, 98, 255}, mult)
+					for i := 0; i < numFractures; i++ {
+						rx := float32(rng.float64()*44.0) + 8.0
+						ry := float32(rng.float64()*44.0) + 8.0
+						fLen := float32(rng.float64()*10.0 + 6.0)
+						tilt := float32(rng.float64()*4.0 - 2.0)
+						// Dark fissure line
+						vector.StrokeLine(target, sx+rx, sy+ry, sx+rx+fLen, sy+ry+tilt, 1.2, fractureClr, false)
+						// Sunlit rim highlight directly above the fissure
+						vector.StrokeLine(target, sx+rx, sy+ry-1.0, sx+rx+fLen*0.8, sy+ry+tilt-1.0, 0.8, highlightClr, false)
 					}
 
-					// 2. Flowering plants (35% chance)
-					if rng.float64() < 0.35 {
-						px := float32(rng.float64()*40.0) + 12.0
-						py := float32(rng.float64()*40.0) + 12.0
+					// 2. Biome-adaptive minerals & geologic deposits (40% chance)
+					if rng.float64() < 0.40 {
+						mx := float32(rng.float64()*38.0) + 12.0
+						my := float32(rng.float64()*38.0) + 12.0
 
-						// Stem
-						stemClr := applyLight(color.RGBA{40, 150, 80, 255}, mult)
-						vector.StrokeLine(target, sx+px, sy+py, sx+px, sy+py-5, 1.0, stemClr, false)
-
-						// Flower petals (red, yellow, or blue)
-						var petalClr color.RGBA
-						switch rng.intn(3) {
-						case 0:
-							petalClr = color.RGBA{235, 80, 80, 255} // red
-						case 1:
-							petalClr = color.RGBA{240, 205, 45, 255} // yellow
-						default:
-							petalClr = color.RGBA{80, 160, 235, 255} // blue
+						biomeID := o.World.BiomeMap[clampedTx][clampedTy]
+						switch biomeID {
+						case world.BiomeThermalBarrens:
+							// Sulfur crust & glowing heat veins
+							sulfurClr := applyLight(color.RGBA{215, 150, 35, 255}, mult)
+							vector.StrokeLine(target, sx+mx-3, sy+my, sx+mx+3, sy+my+2, 1.2, sulfurClr, false)
+							vector.FillCircle(target, sx+mx, sy+my, 1.8, sulfurClr, false)
+						case world.BiomeKelpForest:
+							// Slick brine moss / clinging seaweed on wet stone
+							mossClr := applyLight(color.RGBA{38, 85, 55, 255}, mult)
+							vector.FillCircle(target, sx+mx, sy+my, 2.2, mossClr, false)
+							vector.StrokeLine(target, sx+mx-2, sy+my+2, sx+mx+3, sy+my+4, 1.0, mossClr, false)
+						case world.BiomeShallowReef:
+							// Bleached sea-salt encrustation / coquina limestone deposit
+							saltClr := applyLight(color.RGBA{195, 205, 215, 255}, mult)
+							vector.FillCircle(target, sx+mx, sy+my, 2.0, saltClr, false)
+						default: // world.BiomeAbyssalBlue or others
+							// Deep obsidian glaze / frosted salt crystal
+							crystalClr := applyLight(color.RGBA{135, 165, 205, 255}, mult)
+							vector.StrokeLine(target, sx+mx, sy+my-3, sx+mx, sy+my+3, 1.2, crystalClr, false)
+							vector.StrokeLine(target, sx+mx-3, sy+my, sx+mx+3, sy+my, 1.2, crystalClr, false)
 						}
-						petalClr = applyLight(petalClr, mult)
-
-						// Small center dot
-						vector.FillCircle(target, sx+px, sy+py-6, 2.0, petalClr, false)
 					}
 
-					// 3. Leafy Trees (22% chance)
-					if rng.float64() < 0.22 {
-						tx := float32(rng.float64()*24.0) + 20.0
-						ty := float32(rng.float64()*24.0) + 20.0
+					// 3. Basalt sea-spire / jagged crag pinnacle (35% chance)
+					if rng.float64() < 0.35 {
+						px := float32(rng.float64()*28.0) + 18.0
+						py := float32(rng.float64()*28.0) + 18.0
 
-						shadowClr := color.RGBA{4, 12, 8, 55}
-						trunkClr := applyLight(color.RGBA{100, 65, 35, 255}, mult)
-						canopyClr := applyLight(color.RGBA{24, 115, 62, 255}, mult)
-						canopyStroke := applyLight(color.RGBA{18, 90, 50, 255}, mult)
+						shadowClr := color.RGBA{12, 15, 20, 100}
+						pillarDark := applyLight(color.RGBA{34, 38, 44, 255}, mult)
+						pillarLight := applyLight(color.RGBA{52, 60, 70, 255}, mult)
+						ridgeStroke := applyLight(color.RGBA{22, 26, 32, 255}, mult)
 
-						// Subtle canopy shadow underneath
-						vector.FillCircle(target, sx+tx+3, sy+ty+6, 8.5, shadowClr, false)
+						// Angular shadow cast to the southeast
+						vector.FillRect(target, sx+px+2, sy+py+3, 10, 8, shadowClr, false)
 
-						// Trunk
-						vector.FillRect(target, sx+tx-2, sy+ty, 4, 8, trunkClr, false)
+						// Left (lit) facet of the crag
+						vector.FillRect(target, sx+px-4, sy+py-4, 5, 10, pillarLight, false)
+						// Right (shaded) facet of the crag
+						vector.FillRect(target, sx+px+1, sy+py-4, 5, 10, pillarDark, false)
+						// Chiseled outline
+						vector.StrokeRect(target, sx+px-4, sy+py-4, 10, 10, 1.0, ridgeStroke, false)
 
-						// Main leafy canopy
-						vector.FillCircle(target, sx+tx, sy+ty-4, 9.0, canopyClr, false)
-						vector.StrokeCircle(target, sx+tx, sy+ty-4, 9.0, 1.0, canopyStroke, false)
-
-						// Highlight on the top-left of the canopy
-						highlightClr := applyLight(color.RGBA{65, 175, 110, 255}, mult)
-						vector.FillCircle(target, sx+tx-3, sy+ty-7, 3.5, highlightClr, false)
+						// Sharp summit ridge line
+						summitClr := applyLight(color.RGBA{95, 108, 122, 255}, mult)
+						vector.StrokeLine(target, sx+px-4, sy+py-4, sx+px+6, sy+py-4, 1.2, summitClr, false)
 					}
 				}
 			}
@@ -713,13 +712,24 @@ func ComputeTileColorsWithOffset(tx, ty int, tileType world.TileType, landDist, 
 		baseStrokeClr = color.RGBA{sr, sg, sb, 255}
 	} else if tileType == world.TileLand {
 		dist := waterDist
-		isSand := dist == 1 // exactly adjacent to water
+		isCoast := dist <= 1 // coastal shelf directly adjacent to water
 
-		if isSand {
-			baseClr = color.RGBA{232, 212, 165, 255} // beach sand
-			baseStrokeClr = color.RGBA{215, 195, 145, 255}
+		if isCoast {
+			// Coastal breaker shelf / wet rock
+			baseR := float64(92) + offset.R*0.5
+			baseG := float64(101) + offset.G*0.5
+			baseB := float64(112) + offset.B*0.5
+			r := uint8(max(0, min(255, baseR)))
+			gr := uint8(max(0, min(255, baseG)))
+			b := uint8(max(0, min(255, baseB)))
+			baseClr = color.RGBA{r, gr, b, 255}
+
+			sr := uint8(max(0, min(255, float64(r)-12)))
+			sgr := uint8(max(0, min(255, float64(gr)-13)))
+			sb := uint8(max(0, min(255, float64(b)-14)))
+			baseStrokeClr = color.RGBA{sr, sgr, sb, 255}
 		} else {
-			// Grass gradient from shore edge to inland
+			// Inland volcanic basalt crags / elevation gradient
 			const maxLandDist = 4
 			lerpT := float64(dist-2) / float64(maxLandDist-2)
 			if lerpT > 1.0 {
@@ -728,14 +738,17 @@ func ComputeTileColorsWithOffset(tx, ty int, tileType world.TileType, landDist, 
 			if lerpT < 0.0 {
 				lerpT = 0.0
 			}
-			r := uint8(20 + lerpT*18)
-			gr := uint8(100 + lerpT*42)
-			b := uint8(60 + lerpT*25)
+			baseR := float64(58-lerpT*16) + offset.R*0.4
+			baseG := float64(64-lerpT*16) + offset.G*0.4
+			baseB := float64(72-lerpT*18) + offset.B*0.4
+			r := uint8(max(0, min(255, baseR)))
+			gr := uint8(max(0, min(255, baseG)))
+			b := uint8(max(0, min(255, baseB)))
 			baseClr = color.RGBA{r, gr, b, 255}
 
-			sr := uint8(25 + lerpT*23)
-			sgr := uint8(115 + lerpT*45)
-			sb := uint8(70 + lerpT*28)
+			sr := uint8(max(0, min(255, float64(r)-10)))
+			sgr := uint8(max(0, min(255, float64(gr)-10)))
+			sb := uint8(max(0, min(255, float64(b)-12)))
 			baseStrokeClr = color.RGBA{sr, sgr, sb, 255}
 		}
 	}

@@ -45,6 +45,11 @@ func NewWorld(seed int64) *World {
 	return w
 }
 
+// LandThreshold defines the FBM noise threshold above which tiles become TileLand.
+// A value of 0.66 maintains recognizable island formations while moderately
+// widening oceanic navigation channels.
+const LandThreshold = 0.66
+
 // generateOverworld builds the top-down sea and islands.
 func (w *World) generateOverworld() {
 	w.OverworldMap = make([][]TileType, w.Width)
@@ -62,7 +67,7 @@ func (w *World) generateOverworld() {
 			val := noise.FBM(nx, ny, 3)
 
 			// Land threshold
-			if val > 0.62 {
+			if val > LandThreshold {
 				w.OverworldMap[x][y] = TileLand
 			} else {
 				w.OverworldMap[x][y] = TileWater
