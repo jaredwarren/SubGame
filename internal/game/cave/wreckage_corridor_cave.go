@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/assets"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
@@ -24,40 +25,88 @@ func NewWreckageCorridorCave(grid [][]bool, shipIndex int) *WreckageCorridorCave
 func (c *WreckageCorridorCave) GetCaveType() CaveType { return CaveWreckage }
 func (c *WreckageCorridorCave) GetGrid() [][]bool     { return c.Grid }
 
-func (c *WreckageCorridorCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64) {
+func (c *WreckageCorridorCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	const lineGap = 40.0
-	offsetX := float32(math.Mod(camY*0.1, lineGap))
+	offsetX := float32(math.Mod(camX*0.1, lineGap))
+	offsetY := float32(math.Mod(camY*0.1, lineGap))
 
 	switch c.ShipIndex {
 	case 1:
 		// Ship 1: Submersible Transport (rusted industrial iron interior, warm amber grid)
 		screen.Fill(color.RGBA{18, 16, 15, 255})
-		for x := float32(0); x < float32(config.ScreenWidth); x += lineGap {
-			vector.StrokeLine(screen, x, 0, x, float32(config.ScreenHeight), 0.8, color.RGBA{35, 28, 22, 255}, false)
+		for x := float32(0); x < float32(config.ScreenWidth)+lineGap; x += lineGap {
+			sx := x - offsetX
+			vector.StrokeLine(screen, sx, 0, sx, float32(config.ScreenHeight), 0.8, color.RGBA{35, 28, 22, 255}, false)
 		}
-		for y := float32(0); y < float32(config.ScreenHeight); y += lineGap {
-			sy := y - offsetX
+		for y := float32(0); y < float32(config.ScreenHeight)+lineGap; y += lineGap {
+			sy := y - offsetY
 			vector.StrokeLine(screen, 0, sy, float32(config.ScreenWidth), sy, 0.8, color.RGBA{35, 28, 22, 255}, false)
 		}
 	case 2:
 		// Ship 2: AetherCorp Flagship (dark obsidian armor, faint crimson grid lines)
 		screen.Fill(color.RGBA{10, 10, 14, 255})
-		for x := float32(0); x < float32(config.ScreenWidth); x += lineGap {
-			vector.StrokeLine(screen, x, 0, x, float32(config.ScreenHeight), 0.8, color.RGBA{30, 14, 18, 255}, false)
+		for x := float32(0); x < float32(config.ScreenWidth)+lineGap; x += lineGap {
+			sx := x - offsetX
+			vector.StrokeLine(screen, sx, 0, sx, float32(config.ScreenHeight), 0.8, color.RGBA{30, 14, 18, 255}, false)
 		}
-		for y := float32(0); y < float32(config.ScreenHeight); y += lineGap {
-			sy := y - offsetX
+		for y := float32(0); y < float32(config.ScreenHeight)+lineGap; y += lineGap {
+			sy := y - offsetY
 			vector.StrokeLine(screen, 0, sy, float32(config.ScreenWidth), sy, 0.8, color.RGBA{30, 14, 18, 255}, false)
 		}
 	default:
 		// Ship 0: Research Tender (clinical cyan-steel interior, cool grid)
 		screen.Fill(color.RGBA{12, 16, 22, 255})
-		for x := float32(0); x < float32(config.ScreenWidth); x += lineGap {
-			vector.StrokeLine(screen, x, 0, x, float32(config.ScreenHeight), 0.8, color.RGBA{18, 30, 42, 255}, false)
+		for x := float32(0); x < float32(config.ScreenWidth)+lineGap; x += lineGap {
+			sx := x - offsetX
+			vector.StrokeLine(screen, sx, 0, sx, float32(config.ScreenHeight), 0.8, color.RGBA{18, 30, 42, 255}, false)
 		}
-		for y := float32(0); y < float32(config.ScreenHeight); y += lineGap {
-			sy := y - offsetX
+		for y := float32(0); y < float32(config.ScreenHeight)+lineGap; y += lineGap {
+			sy := y - offsetY
 			vector.StrokeLine(screen, 0, sy, float32(config.ScreenWidth), sy, 0.8, color.RGBA{18, 30, 42, 255}, false)
+		}
+
+		// Subtle flooded sci-fi starship corridor background with 2D parallax
+		bgImg := assets.WreckageTenderBackground()
+		if bgImg != nil {
+			imgW, imgH := float64(bgImg.Bounds().Dx()), float64(bgImg.Bounds().Dy())
+			const scale = 1.40
+			scaledW := imgW * scale
+			scaledH := imgH * scale
+
+			caveWidthPX := float64(len(c.Grid) * config.TileSize)
+			if caveWidthPX <= 0 {
+				caveWidthPX = float64(CaveWidth * config.TileSize)
+			}
+			maxCamX := math.Max(1.0, caveWidthPX-float64(config.ScreenWidth))
+
+			caveHeightPX := maxDepth
+			if caveHeightPX <= 0 && len(c.Grid) > 0 && len(c.Grid[0]) > 0 {
+				caveHeightPX = float64(len(c.Grid[0]) * config.TileSize)
+			}
+			if caveHeightPX <= 0 {
+				caveHeightPX = float64(CaveHeight * config.TileSize)
+			}
+			maxCamY := math.Max(1.0, caveHeightPX-float64(config.ScreenHeight))
+
+			extraX := scaledW - float64(config.ScreenWidth)
+			extraY := scaledH - float64(config.ScreenHeight)
+
+			// 2D Parallax: shifts smoothly across the interior as the player moves
+			camXRatio := math.Max(0, math.Min(1, camX/maxCamX))
+			posX := -camXRatio * extraX
+
+			camYRatio := math.Max(0, math.Min(1, camY/maxCamY))
+			posY := -camYRatio * extraY
+
+			// Visible yet moody ambient alpha (keeps terminal glow and steel ribs discernible)
+			alpha := float32(0.42 * (0.75 + 0.25*lightMult))
+			if alpha > 0.005 {
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Scale(scale, scale)
+				op.GeoM.Translate(posX, posY)
+				op.ColorScale.ScaleAlpha(alpha)
+				screen.DrawImage(bgImg, op)
+			}
 		}
 	}
 }

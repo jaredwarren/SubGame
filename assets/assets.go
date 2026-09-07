@@ -49,3 +49,9 @@ var TrenchSurfacePNG []byte
 
 //go:embed textures/wreckage_surface.png
 var WreckageSurfacePNG []byte
+
+//go:embed backgrounds/bg_cave_shallow_reef.png
+var CaveShallowReefPNG []byte
+
+//go:embed backgrounds/bg_cave_wreckage_tender.png
+var CaveWreckageTenderPNG []byte

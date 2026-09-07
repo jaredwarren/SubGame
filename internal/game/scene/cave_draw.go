@@ -543,7 +543,7 @@ func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave ca
 	}
 	mult := GetOverworldLightMultiplier(g.GetTimeOfDay())
 	if activeCave != nil {
-		activeCave.DrawBackground(screen, camY, maxDepth, mult)
+		activeCave.DrawBackground(screen, camX, camY, maxDepth, mult)
 	} else if c.IsShallow {
 		baseR := float64(10) + float64(30)*mult
 		baseG := float64(40) + float64(80)*mult

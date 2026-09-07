@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/draw"
 	_ "image/png"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	rawassets "github.com/jaredwarren/SubGame/assets"
@@ -115,4 +116,44 @@ func LoadChromaKeyedImage(name string, opts ...Option) (*ebiten.Image, error) {
 	}
 
 	return finalImg, nil
+}
+
+var (
+	shallowReefBg     *ebiten.Image
+	shallowReefBgOnce sync.Once
+)
+
+// ShallowReefBackground returns the cached ebiten.Image for the shallow reef cave background.
+func ShallowReefBackground() *ebiten.Image {
+	shallowReefBgOnce.Do(func() {
+		if len(rawassets.CaveShallowReefPNG) == 0 {
+			return
+		}
+		img, _, err := image.Decode(bytes.NewReader(rawassets.CaveShallowReefPNG))
+		if err != nil {
+			return
+		}
+		shallowReefBg = ebiten.NewImageFromImage(img)
+	})
+	return shallowReefBg
+}
+
+var (
+	wreckageTenderBg     *ebiten.Image
+	wreckageTenderBgOnce sync.Once
+)
+
+// WreckageTenderBackground returns the cached ebiten.Image for the Ship 0 research tender wreckage background.
+func WreckageTenderBackground() *ebiten.Image {
+	wreckageTenderBgOnce.Do(func() {
+		if len(rawassets.CaveWreckageTenderPNG) == 0 {
+			return
+		}
+		img, _, err := image.Decode(bytes.NewReader(rawassets.CaveWreckageTenderPNG))
+		if err != nil {
+			return
+		}
+		wreckageTenderBg = ebiten.NewImageFromImage(img)
+	})
+	return wreckageTenderBg
 }

@@ -24,7 +24,7 @@ func NewThermoCave(grid [][]bool) *ThermoCave {
 func (c *ThermoCave) GetCaveType() CaveType { return CaveThermo }
 func (c *ThermoCave) GetGrid() [][]bool     { return c.Grid }
 
-func (c *ThermoCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64) {
+func (c *ThermoCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Dark, warm basalt grey background
 	screen.Fill(color.RGBA{16, 10, 10, 255})
 
@@ -34,17 +34,21 @@ func (c *ThermoCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth
 	const numParticles = 40
 	for i := 0; i < numParticles; i++ {
 		seed := uint64(i * 9876)
-		px := fracHash(seed) * float64(config.ScreenWidth)
+		pxInitial := fracHash(seed) * float64(config.ScreenWidth*2)
 		pyInitial := fracHash(seed+1) * float64(config.ScreenHeight*2)
 
 		// Parallax scroll factor: 0.35x camera speed, plus steady upward float
+		px := math.Mod(pxInitial-camX*0.35, float64(config.ScreenWidth*2))
+		if px < 0 {
+			px += float64(config.ScreenWidth * 2)
+		}
 		riseOffset := float64(c.ticks) * (0.3 + fracHash(seed+2)*0.4)
 		py := math.Mod(pyInitial-camY*0.35-riseOffset, float64(config.ScreenHeight*2))
 		if py < 0 {
 			py += float64(config.ScreenHeight * 2)
 		}
 
-		if py < float64(config.ScreenHeight) {
+		if px < float64(config.ScreenWidth) && py < float64(config.ScreenHeight) {
 			size := 1.2 + fracHash(seed+3)*1.8
 			var pClr color.RGBA
 			roll := fracHash(seed + 4)

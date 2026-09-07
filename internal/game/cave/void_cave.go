@@ -17,7 +17,7 @@ func NewVoidCave() *VoidCave {
 func (c *VoidCave) GetCaveType() CaveType { return CaveVoid }
 func (c *VoidCave) GetGrid() [][]bool     { return nil }
 
-func (c *VoidCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64) {
+func (c *VoidCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Endless crushing dark void
 	screen.Fill(color.RGBA{2, 3, 6, 255})
 }

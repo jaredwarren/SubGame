@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/assets"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
@@ -331,7 +332,7 @@ func fracHash(seed uint64) float64 {
 func (c *ShallowSeabedCave) GetCaveType() CaveType { return CaveOrganicShallow }
 func (c *ShallowSeabedCave) GetGrid() [][]bool     { return c.Grid }
 
-func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64) {
+func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Surface base color tinted by Biome Ambient Tint
 	tintR := float64(10)
 	tintG := float64(40)
@@ -366,6 +367,59 @@ func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camY float64, m
 			A: 255,
 		}
 		vector.FillRect(screen, 0, sy, float32(config.ScreenWidth), stripH, sc, false)
+	}
+
+	// Subtle background image overlay with true 2D parallax across both X and Y
+	bgImg := assets.ShallowReefBackground()
+	if bgImg != nil {
+		imgW, imgH := float64(bgImg.Bounds().Dx()), float64(bgImg.Bounds().Dy())
+		const scale = 1.40
+		scaledW := imgW * scale
+		scaledH := imgH * scale
+
+		caveWidthPX := float64(len(c.Grid) * config.TileSize)
+		if caveWidthPX <= 0 {
+			caveWidthPX = float64(CaveWidth * config.TileSize)
+		}
+		maxCamX := math.Max(1.0, caveWidthPX-float64(config.ScreenWidth))
+
+		// Parallax travel ranges
+		extraX := scaledW - float64(config.ScreenWidth)
+		extraY := scaledH - float64(config.ScreenHeight)
+
+		// Horizontal parallax: background shifts at ~25% of camera travel across the cave
+		camXRatio := math.Max(0, math.Min(1, camX/maxCamX))
+		posX := -camXRatio * extraX
+
+		// Vertical parallax: shifts at ~13% of camera travel across upper cave depth
+		const maxFadeDepth = 2800.0
+		camYRatio := math.Max(0, math.Min(1, camY/maxFadeDepth))
+		posY := -camYRatio * extraY
+
+		// Depth fade: softest at surface, gracefully dissolving into dark ocean depths
+		fade := float32(1.0 - camYRatio)
+
+		// Subtle alpha: ~0.22 at surface midday, scaling with daylight and depth
+		alpha := float32(0.22*(0.55+0.45*lightMult)) * fade
+
+		if alpha > 0.005 {
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(scale, scale)
+			op.GeoM.Translate(posX, posY)
+
+			// Subtle biome color tinting
+			rMult := float32(1.0)
+			gMult := float32(1.0)
+			bMult := float32(1.0)
+			if c.Biome != nil {
+				rMult = float32(math.Max(0.7, math.Min(1.3, float64(c.Biome.CaveAmbientTint.R)/50.0)))
+				gMult = float32(math.Max(0.7, math.Min(1.3, float64(c.Biome.CaveAmbientTint.G)/70.0)))
+				bMult = float32(math.Max(0.7, math.Min(1.3, float64(c.Biome.CaveAmbientTint.B)/100.0)))
+			}
+
+			op.ColorScale.Scale(rMult*alpha, gMult*alpha, bMult*alpha, alpha)
+			screen.DrawImage(bgImg, op)
+		}
 	}
 }
 

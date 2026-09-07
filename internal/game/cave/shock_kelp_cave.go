@@ -23,7 +23,7 @@ func NewShockKelpCave(grid [][]bool) *ShockKelpCave {
 func (c *ShockKelpCave) GetCaveType() CaveType { return CaveShockKelp }
 func (c *ShockKelpCave) GetGrid() [][]bool     { return c.Grid }
 
-func (c *ShockKelpCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64) {
+func (c *ShockKelpCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Dark purple-grey background representing a charged, deep reef grotto
 	screen.Fill(color.RGBA{15, 12, 22, 255})
 
@@ -31,16 +31,20 @@ func (c *ShockKelpCave) DrawBackground(screen *ebiten.Image, camY float64, maxDe
 	const numParticles = 40
 	for i := 0; i < numParticles; i++ {
 		seed := uint64(i * 1234)
-		px := fracHash(seed) * float64(config.ScreenWidth)
+		pxInitial := fracHash(seed) * float64(config.ScreenWidth*2)
 		pyInitial := fracHash(seed+1) * float64(config.ScreenHeight*2)
 
 		// Parallax scroll factor: 0.35x camera speed
+		px := math.Mod(pxInitial-camX*0.35, float64(config.ScreenWidth*2))
+		if px < 0 {
+			px += float64(config.ScreenWidth * 2)
+		}
 		py := math.Mod(pyInitial-camY*0.35, float64(config.ScreenHeight*2))
 		if py < 0 {
 			py += float64(config.ScreenHeight * 2)
 		}
 
-		if py < float64(config.ScreenHeight) {
+		if px < float64(config.ScreenWidth) && py < float64(config.ScreenHeight) {
 			size := 1.0 + fracHash(seed+2)*2.0
 			var pClr color.RGBA
 			if fracHash(seed+3) < 0.75 {

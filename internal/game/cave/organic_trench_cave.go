@@ -22,7 +22,7 @@ func NewOrganicTrenchCave(grid [][]bool) *OrganicTrenchCave {
 func (c *OrganicTrenchCave) GetCaveType() CaveType { return CaveOrganicTrench }
 func (c *OrganicTrenchCave) GetGrid() [][]bool     { return c.Grid }
 
-func (c *OrganicTrenchCave) DrawBackground(screen *ebiten.Image, camY float64, maxDepth float64, lightMult float64) {
+func (c *OrganicTrenchCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Deep-sea grotto dark background: subtle depth darkening from deep indigo at top to dark abyss near bottom
 	depthFrac := 0.0
 	if maxDepth > 0 {
