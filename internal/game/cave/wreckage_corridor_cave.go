@@ -11,6 +11,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
+	"github.com/jaredwarren/SubGame/internal/pcghash"
 )
 
 type WreckageCorridorCave struct {
@@ -441,6 +442,14 @@ func GenerateWreckageGridWithShip(r *rand.Rand, shipIndex int) [][]bool {
 			width := xMax - xMin + 1
 			if width < 8 {
 				return
+			}
+
+			// Optional relaxwfc module kit (adapter). Falls back to legacy carving.
+			if pcghash.UseRelaxWFC {
+				seed := uint64(r.Int63()) ^ uint64(xMin)<<32 ^ uint64(yMin)<<16
+				if carveBayWithRelaxWFC(grid, seed, xMin, xMax, yMin, yMax, doorToY) {
+					return
+				}
 			}
 
 			numRooms := 2

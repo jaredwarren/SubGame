@@ -4,20 +4,26 @@ This guide turns three research-inspired ideas from [openai/math](https://github
 
 **Important framing for agents:** Treat the math families as *design inspiration and quality criteria*, not as a mandate to port research proofs. Deliver **practical approximations** with stable public APIs, tests, and zero coupling to any one game engine or content schema.
 
-| Topic | openai/math family | Library property |
-|---|---|---|
-| Spatial hashing / flawless seeding | [007 – Ordinary two-point correlations of multiplicative functions](https://github.com/openai/math/blob/main/reasoning_traces/ordinary-two-point-correlations.pdf) | Coordinate → value hashes without lattice streaks |
-| Constraint solvers under time budget | [102 – Ordinary NP-hardness at the basic semidefinite threshold](https://github.com/openai/math/blob/main/reasoning_traces/basic-semidefinite-threshold-np-hardness.pdf) | WFC / tile CSP with timed relaxation |
-| Coupled discrete fields | [221 – Mézard–Parisi diluted spin glasses](https://github.com/openai/math/blob/main/reasoning_traces/mezard-parisi-formula.pdf), [271 – Spontaneous magnetization / Heisenberg](https://github.com/openai/math/blob/main/reasoning_traces/spontaneous-magnetization-quantum-heisenberg-ferromagnet.pdf) | Neighbor energy minimization → contiguous “territories” |
+
+| Topic                                | openai/math family                                                                                                                                                                                                                                                                                      | Library property                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Spatial hashing / flawless seeding   | [007 – Ordinary two-point correlations of multiplicative functions](https://github.com/openai/math/blob/main/reasoning_traces/ordinary-two-point-correlations.pdf)                                                                                                                                      | Coordinate → value hashes without lattice streaks       |
+| Constraint solvers under time budget | [102 – Ordinary NP-hardness at the basic semidefinite threshold](https://github.com/openai/math/blob/main/reasoning_traces/basic-semidefinite-threshold-np-hardness.pdf)                                                                                                                                | WFC / tile CSP with timed relaxation                    |
+| Coupled discrete fields              | [221 – Mézard–Parisi diluted spin glasses](https://github.com/openai/math/blob/main/reasoning_traces/mezard-parisi-formula.pdf), [271 – Spontaneous magnetization / Heisenberg](https://github.com/openai/math/blob/main/reasoning_traces/spontaneous-magnetization-quantum-heisenberg-ferromagnet.pdf) | Neighbor energy minimization → contiguous “territories” |
+
 
 ---
 
+
+
 ## Library-first vs game integration
 
-| Layer | What the agent builds | Allowed dependencies |
-|---|---|---|
+
+| Layer                        | What the agent builds                                                                         | Allowed dependencies                                              |
+| ---------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | **Core libraries** (default) | Separate Go module(s) or packages under something like `pcg/{spatialhash,relaxwfc,spinglass}` | Stdlib only (`math`, `math/bits`, `math/rand`, `time`, `testing`) |
-| **Optional adapters** | Thin wrappers for a specific game (e.g. SubGame) | May import the game; must not be required to use the core |
+| **Optional adapters**        | Thin wrappers for a specific game (e.g. SubGame)                                              | May import the game; must not be required to use the core         |
+
 
 **Already partially modular?** Earlier drafts suggested `internal/pcg/` inside SubGame. That is swappable *within one repo*, but it is **not** a generic library: paths, types (`TileType`, `World`), and integration notes were SubGame-specific. This document asks for **importable, game-agnostic packages** first.
 
@@ -42,6 +48,8 @@ Place the new module **outside** `internal/` (or in a sibling repo). Games depen
 
 ---
 
+
+
 ## How to use these prompts
 
 1. **One library per agent turn.**
@@ -49,6 +57,8 @@ Place the new module **outside** `internal/` (or in a sibling repo). Games depen
 3. Do **not** attach game source unless you are on an optional adapter follow-up.
 4. Require acceptance tests (determinism, budget, no lattice artifacts) before any game wiring.
 5. Only after the library merges: run a short **adapter** prompt for SubGame or another project.
+
+
 
 ### Shared library preamble (paste first)
 
@@ -78,7 +88,11 @@ Do not wire into any game unless this prompt says "adapter".
 
 ---
 
+
+
 ## 1. Multiplicative spatial hashing (Family 007)
+
+
 
 ### Library goal
 
@@ -91,6 +105,8 @@ A **coordinate hash** for discrete rolls and seeds: ore, loot, spawn eligibility
 - Stable `uint64` / `float64 ∈ [0,1)` API
 - Domain/salt parameter so independent streams do not correlate
 - Multiplicative mixer stage (odd constants, rotate-xor)—inspired by correlation-control ideas around multiplicative functions, **not** a number-theory library
+
+
 
 ### Agent prompt
 
@@ -132,19 +148,23 @@ func Stream(seed uint64, chunkX, chunkY int64) *rand.Rand
 ```
 
 Requirements:
+
 1. Integer mixing only (large odd multipliers, xor-shifts, rotations). Document why
-   this beats naive `x*A + y*B` for axis correlation.
+  this beats naive `x*A + y*B` for axis correlation.
 2. Endian/platform-stable bit patterns for the same inputs.
 3. Tests:
-   - identical inputs → identical outputs
-   - avalanche spot checks
-   - 512×512 Unit2 histogram (16 bins): soft chi-square bounds; row/column means
-     must not show obvious striping (document thresholds; keep test deterministic)
+  - identical inputs → identical outputs
+  - avalanche spot checks
+  - 512×512 Unit2 histogram (16 bins): soft chi-square bounds; row/column means
+  must not show obvious striping (document thresholds; keep test deterministic)
 4. README example: spawning with Chance; seeding a chunk RNG with Stream.
 5. Non-goals: not a Perlin/Simplex replacement (optional thin gradient-index helper
-   is OK only if it calls Hash2 and stays in a subfile).
+  is OK only if it calls Hash2 and stays in a subfile).
 
 No game types, no file I/O, no rendering.
+
+```
+
 ```
 
 ### Follow-up prompts
@@ -234,25 +254,32 @@ func Solve(cfg Config) (Result, error)
 ```
 
 Algorithm sketch (refine as needed):
+
 1. Per-cell domains; propagate hard rules.
 2. On contradiction or budget pressure: drop lowest-Weight soft rules touching the
-   conflict region; restore domains in a small radius; continue.
+  conflict region; restore domains in a small radius; continue.
 3. On Budget / MaxSteps: fill remaining cells with best compatible tile else SoftFailTile.
 4. Expose counters on Result.
 
 Requirements:
+
 1. Deterministic for fixed Seed + Config.
 2. Zero knowledge of any game: no biome names, no “wreckage”, no engine imports.
 3. Tests with a tiny abstract tileset (A/B/C/D or Water/Wall/Door/Corridor as *examples*):
-   - easy maps → Relaxations==0
-   - over-constrained maps → full grid, no panics / no nil holes
-   - Budget/MaxSteps path sets TimedOut and finishes quickly
+  - easy maps → Relaxations==0
+  - over-constrained maps → full grid, no panics / no nil holes
+  - Budget/MaxSteps path sets TimedOut and finishes quickly
 4. README: how to encode adjacency; recommended budgets for offline vs per-frame.
 5. Forbid: interior-point SDP, BLAS, CGO.
 
 Optional progressive API in the same package (or follow-up):
 Begin / Step / Finalize for spreading work across ticks—still game-agnostic.
+
 ```
+
+```
+
+
 
 ### Follow-up prompts
 
@@ -265,6 +292,8 @@ do not hard-fail CI on wall clock unless using a step-count assertion.
 Add Validate(grid, rules hard-only) helper so callers can assert invariants after Solve.
 ```
 
+
+
 ### Acceptance checklist
 
 - [ ] Always returns a complete grid (or a documented error only for invalid Config)
@@ -274,7 +303,11 @@ Add Validate(grid, rules hard-only) helper so callers can assert invariants afte
 
 ---
 
+
+
 ## 3. Spin-glass-style coupled fields (Families 221 & 271)
+
+
 
 ### Library goal
 
@@ -350,25 +383,30 @@ func Energy(cfg Config, cells []Cell) float64
 ```
 
 Algorithm:
+
 1. Initialize unlocked labels from a deterministic hash of (Seed, index) if unset.
 2. For each iteration: Metropolis or greedy label updates; smooth channels toward
-   neighbors + ChannelBias (Gauss–Seidel). Deterministic scan order.
+  neighbors + ChannelBias (Gauss–Seidel). Deterministic scan order.
 3. Anneal Temperature0 → Temperature1.
 4. Document energy terms. Complexity O(iterations * width * height * neighbors).
 
 Requirements:
+
 1. Deterministic for fixed Config.
 2. No imports of game packages; no terrain enums inside the library.
 3. Tests:
-   - two Locked opposing labels → contiguous territories under strong NeighborWeight
-   - pure-greedy (T=0) run: energy non-increasing
-   - 128×128 × 50 iters completes quickly in tests
+  - two Locked opposing labels → contiguous territories under strong NeighborWeight
+  - pure-greedy (T=0) run: energy non-increasing
+  - 128×128 × 50 iters completes quickly in tests
 4. README examples: abstract “region paint”, optional note that games map labels to
-   factions/biomes *outside* this package.
+  factions/biomes *outside* this package.
 5. Forbid heavy linear algebra; 4/8 stencil (optional diluted long-range edges later).
 
 Optional: accept an adjacency list graph mode for non-grid maps (hex, navmesh)—
 only if it stays small; otherwise leave a TODO interface.
+
+```
+
 ```
 
 ### Follow-up prompts
@@ -452,14 +490,16 @@ game-agnostic.
 
 ## Prompting patterns that work well
 
-| Do | Don’t |
-|---|---|
-| Ask for a module path + stdlib-only core | Bury algorithms under `internal/game/...` |
-| Cite family id + one *property* | Paste papers / demand Lean |
-| Specify signatures, budgets, tests | “Make it mathematically correct” with no API |
-| Keep game types in adapters | Put `TileWreckage` inside `relaxwfc` |
-| Claim inspiration in README | Claim “implements openai/math result X” |
-| One library per agent turn | One mega-prompt for lib + full game rewrite |
+
+| Do                                       | Don’t                                        |
+| ---------------------------------------- | -------------------------------------------- |
+| Ask for a module path + stdlib-only core | Bury algorithms under `internal/game/...`    |
+| Cite family id + one *property*          | Paste papers / demand Lean                   |
+| Specify signatures, budgets, tests       | “Make it mathematically correct” with no API |
+| Keep game types in adapters              | Put `TileWreckage` inside `relaxwfc`         |
+| Claim inspiration in README              | Claim “implements openai/math result X”      |
+| One library per agent turn               | One mega-prompt for lib + full game rewrite  |
+
 
 ### Critic / review prompt (after code lands)
 
@@ -477,10 +517,10 @@ Review the new pcg libraries:
 
 ## Suggested ship order
 
-1. **spatialhash** module + tests + README  
-2. **relaxwfc** module + abstract tileset fixtures  
-3. **spinglass** module + locked-capital fixture  
-4. Optional: SubGame (or other game) adapters, one call site each  
+1. **spatialhash** module + tests + README
+2. **relaxwfc** module + abstract tileset fixtures
+3. **spinglass** module + locked-capital fixture
+4. Optional: SubGame (or other game) adapters, one call site each
 
 ---
 

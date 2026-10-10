@@ -334,6 +334,7 @@ func (d *DebugMenuScene) updateCheatsTab(g DebugContext, cx, cy float64, mx, my 
 		{"Freeze Time of Day", g.IsTimeFrozen(), g.ToggleFreezeTime},
 		{"Flashlight: Follow Mouse", config.FlashlightFollowsMouse, func() { config.FlashlightFollowsMouse = !config.FlashlightFollowsMouse }},
 		{"Spatial Hash (wreckage scrap)", pcghash.UseSpatialHash, func() { pcghash.UseSpatialHash = !pcghash.UseSpatialHash }},
+		{"Relax WFC (wreckage rooms)", pcghash.UseRelaxWFC, func() { pcghash.UseRelaxWFC = !pcghash.UseRelaxWFC }},
 	}
 
 	for i, t := range toggles {
@@ -735,6 +736,7 @@ func (d *DebugMenuScene) drawCheatsTab(screen *ebiten.Image, g DebugContext, cx,
 		{"Freeze Time of Day", g.IsTimeFrozen()},
 		{"Flashlight: Follow Mouse", config.FlashlightFollowsMouse},
 		{"Spatial Hash (wreckage scrap)", pcghash.UseSpatialHash},
+		{"Relax WFC (wreckage rooms)", pcghash.UseRelaxWFC},
 	}
 
 	for i, t := range toggles {
