@@ -29,6 +29,7 @@ type World struct {
 	WaterDist     [][]int             // Precomputed BFS distance from each tile to nearest water
 	Caves               map[string][][]bool // Key: "trenchX_trenchY" -> Cave grid
 	SmoothedWaterOffset [][]ColorOffset
+	Influence           *Influence // optional spinglass sidecar (nil unless UseSpinGlass)
 	Width, Height int
 	Seed          int64
 }
@@ -78,6 +79,7 @@ func (w *World) generateOverworld() {
 	// Precompute BFS distance maps for fast per-tile lookups
 	w.buildLandDistMap()
 	w.buildWaterDistMap()
+	w.BuildInfluenceMap() // no-op unless pcghash.UseSpinGlass
 	w.generateBiomes()
 	w.buildSmoothedWaterOffsets()
 

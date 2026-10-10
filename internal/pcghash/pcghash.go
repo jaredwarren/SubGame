@@ -10,6 +10,10 @@ var UseSpatialHash bool
 // Default false preserves hand-authored GenerateWreckageGridWithShip carving.
 var UseRelaxWFC bool
 
+// UseSpinGlass builds a World.Influence sidecar (labels + danger/vitality channels)
+// from LandDist/WaterDist via spinglass.Minimize. Default true for playtest A/B.
+var UseSpinGlass = true
+
 // Domain salts — independent streams at the same coordinates.
 const (
 	DomainDebris     uint64 = 0xdeb71501 // scrap / electronic waste presence

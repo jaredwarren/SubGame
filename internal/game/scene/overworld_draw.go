@@ -292,6 +292,12 @@ func (o *OverworldScene) drawBaseTiles(target *ebiten.Image, startTileX, endTile
 				offset = o.World.GetSmoothedWaterOffset(clampedTx, clampedTy)
 			}
 			tileClr, strokeClr := ComputeTileColorsWithOffset(tx, ty, tileType, landDist, waterDist, o.World.Width, o.World.Height, mult, offset)
+			if tileType == world.TileWater {
+				if _, danger, vitality, ok := o.World.InfluenceAt(clampedTx, clampedTy); ok {
+					tileClr = applyInfluenceWaterTint(tileClr, danger, vitality)
+					strokeClr = applyInfluenceWaterTint(strokeClr, danger*0.7, vitality*0.7)
+				}
+			}
 
 			// Always draw the base background tile (e.g. water color) first
 			vector.FillRect(target, sx, sy, config.TileSize, config.TileSize, tileClr, false)
@@ -642,6 +648,35 @@ func drawWaveCurve(screen *ebiten.Image, camX, camY float64, targetWcx, targetWc
 		}
 		lastX, lastY = wx, wy
 	}
+}
+
+// applyInfluenceWaterTint shifts water toward purple-abyss with danger and
+// cyan-shelf with vitality (spinglass sidecar channels).
+func applyInfluenceWaterTint(c color.RGBA, danger, vitality float32) color.RGBA {
+	d := float64(danger)
+	v := float64(vitality)
+	r := float64(c.R)*(1-0.35*d) + 48*d
+	g := float64(c.G)*(1-0.25*d) + 18*d + 22*v
+	b := float64(c.B)*(1-0.15*d) + 40*v
+	if r < 0 {
+		r = 0
+	}
+	if g < 0 {
+		g = 0
+	}
+	if b < 0 {
+		b = 0
+	}
+	if r > 255 {
+		r = 255
+	}
+	if g > 255 {
+		g = 255
+	}
+	if b > 255 {
+		b = 255
+	}
+	return color.RGBA{uint8(r), uint8(g), uint8(b), c.A}
 }
 
 // ComputeTileColors calculates fill and stroke colors for a tile, applying the void-border fade and light multiplier.

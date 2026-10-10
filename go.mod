@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.9
-	github.com/jaredwarren/pcg v0.0.0
+	github.com/jaredwarren/pcg v0.0.0-20261010222740-26188c7612f2
 )
 
 require (
@@ -17,6 +17,3 @@ require (
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 )
-
-// Local sibling module until pcg is published.
-replace github.com/jaredwarren/pcg => ../pcg

@@ -55,8 +55,13 @@ func (o *OverworldScene) InitializeExtras(g OverworldContext) {
 				// If this tile is close to land, spawn a school of fish using Snail Swarm spacing
 				dist := o.World.LandDist[tx][ty]
 				if dist >= 1 && dist <= 3 {
-					// Snail Swarm clustering: spawn discrete pods with negative space
-					if r.Float64() < 0.015 {
+					// Snail Swarm clustering: spawn discrete pods with negative space.
+					// Influence vitality boosts coastal fauna; danger suppresses it.
+					spawnChance := 0.015
+					if _, danger, vitality, ok := o.World.InfluenceAt(tx, ty); ok {
+						spawnChance *= (0.45 + 0.9*float64(vitality)) * (1.0 - 0.55*float64(danger))
+					}
+					if r.Float64() < spawnChance {
 						schoolBaseX := float64(tx*config.TileSize) + float64(config.TileSize)/2.0
 						schoolBaseY := float64(ty*config.TileSize) + float64(config.TileSize)/2.0
 

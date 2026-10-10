@@ -335,6 +335,12 @@ func (d *DebugMenuScene) updateCheatsTab(g DebugContext, cx, cy float64, mx, my 
 		{"Flashlight: Follow Mouse", config.FlashlightFollowsMouse, func() { config.FlashlightFollowsMouse = !config.FlashlightFollowsMouse }},
 		{"Spatial Hash (wreckage scrap)", pcghash.UseSpatialHash, func() { pcghash.UseSpatialHash = !pcghash.UseSpatialHash }},
 		{"Relax WFC (wreckage rooms)", pcghash.UseRelaxWFC, func() { pcghash.UseRelaxWFC = !pcghash.UseRelaxWFC }},
+		{"SpinGlass influence (overworld)", pcghash.UseSpinGlass, func() {
+			pcghash.UseSpinGlass = !pcghash.UseSpinGlass
+			if w := g.GetWorld(); w != nil {
+				w.BuildInfluenceMap()
+			}
+		}},
 	}
 
 	for i, t := range toggles {
@@ -737,6 +743,7 @@ func (d *DebugMenuScene) drawCheatsTab(screen *ebiten.Image, g DebugContext, cx,
 		{"Flashlight: Follow Mouse", config.FlashlightFollowsMouse},
 		{"Spatial Hash (wreckage scrap)", pcghash.UseSpatialHash},
 		{"Relax WFC (wreckage rooms)", pcghash.UseRelaxWFC},
+		{"SpinGlass influence (overworld)", pcghash.UseSpinGlass},
 	}
 
 	for i, t := range toggles {
