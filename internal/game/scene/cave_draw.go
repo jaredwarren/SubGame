@@ -613,13 +613,23 @@ func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave ca
 		vector.FillRect(screen, sx-p.Size/2.0, sy-p.Size/2.0, p.Size, p.Size, clr, false)
 	}
 
-	if caveGrid != nil && activeCave != nil {
+	var startTileX, endTileX, startTileY, endTileY int
+	if caveGrid != nil {
 		gridW := len(caveGrid)
 		gridH := len(caveGrid[0])
-		startTileX := max(int(camX)/config.TileSize, 0)
-		endTileX := min((int(camX)+config.ScreenWidth)/config.TileSize+1, gridW)
-		startTileY := max(int(camY)/config.TileSize, 0)
-		endTileY := min((int(camY)+config.ScreenHeight)/config.TileSize+1, gridH)
+		startTileX = max(int(camX)/config.TileSize, 0)
+		endTileX = min((int(camX)+config.ScreenWidth)/config.TileSize+1, gridW)
+		startTileY = max(int(camY)/config.TileSize, 0)
+		endTileY = min((int(camY)+config.ScreenHeight)/config.TileSize+1, gridH)
+	}
+
+	// 1. Draw Background Tiles (BgGrid - behind player, vehicles, and entities)
+	if activeCave != nil && caveGrid != nil {
+		activeCave.DrawBackgroundTiles(screen, camX, camY, startTileX, startTileY, endTileX, endTileY)
+	}
+
+	// 2. Draw Solid Midground Tiles (CaveGrid)
+	if caveGrid != nil && activeCave != nil {
 		activeCave.DrawTiles(screen, camX, camY, startTileX, startTileY, endTileX, endTileY)
 	}
 
@@ -664,6 +674,15 @@ func (c *CaveScene) drawScene(g CaveContext, screen *ebiten.Image, activeCave ca
 		if pos.X+dims.X >= viewLeft && pos.X <= viewRight && pos.Y+dims.Y >= viewTop && pos.Y <= viewBottom {
 			ent.Draw(screen, mockCam, g.GetTimeOfDay())
 		}
+	}
+
+	// 3. Draw Foreground Tiles (FgGrid - in front of player with proximity fade)
+	if activeCave != nil && caveGrid != nil {
+		fgAlpha := c.fgAlpha
+		if fgAlpha <= 0 {
+			fgAlpha = 1.0
+		}
+		activeCave.DrawForegroundTiles(screen, camX, camY, startTileX, startTileY, endTileX, endTileY, fgAlpha)
 	}
 }
 

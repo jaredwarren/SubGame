@@ -14,6 +14,15 @@
       {{end}}
     </select>
   </label>
+  <label>Tunnel rate
+    <select name="tunnel_rate">
+      <option value="0.0"{{if eq $.TunnelRate "0.0"}} selected{{end}}>0% (Off - Flat)</option>
+      <option value="0.25"{{if eq $.TunnelRate "0.25"}} selected{{end}}>25% (Low)</option>
+      <option value="0.5"{{if eq $.TunnelRate "0.5"}} selected{{end}}>50% (Medium)</option>
+      <option value="0.8"{{if eq $.TunnelRate "0.8"}} selected{{end}}>80% (Default)</option>
+      <option value="1.0"{{if eq $.TunnelRate "1.0"}} selected{{end}}>100% (Always)</option>
+    </select>
+  </label>
   <label>Seed
     <input type="number" name="seed" value="{{.Seed}}" required>
   </label>
@@ -32,6 +41,8 @@
         <tr><th>Open tiles</th><td class="num">{{.Cave.OpenTiles}} ({{printf "%.1f" .Cave.OpenPercent}}%)</td></tr>
         <tr><th>Dead ends</th><td class="num">{{.Cave.DeadEnds}}</td></tr>
         <tr><th>Max depth</th><td class="num">{{.Cave.MaxBFSDepth}} tiles</td></tr>
+        <tr><th>Bg depth tiles</th><td class="num">{{.Cave.BgTiles}}</td></tr>
+        <tr><th>Fg depth tiles</th><td class="num">{{.Cave.FgTiles}}</td></tr>
         <tr><th>O2 sources</th><td class="num">{{.Cave.O2Count}}</td></tr>
         <tr><th>O2 at ty≥40</th><td class="num">{{.Cave.DeepO2Count}}</td></tr>
         {{if .Cave.HasChasm}}
@@ -75,6 +86,8 @@
     <p class="legend">
       <span><i class="swatch" style="background:#c8b478"></i>Rock</span>
       <span><i class="swatch" style="background:#0a3250"></i>Open</span>
+      <span><i class="swatch" style="background:#5a6878"></i>Tunnel (Bg)</span>
+      <span><i class="swatch" style="background:#87afd7"></i>Arch (Fg)</span>
       <span><i class="swatch" style="background:#3cffd2"></i>O2 / ShatterBulb</span>
       <span><i class="swatch" style="background:#f0a020"></i>Hostile</span>
       <span><i class="swatch" style="background:#88ccff"></i>Fauna</span>

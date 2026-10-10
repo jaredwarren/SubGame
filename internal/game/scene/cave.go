@@ -102,6 +102,7 @@ type CaveScene struct {
 	Nodes      []resource.Resource
 	Entities   []entity.CaveEntity
 	IsShallow  bool
+	fgAlpha    float32
 
 	shaderOpts      ebiten.DrawRectShaderOptions
 	Uniforms        map[string]any
@@ -161,6 +162,7 @@ func NewCaveScene() *CaveScene {
 		sonarSource:   make([]float32, 2),
 		entranceLight: make([]float32, 2),
 		Scanner:       NewScannerState(),
+		fgAlpha:       1.0,
 	}
 	cs.shaderOpts.Uniforms = cs.Uniforms
 	cs.loadDiverSheet()

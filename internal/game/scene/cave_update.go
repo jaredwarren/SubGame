@@ -47,9 +47,59 @@ func (c *CaveScene) update(g CaveContext) error {
 		c.updatePlayer(g, inp, p, entityRuntime)
 	}
 
+	c.updateForegroundProximity(g)
 	c.updateBoundaryTransitions(g)
 
 	return nil
+}
+
+func (c *CaveScene) updateForegroundProximity(g CaveContext) {
+	if c.fgAlpha == 0 {
+		c.fgAlpha = 1.0
+	}
+	if c.ActiveCave == nil {
+		c.fgAlpha = 1.0
+		return
+	}
+	fgGrid := c.ActiveCave.GetFgGrid()
+	if fgGrid == nil {
+		c.fgAlpha = 1.0
+		return
+	}
+
+	var px, py, pw, ph float64
+	if v := g.GetActiveVehicle(); v != nil {
+		pos := v.GetPos()
+		dims := v.GetDimensions()
+		px, py, pw, ph = pos.X, pos.Y, dims.X, dims.Y
+	} else if p := g.GetPlayer(); p != nil {
+		px, py, pw, ph = p.Pos.X, p.Pos.Y, p.Width, p.Height
+	}
+
+	cx := px + pw/2
+	cy := py + ph/2
+	ptx := int(cx) / config.TileSize
+	pty := int(cy) / config.TileSize
+
+	gridW := len(fgGrid)
+	gridH := len(fgGrid[0])
+	isNearFG := false
+	for dx := -1; dx <= 1 && !isNearFG; dx++ {
+		for dy := -1; dy <= 1; dy++ {
+			tx := ptx + dx
+			ty := pty + dy
+			if tx >= 0 && tx < gridW && ty >= 0 && ty < gridH && fgGrid[tx][ty] {
+				isNearFG = true
+				break
+			}
+		}
+	}
+
+	targetAlpha := float32(1.0)
+	if isNearFG {
+		targetAlpha = 0.38
+	}
+	c.fgAlpha += (targetAlpha - c.fgAlpha) * 0.15
 }
 
 func (c *CaveScene) updateScrollTransition(g CaveContext) error {

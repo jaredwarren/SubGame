@@ -13,16 +13,38 @@ import (
 )
 
 type ThermoCave struct {
-	Grid  [][]bool
-	ticks int
+	Grid         [][]bool
+	BgGrid       [][]bool
+	FgGrid       [][]bool
+	bgTileImages []*ebiten.Image
+	fgTileImages []*ebiten.Image
+	ticks        int
 }
 
 func NewThermoCave(grid [][]bool) *ThermoCave {
-	return &ThermoCave{Grid: grid}
+	bgGrid, fgGrid := GenerateDepthGrids(grid, false)
+	bgImages, fgImages := PreRenderDepthTileImages(color.RGBA{38, 28, 26, 255}, color.RGBA{16, 10, 10, 255}, 8)
+	return &ThermoCave{
+		Grid:         grid,
+		BgGrid:       bgGrid,
+		FgGrid:       fgGrid,
+		bgTileImages: bgImages,
+		fgTileImages: fgImages,
+	}
 }
 
 func (c *ThermoCave) GetCaveType() CaveType { return CaveThermo }
 func (c *ThermoCave) GetGrid() [][]bool     { return c.Grid }
+func (c *ThermoCave) GetBgGrid() [][]bool   { return c.BgGrid }
+func (c *ThermoCave) GetFgGrid() [][]bool   { return c.FgGrid }
+
+func (c *ThermoCave) DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
+	DrawBackgroundTileLayer(screen, c.BgGrid, c.bgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY)
+}
+
+func (c *ThermoCave) DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32) {
+	DrawForegroundTileLayer(screen, c.FgGrid, c.fgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY, fgAlpha)
+}
 
 func (c *ThermoCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Dark, warm basalt grey background

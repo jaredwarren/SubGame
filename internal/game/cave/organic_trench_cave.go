@@ -12,15 +12,37 @@ import (
 )
 
 type OrganicTrenchCave struct {
-	Grid [][]bool
+	Grid         [][]bool
+	BgGrid       [][]bool
+	FgGrid       [][]bool
+	bgTileImages []*ebiten.Image
+	fgTileImages []*ebiten.Image
 }
 
 func NewOrganicTrenchCave(grid [][]bool) *OrganicTrenchCave {
-	return &OrganicTrenchCave{Grid: grid}
+	bgGrid, fgGrid := GenerateDepthGrids(grid, false)
+	bgImages, fgImages := PreRenderDepthTileImages(color.RGBA{24, 40, 56, 255}, color.RGBA{8, 14, 28, 255}, 8)
+	return &OrganicTrenchCave{
+		Grid:         grid,
+		BgGrid:       bgGrid,
+		FgGrid:       fgGrid,
+		bgTileImages: bgImages,
+		fgTileImages: fgImages,
+	}
 }
 
 func (c *OrganicTrenchCave) GetCaveType() CaveType { return CaveOrganicTrench }
 func (c *OrganicTrenchCave) GetGrid() [][]bool     { return c.Grid }
+func (c *OrganicTrenchCave) GetBgGrid() [][]bool   { return c.BgGrid }
+func (c *OrganicTrenchCave) GetFgGrid() [][]bool   { return c.FgGrid }
+
+func (c *OrganicTrenchCave) DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
+	DrawBackgroundTileLayer(screen, c.BgGrid, c.bgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY)
+}
+
+func (c *OrganicTrenchCave) DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32) {
+	DrawForegroundTileLayer(screen, c.FgGrid, c.fgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY, fgAlpha)
+}
 
 func (c *OrganicTrenchCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Deep-sea grotto dark background: subtle depth darkening from deep indigo at top to dark abyss near bottom

@@ -24,6 +24,11 @@ func NewWreckageCorridorCave(grid [][]bool, shipIndex int) *WreckageCorridorCave
 
 func (c *WreckageCorridorCave) GetCaveType() CaveType { return CaveWreckage }
 func (c *WreckageCorridorCave) GetGrid() [][]bool     { return c.Grid }
+func (c *WreckageCorridorCave) GetBgGrid() [][]bool   { return nil }
+func (c *WreckageCorridorCave) GetFgGrid() [][]bool   { return nil }
+
+func (c *WreckageCorridorCave) DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {}
+func (c *WreckageCorridorCave) DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32) {}
 
 func (c *WreckageCorridorCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	const lineGap = 40.0

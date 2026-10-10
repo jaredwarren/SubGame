@@ -254,6 +254,16 @@ func TestDebugMenu_WorldAndTeleport(t *testing.T) {
 	if !g.explorationTracker.IsExplored(10, 10) || !g.explorationTracker.IsExplored(40, 40) {
 		t.Error("expected map tiles to be explored after RevealFullMap")
 	}
+
+	// Sub-ground cave tunnel occurrence tuning
+	g.SetTunnelOccurrenceChance(0.25)
+	if g.GetTunnelOccurrenceChance() != 0.25 {
+		t.Errorf("expected tunnel occurrence 0.25, got %f", g.GetTunnelOccurrenceChance())
+	}
+	g.SetTunnelOccurrenceChance(0.80)
+	if g.GetTunnelOccurrenceChance() != 0.80 {
+		t.Errorf("expected tunnel occurrence 0.80, got %f", g.GetTunnelOccurrenceChance())
+	}
 }
 
 func TestDebugMenu_QuestsAndLore(t *testing.T) {

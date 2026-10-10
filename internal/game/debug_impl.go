@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/jaredwarren/SubGame/internal/game/audio"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
@@ -498,4 +499,13 @@ func (g *Game) ResetAllQuests() {
 
 func (g *Game) CloseDebugMenu() {
 	g.showDebugMenu = false
+}
+
+func (g *Game) GetTunnelOccurrenceChance() float64 {
+	return cave.GetTunnelOccurrenceChance()
+}
+
+func (g *Game) SetTunnelOccurrenceChance(chance float64) {
+	cave.SetTunnelOccurrenceChance(chance)
+	g.SetMineWarning(fmt.Sprintf("Sub-ground tunnel occurrence: %.0f%%", chance*100), 120, 1)
 }

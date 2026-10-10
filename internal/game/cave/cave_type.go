@@ -27,8 +27,12 @@ const (
 type Cave interface {
 	GetCaveType() CaveType
 	GetGrid() [][]bool
+	GetBgGrid() [][]bool
+	GetFgGrid() [][]bool
 	DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64)
+	DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int)
 	DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int)
+	DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32)
 	GenerateEntities(seed int64) []entity.CaveEntity
 	GenerateResources(seed int64) []resource.Resource
 	GetAmbientColor(lightMult float64) [4]float32

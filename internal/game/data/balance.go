@@ -1,6 +1,7 @@
 package data
 
 import (
+	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/resource"
 )
@@ -70,3 +71,19 @@ var DefaultGenConfig = &resource.DefaultGenConfig
 
 // GenConfig aliases the mutable active resource generation config.
 var GenConfig = &resource.GenConfig
+
+// Cave depth layers and sub-ground tunnel balance
+type CaveDepthConfig = cave.CaveDepthConfig
+
+// DefaultCaveDepthConfig aliases cave.DefaultCaveDepthConfig.
+var DefaultCaveDepthConfig = &cave.DefaultCaveDepthConfig
+
+// ActiveCaveDepthConfig aliases the mutable active cave depth config.
+var ActiveCaveDepthConfig = &cave.ActiveCaveDepthConfig
+
+// Depth layer helper functions
+var (
+	SetTunnelOccurrenceChance = cave.SetTunnelOccurrenceChance
+	GetTunnelOccurrenceChance = cave.GetTunnelOccurrenceChance
+	ResetCaveDepthConfig      = cave.ResetCaveDepthConfig
+)

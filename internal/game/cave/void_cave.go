@@ -16,15 +16,17 @@ func NewVoidCave() *VoidCave {
 
 func (c *VoidCave) GetCaveType() CaveType { return CaveVoid }
 func (c *VoidCave) GetGrid() [][]bool     { return nil }
+func (c *VoidCave) GetBgGrid() [][]bool   { return nil }
+func (c *VoidCave) GetFgGrid() [][]bool   { return nil }
 
 func (c *VoidCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Endless crushing dark void
 	screen.Fill(color.RGBA{2, 3, 6, 255})
 }
 
-func (c *VoidCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
-	// No tiles in the void
-}
+func (c *VoidCave) DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {}
+func (c *VoidCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {}
+func (c *VoidCave) DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32) {}
 
 func (c *VoidCave) GenerateEntities(seed int64) []entity.CaveEntity {
 	return nil

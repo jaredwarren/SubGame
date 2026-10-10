@@ -13,15 +13,37 @@ import (
 )
 
 type ShockKelpCave struct {
-	Grid [][]bool
+	Grid         [][]bool
+	BgGrid       [][]bool
+	FgGrid       [][]bool
+	bgTileImages []*ebiten.Image
+	fgTileImages []*ebiten.Image
 }
 
 func NewShockKelpCave(grid [][]bool) *ShockKelpCave {
-	return &ShockKelpCave{Grid: grid}
+	bgGrid, fgGrid := GenerateDepthGrids(grid, false)
+	bgImages, fgImages := PreRenderDepthTileImages(color.RGBA{28, 22, 38, 255}, color.RGBA{15, 12, 22, 255}, 8)
+	return &ShockKelpCave{
+		Grid:         grid,
+		BgGrid:       bgGrid,
+		FgGrid:       fgGrid,
+		bgTileImages: bgImages,
+		fgTileImages: fgImages,
+	}
 }
 
 func (c *ShockKelpCave) GetCaveType() CaveType { return CaveShockKelp }
 func (c *ShockKelpCave) GetGrid() [][]bool     { return c.Grid }
+func (c *ShockKelpCave) GetBgGrid() [][]bool   { return c.BgGrid }
+func (c *ShockKelpCave) GetFgGrid() [][]bool   { return c.FgGrid }
+
+func (c *ShockKelpCave) DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
+	DrawBackgroundTileLayer(screen, c.BgGrid, c.bgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY)
+}
+
+func (c *ShockKelpCave) DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32) {
+	DrawForegroundTileLayer(screen, c.FgGrid, c.fgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY, fgAlpha)
+}
 
 func (c *ShockKelpCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Dark purple-grey background representing a charged, deep reef grotto

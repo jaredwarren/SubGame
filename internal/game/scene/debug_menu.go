@@ -2,6 +2,7 @@ package scene
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -84,6 +85,10 @@ type DebugContext interface {
 	// Status Feedback & Control
 	SetMineWarning(msg string, duration, level int)
 	CloseDebugMenu()
+
+	// Cave Depth & Sub-Ground Tuning
+	GetTunnelOccurrenceChance() float64
+	SetTunnelOccurrenceChance(chance float64)
 }
 
 // DebugMenuScene manages the debug testing interface overlay.
@@ -514,6 +519,27 @@ func (d *DebugMenuScene) updateWorldTab(g DebugContext, cx, cy float64, mx, my i
 			return
 		}
 	}
+
+	// Sub-ground Cave Tunnel Occurrence Tuning
+	tunnelRates := []struct {
+		Label string
+		Rate  float64
+	}{
+		{"Off (0%)", 0.0},
+		{"Low (25%)", 0.25},
+		{"Med (50%)", 0.50},
+		{"Default (80%)", 0.80},
+		{"Always (100%)", 1.00},
+	}
+	for i, tr := range tunnelRates {
+		bx := int(cx) + 20 + i*155
+		by := int(cy) + 315
+		if mx >= bx && mx <= bx+145 && my >= by && my <= by+32 {
+			audio.Get().PlaySFX("sfx/ui_click.wav")
+			g.SetTunnelOccurrenceChance(tr.Rate)
+			return
+		}
+	}
 }
 
 func (d *DebugMenuScene) updateQuestsTab(g DebugContext, cx, cy float64, mx, my int) {
@@ -893,6 +919,37 @@ func (d *DebugMenuScene) drawWorldTab(screen *ebiten.Image, g DebugContext, cx, 
 		vector.FillRect(screen, bx, by, 145, 32, color.RGBA{30, 48, 70, 255}, false)
 		vector.StrokeRect(screen, bx, by, 145, 32, 1.0, color.RGBA{0, 190, 230, 255}, false)
 		drawColoredDebugText(screen, cw, int(bx)+10, int(by)+8, color.RGBA{240, 245, 255, 255})
+	}
+
+	// Sub-ground Cave Tunnel Occurrence Tuning
+	drawColoredDebugText(screen, "SUB-GROUND CAVE TUNNEL OCCURRENCE (NATURAL CAVES):", int(cx)+20, int(cy)+295, color.RGBA{180, 205, 230, 255})
+	tunnelRates := []struct {
+		Label string
+		Rate  float64
+	}{
+		{"Off (0%)", 0.0},
+		{"Low (25%)", 0.25},
+		{"Med (50%)", 0.50},
+		{"Default (80%)", 0.80},
+		{"Always (100%)", 1.00},
+	}
+	currentRate := g.GetTunnelOccurrenceChance()
+	for i, tr := range tunnelRates {
+		bx := cx + 20 + float32(i*155)
+		by := cy + 315
+
+		bg := color.RGBA{22, 34, 52, 255}
+		border := color.RGBA{50, 80, 120, 255}
+		txtColor := color.RGBA{220, 235, 250, 255}
+		if math.Abs(currentRate-tr.Rate) < 0.05 {
+			bg = color.RGBA{20, 70, 45, 255}
+			border = color.RGBA{40, 210, 110, 255}
+			txtColor = color.RGBA{255, 255, 255, 255}
+		}
+
+		vector.FillRect(screen, bx, by, 145, 32, bg, false)
+		vector.StrokeRect(screen, bx, by, 145, 32, 1.0, border, false)
+		drawColoredDebugText(screen, tr.Label, int(bx)+14, int(by)+8, txtColor)
 	}
 }
 

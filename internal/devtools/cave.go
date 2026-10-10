@@ -36,6 +36,8 @@ type CaveReport struct {
 	ChasmMinTX     int
 	ChasmMaxTX     int
 	ChasmTriggerTY int
+	BgTiles        int
+	FgTiles        int
 	Entities       []nameCount
 	Resources      []nameCount
 	MapSrc         string
@@ -78,7 +80,7 @@ func caveKindOptions() []namedOpt {
 }
 
 func inspectCave(kindID, biomeID string, seed int64) (*CaveReport, error) {
-	key := fmt.Sprintf("%s|%s|%d", kindID, biomeID, seed)
+	key := fmt.Sprintf("%s|%s|%d|%.2f", kindID, biomeID, seed, cave.GetTunnelOccurrenceChance())
 	caveMu.Lock()
 	defer caveMu.Unlock()
 	if caveCache.report != nil && caveCache.key == key {
@@ -132,10 +134,36 @@ func inspectCave(kindID, biomeID string, seed int64) (*CaveReport, error) {
 	if total := gw * gh; total > 0 {
 		report.OpenPercent = 100 * float64(open) / float64(total)
 	}
-	report.png = renderCavePNG(grid, biomeSpec(biomeID), ents, nodes, report)
+
+	bgGrid := c.GetBgGrid()
+	fgGrid := c.GetFgGrid()
+	bgCount := 0
+	fgCount := 0
+	if bgGrid != nil {
+		for x := range bgGrid {
+			for y := range bgGrid[x] {
+				if bgGrid[x][y] {
+					bgCount++
+				}
+			}
+		}
+	}
+	if fgGrid != nil {
+		for x := range fgGrid {
+			for y := range fgGrid[x] {
+				if fgGrid[x][y] {
+					fgCount++
+				}
+			}
+		}
+	}
+	report.BgTiles = bgCount
+	report.FgTiles = fgCount
+
+	report.png = renderCavePNG(grid, bgGrid, fgGrid, biomeSpec(biomeID), ents, nodes, report)
 	report.ImageWidth = gw * caveTilePx
 	report.ImageHeight = gh * caveTilePx
-	report.MapSrc = fmt.Sprintf("/caves/map.png?type=%s&biome=%s&seed=%d", kindID, biomeID, seed)
+	report.MapSrc = fmt.Sprintf("/caves/map.png?type=%s&biome=%s&seed=%d&tunnel_rate=%.2f", kindID, biomeID, seed, cave.GetTunnelOccurrenceChance())
 	report.Elapsed = time.Since(start).Truncate(time.Millisecond).String()
 
 	caveCache.key = key
@@ -266,7 +294,7 @@ func gridMetrics(grid [][]bool) (open, deadEnds, maxDepth int) {
 	return open, deadEnds, maxDepth
 }
 
-func renderCavePNG(grid [][]bool, spec *cave.CaveBiomeSpec, ents []entity.CaveEntity, nodes []resource.Resource, report *CaveReport) []byte {
+func renderCavePNG(grid, bgGrid, fgGrid [][]bool, spec *cave.CaveBiomeSpec, ents []entity.CaveEntity, nodes []resource.Resource, report *CaveReport) []byte {
 	if spec == nil {
 		spec = cave.DefaultShallowReefBiome
 	}
@@ -291,8 +319,21 @@ func renderCavePNG(grid [][]bool, spec *cave.CaveBiomeSpec, ents []entity.CaveEn
 		for ty := 0; ty < h; ty++ {
 			if grid[tx][ty] {
 				fillTile(tx, ty, rock)
+			} else if bgGrid != nil && bgGrid[tx][ty] {
+				bgCol := color.RGBA{
+					R: uint8(float64(rock.R)*0.45 + float64(openCol.R)*0.55),
+					G: uint8(float64(rock.G)*0.45 + float64(openCol.G)*0.55),
+					B: uint8(float64(rock.B)*0.45 + float64(openCol.B)*0.55),
+					A: 255,
+				}
+				fillTile(tx, ty, bgCol)
 			} else {
 				fillTile(tx, ty, openCol)
+			}
+
+			if fgGrid != nil && fgGrid[tx][ty] && !grid[tx][ty] {
+				fgCol := color.RGBA{135, 175, 215, 200}
+				fillTile(tx, ty, fgCol)
 			}
 		}
 	}

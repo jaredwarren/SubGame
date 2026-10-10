@@ -160,22 +160,8 @@ func (g *SampleGame) initRoomGeometryWithTunnels() {
 		}
 	}
 
-	// 5. Foreground Framing (FgGrid)
-	// RULE: SOME FOREGROUND in tunnels (Entrance Arches & Crossing Pillars)
-	// Arch 1: Framing Entrance 1 (x=3..4, y=5)
-	g.fgGrid[3][5] = true
-	g.fgGrid[4][5] = true
-
-	// Arch 2: Framing Entrance 2 (x=14..15, y=5)
-	g.fgGrid[14][5] = true
-	g.fgGrid[15][5] = true
-
-	// Interior Crossing Pillar: Middle of the subterranean tunnel at x=10, y=8..9
-	g.fgGrid[10][8] = true
-	g.fgGrid[10][9] = true
-
-	// Grotto Entry Overhang: At x=16, y=7..8
-	g.fgGrid[16][8] = true
+	// 5. Foreground Framing (FgGrid) - removed for now per design feedback
+	// (g.fgGrid remains empty/unpopulated)
 }
 
 func (g *SampleGame) initSpawns() {

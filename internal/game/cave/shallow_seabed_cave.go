@@ -15,8 +15,12 @@ import (
 
 type ShallowSeabedCave struct {
 	Grid            [][]bool
+	BgGrid          [][]bool
+	FgGrid          [][]bool
 	Biome           *CaveBiomeSpec
 	tileImages      []*ebiten.Image
+	bgTileImages    []*ebiten.Image
+	fgTileImages    []*ebiten.Image
 	HasChasm        bool
 	ChasmX          int
 	ChasmWidth      int
@@ -34,8 +38,11 @@ func NewShallowSeabedCaveWithBiome(grid [][]bool, spec *CaveBiomeSpec) *ShallowS
 	if spec == nil {
 		spec = DefaultShallowReefBiome
 	}
+	bgGrid, fgGrid := GenerateDepthGrids(grid, true)
 	c := &ShallowSeabedCave{
 		Grid:       grid,
+		BgGrid:     bgGrid,
+		FgGrid:     fgGrid,
 		Biome:      spec,
 		tileImages: make([]*ebiten.Image, 8),
 	}
@@ -302,6 +309,12 @@ func (c *ShallowSeabedCave) preRenderTiles() {
 
 		c.tileImages[idx] = img
 	}
+
+	ambientTint := color.RGBA{10, 40, 100, 255}
+	if c.Biome != nil {
+		ambientTint = c.Biome.CaveAmbientTint
+	}
+	c.bgTileImages, c.fgTileImages = PreRenderDepthTileImages(rockColor, ambientTint, len(c.tileImages))
 }
 
 func hashCoords(tx, ty int) uint64 {
@@ -331,6 +344,16 @@ func fracHash(seed uint64) float64 {
 
 func (c *ShallowSeabedCave) GetCaveType() CaveType { return CaveOrganicShallow }
 func (c *ShallowSeabedCave) GetGrid() [][]bool     { return c.Grid }
+func (c *ShallowSeabedCave) GetBgGrid() [][]bool   { return c.BgGrid }
+func (c *ShallowSeabedCave) GetFgGrid() [][]bool   { return c.FgGrid }
+
+func (c *ShallowSeabedCave) DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
+	DrawBackgroundTileLayer(screen, c.BgGrid, c.bgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY)
+}
+
+func (c *ShallowSeabedCave) DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32) {
+	DrawForegroundTileLayer(screen, c.FgGrid, c.fgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY, fgAlpha)
+}
 
 func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camX, camY float64, maxDepth float64, lightMult float64) {
 	// Surface base color tinted by Biome Ambient Tint
@@ -611,6 +634,7 @@ func GenerateShallowSeabedGrid(r *rand.Rand, distToLand float64, hasLeftWater, h
 	amp2 := 1.0 + r.Float64()*3.0
 
 	caveGrid := make([][]bool, w)
+	colFloorHeights := make([]int, w)
 	for x := range w {
 		caveGrid[x] = make([]bool, h)
 		colFloorY := max(floorY+int(math.Sin(float64(x)*freq1)*amp1+math.Cos(float64(x)*freq2)*amp2), 6)
@@ -631,6 +655,8 @@ func GenerateShallowSeabedGrid(r *rand.Rand, distToLand float64, hasLeftWater, h
 			colFloorY = int(blendY)
 		}
 
+		colFloorHeights[x] = colFloorY
+
 		for y := range h {
 			isLeftBorderSolid := !hasLeftWater && x == 0
 			isRightBorderSolid := !hasRightWater && x == w-1
@@ -641,6 +667,10 @@ func GenerateShallowSeabedGrid(r *rand.Rand, distToLand float64, hasLeftWater, h
 			}
 		}
 	}
+
+	// Carve organic sub-ground tunnels into the solid rock mass (controlled by ActiveCaveDepthConfig)
+	CarveSubGroundTunnels(caveGrid, colFloorHeights, r)
+
 	return caveGrid
 }
 

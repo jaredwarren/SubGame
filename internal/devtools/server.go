@@ -4,7 +4,10 @@ import (
 	"embed"
 	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/jaredwarren/SubGame/internal/game/cave"
 )
 
 //go:embed templates/*.html
@@ -27,11 +30,12 @@ type page struct {
 	Error     string
 	World     *WorldReport
 	Cave      *CaveReport
-	CaveType  string
-	Biome     string
-	CaveKinds []namedOpt
-	Biomes    []namedOpt
-	Audio     *AudioReport
+	CaveType   string
+	Biome      string
+	TunnelRate string
+	CaveKinds  []namedOpt
+	Biomes     []namedOpt
+	Audio      *AudioReport
 }
 
 func Handler() http.Handler {
@@ -82,14 +86,19 @@ func handleCaves(w http.ResponseWriter, r *http.Request) {
 	seed := parseSeed(r, 12345)
 	kind := parseQuery(r, "type", "shallow")
 	biome := parseQuery(r, "biome", "shallow_reef")
+	tunnelRate := parseQuery(r, "tunnel_rate", "0.8")
+	if tr, err := strconv.ParseFloat(tunnelRate, 64); err == nil {
+		cave.SetTunnelOccurrenceChance(tr)
+	}
 	p := page{
-		Title:     "Caves",
-		Active:    "caves",
-		Seed:      seed,
-		CaveType:  kind,
-		Biome:     biome,
-		CaveKinds: caveKindOptions(),
-		Biomes:    caveBiomes,
+		Title:      "Caves",
+		Active:     "caves",
+		Seed:       seed,
+		CaveType:   kind,
+		Biome:      biome,
+		TunnelRate: tunnelRate,
+		CaveKinds:  caveKindOptions(),
+		Biomes:     caveBiomes,
 	}
 	report, err := inspectCave(kind, biome, seed)
 	if err != nil {
@@ -105,6 +114,10 @@ func handleCavePNG(w http.ResponseWriter, r *http.Request) {
 	seed := parseSeed(r, 12345)
 	kind := parseQuery(r, "type", "shallow")
 	biome := parseQuery(r, "biome", "shallow_reef")
+	tunnelRate := parseQuery(r, "tunnel_rate", "0.8")
+	if tr, err := strconv.ParseFloat(tunnelRate, 64); err == nil {
+		cave.SetTunnelOccurrenceChance(tr)
+	}
 	report, err := inspectCave(kind, biome, seed)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
