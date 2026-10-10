@@ -12,6 +12,7 @@ import (
 	"github.com/jaredwarren/SubGame/internal/game/item"
 	"github.com/jaredwarren/SubGame/internal/game/player"
 	"github.com/jaredwarren/SubGame/internal/game/vehicle"
+	"github.com/jaredwarren/SubGame/internal/pcghash"
 	"github.com/jaredwarren/SubGame/internal/world"
 )
 
@@ -327,6 +328,7 @@ func (d *DebugMenuScene) updateCheatsTab(g DebugContext, cx, cy float64, mx, my 
 		{"Super Speed (2.5x Velocity)", g.IsSuperSpeed(), g.ToggleSuperSpeed},
 		{"Freeze Time of Day", g.IsTimeFrozen(), g.ToggleFreezeTime},
 		{"Flashlight: Follow Mouse", config.FlashlightFollowsMouse, func() { config.FlashlightFollowsMouse = !config.FlashlightFollowsMouse }},
+		{"Spatial Hash (wreckage scrap)", pcghash.UseSpatialHash, func() { pcghash.UseSpatialHash = !pcghash.UseSpatialHash }},
 	}
 
 	for i, t := range toggles {
@@ -706,6 +708,7 @@ func (d *DebugMenuScene) drawCheatsTab(screen *ebiten.Image, g DebugContext, cx,
 		{"Super Speed (2.5x Velocity)", g.IsSuperSpeed()},
 		{"Freeze Time of Day", g.IsTimeFrozen()},
 		{"Flashlight: Follow Mouse", config.FlashlightFollowsMouse},
+		{"Spatial Hash (wreckage scrap)", pcghash.UseSpatialHash},
 	}
 
 	for i, t := range toggles {

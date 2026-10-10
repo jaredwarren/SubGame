@@ -4,7 +4,9 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/jaredwarren/SubGame/internal/pcghash"
 	"github.com/jaredwarren/SubGame/internal/sliceutil"
+	"github.com/jaredwarren/pcg/spatialhash"
 )
 
 // ResourceSpawnEntry holds weighted resource spawning properties.
@@ -33,6 +35,26 @@ func selectWeightedResource(entries []ResourceSpawnEntry, roll float64) NodeType
 		}
 	}
 	return entries[len(entries)-1].Type
+}
+
+// wreckageScrapAt decides whether a floor tile gets scrap/e-waste.
+// With pcghash.UseSpatialHash, the roll is f(seed, tx, ty) and visit order cannot reshuffle far cells.
+func wreckageScrapAt(seed int64, tx, ty int, r *rand.Rand) bool {
+	if pcghash.UseSpatialHash {
+		return spatialhash.Chance(uint64(seed), pcghash.DomainDebris, GenConfig.WreckageSpawnChance, int64(tx), int64(ty))
+	}
+	return r.Float64() < GenConfig.WreckageSpawnChance
+}
+
+// wreckageScrapKind picks the scrap type for a tile that already passed wreckageScrapAt.
+func wreckageScrapKind(seed int64, tx, ty int, r *rand.Rand) NodeType {
+	var roll float64
+	if pcghash.UseSpatialHash {
+		roll = spatialhash.Unit(uint64(seed), pcghash.DomainDebrisKind, int64(tx), int64(ty))
+	} else {
+		roll = r.Float64()
+	}
+	return selectWeightedResource(GenConfig.WreckageEntries, roll)
 }
 
 // ResourceTier defines configuration for resource spawning at a specific depth range.
@@ -138,8 +160,8 @@ func GenerateWreckageResources(grid [][]bool, seed int64, shipIndex int) []Resou
 						lowerFloors = append(lowerFloors, [2]int{tx, ty})
 					}
 
-					if r.Float64() < GenConfig.WreckageSpawnChance {
-						kind := selectWeightedResource(GenConfig.WreckageEntries, r.Float64())
+					if wreckageScrapAt(seed, tx, ty, r) {
+						kind := wreckageScrapKind(seed, tx, ty, r)
 						node := NewNode(kind, tx, ty)
 						// Scale hits with depth
 						node.SetHitsToMine(GenConfig.BaseHitsToMine + (ty / GenConfig.HitsDepthScale))

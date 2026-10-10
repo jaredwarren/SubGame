@@ -2,6 +2,8 @@ package resource
 
 import (
 	"testing"
+
+	"github.com/jaredwarren/SubGame/internal/pcghash"
 )
 
 func TestDefaultGenConfig(t *testing.T) {
@@ -220,6 +222,103 @@ func TestBlueprintNodeSpawning(t *testing.T) {
 	}
 	if !hasBulkhead {
 		t.Errorf("Ship 2 did not spawn Reinforced Blast Bulkhead")
+	}
+}
+
+func wreckageFloorGrid(w, h int, floors [][2]int) [][]bool {
+	grid := make([][]bool, w)
+	for x := range grid {
+		grid[x] = make([]bool, h)
+		for y := range grid[x] {
+			grid[x][y] = true
+		}
+	}
+	for _, f := range floors {
+		tx, ty := f[0], f[1]
+		if tx > 0 && tx < w-1 && ty > 0 && ty < h-2 {
+			grid[tx][ty] = false
+			grid[tx][ty+1] = true // floor solid below
+		}
+	}
+	return grid
+}
+
+func scrapPositions(nodes []Resource) map[[2]int]NodeType {
+	out := make(map[[2]int]NodeType)
+	for _, n := range nodes {
+		rn, ok := n.(*ResourceNode)
+		if !ok {
+			continue
+		}
+		if rn.Type != NodeScrapMetal && rn.Type != NodeElectronicWaste {
+			continue
+		}
+		tx, ty := rn.GetTilePos()
+		out[[2]int{tx, ty}] = rn.Type
+	}
+	return out
+}
+
+func TestWreckageSpatialHashDeterministicAndStable(t *testing.T) {
+	prevFlag := pcghash.UseSpatialHash
+	prevCfg := GenConfig
+	pcghash.UseSpatialHash = true
+	GenConfig.WreckageSpawnChance = 0.35 // denser so the stability assertion is meaningful
+	defer func() {
+		pcghash.UseSpatialHash = prevFlag
+		GenConfig = prevCfg
+	}()
+
+	floors := [][2]int{
+		{5, 21}, {6, 21}, {7, 21}, {8, 21}, {9, 21}, {10, 21},
+		{5, 77}, {6, 77}, {7, 77}, {8, 77}, {9, 77}, {10, 77},
+	}
+	grid := wreckageFloorGrid(60, 120, floors)
+
+	a := scrapPositions(GenerateWreckageResources(grid, 42, 0))
+	b := scrapPositions(GenerateWreckageResources(grid, 42, 0))
+	if len(a) == 0 {
+		t.Fatal("expected some scrap with spatial hash at p=0.35 over 12 floors, got 0")
+	}
+	if len(a) != len(b) {
+		t.Fatalf("nondeterministic scrap count: %d vs %d", len(a), len(b))
+	}
+	for pos, kind := range a {
+		if b[pos] != kind {
+			t.Fatalf("scrap at %v kind mismatch: %v vs %v", pos, kind, b[pos])
+		}
+	}
+
+	// Wider map with the same early floors must not reshuffle far-left scrap cells.
+	wideFloors := append(append([][2]int{}, floors...), [2]int{50, 21}, [2]int{51, 21})
+	wide := wreckageFloorGrid(80, 120, wideFloors)
+	wideScrap := scrapPositions(GenerateWreckageResources(wide, 42, 0))
+	for pos, kind := range a {
+		if got, ok := wideScrap[pos]; !ok || got != kind {
+			t.Fatalf("growing map reshuffled scrap at %v: want %v ok=%v got %v", pos, kind, ok, got)
+		}
+	}
+}
+
+func TestWreckageLegacyPathUnchangedWhenFlagOff(t *testing.T) {
+	prev := pcghash.UseSpatialHash
+	pcghash.UseSpatialHash = false
+	defer func() { pcghash.UseSpatialHash = prev }()
+
+	floors := [][2]int{
+		{5, 21}, {6, 21}, {7, 21}, {8, 21}, {9, 21}, {10, 21},
+		{5, 77}, {6, 77}, {7, 77}, {8, 77}, {9, 77}, {10, 77},
+	}
+	grid := wreckageFloorGrid(60, 120, floors)
+	a := scrapPositions(GenerateWreckageResources(grid, 42, 0))
+	b := scrapPositions(GenerateWreckageResources(grid, 42, 0))
+	if len(a) != len(b) {
+		t.Fatalf("legacy path nondeterministic: %d vs %d", len(a), len(b))
+	}
+	for pos, kind := range a {
+		if b[pos] != kind {
+			t.Fatalf("legacy scrap mismatch at %v", pos)
+		}
 	}
 }
 
