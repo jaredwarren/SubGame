@@ -47,12 +47,10 @@ func LoadAssets() {
 	spritesLoaded = true
 }
 
-// drawNodeBase renders the shared backing block behind all resource nodes.
+// drawNodeBase calculates node position without stamping a flat square backing block.
 func drawNodeBase(screen *ebiten.Image, tx, ty int, camX, camY float64) (float32, float32) {
 	sx := float32(tx*TileSize - int(camX))
 	sy := float32(ty*TileSize - int(camY))
-	vector.FillRect(screen, sx, sy, TileSize, TileSize, color.RGBA{25, 22, 30, 255}, false)
-	vector.StrokeRect(screen, sx, sy, TileSize, TileSize, 0.5, color.RGBA{45, 40, 52, 255}, false)
 	return sx, sy
 }
 

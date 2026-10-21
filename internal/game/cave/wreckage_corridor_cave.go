@@ -137,43 +137,14 @@ func (c *WreckageCorridorCave) DrawTiles(screen *ebiten.Image, camX, camY float6
 		stripeColor = color.RGBA{40, 195, 185, 180}
 	}
 
-	for tx := startTileX; tx < endTileX; tx++ {
-		for ty := startTileY; ty < endTileY; ty++ {
-			if c.Grid[tx][ty] {
-				sx := float32(tx*config.TileSize - int(camX))
-				sy := float32(ty*config.TileSize - int(camY))
+	minTX := max(0, startTileX-1)
+	maxTX := min(len(c.Grid), endTileX+1)
+	minTY := max(0, startTileY-1)
+	maxTY := min(len(c.Grid[0]), endTileY+1)
 
-				vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
-				vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 1.2, strokeColor, false)
-
-				// Bulkhead structural corner rivets
-				vector.FillCircle(screen, sx+2.5, sy+2.5, 0.8, strokeColor, false)
-				vector.FillCircle(screen, sx+config.TileSize-2.5, sy+2.5, 0.8, strokeColor, false)
-				vector.FillCircle(screen, sx+2.5, sy+config.TileSize-2.5, 0.8, strokeColor, false)
-				vector.FillCircle(screen, sx+config.TileSize-2.5, sy+config.TileSize-2.5, 0.8, strokeColor, false)
-
-				// Draw diagonal hazard warning lines along bulkheads that border open corridors or rooms
-				hasBorder := false
-				if tx > 0 && !c.Grid[tx-1][ty] {
-					hasBorder = true
-				}
-				if tx < len(c.Grid)-1 && !c.Grid[tx+1][ty] {
-					hasBorder = true
-				}
-				if ty > 0 && !c.Grid[tx][ty-1] {
-					hasBorder = true
-				}
-				if ty < len(c.Grid[0])-1 && !c.Grid[tx][ty+1] {
-					hasBorder = true
-				}
-
-				if hasBorder {
-					vector.StrokeLine(screen, sx, sy+8, sx+8, sy, 2.0, stripeColor, false)
-					vector.StrokeLine(screen, sx, sy+24, sx+24, sy, 2.0, stripeColor, false)
-					vector.StrokeLine(screen, sx+16, sy+config.TileSize, sx+config.TileSize, sy+16, 2.0, stripeColor, false)
-					vector.StrokeLine(screen, sx+32, sy+config.TileSize, sx+config.TileSize, sy+32, 2.0, stripeColor, false)
-				}
-			}
+	for tx := minTX; tx < maxTX; tx++ {
+		for ty := minTY; ty < maxTY; ty++ {
+			DrawWreckageTile(screen, c.Grid, tx, ty, camX, camY, rockColor, strokeColor, stripeColor)
 		}
 	}
 }

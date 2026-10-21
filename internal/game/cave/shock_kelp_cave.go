@@ -13,22 +13,29 @@ import (
 )
 
 type ShockKelpCave struct {
-	Grid         [][]bool
-	BgGrid       [][]bool
-	FgGrid       [][]bool
-	bgTileImages []*ebiten.Image
-	fgTileImages []*ebiten.Image
+	Grid          [][]bool
+	BgGrid        [][]bool
+	FgGrid        [][]bool
+	bgTileImages  []*ebiten.Image
+	fgTileImages  []*ebiten.Image
+	bgBaseColor   color.RGBA
+	bgStrokeColor color.RGBA
 }
 
 func NewShockKelpCave(grid [][]bool) *ShockKelpCave {
 	bgGrid, fgGrid := GenerateDepthGrids(grid, false)
-	bgImages, fgImages := PreRenderDepthTileImages(color.RGBA{28, 22, 38, 255}, color.RGBA{15, 12, 22, 255}, 8)
+	baseRock := color.RGBA{28, 22, 38, 255}
+	ambientTint := color.RGBA{15, 12, 22, 255}
+	bgBase, bgStroke := CalcDepthTileColors(baseRock, ambientTint)
+	bgImages, fgImages := PreRenderDepthTileImages(baseRock, ambientTint, 8)
 	return &ShockKelpCave{
-		Grid:         grid,
-		BgGrid:       bgGrid,
-		FgGrid:       fgGrid,
-		bgTileImages: bgImages,
-		fgTileImages: fgImages,
+		Grid:          grid,
+		BgGrid:        bgGrid,
+		FgGrid:        fgGrid,
+		bgTileImages:  bgImages,
+		fgTileImages:  fgImages,
+		bgBaseColor:   bgBase,
+		bgStrokeColor: bgStroke,
 	}
 }
 
@@ -38,7 +45,7 @@ func (c *ShockKelpCave) GetBgGrid() [][]bool   { return c.BgGrid }
 func (c *ShockKelpCave) GetFgGrid() [][]bool   { return c.FgGrid }
 
 func (c *ShockKelpCave) DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
-	DrawBackgroundTileLayer(screen, c.BgGrid, c.bgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY)
+	DrawBackgroundTileLayer(screen, c.BgGrid, c.bgBaseColor, c.bgStrokeColor, camX, camY, startTileX, startTileY, endTileX, endTileY)
 }
 
 func (c *ShockKelpCave) DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32) {
@@ -80,65 +87,60 @@ func (c *ShockKelpCave) DrawBackground(screen *ebiten.Image, camX, camY float64,
 }
 
 func (c *ShockKelpCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
-	for tx := startTileX; tx < endTileX; tx++ {
-		for ty := startTileY; ty < endTileY; ty++ {
-			if tx >= 0 && tx < len(c.Grid) && ty >= 0 && ty < len(c.Grid[0]) {
-				if c.Grid[tx][ty] {
-					sx := float32(tx*config.TileSize - int(camX))
-					sy := float32(ty*config.TileSize - int(camY))
+	minTX := max(0, startTileX-1)
+	maxTX := min(len(c.Grid), endTileX+1)
+	minTY := max(0, startTileY-1)
+	maxTY := min(len(c.Grid[0]), endTileY+1)
 
-					h := hashCoords(tx, ty)
+	for tx := minTX; tx < maxTX; tx++ {
+		for ty := minTY; ty < maxTY; ty++ {
+			h := hashCoords(tx, ty)
 
-					// Blend mossy kelp reef rock tiles near the top entrance ceiling
-					isKelpBlend := false
-					if ty <= 8 {
-						kelpProb := float64(8-ty) / 9.0 * 0.75
-						if float64(h%100)/100.0 < kelpProb {
-							isKelpBlend = true
+			// Blend mossy kelp reef rock tiles near the top entrance ceiling
+			isKelpBlend := false
+			if ty <= 8 {
+				kelpProb := float64(8-ty) / 9.0 * 0.75
+				if float64(h%100)/100.0 < kelpProb {
+					isKelpBlend = true
+				}
+			}
+
+			var rockColor, strokeColor color.RGBA
+			if isKelpBlend {
+				rockColor = color.RGBA{38, 52, 32, 255}
+				strokeColor = color.RGBA{54, 76, 44, 255}
+			} else {
+				rockColor = color.RGBA{55, 60, 68, 255}
+				strokeColor = color.RGBA{82, 88, 98, 255}
+			}
+
+			decorator := func(sx, sy float32) {
+				if isKelpBlend {
+					darkColor := color.RGBA{32, 70, 28, 255}
+					lightColor := color.RGBA{56, 118, 48, 255}
+					vector.FillCircle(screen, sx+16, sy+16, 7, darkColor, false)
+					vector.FillCircle(screen, sx+16, sy+16, 4.5, lightColor, false)
+					vector.FillCircle(screen, sx+42, sy+38, 8, darkColor, false)
+					vector.FillCircle(screen, sx+42, sy+38, 5, lightColor, false)
+				} else {
+					if h%3 == 0 {
+						var veinClr color.RGBA
+						if h%2 == 0 {
+							veinClr = color.RGBA{140, 50, 210, 90}
+						} else {
+							veinClr = color.RGBA{0, 210, 240, 75}
 						}
+						vector.StrokeLine(screen, sx+6, sy+6, sx+16, sy+16, 1.2, veinClr, false)
+						vector.StrokeLine(screen, sx+16, sy+16, sx+12, sy+24, 1.0, veinClr, false)
 					}
-
-					if isKelpBlend {
-						// Mossy kelp rock tile
-						rockColor := color.RGBA{38, 52, 32, 255}
-						strokeColor := color.RGBA{54, 76, 44, 255}
-						vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
-						vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
-
-						darkColor := color.RGBA{32, 70, 28, 255}
-						lightColor := color.RGBA{56, 118, 48, 255}
-						vector.FillCircle(screen, sx+16, sy+16, 7, darkColor, false)
-						vector.FillCircle(screen, sx+16, sy+16, 4.5, lightColor, false)
-						vector.FillCircle(screen, sx+42, sy+38, 8, darkColor, false)
-						vector.FillCircle(screen, sx+42, sy+38, 5, lightColor, false)
-					} else {
-						// Slate-grey rock colors
-						rockColor := color.RGBA{55, 60, 68, 255}
-						strokeColor := color.RGBA{82, 88, 98, 255}
-
-						vector.FillRect(screen, sx, sy, config.TileSize, config.TileSize, rockColor, false)
-						vector.StrokeRect(screen, sx, sy, config.TileSize, config.TileSize, 0.5, strokeColor, false)
-
-						// Deterministic vein cracks inside the rock
-						if h%3 == 0 {
-							var veinClr color.RGBA
-							if h%2 == 0 {
-								veinClr = color.RGBA{140, 50, 210, 90} // Electric purple vein
-							} else {
-								veinClr = color.RGBA{0, 210, 240, 75} // Glowing cyan vein
-							}
-							// Draw a diagonal crack
-							vector.StrokeLine(screen, sx+6, sy+6, sx+16, sy+16, 1.2, veinClr, false)
-							vector.StrokeLine(screen, sx+16, sy+16, sx+12, sy+24, 1.0, veinClr, false)
-						}
-						if h%5 == 0 {
-							// Subtle second crack/vein
-							veinClr := color.RGBA{0, 210, 240, 60}
-							vector.StrokeLine(screen, sx+float32(config.TileSize)-8, sy+8, sx+float32(config.TileSize)-16, sy+20, 1.0, veinClr, false)
-						}
+					if h%5 == 0 {
+						veinClr := color.RGBA{0, 210, 240, 60}
+						vector.StrokeLine(screen, sx+float32(config.TileSize)-8, sy+8, sx+float32(config.TileSize)-16, sy+20, 1.0, veinClr, false)
 					}
 				}
 			}
+
+			DrawOrganicCaveTile(screen, c.Grid, tx, ty, camX, camY, rockColor, strokeColor, decorator)
 		}
 	}
 }

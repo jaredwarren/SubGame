@@ -21,6 +21,8 @@ type ShallowSeabedCave struct {
 	tileImages      []*ebiten.Image
 	bgTileImages    []*ebiten.Image
 	fgTileImages    []*ebiten.Image
+	bgBaseColor     color.RGBA
+	bgStrokeColor   color.RGBA
 	HasChasm        bool
 	ChasmX          int
 	ChasmWidth      int
@@ -143,17 +145,12 @@ func (c *ShallowSeabedCave) chasmRim() *ChasmRimSpec {
 
 func (c *ShallowSeabedCave) preRenderTiles() {
 	rockColor := c.Biome.CaveRockColor
-	strokeColor := c.Biome.CaveStrokeColor
 	darkColor := c.Biome.CaveSandDarkColor
 	lightColor := c.Biome.CaveSandLightColor
 	floorStyle := c.Biome.FloorStyle
 
 	for idx := range c.tileImages {
 		img := ebiten.NewImage(config.TileSize, config.TileSize)
-		// 1. Fill base rock color
-		vector.FillRect(img, 0, 0, config.TileSize, config.TileSize, rockColor, false)
-		// 2. Stroke boundary
-		vector.StrokeRect(img, 0, 0, config.TileSize, config.TileSize, 0.5, strokeColor, false)
 
 		// Create a local RNG for this variant's generation
 		rng := rand.New(rand.NewSource(int64(idx*997 + 17)))
@@ -314,6 +311,7 @@ func (c *ShallowSeabedCave) preRenderTiles() {
 	if c.Biome != nil {
 		ambientTint = c.Biome.CaveAmbientTint
 	}
+	c.bgBaseColor, c.bgStrokeColor = CalcDepthTileColors(rockColor, ambientTint)
 	c.bgTileImages, c.fgTileImages = PreRenderDepthTileImages(rockColor, ambientTint, len(c.tileImages))
 }
 
@@ -348,7 +346,7 @@ func (c *ShallowSeabedCave) GetBgGrid() [][]bool   { return c.BgGrid }
 func (c *ShallowSeabedCave) GetFgGrid() [][]bool   { return c.FgGrid }
 
 func (c *ShallowSeabedCave) DrawBackgroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
-	DrawBackgroundTileLayer(screen, c.BgGrid, c.bgTileImages, camX, camY, startTileX, startTileY, endTileX, endTileY)
+	DrawBackgroundTileLayer(screen, c.BgGrid, c.bgBaseColor, c.bgStrokeColor, camX, camY, startTileX, startTileY, endTileX, endTileY)
 }
 
 func (c *ShallowSeabedCave) DrawForegroundTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int, fgAlpha float32) {
@@ -447,15 +445,14 @@ func (c *ShallowSeabedCave) DrawBackground(screen *ebiten.Image, camX, camY floa
 }
 
 func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
-	op := ebiten.DrawImageOptions{}
-	for tx := startTileX; tx < endTileX; tx++ {
-		for ty := startTileY; ty < endTileY; ty++ {
-			if tx < 0 || tx >= len(c.Grid) || ty < 0 || ty >= len(c.Grid[0]) || !c.Grid[tx][ty] {
-				continue
-			}
+	minTX := max(0, startTileX-1)
+	maxTX := min(len(c.Grid), endTileX+1)
+	minTY := max(0, startTileY-1)
+	maxTY := min(len(c.Grid[0]), endTileY+1)
 
-			sx := float64(tx*config.TileSize - int(camX))
-			sy := float64(ty*config.TileSize - int(camY))
+	for tx := minTX; tx < maxTX; tx++ {
+		for ty := minTY; ty < maxTY; ty++ {
+
 
 			h := hashCoords(tx, ty)
 
@@ -489,29 +486,39 @@ func (c *ShallowSeabedCave) DrawTiles(screen *ebiten.Image, camX, camY float64, 
 				}
 			}
 
+			var rockColor, strokeColor color.RGBA
 			if isChasmTile {
 				rim := c.chasmRim()
-				rockColor := rim.RockColor
-				strokeColor := rim.StrokeColor
-
-				vector.FillRect(screen, float32(sx), float32(sy), config.TileSize, config.TileSize, rockColor, false)
-				vector.StrokeRect(screen, float32(sx), float32(sy), config.TileSize, config.TileSize, 0.5, strokeColor, false)
-
-				// Deterministic cracks/veins
-				if h%3 == 0 {
-					veinClr := rim.primaryVeinColor(h)
-					vector.StrokeLine(screen, float32(sx)+6, float32(sy)+6, float32(sx)+16, float32(sy)+16, 1.5, veinClr, false)
-					vector.StrokeLine(screen, float32(sx)+16, float32(sy)+16, float32(sx)+12, float32(sy)+24, 1.2, veinClr, false)
-				}
-				if h%5 == 0 {
-					vector.StrokeLine(screen, float32(sx)+float32(config.TileSize)-8, float32(sy)+8, float32(sx)+float32(config.TileSize)-16, float32(sy)+20, 1.2, rim.VeinSecondary, false)
-				}
+				rockColor = rim.RockColor
+				strokeColor = rim.StrokeColor
+			} else if c.Biome != nil {
+				rockColor = c.Biome.CaveRockColor
+				strokeColor = c.Biome.CaveStrokeColor
 			} else {
-				op.GeoM.Reset()
-				op.GeoM.Translate(sx, sy)
-				variantIdx := h % uint64(len(c.tileImages))
-				screen.DrawImage(c.tileImages[variantIdx], &op)
+				rockColor = color.RGBA{130, 115, 95, 255}
+				strokeColor = color.RGBA{85, 75, 60, 255}
 			}
+
+			decorator := func(sx, sy float32) {
+				if isChasmTile {
+					rim := c.chasmRim()
+					if h%3 == 0 {
+						veinClr := rim.primaryVeinColor(h)
+						vector.StrokeLine(screen, sx+6, sy+6, sx+16, sy+16, 1.5, veinClr, false)
+						vector.StrokeLine(screen, sx+16, sy+16, sx+12, sy+24, 1.2, veinClr, false)
+					}
+					if h%5 == 0 {
+						vector.StrokeLine(screen, sx+float32(config.TileSize)-8, sy+8, sx+float32(config.TileSize)-16, sy+20, 1.2, rim.VeinSecondary, false)
+					}
+				} else if len(c.tileImages) > 0 {
+					op := ebiten.DrawImageOptions{}
+					op.GeoM.Translate(float64(sx), float64(sy))
+					variantIdx := h % uint64(len(c.tileImages))
+					screen.DrawImage(c.tileImages[variantIdx], &op)
+				}
+			}
+
+			DrawOrganicCaveTile(screen, c.Grid, tx, ty, camX, camY, rockColor, strokeColor, decorator)
 		}
 	}
 }

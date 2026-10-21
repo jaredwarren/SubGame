@@ -277,31 +277,34 @@ func GenerateDepthGrids(grid [][]bool, isShallow bool) (bgGrid, fgGrid [][]bool)
 	return bgGrid, nil
 }
 
-// DrawBackgroundTileLayer renders the background depth tiles.
-func DrawBackgroundTileLayer(screen *ebiten.Image, bgGrid [][]bool, bgImages []*ebiten.Image, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
-	if bgGrid == nil || len(bgImages) == 0 {
+// CalcDepthTileColors computes the darkened, ambient-tinted background base and stroke colors.
+func CalcDepthTileColors(baseRock, ambientTint color.RGBA) (bgBase, bgStroke color.RGBA) {
+	bgR := uint8(float64(baseRock.R)*0.40 + float64(ambientTint.R)*0.25)
+	bgG := uint8(float64(baseRock.G)*0.40 + float64(ambientTint.G)*0.25)
+	bgB := uint8(float64(baseRock.B)*0.40 + float64(ambientTint.B)*0.25)
+	bgBase = color.RGBA{R: bgR, G: bgG, B: bgB, A: 255}
+	bgStroke = color.RGBA{
+		R: uint8(max(0, int(bgR)-12)),
+		G: uint8(max(0, int(bgG)-12)),
+		B: uint8(max(0, int(bgB)-12)),
+		A: 255,
+	}
+	return bgBase, bgStroke
+}
+
+// DrawBackgroundTileLayer renders the background depth tiles with organic curves and flowing corners.
+func DrawBackgroundTileLayer(screen *ebiten.Image, bgGrid [][]bool, bgBase, bgStroke color.RGBA, camX, camY float64, startTileX, startTileY, endTileX, endTileY int) {
+	if bgGrid == nil {
 		return
 	}
-	ts := config.TileSize
-	op := ebiten.DrawImageOptions{}
+	minTX := max(0, startTileX-1)
+	maxTX := min(len(bgGrid), endTileX+1)
+	minTY := max(0, startTileY-1)
+	maxTY := min(len(bgGrid[0]), endTileY+1)
 
-	for tx := startTileX; tx < endTileX; tx++ {
-		if tx < 0 || tx >= len(bgGrid) {
-			continue
-		}
-		for ty := startTileY; ty < endTileY; ty++ {
-			if ty < 0 || ty >= len(bgGrid[0]) || !bgGrid[tx][ty] {
-				continue
-			}
-
-			sx := float64(tx*ts - int(camX))
-			sy := float64(ty*ts - int(camY))
-			h := hashCoords(tx, ty)
-			variantIdx := h % uint64(len(bgImages))
-
-			op.GeoM.Reset()
-			op.GeoM.Translate(sx, sy)
-			screen.DrawImage(bgImages[variantIdx], &op)
+	for tx := minTX; tx < maxTX; tx++ {
+		for ty := minTY; ty < maxTY; ty++ {
+			DrawOrganicCaveTile(screen, bgGrid, tx, ty, camX, camY, bgBase, bgStroke, nil)
 		}
 	}
 }

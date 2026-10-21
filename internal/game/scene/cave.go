@@ -292,9 +292,60 @@ func (c *CaveScene) Draw(g GameContext, screen *ebiten.Image) {
 
 func (c *CaveScene) checkCollisions(g CaveContext, p *player.Player) {
 	dims := gvec.Vec2{X: p.Width, Y: p.Height}
-	gvec.MoveAxisSeparated(&p.Pos, &p.Vel, dims, func(pos gvec.Vec2) bool {
+	isSolidFn := func(pos gvec.Vec2) bool {
 		return c.IsSolid(g, pos.X, pos.Y, p.Width, p.Height)
-	}, nil, nil)
+	}
+
+	if c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveWreckage {
+		c.movePlayerWreckage(g, p, dims, isSolidFn)
+		return
+	}
+
+	gvec.MoveAxisSeparated(&p.Pos, &p.Vel, dims, isSolidFn, nil, nil)
+}
+
+func (c *CaveScene) movePlayerWreckage(g CaveContext, p *player.Player, dims gvec.Vec2, isSolid func(gvec.Vec2) bool) {
+	newPos := p.Pos.Add(p.Vel)
+	if !isSolid(newPos) {
+		p.Pos = newPos
+		return
+	}
+
+	x1, x2, y1, y2 := tileRange(newPos.X, newPos.Y, dims.X, dims.Y, config.TileSize)
+	var hitSlope bool
+	var normalX, normalY float64
+
+	for tx := x1; tx <= x2; tx++ {
+		for ty := y1; ty <= y2; ty++ {
+			if isSol, isSlp, nx, ny := cave.CheckWreckageSolid(c.CaveGrid, tx, ty, newPos.X, newPos.Y, dims.X, dims.Y); isSol && isSlp {
+				hitSlope = true
+				normalX += nx
+				normalY += ny
+			}
+		}
+	}
+
+	if hitSlope {
+		lenN := math.Hypot(normalX, normalY)
+		if lenN > 0.001 {
+			normalX /= lenN
+			normalY /= lenN
+
+			dot := p.Vel.X*normalX + p.Vel.Y*normalY
+			if dot < 0 {
+				p.Vel.X -= dot * normalX
+				p.Vel.Y -= dot * normalY
+
+				deflectedPos := p.Pos.Add(p.Vel)
+				if !isSolid(deflectedPos) {
+					p.Pos = deflectedPos
+					return
+				}
+			}
+		}
+	}
+
+	gvec.MoveAxisSeparated(&p.Pos, &p.Vel, dims, isSolid, nil, nil)
 }
 
 // IsSolid checks if the proposed bounding box overlaps with solid cave tiles.
@@ -306,6 +357,8 @@ func (c *CaveScene) IsSolid(g CaveContext, x, y, w, h float64) bool {
 	gridH := len(c.CaveGrid[0])
 
 	x1, x2, y1, y2 := tileRange(x, y, w, h, config.TileSize)
+
+	isWreck := c.ActiveCave != nil && c.ActiveCave.GetCaveType() == cave.CaveWreckage
 
 	for tx := x1; tx <= x2; tx++ {
 		for ty := y1; ty <= y2; ty++ {
@@ -331,9 +384,15 @@ func (c *CaveScene) IsSolid(g CaveContext, x, y, w, h float64) bool {
 			if ty >= gridH {
 				return true
 			}
-			if c.CaveGrid[tx][ty] {
+
+			if isWreck {
+				if isSol, _, _, _ := cave.CheckWreckageSolid(c.CaveGrid, tx, ty, x, y, w, h); isSol {
+					return true
+				}
+			} else if c.CaveGrid[tx][ty] {
 				return true
 			}
+
 			for _, n := range c.Nodes {
 				if n.RequiresMech() && n.GetName() == "Reinforced Blast Bulkhead" && n.GetHitsToMine() > 0 {
 					ntx, nty := n.GetTilePos()
