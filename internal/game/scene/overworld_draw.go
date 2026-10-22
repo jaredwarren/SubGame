@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/jaredwarren/SubGame/internal/game/cave"
 	"github.com/jaredwarren/SubGame/internal/game/config"
 	oe "github.com/jaredwarren/SubGame/internal/game/entity/overworld"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
@@ -299,9 +300,30 @@ func (o *OverworldScene) drawBaseTiles(target *ebiten.Image, startTileX, endTile
 				}
 			}
 
-			// Always draw the base background tile (e.g. water color) first
-			vector.FillRect(target, sx, sy, config.TileSize, config.TileSize, tileClr, false)
-			vector.StrokeRect(target, sx, sy, config.TileSize, config.TileSize, 0.5, strokeClr, false)
+			if tileType == world.TileLand {
+				// 1. Fill base ocean water background so outer cut-off corners reveal sea water
+				waterClr, _ := ComputeTileColorsWithOffset(tx, ty, world.TileWater, 1, 0, o.World.Width, o.World.Height, mult, offset)
+				vector.FillRect(target, sx, sy, config.TileSize, config.TileSize, waterClr, false)
+
+				// 2. Draw contoured multi-layer land tile
+				coastBase, coastStroke := ComputeTileColorsWithOffset(tx, ty, world.TileLand, 0, 1, o.World.Width, o.World.Height, mult, offset)
+				landBase, landStroke := ComputeTileColorsWithOffset(tx, ty, world.TileLand, 0, 3, o.World.Width, o.World.Height, mult, offset)
+				DrawOverworldLandTile(target, o.World, tx, ty, offsetX, offsetY, landBase, landStroke, coastBase, coastStroke)
+			} else {
+				// Water or special dive tile
+				vector.FillRect(target, sx, sy, config.TileSize, config.TileSize, tileClr, false)
+				vector.StrokeRect(target, sx, sy, config.TileSize, config.TileSize, 0.5, strokeClr, false)
+
+				// Check if water tile has inner fillets bridging neighboring land
+				if o.World != nil && (ClassifyOverworldQuadrant(o.World, tx, ty, cave.QuadNW).Shape == cave.ShapeInnerFillet ||
+					ClassifyOverworldQuadrant(o.World, tx, ty, cave.QuadNE).Shape == cave.ShapeInnerFillet ||
+					ClassifyOverworldQuadrant(o.World, tx, ty, cave.QuadSW).Shape == cave.ShapeInnerFillet ||
+					ClassifyOverworldQuadrant(o.World, tx, ty, cave.QuadSE).Shape == cave.ShapeInnerFillet) {
+					coastBase, coastStroke := ComputeTileColorsWithOffset(tx, ty, world.TileLand, 0, 1, o.World.Width, o.World.Height, mult, offset)
+					landBase, landStroke := ComputeTileColorsWithOffset(tx, ty, world.TileLand, 0, 3, o.World.Width, o.World.Height, mult, offset)
+					DrawOverworldLandTile(target, o.World, tx, ty, offsetX, offsetY, landBase, landStroke, coastBase, coastStroke)
+				}
+			}
 
 			drawTexture := o.getTileTexture(tileType)
 			if drawTexture != nil {
@@ -583,6 +605,15 @@ func (o *OverworldScene) drawWaves(screen *ebiten.Image, startTileX, endTileX, s
 						}
 					}
 				}
+			}
+		}
+	}
+
+	// 2. Draw dynamic coastal froth wash along shoreline contours
+	for tx := startTileX; tx < endTileX; tx++ {
+		for ty := startTileY; ty < endTileY; ty++ {
+			if tx >= 0 && tx < o.World.Width && ty >= 0 && ty < o.World.Height {
+				DrawOverworldCoastalFoam(screen, o.World, tx, ty, camX, camY, int(ticks), mult)
 			}
 		}
 	}

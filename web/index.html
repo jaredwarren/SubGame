@@ -71,6 +71,55 @@
     max-width: 90vw;
     pointer-events: none;
   }
+  #versionTag {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    color: #7ec8e377;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    pointer-events: none;
+    z-index: 90;
+    user-select: none;
+  }
+  #updateToast {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 24, 40, 0.94);
+    border: 1px solid #60d2f0;
+    color: #e0f6fc;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(96, 210, 240, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 9999;
+    cursor: pointer;
+    animation: slideDown 0.3s ease-out;
+  }
+  #updateToast button {
+    background: #60d2f0;
+    border: none;
+    color: #06121e;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #updateToast button:hover {
+    background: #8fe5fb;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translate(-50%, -20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
 </style>
 </head>
 <body>
@@ -79,9 +128,13 @@
   <div id="bar"><i id="barFill"></i></div>
   <div id="pct"></div>
 </div>
+<div id="versionTag">v0.1.2-b21f47c</div>
 <div id="installHint"></div>
 <script src="wasm_exec.js"></script>
 <script>
+  const BUILD_VERSION = "0.1.2-b21f47c";
+  let gameLoaded = false;
+
   // Works for both local serve and GitHub project pages (/SubGame/).
   const base = document.querySelector("base")?.href
     || new URL(".", window.location.href).href;
@@ -130,11 +183,48 @@
     return out.buffer;
   }
 
+  function showUpdateToast(ver) {
+    if (document.getElementById("updateToast")) return;
+    const toast = document.createElement("div");
+    toast.id = "updateToast";
+    toast.innerHTML = `
+      <span>New version (${ver ? "v" + ver : "update"}) available!</span>
+      <button id="updateBtn">Restart</button>
+    `;
+    toast.addEventListener("click", () => {
+      window.location.reload();
+    });
+    document.body.appendChild(toast);
+  }
+
   // Register service worker for installability + caching (HTTPS / localhost only).
   // Note: http://LAN-IP is NOT a secure context — PWA install / standalone won't work there.
   if ("serviceWorker" in navigator && window.isSecureContext) {
     navigator.serviceWorker.register(new URL("sw.js", base).href, { scope: new URL("./", base).href })
+      .then((reg) => {
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              if (!gameLoaded) {
+                window.location.reload();
+              } else {
+                showUpdateToast(BUILD_VERSION);
+              }
+            }
+          });
+        });
+      })
       .catch((err) => console.warn("SW register failed:", err));
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!refreshing && !gameLoaded) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
   }
 
   // Gentle hint when the page is in a normal browser tab (not already installed).
@@ -165,14 +255,15 @@
 
   (async () => {
     const go = new Go();
-    // Prefer cacheable URL (service worker stores game.wasm); bump ?v= when you redeploy a new binary.
-    const wasmURL = asset("game.wasm") + "?v=1";
+    // Cacheable URL with build version query parameter
+    const wasmURL = asset("game.wasm") + "?v=" + encodeURIComponent(BUILD_VERSION);
     try {
       const bytes = await fetchWasm(wasmURL);
       document.getElementById("pct").textContent = "Compiling…";
       const result = await WebAssembly.instantiate(bytes, go.importObject);
       document.getElementById("loading").remove();
       document.getElementById("installHint")?.remove();
+      gameLoaded = true;
       go.run(result.instance);
     } catch (err) {
       const el = document.getElementById("loading");

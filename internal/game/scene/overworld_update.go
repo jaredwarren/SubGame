@@ -166,7 +166,8 @@ func (o *OverworldScene) update(g OverworldContext) error {
 		p.Vel = p.Vel.Scale(maxSpeed / speed)
 	}
 
-	o.CheckCollisions(p, g.GetBaseStation())
+	isPiloting := g.GetActiveVehicle() != nil
+	o.CheckCollisionsWithVehicle(p, g.GetBaseStation(), isPiloting)
 	revealExploration(g)
 
 	isMoving := speed > 0.1
@@ -240,6 +241,11 @@ func revealExploration(g OverworldContext) {
 
 // CheckCollisions resolves player collisions against solid land tiles and the base station.
 func (o *OverworldScene) CheckCollisions(p *player.Player, baseStation *base.BaseStation) {
+	o.CheckCollisionsWithVehicle(p, baseStation, false)
+}
+
+// CheckCollisionsWithVehicle resolves collisions with vehicle scrape sound awareness.
+func (o *OverworldScene) CheckCollisionsWithVehicle(p *player.Player, baseStation *base.BaseStation, isPiloting bool) {
 	hasBase := baseStation != nil && baseStation.Size.X > 0 && baseStation.Size.Y > 0
 
 	dims := gvec.Vec2{X: p.Width, Y: p.Height}
@@ -264,5 +270,5 @@ func (o *OverworldScene) CheckCollisions(p *player.Player, baseStation *base.Bas
 		}
 	}
 
-	gvec.MoveAxisSeparated(&p.Pos, &p.Vel, dims, isSolid, nil, nil)
+	o.MovePlayerOverworld(p, dims, isSolid, isPiloting)
 }

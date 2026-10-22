@@ -5,13 +5,37 @@ GOFILES := $(shell find . -name '*.go' -not -path './vendor/*')
 
 GOLANGCI_LINT := $(shell which golangci-lint 2>/dev/null)
 
-.PHONY: all build run sample test test-v vet lint clean tidy check audio gen-audio tools wasm serve pages-check
+VERSION_TAG   := $(shell cat VERSION 2>/dev/null | tr -d '[:space:]')
+ifeq ($(VERSION_TAG),)
+  VERSION_TAG := 0.1.0
+endif
+GIT_COMMIT    := $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")
+BUILD_VERSION := $(VERSION_TAG)-$(GIT_COMMIT)
+LDFLAGS       := -ldflags "-X $(MODULE)/internal/game/config.Version=$(BUILD_VERSION)"
+
+.PHONY: all build run sample test test-v vet lint clean tidy check audio gen-audio tools wasm serve pages-check version bump-patch bump-minor stamp
 
 all: check lint build
 
+## version: print current build version
+version:
+	@echo $(BUILD_VERSION)
+
+## bump-patch: increment patch version in VERSION (e.g. 0.1.0 -> 0.1.1)
+bump-patch:
+	@go run ./cmd/stamp bump patch
+
+## bump-minor: increment minor version in VERSION (e.g. 0.1.0 -> 0.2.0)
+bump-minor:
+	@go run ./cmd/stamp bump minor
+
+## stamp: stamp the current build version into web shell assets
+stamp:
+	@go run ./cmd/stamp apply $(BUILD_VERSION)
+
 ## build: compile the game binary
 build:
-	go build -o $(BINARY) $(MAIN)
+	go build $(LDFLAGS) -o $(BINARY) $(MAIN)
 
 ## audio: generate or regenerate all procedural DSP audio assets
 audio:
@@ -33,8 +57,8 @@ run: build
 	./$(BINARY)
 
 ## wasm: build the WebAssembly bundle into web/ (game.wasm + wasm_exec.js)
-wasm:
-	GOOS=js GOARCH=wasm go build -o web/game.wasm $(MAIN)
+wasm: stamp
+	GOOS=js GOARCH=wasm go build $(LDFLAGS) -o web/game.wasm $(MAIN)
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" web/
 	cp StartBackground.jpeg web/ 2>/dev/null || true
 

@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jaredwarren/SubGame/internal/game/audio"
 	"github.com/jaredwarren/SubGame/internal/game/base"
+	"github.com/jaredwarren/SubGame/internal/game/config"
 	"github.com/jaredwarren/SubGame/internal/game/entity"
 	"github.com/jaredwarren/SubGame/internal/game/exploration"
 	"github.com/jaredwarren/SubGame/internal/game/item"
@@ -971,6 +972,11 @@ func (m *BaseMenuScene) draw(g MenuContext, screen *ebiten.Image) {
 		}
 		ebitenutil.DebugPrintAt(screen, closeText, int(panelX+layout.SF(240)), int(panelY+panelH-layout.SF(25)))
 	}
+
+	verStr := "v" + config.Version
+	verX := int(panelX + panelW - layout.SF(float32(len(verStr)*6+15)))
+	verY := int(panelY + panelH - layout.SF(25))
+	ebitenutil.DebugPrintAt(screen, verStr, verX, verY)
 }
 
 // wrapText splits a single long string of text into multiple lines of maxChars length.

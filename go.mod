@@ -1,6 +1,6 @@
 module github.com/jaredwarren/SubGame
 
-go 1.25.7
+go 1.26.10
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.9

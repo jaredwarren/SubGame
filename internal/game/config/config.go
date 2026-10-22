@@ -12,6 +12,9 @@ const (
 )
 
 var (
+	// Version is populated at build time via -ldflags. Defaults to dev version.
+	Version = "0.1.0-dev"
+
 	// FlashlightFollowsMouse controls the cave flashlight aiming mode on desktop:
 	// true  -> Flashlight follows the mouse cursor.
 	// false -> Flashlight only follows player movement direction / key inputs.

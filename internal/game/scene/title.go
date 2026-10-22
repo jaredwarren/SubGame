@@ -419,6 +419,11 @@ func (s *TitleScene) draw(g TitleContext, screen *ebiten.Image) {
 	}
 	instX := (config.ScreenWidth - len(instText)*6) / 2
 	ebitenutil.DebugPrintAt(screen, instText, instX, instY)
+
+	verText := "v" + config.Version
+	verX := config.ScreenWidth - len(verText)*6 - 16
+	verY := config.ScreenHeight - 22
+	ebitenutil.DebugPrintAt(screen, verText, verX, verY)
 }
 
 func (s *TitleScene) drawStartButton(screen *ebiten.Image, mx, my float64) {

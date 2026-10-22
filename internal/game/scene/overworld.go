@@ -175,8 +175,11 @@ func LoadAssets() {
 	}
 }
 
-// IsSolid checks if the proposed bounding box overlaps with solid land.
+// IsSolid checks if the proposed bounding box overlaps with solid land, evaluating contoured coastlines.
 func (o *OverworldScene) IsSolid(x, y, w, h float64) bool {
+	if o.World == nil {
+		return false
+	}
 	x1, x2, y1, y2 := tileRange(x, y, w, h, config.TileSize)
 
 	for tx := x1; tx <= x2; tx++ {
@@ -184,7 +187,7 @@ func (o *OverworldScene) IsSolid(x, y, w, h float64) bool {
 			if tx < 0 || tx >= o.World.Width || ty < 0 || ty >= o.World.Height {
 				continue
 			}
-			if o.World.OverworldMap[tx][ty] == world.TileLand {
+			if isSol, _, _, _ := CheckOverworldSolid(o.World, tx, ty, x, y, w, h); isSol {
 				return true
 			}
 		}

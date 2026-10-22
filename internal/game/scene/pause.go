@@ -141,4 +141,9 @@ func (p *PauseScene) Draw(g GameContext, screen *ebiten.Image) {
 		lblY := int(b.y + (btnH-12)/2.0)
 		ebitenutil.DebugPrintAt(screen, b.label, lblX, lblY)
 	}
+
+	verText := "v" + config.Version
+	verX := config.ScreenWidth - len(verText)*6 - 16
+	verY := config.ScreenHeight - 22
+	ebitenutil.DebugPrintAt(screen, verText, verX, verY)
 }

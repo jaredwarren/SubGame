@@ -1,5 +1,6 @@
 /* SubGame service worker — shell + wasm cache for installed / offline-friendly play. */
-const CACHE = "subgame-v2";
+const BUILD_VERSION = "0.1.2-b21f47c";
+const CACHE = "subgame-" + BUILD_VERSION;
 const PRECACHE = [
   "./",
   "./index.html",
@@ -39,14 +40,20 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (!isSameOrigin(url)) return;
 
+  // Never cache sw.js so browser can always check for service worker updates
+  if (url.pathname.endsWith("sw.js")) {
+    event.respondWith(fetch(req));
+    return;
+  }
+
   if (isWasmPath(url.pathname)) {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
-        const cached = await cache.match("./game.wasm");
+        const cached = await cache.match(req);
         if (cached) return cached;
         const res = await fetch(req);
         if (res.ok) {
-          cache.put("./game.wasm", res.clone());
+          cache.put(req, res.clone());
         }
         return res;
       })
@@ -64,7 +71,9 @@ self.addEventListener("fetch", (event) => {
             url.pathname.endsWith(".html") ||
             url.pathname.endsWith("/") ||
             url.pathname.endsWith(".webmanifest") ||
-            url.pathname.endsWith(".png"));
+            url.pathname.endsWith(".png") ||
+            url.pathname.endsWith(".jpeg") ||
+            url.pathname.endsWith(".jpg"));
         if (cacheable) {
           const copy = res.clone();
           caches.open(CACHE).then((cache) => cache.put(req, copy));
